@@ -120,7 +120,7 @@
       "type": "debugger",
       "optional": true,
       "owner": "platformio",
-      "version": "~2.1000.0"
+      "version": "https://github.com/espressif/openocd-esp32.git"
     },
     "tool-mkspiffs": {
       "type": "uploader",
