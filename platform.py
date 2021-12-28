@@ -35,18 +35,10 @@ class Espressif32Platform(PlatformBase):
         if os.path.isdir("ulp"):
             self.packages["toolchain-esp32ulp"]["optional"] = False
 
-        # Note: default toolchain package is `toolchain-xtensa-esp32`
-        # This logic is temporary as the platform is gradually being switched to the
-        # toolchain packages from the Espressif organization. For now only Arduino
-        # Framework is configured to use latest Espressif packages.
         xtensa_toolchain = "toolchain-xtensa-esp32"
         xtensa32s2_toolchain = "toolchain-xtensa-esp32s2"
         riscv_toolchain = "toolchain-riscv32-esp"
-        #if len(frameworks) == 1 and "arduino" in frameworks:
-            #xtensa_toolchain = "toolchain-xtensa-esp32"
-            #xtensa32s2_toolchain = "toolchain-xtensa-esp32s2"
-            #riscv_toolchain = "toolchain-riscv32-esp"
-
+ 
         if "espidf" in frameworks:
             for p in self.packages:
                 if p in ("tool-cmake", "tool-ninja", "toolchain-%sulp" % mcu):
@@ -55,10 +47,6 @@ class Espressif32Platform(PlatformBase):
                     self.packages[p]["optional"] = False
             self.packages[xtensa_toolchain]["version"] = "8.4.0+2021r2"
             self.packages[xtensa_toolchain]["optional"] = False
-            self.packages["toolchain-xtensa-esp32"]["optional"] = False
-            #if "arduino" in frameworks:
-                # Arduino component is not compatible with ESP-IDF >=4.1
-                #self.packages["framework-espidf"]["version"] = "~3.40001.0"
 
         if mcu in ("esp32s2", "esp32c3"):
             self.packages.pop(xtensa_toolchain, None)
@@ -73,20 +61,16 @@ class Espressif32Platform(PlatformBase):
             "board_build.core", board_config.get("build.core", "arduino")
         ).lower()
         if "arduino" in frameworks and build_core == "mbcwb":
-            # Briki MCB core packages depend on previous toolchain packages
-            self.packages["toolchain-xtensa-esp32"]["optional"] = False
-            #self.packages["toolchain-xtensa32"]["optional"] = False
-            #self.packages["toolchain-xtensa32"]["version"] = "8.4.0+2021r2"
-            self.packages["framework-arduinoespressif32"]["optional"] = True
+            self.packages[xtensa_toolchain]["optional"] = False
+            self.packages[xtensa_toolchain]["version"] = "8.4.0+2021r2"
+            self.packages["framework-arduinoespressif32"]["optional"] = False
             self.packages["framework-arduino-mbcwb"]["optional"] = False
             self.packages["tool-mbctool"]["type"] = "uploader"
             self.packages["tool-mbctool"]["optional"] = False
 
         if set(("simba", "pumbaa")) & set(frameworks):
-            # Legacy frameworks depend on previous toolchain packages
-            self.packages["toolchain-xtensa-esp32"]["optional"] = False
-            #self.packages["toolchain-xtensa32"]["optional"] = True
-            #self.packages["toolchain-xtensa32"]["version"] = "8.4.0+2021r2"
+            self.packages[xtensa_toolchain]["optional"] = False
+            self.packages[xtensa_toolchain]["version"] = "8.4.0+2021r2"
 
         return PlatformBase.configure_default_packages(self, variables, targets)
 
