@@ -29,11 +29,6 @@
 
 #include "protocol_examples_common.h"
 
-#if 1
-/* Needed until coap_dtls.h becomes a part of libcoap proper */
-#include "libcoap.h"
-#include "coap_dtls.h"
-#endif
 #include "coap.h"
 
 /* The examples use simple Pre-Shared-Key configuration that you can set via
