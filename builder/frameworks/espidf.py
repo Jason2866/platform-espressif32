@@ -60,24 +60,24 @@ TOOLCHAIN_DIR = platform.get_package_dir(
 )
 
 # Legacy toolchains for mixed IDF/Arduino projects
-if "arduino" in env.subst("$PIOFRAMEWORK"):
-    TOOLCHAIN_DIR = platform.get_package_dir("toolchain-xtensa32")
+#if "arduino" in env.subst("$PIOFRAMEWORK"):
+#    TOOLCHAIN_DIR = platform.get_package_dir("toolchain-xtensa32")
 
 assert os.path.isdir(FRAMEWORK_DIR)
 assert os.path.isdir(TOOLCHAIN_DIR)
 
 # Arduino framework as a component is not compatible with ESP-IDF >=4.1
-if "arduino" in env.subst("$PIOFRAMEWORK"):
-    ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+#if "arduino" in env.subst("$PIOFRAMEWORK"):
+#    ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
     # Possible package names in 'package@version' format is not compatible with CMake
-    if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
-        new_path = os.path.join(
-            os.path.dirname(ARDUINO_FRAMEWORK_DIR),
-            os.path.basename(ARDUINO_FRAMEWORK_DIR).replace("@", "-"),
-        )
-        os.rename(ARDUINO_FRAMEWORK_DIR, new_path)
-        ARDUINO_FRAMEWORK_DIR = new_path
-    assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
+#    if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
+#        new_path = os.path.join(
+#            os.path.dirname(ARDUINO_FRAMEWORK_DIR),
+#            os.path.basename(ARDUINO_FRAMEWORK_DIR).replace("@", "-"),
+#        )
+#        os.rename(ARDUINO_FRAMEWORK_DIR, new_path)
+#        ARDUINO_FRAMEWORK_DIR = new_path
+#    assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
 
 BUILD_DIR = env.subst("$BUILD_DIR")
 PROJECT_DIR = env.subst("$PROJECT_DIR")
