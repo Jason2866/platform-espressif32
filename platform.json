@@ -47,6 +47,37 @@
     }
   },
   "packages": {
+    "toolchain-xtensa32": {
+      "type": "toolchain",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~2.50200.0",
+      "optionalVersions": ["~2.80400.0"]
+    },
+    "toolchain-xtensa32s2": {
+      "type": "toolchain",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~1.80400.0"
+    },
+    "toolchain-esp32ulp": {
+      "type": "toolchain",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~1.22851.0"
+    },
+    "toolchain-esp32s2ulp": {
+      "type": "toolchain",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~1.22851.0"
+    },
+    "toolchain-riscv-esp": {
+      "type": "toolchain",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~1.80400.0"
+    },
     "toolchain-xtensa-esp32": {
       "type": "toolchain",
       "owner": "espressif",
