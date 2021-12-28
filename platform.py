@@ -53,7 +53,7 @@ class Espressif32Platform(PlatformBase):
                     self.packages[p]["optional"] = False
                 elif p in ("tool-mconf", "tool-idf") and "windows" in get_systype():
                     self.packages[p]["optional"] = False
-            self.packages[xtensa_toolchain]["version"] = "~8.4.0+2021r2"
+            self.packages[xtensa_toolchain]["version"] = "8.4.0+2021r2"
             self.packages[xtensa_toolchain]["optional"] = False
             self.packages["toolchain-xtensa-esp32"]["optional"] = False
             #if "arduino" in frameworks:
@@ -76,7 +76,7 @@ class Espressif32Platform(PlatformBase):
             # Briki MCB core packages depend on previous toolchain packages
             self.packages["toolchain-xtensa-esp32"]["optional"] = False
             #self.packages["toolchain-xtensa32"]["optional"] = False
-            #self.packages["toolchain-xtensa32"]["version"] = "~8.4.0+2021r2"
+            #self.packages["toolchain-xtensa32"]["version"] = "8.4.0+2021r2"
             self.packages["framework-arduinoespressif32"]["optional"] = True
             self.packages["framework-arduino-mbcwb"]["optional"] = False
             self.packages["tool-mbctool"]["type"] = "uploader"
@@ -86,7 +86,7 @@ class Espressif32Platform(PlatformBase):
             # Legacy frameworks depend on previous toolchain packages
             self.packages["toolchain-xtensa-esp32"]["optional"] = False
             #self.packages["toolchain-xtensa32"]["optional"] = True
-            #self.packages["toolchain-xtensa32"]["version"] = "~8.4.0+2021r2"
+            #self.packages["toolchain-xtensa32"]["version"] = "8.4.0+2021r2"
 
         return PlatformBase.configure_default_packages(self, variables, targets)
 
