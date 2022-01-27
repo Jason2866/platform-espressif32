@@ -106,47 +106,30 @@ def _to_unix_slashes(path):
 
 
 #
-# FS helpers
+# SPIFFS helpers
 #
 
-env = DefaultEnvironment()
-env.SConscript("compat.py", exports="env")
-platform = env.PioPlatform()
-board = env.BoardConfig()
-filesystem = board.get("build.filesystem", "spiffs")
-print("FILESYSTEM ", filesystem)
-mcu = board.get("build.mcu", "esp32")
-toolchain_arch = "xtensa-%s" % mcu
-if mcu == "esp32c3":
-    toolchain_arch = "riscv32-esp"
 
-def fetch_fs_size(env):
-    fs = None
+def fetch_spiffs_size(env):
+    spiffs = None
     for p in _parse_partitions(env):
-        # The option to use a partition subtype of "spiffs" eliminates the
-        # need to simultaneously update both this platform code and the
-        # framework code that handles partitions.  You can use a framwork
-        # that only supports partitions named "spiffs", putting a LittleFS
-        # image therein.  Going forward, the framework code can be updated
-        # to support partitions named "littlefs" and the code here will
-        # continue to work.
-        if p['type'] == "data" and (p['subtype'] == filesystem or p['subtype'] == "spiffs"):
-            fs = p
-    if not fs:
+        if p['type'] == "data" and p['subtype'] == "spiffs":
+            spiffs = p
+    if not spiffs:
         sys.stderr.write(
-            "Could not find the `%s` section in the partitions "
-            "table %s\n" % (filesystem, env.subst("$PARTITIONS_TABLE_CSV"))
+            "Could not find the `spiffs` section in the partitions "
+            "table %s\n" % env.subst("$PARTITIONS_TABLE_CSV")
         )
         env.Exit(1)
         return
-    env["FS_START"] = _parse_size(fs['offset'])
-    env["FS_SIZE"] = _parse_size(fs['size'])
-    env["FS_PAGE"] = int("0x100", 16)
-    env["FS_BLOCK"] = int("0x1000", 16)
+    env["SPIFFS_START"] = _parse_size(spiffs['offset'])
+    env["SPIFFS_SIZE"] = _parse_size(spiffs['size'])
+    env["SPIFFS_PAGE"] = int("0x100", 16)
+    env["SPIFFS_BLOCK"] = int("0x1000", 16)
 
 
-def __fetch_fs_size(target, source, env):
-    fetch_fs_size(env)
+def __fetch_spiffs_size(target, source, env):
+    fetch_spiffs_size(env)
     return (target, source)
 
 
@@ -163,14 +146,14 @@ env.Replace(
     __get_board_f_flash=_get_board_f_flash,
     __get_board_flash_mode=_get_board_flash_mode,
 
-    AR="%s-elf-gcc-ar" % toolchain_arch,
+    AR="%s-elf-ar" % toolchain_arch,
     AS="%s-elf-as" % toolchain_arch,
     CC="%s-elf-gcc" % toolchain_arch,
     CXX="%s-elf-g++" % toolchain_arch,
     GDB="%s-elf-gdb" % toolchain_arch,
     OBJCOPY=join(
         platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
-    RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
+    RANLIB="%s-elf-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
 
     ARFLAGS=["rc"],
@@ -186,10 +169,9 @@ env.Replace(
     ],
     ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase_flash',
 
-    MKFSTOOL=("mklittlefs" if filesystem == "littlefs" else
-        "mkspiffs_${PIOPLATFORM}_" + ("espidf" if "espidf" in env.subst("$PIOFRAMEWORK") else "${PIOFRAMEWORK}")),
-    ESP32_FS_IMAGE_NAME=env.get("ESP32_FS_IMAGE_NAME", env.get(
-        "ESP32_SPIFFS_IMAGE_NAME", filesystem)),
+    MKSPIFFSTOOL="mkspiffs_${PIOPLATFORM}_" + ("espidf" if "espidf" in env.subst(
+        "$PIOFRAMEWORK") else "${PIOFRAMEWORK}"),
+    ESP32_SPIFFS_IMAGE_NAME=env.get("ESP32_SPIFFS_IMAGE_NAME", "spiffs"),
     ESP32_APP_OFFSET="0x10000",
 
     PROGSUFFIX=".elf"
@@ -218,14 +200,14 @@ env.Append(
         ),
         DataToBin=Builder(
             action=env.VerboseAction(" ".join([
-                '"$MKFSTOOL"',
+                '"$MKSPIFFSTOOL"',
                 "-c", "$SOURCES",
-                "-p", "$FS_PAGE",
-                "-b", "$FS_BLOCK",
-                "-s", "$FS_SIZE",
+                "-p", "$SPIFFS_PAGE",
+                "-b", "$SPIFFS_BLOCK",
+                "-s", "$SPIFFS_SIZE",
                 "$TARGET"
-            ]), "Building FS image from '$SOURCES' directory to $TARGET"),
-            emitter=__fetch_fs_size,
+            ]), "Building SPIFFS image from '$SOURCES' directory to $TARGET"),
+            emitter=__fetch_spiffs_size,
             source_factory=env.Dir,
             suffix=".bin"
         )
@@ -236,23 +218,20 @@ if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
 
 #
-# Target: Build executable and linkable firmware or FS image
+# Target: Build executable and linkable firmware or SPIFFS image
 #
 
 target_elf = None
 if "nobuild" in COMMAND_LINE_TARGETS:
     target_elf = join("$BUILD_DIR", "${PROGNAME}.elf")
     if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
-        fetch_fs_size(env)
-        target_firm = join("$BUILD_DIR", "${ESP32_FS_IMAGE_NAME}.bin")
+        fetch_spiffs_size(env)
+        target_firm = join("$BUILD_DIR", "${ESP32_SPIFFS_IMAGE_NAME}.bin")
     else:
         target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
 else:
     target_elf = env.BuildProgram()
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
-        if filesystem not in ("littlefs", "spiffs"):
-            sys.stderr.write("Filesystem %s is not supported!\n" % filesystem)
-            env.Exit(1)
         target_firm = env.DataToBin(
             join("$BUILD_DIR", "${ESP32_SPIFFS_IMAGE_NAME}"), "$PROJECT_DATA_DIR")
         env.NoCache(target_firm)
@@ -290,7 +269,7 @@ target_size = env.AddPlatformTarget(
 )
 
 #
-# Target: Upload firmware or filesystem image
+# Target: Upload firmware or SPIFFS image
 #
 
 upload_protocol = env.subst("$UPLOAD_PROTOCOL")
@@ -324,7 +303,7 @@ if upload_protocol == "espota":
         UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS -f $SOURCE'
     )
     if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
-        env.Append(UPLOADERFLAGS=["-s"])
+        env.Append(UPLOADERFLAGS=["--spiffs"])
     upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
 
 elif upload_protocol == "esptool":
@@ -358,7 +337,7 @@ elif upload_protocol == "esptool":
                 "write_flash", "-z",
                 "--flash_mode", "$BOARD_FLASH_MODE",
                 "--flash_size", "detect",
-                "$FS_START"
+                "$SPIFFS_START"
             ],
             UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS $SOURCE',
         )
