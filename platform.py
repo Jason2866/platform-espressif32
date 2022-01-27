@@ -64,7 +64,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages["toolchain-esp32s2ulp"]["optional"] = False
             if mcu == "esp32s3":
                 self.packages[xtensa32s3_toolchain]["optional"] = False
-#                self.packages["toolchain-esp32s3ulp"]["optional"] = False
+                self.packages["toolchain-esp32s2ulp"]["optional"] = False
 
         build_core = variables.get(
             "board_build.core", board_config.get("build.core", "arduino")
