@@ -150,6 +150,15 @@ def __fetch_fs_size(target, source, env):
     return (target, source)
 
 
+env = DefaultEnvironment()
+env.SConscript("compat.py", exports="env")
+platform = env.PioPlatform()
+board = env.BoardConfig()
+mcu = board.get("build.mcu", "esp32")
+toolchain_arch = "xtensa-%s" % mcu
+if mcu == "esp32c3":
+    toolchain_arch = "riscv32-esp"
+
 env.Replace(
     __get_board_f_flash=_get_board_f_flash,
     __get_board_flash_mode=_get_board_flash_mode,
