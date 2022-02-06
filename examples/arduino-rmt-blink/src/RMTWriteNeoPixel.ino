@@ -2,20 +2,19 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "Arduino.h"
-#include "sdkconfig.h"
 
 #include "esp32-hal.h"
 
 // The effect seen in ESP32C3, ESP32S2 and ESP32S3 is like a Blink of RGB LED
-#if CONFIG_IDF_TARGET_ESP32S2
-#define BUILTIN_RGBLED_PIN   18
-#elif CONFIG_IDF_TARGET_ESP32S3
-#define BUILTIN_RGBLED_PIN   48
-#elif CONFIG_IDF_TARGET_ESP32C3
-#define BUILTIN_RGBLED_PIN   8
-#else
-#define BUILTIN_RGBLED_PIN   21   // ESP32 has no builtin RGB LED
-#endif
+//#if CONFIG_IDF_TARGET_ESP32S2
+//#define BUILTIN_RGBLED_PIN   18
+//#elif CONFIG_IDF_TARGET_ESP32S3
+//#define BUILTIN_RGBLED_PIN   48
+//#elif CONFIG_IDF_TARGET_ESP32C3
+//#define BUILTIN_RGBLED_PIN   8
+//#else
+//#define BUILTIN_RGBLED_PIN   21   // ESP32 has no builtin RGB LED
+//#endif
 
 #define NR_OF_LEDS   8*4
 #define NR_OF_ALL_BITS 24*NR_OF_LEDS
