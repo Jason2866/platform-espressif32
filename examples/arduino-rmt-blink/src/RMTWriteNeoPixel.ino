@@ -2,6 +2,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "Arduino.h"
+#include "sdkconfig.h"
 
 #include "esp32-hal.h"
 
