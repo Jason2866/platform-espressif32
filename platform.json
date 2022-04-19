@@ -34,15 +34,18 @@
   },
   "packages": {
     "toolchain-xtensa-esp32": {
-      "owner": "tasmota",
       "type": "toolchain",
+      "owner": "espressif",
+      "version": "8.4.0+2021r2-patch3",
       "optionalVersions": [
         "8.4.0+2021r2-patch3"
       ]
     },
     "toolchain-xtensa-esp32s2": {
       "type": "toolchain",
-      "version": "~8.4",
+      "optional": true,
+      "owner": "espressif",
+      "version": "8.4.0+2021r2-patch3",
       "optionalVersions": [
         "8.4.0+2021r2-patch3"
       ]
@@ -50,7 +53,8 @@
     "toolchain-xtensa-esp32s3": {
       "type": "toolchain",
       "optional": true,
-      "version": "~8.4",
+      "owner": "espressif",
+      "version": "8.4.0+2021r2-patch3",
       "optionalVersions": [
         "8.4.0+2021r2-patch3"
       ]
@@ -58,7 +62,8 @@
     "toolchain-riscv32-esp": {
       "type": "toolchain",
       "optional": true,
-      "version": "~8.4",
+      "owner": "espressif",
+      "version": "8.4.0+2021r2-patch3",
       "optionalVersions": [
         "8.4.0+2021r2-patch3"
       ]
