@@ -34,8 +34,8 @@
   },
   "packages": {
     "toolchain-xtensa-esp32": {
+      "owner": "tasmota",
       "type": "toolchain",
-      "version": "~8.5",
       "optionalVersions": [
         "8.4.0+2021r2-patch3"
       ]
