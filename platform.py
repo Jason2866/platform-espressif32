@@ -108,7 +108,7 @@ class Espressif32Platform(PlatformBase):
                     self.packages["toolchain-xtensa-esp32s2"]["optional"] = False
                 if mcu == "esp32s3":
                     self.packages["toolchain-xtensa-esp32s3"]["optional"] = False
-            if arch == "arm64":
+            if type_ == "darwin" and arch == "arm64":
                 #self.packages.pop("tool-openocd-esp32-arm", None)
                 self.packages.pop("toolchain-xtensa-esp32-arm", None)
                 self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
@@ -419,3 +419,4 @@ class Espressif32Platform(PlatformBase):
             self.configure_arduino_toolchains(
                 self.download_remote_package_index(url_items)
             )
+
