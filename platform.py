@@ -14,6 +14,7 @@
 
 import copy
 import os
+import platform
 import urllib
 import sys
 import json
@@ -98,6 +99,8 @@ class Espressif32Platform(PlatformBase):
         if mcu in ("esp32s2", "esp32s3", "esp32c3"):
             # RISC-V based toolchain for ESP32C3 and ESP32Sx ULP
             self.packages.pop("toolchain-esp32ulp", None)
+            type_ = platform.system().lower()
+            arch = platform.machine().lower()
             if arch != "arm64": 
                 self.packages.pop("toolchain-xtensa-esp32", None)
                 self.packages["toolchain-riscv32-esp"]["optional"] = False
