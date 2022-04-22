@@ -103,7 +103,7 @@ class Espressif32Platform(PlatformBase):
 
         if mcu in ("esp32", "esp32s2", "esp32s3", "esp32c3"):
             # RISC-V based toolchain for ESP32C3 and ESP32Sx ULP
-            self.packages.pop("toolchain-esp32ulp", None)
+            self.packages["toolchain-esp32ulp"]["optional"] = False
             if arch != "arm64":
                 if mcu == "esp32c3":
                     self.packages["toolchain-riscv32-esp"]["optional"] = False
