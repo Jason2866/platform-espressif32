@@ -96,14 +96,23 @@ class Espressif32Platform(PlatformBase):
                     self.packages[p]["optional"] = False
 
         if mcu in ("esp32s2", "esp32s3", "esp32c3"):
-            self.packages.pop("toolchain-xtensa-esp32", None)
+            # RISC-V based toolchain for ESP32C3 and ESP32Sx ULP
             self.packages.pop("toolchain-esp32ulp", None)
-            # RISC-V based toolchain for ESP32C3 and ESP32S2 ULP
-            self.packages["toolchain-riscv32-esp"]["optional"] = False
-            if mcu == "esp32s2":
-                self.packages["toolchain-xtensa-esp32s2"]["optional"] = False
-            if mcu == "esp32s3":
-                self.packages["toolchain-xtensa-esp32s3"]["optional"] = False
+            if arch != "arm64": 
+                self.packages.pop("toolchain-xtensa-esp32", None)
+                self.packages["toolchain-riscv32-esp"]["optional"] = False
+                if mcu == "esp32s2":
+                    self.packages["toolchain-xtensa-esp32s2"]["optional"] = False
+                if mcu == "esp32s3":
+                    self.packages["toolchain-xtensa-esp32s3"]["optional"] = False
+             if arch == "arm64": 
+                #self.packages.pop("tool-openocd-esp32-arm", None)
+                self.packages.pop("toolchain-xtensa-esp32-arm", None)
+                self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
+                if mcu == "esp32s2":
+                    self.packages["toolchain-xtensa-esp32s2-arm"]["optional"] = False
+                if mcu == "esp32s3":
+                    self.packages["toolchain-xtensa-esp32s3-arm"]["optional"] = False                   
 
         is_legacy_project = (
             build_core == "mbcwb"
