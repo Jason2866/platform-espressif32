@@ -14,7 +14,6 @@
 
 import copy
 import os
-import platform
 import urllib
 import sys
 import json
@@ -31,8 +30,6 @@ class Espressif32Platform(PlatformBase):
         if not variables.get("board"):
             return PlatformBase.configure_default_packages(self, variables, targets)
 
-        type_ = platform.system().lower()
-        arch = platform.machine().lower()
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         frameworks = variables.get("pioframework", [])
@@ -46,9 +43,9 @@ class Espressif32Platform(PlatformBase):
             else:
                 self.packages["tool-mkspiffs"]["optional"] = False
         if variables.get("upload_protocol"):
-            if type_ == "darwin" and arch == "arm64":
+            if "darwin" in get_systype() and "arm64" in get_systype():
                 self.packages["tool-openocd-esp32-arm"]["optional"] = False
-            if arch != "arm64":
+            if not "arm64" in get_systype():
                 self.packages["tool-openocd-esp32"]["optional"] = False
         if os.path.isdir("ulp"):
             self.packages["toolchain-esp32ulp"]["optional"] = False
@@ -104,7 +101,7 @@ class Espressif32Platform(PlatformBase):
         if mcu in ("esp32", "esp32s2", "esp32s3", "esp32c3"):
             # RISC-V based toolchain for ESP32C3 and ESP32Sx ULP
             self.packages["toolchain-esp32ulp"]["optional"] = False
-            if arch != "arm64":
+            if not "arm64" in get_systype():
                 if mcu == "esp32c3":
                     self.packages["toolchain-riscv32-esp"]["optional"] = False
                 if mcu == "esp32":
@@ -113,7 +110,7 @@ class Espressif32Platform(PlatformBase):
                     self.packages["toolchain-xtensa-esp32s2"]["optional"] = False
                 if mcu == "esp32s3":
                     self.packages["toolchain-xtensa-esp32s3"]["optional"] = False
-            if type_ == "darwin" and arch == "arm64":
+            if "darwin" in get_systype() and "arm64" in get_systype():
                 if mcu == "esp32c3":
                     self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
                 if mcu == "esp32":
