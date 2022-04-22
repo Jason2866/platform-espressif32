@@ -71,6 +71,7 @@
     },
     "toolchain-xtensa-esp32-arm": {
       "type": "toolchain",
+      "optional": true,
       "owner": "tasmota",
       "version": "https://github.com/Jason2866/crosstool-NG/releases/download/8.4.0/toolchain-xtensa-esp32.tar.gz"
     },
