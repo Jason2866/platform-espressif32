@@ -101,19 +101,23 @@ class Espressif32Platform(PlatformBase):
                 elif p in ("tool-mconf", "tool-idf") and "windows" in get_systype():
                     self.packages[p]["optional"] = False
 
-        if mcu in ("esp32s2", "esp32s3", "esp32c3"):
+        if mcu in ("esp32", "esp32s2", "esp32s3", "esp32c3"):
             # RISC-V based toolchain for ESP32C3 and ESP32Sx ULP
             self.packages.pop("toolchain-esp32ulp", None)
             if arch != "arm64":
-                self.packages.pop("toolchain-xtensa-esp32", None)
-                self.packages["toolchain-riscv32-esp"]["optional"] = False
+                if mcu == "esp32c3":
+                    self.packages["toolchain-riscv32-esp"]["optional"] = False
+                if mcu == "esp32":
+                    self.packages["toolchain-xtensa-esp32"]["optional"] = False
                 if mcu == "esp32s2":
                     self.packages["toolchain-xtensa-esp32s2"]["optional"] = False
                 if mcu == "esp32s3":
                     self.packages["toolchain-xtensa-esp32s3"]["optional"] = False
             if type_ == "darwin" and arch == "arm64":
-                self.packages.pop("toolchain-xtensa-esp32-arm", None)
-                self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
+                if mcu == "esp32c3":
+                    self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
+                if mcu == "esp32":
+                    self.packages["toolchain-xtensa-esp32-arm"]["optional"] = False
                 if mcu == "esp32s2":
                     self.packages["toolchain-xtensa-esp32s2-arm"]["optional"] = False
                 if mcu == "esp32s3":
