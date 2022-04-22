@@ -31,6 +31,8 @@ class Espressif32Platform(PlatformBase):
         if not variables.get("board"):
             return PlatformBase.configure_default_packages(self, variables, targets)
 
+        type_ = platform.system().lower()
+        arch = platform.machine().lower()
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         frameworks = variables.get("pioframework", [])
@@ -44,7 +46,10 @@ class Espressif32Platform(PlatformBase):
             else:
                 self.packages["tool-mkspiffs"]["optional"] = False
         if variables.get("upload_protocol"):
-            self.packages["tool-openocd-esp32"]["optional"] = False
+            if type_ == "darwin" and arch == "arm64":
+                self.packages["tool-openocd-esp32-arm"]["optional"] = False
+            if arch != "arm64":
+                self.packages["tool-openocd-esp32"]["optional"] = False
         if os.path.isdir("ulp"):
             self.packages["toolchain-esp32ulp"]["optional"] = False
 
@@ -99,8 +104,6 @@ class Espressif32Platform(PlatformBase):
         if mcu in ("esp32s2", "esp32s3", "esp32c3"):
             # RISC-V based toolchain for ESP32C3 and ESP32Sx ULP
             self.packages.pop("toolchain-esp32ulp", None)
-            type_ = platform.system().lower()
-            arch = platform.machine().lower()
             if arch != "arm64":
                 self.packages.pop("toolchain-xtensa-esp32", None)
                 self.packages["toolchain-riscv32-esp"]["optional"] = False
@@ -109,7 +112,6 @@ class Espressif32Platform(PlatformBase):
                 if mcu == "esp32s3":
                     self.packages["toolchain-xtensa-esp32s3"]["optional"] = False
             if type_ == "darwin" and arch == "arm64":
-                #self.packages.pop("tool-openocd-esp32-arm", None)
                 self.packages.pop("toolchain-xtensa-esp32-arm", None)
                 self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
                 if mcu == "esp32s2":
