@@ -38,8 +38,8 @@ if build_core == "mbcwb":
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduino-mbcwb"), "tools", "platformio-esp-build.py"))
 
-#elif "arduino" in env.subst("$PIOFRAMEWORK") and "esp32solo1" not in build_variant:
-elif "esp32solo1" not in build_variant:
+elif ("arduino" in env.subst("$PIOFRAMEWORK") and "esp32solo1" not in build_variant):
+#elif "esp32solo1" not in build_variant:
     SConscript(
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduinoespressif32"), "tools", "platformio-build.py"))
