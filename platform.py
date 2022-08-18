@@ -127,6 +127,7 @@ class Espressif32Platform(PlatformBase):
 
         if build_variant == "esp32solo1":
             self.packages["framework-arduinoespressif32-solo1"]["optional"] = False
+            self.packages.pop("framework-arduinoespressif32", None)
 
 
         if build_core == "mbcwb":
