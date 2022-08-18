@@ -49,6 +49,9 @@ class Espressif32Platform(PlatformBase):
         build_core = variables.get(
             "board_build.core", board_config.get("build.core", "arduino")
         ).lower()
+        build_variant = variables.get(
+            "board_build.variant", board_config.get("build.variant", "esp32")
+        ).lower()
 
         if len(frameworks) == 1 and "arduino" in frameworks and build_core == "esp32":
             # In case the upstream Arduino framework is specified in the configuration
@@ -121,6 +124,9 @@ class Espressif32Platform(PlatformBase):
                     self.packages.pop("toolchain-esp32s2ulp", None)
                 # RISC-V based toolchain for ESP32C3, ESP32S2, ESP32S3 ULP
                 self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
+
+        if build_variant == "esp32solo1":
+            self.packages["framework-arduinoespressif32-solo1"]["optional"] = False
 
 
         if build_core == "mbcwb":
