@@ -39,8 +39,8 @@ if build_core == "mbcwb":
             "framework-arduino-mbcwb"), "tools", "platformio-esp-build.py"))
 
 #elif "arduino" in env.subst("$PIOFRAMEWORK") and "esp32solo1" not in build_variant:
-elif "esp32solo1" not in build_variant:
-    SConscript(
-        join(DefaultEnvironment().PioPlatform().get_package_dir(
-            "framework-arduinoespressif32"), "tools", "platformio-build.py"))
-    env["INTEGRATION_EXTRA_DATA"].update({"application_offset": env.subst("$ESP32_APP_OFFSET")})
+#elif "esp32solo1" not in build_variant:
+#    SConscript(
+#        join(DefaultEnvironment().PioPlatform().get_package_dir(
+#            "framework-arduinoespressif32"), "tools", "platformio-build.py"))
+#    env["INTEGRATION_EXTRA_DATA"].update({"application_offset": env.subst("$ESP32_APP_OFFSET")})
