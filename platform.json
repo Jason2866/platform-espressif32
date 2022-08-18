@@ -24,9 +24,9 @@
       "package": "framework-arduinoespressif32",
       "script": "builder/frameworks/arduino.py",
       "package": "framework-arduinoespressif32-ITEAD",
-      "script": "builder/frameworks/arduino.py",
+      "script": "builder/frameworks/arduino-itead.py",
       "package": "framework-arduinoespressif32-solo1",
-      "script": "builder/frameworks/arduino.py"
+      "script": "builder/frameworks/arduino-solo1.py"
     },
     "espidf": {
       "package": "framework-espidf",
