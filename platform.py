@@ -32,9 +32,11 @@ class Espressif32Platform(PlatformBase):
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         frameworks = variables.get("pioframework", [])
+        build_core = variables.get("board_build.core", board_config.get("build.core", "arduino")).lower()
+        build_variant = variables.get("board_build.variant", board_config.get("build.variant", "esp32")).lower()
 
         if "buildfs" in targets:
-            filesystem = variables.get("board_build.filesystem", "spiffs")
+            filesystem = variables.get("board_build.filesystem", "littlefs")
             if filesystem == "littlefs":
                 self.packages["tool-mklittlefs"]["optional"] = False
             elif filesystem == "fatfs":
@@ -45,13 +47,6 @@ class Espressif32Platform(PlatformBase):
             self.packages["tool-openocd-esp32"]["optional"] = False
         if os.path.isdir("ulp"):
             self.packages["toolchain-esp32ulp"]["optional"] = False
-
-        build_core = variables.get(
-            "board_build.core", board_config.get("build.core", "arduino")
-        ).lower()
-        build_variant = variables.get(
-            "board_build.variant", board_config.get("build.variant", "esp32")
-        ).lower()
 
         if len(frameworks) == 1 and "arduino" in frameworks and build_core == "esp32":
             # In case the upstream Arduino framework is specified in the configuration
@@ -127,7 +122,7 @@ class Espressif32Platform(PlatformBase):
 
         if build_variant == "esp32solo1":
             self.packages["framework-arduinoespressif32-solo1"]["optional"] = False
-            self.packages.pop("framework-arduinoespressif32", None)
+            self.packages["framework-arduinoespressif32"]["optional"] = True
 
 
         if build_core == "mbcwb":
