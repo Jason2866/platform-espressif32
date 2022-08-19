@@ -20,8 +20,8 @@
   },
   "version": "2.0.5",
   "frameworks": {
-    "arduino": {
-      "package": "framework-arduinoespressif32solo1",
+    "arduino-solo1": {
+      "package": "framework-arduinoespressif32-solo1",
       "script": "builder/frameworks/arduino-solo1.py"
     },
     "espidf": {
@@ -33,7 +33,7 @@
     }
   },
   "packages": {
-    "framework-arduinoespressif32solo1": {
+    "framework-arduinoespressif32-solo1": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
