@@ -21,7 +21,7 @@
   "version": "2.0.5",
   "frameworks": {
     "arduino": {
-      "package": "framework-arduinoespressif32-solo1",
+      "package": "framework-arduinoespressif32",
       "script": "builder/frameworks/arduino-solo1.py"
     },
     "espidf": {
@@ -34,18 +34,6 @@
   },
   "packages": {
     "framework-arduinoespressif32": {
-      "type": "framework",
-      "optional": true,
-      "owner": "tasmota",
-      "version": "https://github.com/tasmota/arduino-esp32/releases/download/2.0.4.1/framework-arduinoespressif32.tar.gz"
-    },
-    "framework-arduinoespressif32-ITEAD": {
-      "type": "framework",
-      "optional": true,
-      "owner": "tasmota",
-      "version": "https://github.com/tasmota/arduino-esp32/releases/download/2.0.4.1/framework-arduinoespressif32-ITEAD.tar.gz"
-    },
-    "framework-arduinoespressif32-solo1": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
