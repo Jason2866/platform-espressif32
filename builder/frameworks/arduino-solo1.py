@@ -41,5 +41,5 @@ if build_core == "mbcwb":
 elif "arduino" in env.subst("$PIOFRAMEWORK"):
     SConscript(
         join(DefaultEnvironment().PioPlatform().get_package_dir(
-            "framework-arduinoespressif32-solo1"), "tools", "platformio-build.py"))
+            "framework-arduinoespressif32solo1"), "tools", "platformio-build.py"))
     env["INTEGRATION_EXTRA_DATA"].update({"application_offset": env.subst("$ESP32_APP_OFFSET")})
