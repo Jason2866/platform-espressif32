@@ -20,7 +20,7 @@
   },
   "version": "2.0.5",
   "frameworks": {
-    "arduino-solo1": {
+    "arduino": {
       "package": "framework-arduinoespressif32-solo1",
       "script": "builder/frameworks/arduino-solo1.py"
     },
