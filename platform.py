@@ -84,9 +84,9 @@ class Espressif32Platform(PlatformBase):
                 # RISC-V based toolchain for ESP32C3, ESP32S2, ESP32S3 ULP
                 self.packages["toolchain-riscv32-esp-arm"]["optional"] = False
 
-        if build_variant == "esp32solo1":
-            self.packages["framework-arduinoespressif32-solo1"]["optional"] = False
-            self.packages["framework-arduinoespressif32"]["optional"] = True
+#        if build_variant == "esp32solo1":
+#            self.packages["framework-arduinoespressif32-solo1"]["optional"] = False
+#            self.packages["framework-arduinoespressif32"]["optional"] = True
 
 
         if build_core == "mbcwb":
