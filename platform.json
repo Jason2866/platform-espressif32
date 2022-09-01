@@ -146,12 +146,12 @@
     "tool-cmake": {
       "optional": true,
       "owner": "platformio",
-      "version": "~3.16.0"
+      "version": "~3.21.0"
     },
     "tool-ninja": {
       "optional": true,
       "owner": "platformio",
-      "version": "^1.7.0"
+      "version": "~1.10.0"
     },
     "tool-mconf": {
       "optional": true,
