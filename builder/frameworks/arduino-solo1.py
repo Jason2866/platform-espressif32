@@ -29,7 +29,7 @@ from SCons.Script import DefaultEnvironment, SConscript
 env = DefaultEnvironment()
 board = env.BoardConfig()
 build_core = board.get("build.core", "").lower()
-extra_flags = board.get("build.extra_flags", "").lower()
+extra_flags = board.get("build.extra_flags", "")
 
 SConscript("_embed_files.py", exports="env")
 
