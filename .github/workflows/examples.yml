@@ -11,7 +11,6 @@ jobs:
         example:
           - "examples/arduino-blink"
           - "examples/arduino-rmt-blink"
-          - "examples/espidf-arduino-wifiscan"
           - "examples/espidf-blink"
           - "examples/espidf-hello-world"
           - "examples/espidf-http-request"
