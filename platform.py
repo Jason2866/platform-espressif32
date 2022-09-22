@@ -100,6 +100,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages.pop("toolchain-xtensa-%s" % available_mcu, None)
 
         if mcu in ("esp32s2", "esp32s3", "esp32c3"):
+            self.packages["toolchain-esp32ulp"]["optional"] = False
             if mcu == "esp32c3":
                 self.packages.pop("toolchain-esp32ulp", None)
             # RISC-V based toolchain for ESP32C3, ESP32S2, ESP32S3 ULP
