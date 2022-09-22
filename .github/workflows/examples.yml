@@ -27,7 +27,6 @@ jobs:
           - "examples/espidf-peripherals-uart"
           - "examples/espidf-peripherals-usb"
           - "examples/espidf-storage-sdcard"
-          - "examples/espidf-storage-spiffs"
           - "examples/espidf-ulp"
           - "examples/espidf-ulp-riscv"
     runs-on: ${{ matrix.os }}
