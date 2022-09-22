@@ -39,6 +39,12 @@
       "owner": "tasmota",
       "version": "https://github.com/tasmota/arduino-esp32/releases/download/2.0.5/framework-arduinoespressif32-solo1.zip"
     },
+    "framework-arduinoespressif32": {
+      "type": "framework",
+      "optional": true,
+      "owner": "tasmota",
+      "version": "https://github.com/tasmota/arduino-esp32/releases/download/2.0.5/framework-arduinoespressif32.zip"
+    },
     "framework-espidf": {
       "type": "framework",
       "optional": true,
