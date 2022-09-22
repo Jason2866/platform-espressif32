@@ -72,14 +72,8 @@
     "toolchain-esp32ulp": {
       "type": "toolchain",
       "optional": true,
-      "owner": "platformio",
-      "version": "~1.22851.0"
-    },
-    "toolchain-esp32s2ulp": {
-      "type": "toolchain",
-      "optional": true,
-      "owner": "platformio",
-      "version": "~1.22851.0"
+      "owner": "jason2866",
+      "version": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/esp32ulp-elf-2.35_20220830-macos-arm64.zip"
     },
     "framework-arduino-mbcwb": {
       "type": "framework",
