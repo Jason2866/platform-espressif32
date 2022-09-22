@@ -87,12 +87,12 @@ class Espressif32Platform(PlatformBase):
 
         if "espidf" in frameworks:
             # Common packages for IDF and mixed Arduino+IDF projects
+            self.packages["toolchain-esp32ulp"]["optional"] = False
             for p in self.packages:
                 if p in ("tool-cmake", "tool-ninja"):
                     self.packages[p]["optional"] = False
                 elif p in ("tool-mconf", "tool-idf") and IS_WINDOWS:
                     self.packages[p]["optional"] = False
-            self.packages["toolchain-esp32ulp"]["optional"] = False
 
         for available_mcu in ("esp32", "esp32s2", "esp32s3"):
             if available_mcu == mcu:
