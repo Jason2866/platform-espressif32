@@ -49,25 +49,25 @@
       "type": "toolchain",
       "optional": true,
       "owner": "espressif",
-      "version": "8.4.0+2021r2-patch3"
+      "version": "8.4.0+2021r2-patch5"
     },
     "toolchain-xtensa-esp32s2": {
       "type": "toolchain",
       "optional": true,
       "owner": "espressif",
-      "version": "8.4.0+2021r2-patch3"
+      "version": "8.4.0+2021r2-patch5"
     },
     "toolchain-xtensa-esp32s3": {
       "type": "toolchain",
       "optional": true,
       "owner": "espressif",
-      "version": "8.4.0+2021r2-patch3"
+      "version": "8.4.0+2021r2-patch5"
     },
     "toolchain-riscv32-esp": {
       "type": "toolchain",
       "optional": true,
       "owner": "espressif",
-      "version": "8.4.0+2021r2-patch3"
+      "version": "8.4.0+2021r2-patch5"
     },
     "toolchain-xtensa-esp32-arm": {
       "type": "toolchain",
@@ -96,14 +96,8 @@
     "toolchain-esp32ulp": {
       "type": "toolchain",
       "optional": true,
-      "owner": "platformio",
-      "version": "~1.22851.0"
-    },
-    "toolchain-esp32s2ulp": {
-      "type": "toolchain",
-      "optional": true,
-      "owner": "platformio",
-      "version": "~1.22851.0"
+      "owner": "jason2866",
+      "version": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/esp32ulp-elf-2.35_20220830-linux_x86_64.zip"
     },
     "framework-arduino-mbcwb": {
       "type": "framework",
