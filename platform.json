@@ -21,7 +21,7 @@
   "version": "2.0.5",
   "frameworks": {
     "arduino": {
-      "package": "framework-arduinoespressif32-solo1",
+      "package": "framework-arduinoespressif32",
       "script": "builder/frameworks/arduino-solo1.py"
     },
     "espidf": {
