@@ -29,7 +29,7 @@ from SCons.Script import DefaultEnvironment, SConscript
 env = DefaultEnvironment()
 board = env.BoardConfig()
 build_core = board.get("build.core", "").lower()
-build_variant = board.get("build.variant", "").lower()
+extra_flags = board.get("build.extra_flags", "").lower()
 
 SConscript("_embed_files.py", exports="env")
 
@@ -38,7 +38,7 @@ if build_core == "mbcwb":
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduino-mbcwb"), "tools", "platformio-esp-build.py"))
 
-elif "arduino" in env.subst("$PIOFRAMEWORK") and build_variant == "esp32solo1":
+elif "arduino" in env.subst("$PIOFRAMEWORK") and "esp32solo1" in extra_flags:
     SConscript(
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduinoespressif32-solo1"), "tools", "platformio-build-solo1.py"))
