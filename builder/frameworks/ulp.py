@@ -97,8 +97,8 @@ def generate_ulp_config(target_config):
             "components",
             "ulp",
             "cmake",
-            "toolchain-%s"
-            % ("riscv32-esp.cmake" if riscv_ulp_enabled else "%s-ulp%s.cmake" % idf_variant),
+            "toolchain-%sulp%s.cmake"
+            % ("" if riscv_ulp_enabled else idf_variant + "-", "-riscv" if riscv_ulp_enabled else ""),
         ),
         '-DULP_S_SOURCES="%s"' % ";".join(ulp_sources),
         "-DULP_APP_NAME=ulp_main",
