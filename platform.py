@@ -106,6 +106,8 @@ class Espressif32Platform(PlatformBase):
             # RISC-V based toolchain for ESP32C3, ESP32S2, ESP32S3 ULP
             self.packages["toolchain-riscv32-esp"]["optional"] = False
 
+        return super().configure_default_packages(variables, targets)
+
     def get_boards(self, id_=None):
         result = super().get_boards(id_)
         if not result:
