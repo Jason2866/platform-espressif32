@@ -36,7 +36,7 @@ SConscript("_embed_files.py", exports="env")
 if "arduino" in env.subst("$PIOFRAMEWORK") and "-DCORE32SOLO1" in extra_flags:
     SConscript(
         join(DefaultEnvironment().PioPlatform().get_package_dir(
-            "framework-arduinoespressif32-solo1"), "tools", "platformio-build-solo1.py"))
+            "framework-arduinoespressif32-solo1"), "tools", "platformio-build.py"))
     env["INTEGRATION_EXTRA_DATA"].update({"application_offset": env.subst("$ESP32_APP_OFFSET")})
 
 elif "espidf" not in env.subst("$PIOFRAMEWORK"):
