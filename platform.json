@@ -84,7 +84,7 @@
       "type": "toolchain",
       "optional": true,
       "owner": "jason2866",
-      "version": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/esp32ulp-elf-2.35_20220830-linux_x86_64.zip"
+      "version": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/esp32ulp-elf-2.35_20220830-macos-arm64.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
