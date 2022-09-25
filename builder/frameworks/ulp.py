@@ -34,16 +34,10 @@ ULP_BUILD_DIR = os.path.join(
 def prepare_ulp_env_vars(env):
     ulp_env.PrependENVPath("IDF_PATH", FRAMEWORK_DIR)
 
-    mcu = "32"
-    if "esp32s2" in idf_variant:
-        mcu = "32s2"
-    elif "esp32s3" in idf_variant:
-        mcu = "32s3"
-
     additional_packages = [
         os.path.join(
             platform.get_package_dir(
-                "toolchain-xtensa-esp%s" % mcu
+                "toolchain-xtensa-%s" % (idf_variant)
             ),
             "bin",
         ),
