@@ -104,6 +104,7 @@ def generate_ulp_config(target_config):
         "-DULP_APP_NAME=ulp_main",
         "-DCOMPONENT_DIR=" + os.path.join(ulp_env.subst("$PROJECT_DIR"), "ulp"),
         '-DCOMPONENT_INCLUDES="%s"' % ";".join(get_component_includes(target_config)),
+        "-DIDF_TARGET=" + idf_variant,
         "-DIDF_PATH=" + fs.to_unix_path(FRAMEWORK_DIR),
         "-DSDKCONFIG_HEADER=" + os.path.join(BUILD_DIR, "config", "sdkconfig.h"),
         "-DPYTHON=" + env.subst("$PYTHONEXE"),
