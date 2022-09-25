@@ -37,8 +37,7 @@ def prepare_ulp_env_vars(env):
     additional_packages = [
         os.path.join(
             platform.get_package_dir(
-                "toolchain-xtensa-esp%s"
-                % (idf_variant.replace('esp', ''))
+                "toolchain-xtensa-%s" % (idf_variant)
             ),
             "bin",
         ),
