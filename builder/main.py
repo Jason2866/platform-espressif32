@@ -18,9 +18,11 @@ from os.path import isfile, join
 
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
-    DefaultEnvironment)
+    DefaultEnvironment, SConscript)
 
 from platformio.util import get_serial_ports
+
+env = DefaultEnvironment()
 
 #
 # Helpers
