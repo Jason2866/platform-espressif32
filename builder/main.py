@@ -18,11 +18,12 @@ from os.path import isfile, join
 
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
-    DefaultEnvironment, SConscript)
+    DefaultEnvironment)
 
 from platformio.util import get_serial_ports
 
 env = DefaultEnvironment()
+platform = env.PioPlatform()
 
 #
 # Helpers
@@ -180,8 +181,6 @@ def __fetch_fs_size(target, source, env):
     return (target, source)
 
 
-env = DefaultEnvironment()
-platform = env.PioPlatform()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 toolchain_arch = "xtensa-%s" % mcu
