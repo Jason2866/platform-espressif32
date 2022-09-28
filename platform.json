@@ -60,7 +60,7 @@
       "type": "toolchain",
       "optional": true,
       "owner": "espressif",
-      "version": "2.35_20220830"
+      "version": "~2"
     },
     "framework-arduinoespressif32": {
       "type": "framework",
