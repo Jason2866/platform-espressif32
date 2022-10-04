@@ -513,12 +513,11 @@ env.AddPlatformTarget(
 )
 
 #
-# Information about obsolete method of specifying linker scripts
+# A temporary workaround to propagate additional data to the debug configuration routine
 #
 
-if any("-Wl,-T" in f for f in env.get("LINKFLAGS", [])):
-    print("Warning! '-Wl,-T' option for specifying linker scripts is deprecated. "
-          "Please use 'board_build.ldscript' option in your 'platformio.ini' file.")
+Import("projenv")
+projenv["INTEGRATION_EXTRA_DATA"] = env.get("INTEGRATION_EXTRA_DATA")
 
 #
 # Default targets
