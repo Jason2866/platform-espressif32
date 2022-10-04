@@ -149,7 +149,7 @@ def _parse_partitions(env):
             next_offset = (next_offset + bound - 1) & ~(bound - 1)
             #print("Main Firmware will be flashed to:", hex(bound))
     # Configure application partition offset
-    env.Replace(ESP32_APP_OFFSET = str(hex(bound)))
+    env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
     # Propagate application offset to debug configurations
     env["INTEGRATION_EXTRA_DATA"].update({"application_offset": env.subst("$ESP32_APP_OFFSET")})
     return result
