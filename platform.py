@@ -208,4 +208,5 @@ class Espressif32Platform(PlatformBase):
                 build_extra_data.get("application_offset", "0x10000"),
             )
         )
+        print ("load_cmds: ", load_cmds)
         debug_config.load_cmds = load_cmds
