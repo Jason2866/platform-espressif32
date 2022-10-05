@@ -205,8 +205,9 @@ class Espressif32Platform(PlatformBase):
             'monitor program_esp "{%s.bin}" %s verify'
             % (
                 to_unix_path(debug_config.build_data["prog_path"][:-4]),
-                build_extra_data.get("application_offset", "0x10000"),
+                build_extra_data.get("application_offset"),
             )
         )
         print ("load_cmds: ", load_cmds)
+        print ("app_offset", build_extra_data.get("application_offset"))
         debug_config.load_cmds = load_cmds
