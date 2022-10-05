@@ -276,7 +276,7 @@ env.Replace(
         "ESP32_FS_IMAGE_NAME", env.get("ESP32_SPIFFS_IMAGE_NAME", filesystem)
     ),
 
-    ESP32_APP_OFFSET=board.get("upload.offset_address", "0x10000"),
+    ESP32_APP_OFFSET=env.get("INTEGRATION_EXTRA_DATA").get("application_offset"),
 
     PROGSUFFIX=".elf"
 )
@@ -539,4 +539,3 @@ projenv["INTEGRATION_EXTRA_DATA"] = env.get("INTEGRATION_EXTRA_DATA")
 #
 
 Default([target_buildprog, target_size])
-
