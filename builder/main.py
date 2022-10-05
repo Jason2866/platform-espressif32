@@ -151,7 +151,10 @@ def _parse_partitions(env):
     # Configure application partition offset
     env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
     # Propagate application offset to debug configurations
-    env["INTEGRATION_EXTRA_DATA"].update({"application_offset": env.subst("$ESP32_APP_OFFSET")})
+    env["INTEGRATION_EXTRA_DATA"].update(
+        {"application_offset": str(hex(bound)), "merged_firmware": True}
+    )
+    print ("Set offset in INTEGRATION_EXTRA_DATA: ", env.get("INTEGRATION_EXTRA_DATA"))
     return result
 
 
@@ -211,6 +214,16 @@ filesystem = board.get("build.filesystem", "spiffs")
 if mcu == "esp32c3":
     toolchain_arch = "riscv32-esp"
 
+
+firmware_merge_required = bool(
+    env.get("PIOFRAMEWORK", []) == ["arduino"]
+    and (
+        "debug" in env.GetBuildType()
+        or env.subst("$UPLOAD_PROTOCOL") in board.get("debug.tools", {})
+    )
+)
+
+
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
@@ -263,10 +276,11 @@ env.Replace(
         "ESP32_FS_IMAGE_NAME", env.get("ESP32_SPIFFS_IMAGE_NAME", filesystem)
     ),
 
-    #ESP32_APP_OFFSET=board.get("upload.offset_address", "0x10000"),
+    ESP32_APP_OFFSET=board.get("upload.offset_address", "0x10000"),
 
     PROGSUFFIX=".elf"
 )
+
 
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
@@ -446,6 +460,7 @@ elif upload_protocol == "esptool":
 
 
 elif upload_protocol in debug_tools:
+    _parse_partitions(env)
     openocd_args = ["-d%d" % (2 if int(ARGUMENTS.get("PIOVERBOSE", 0)) else 1)]
     openocd_args.extend(
         debug_tools.get(upload_protocol).get("server").get("arguments", []))
@@ -456,12 +471,12 @@ elif upload_protocol in debug_tools:
             % (
                 "$FS_START"
                 if "uploadfs" in COMMAND_LINE_TARGETS
-                else board.get(
-                    "upload.offset_address", "$ESP32_APP_OFFSET"
-                )
+                else env.get("INTEGRATION_EXTRA_DATA").get("application_offset")
             ),
         ]
     )
+    #print ("firmware_merge_req: ", firmware_merge_required)
+    print ("INTEGRATION_EXTRA_DATA; application_offset: ", env.get("INTEGRATION_EXTRA_DATA").get("application_offset"))
     if "uploadfs" not in COMMAND_LINE_TARGETS:
         for image in env.get("FLASH_EXTRA_IMAGES", []):
             openocd_args.extend(
@@ -524,3 +539,4 @@ projenv["INTEGRATION_EXTRA_DATA"] = env.get("INTEGRATION_EXTRA_DATA")
 #
 
 Default([target_buildprog, target_size])
+
