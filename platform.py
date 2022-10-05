@@ -208,8 +208,4 @@ class Espressif32Platform(PlatformBase):
                 build_extra_data.get("application_offset"),
             )
         )
-        print ("load_cmds: ", load_cmds)
-        print ("app_offset", build_extra_data.get("application_offset"))
-        print ("merged_firmware", build_extra_data.get("merged_firmware", False))
-        print ("build_extra_data: ", build_extra_data)
         debug_config.load_cmds = load_cmds

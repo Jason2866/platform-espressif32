@@ -142,19 +142,13 @@ def _parse_partitions(env):
             }
             result.append(partition)
             next_offset = _parse_size(partition["offset"])
-            #print("App start from .csv:", hex(next_offset))
-            #print("Partition subtype from .csv:", partition["subtype"])
             if (partition["subtype"] == "ota_0"):
                 bound = next_offset
             next_offset = (next_offset + bound - 1) & ~(bound - 1)
-            #print("Main Firmware will be flashed to:", hex(bound))
     # Configure application partition offset
     env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
     # Propagate application offset to debug configurations
-    env["INTEGRATION_EXTRA_DATA"].update(
-        {"application_offset": str(hex(bound)), "merged_firmware": True}
-    )
-    print ("Set offset in INTEGRATION_EXTRA_DATA: ", env.get("INTEGRATION_EXTRA_DATA"))
+    env["INTEGRATION_EXTRA_DATA"].update({"application_offset": str(hex(bound))})
     return result
 
 
@@ -215,15 +209,6 @@ if mcu == "esp32c3":
     toolchain_arch = "riscv32-esp"
 
 
-firmware_merge_required = bool(
-    env.get("PIOFRAMEWORK", []) == ["arduino"]
-    and (
-        "debug" in env.GetBuildType()
-        or env.subst("$UPLOAD_PROTOCOL") in board.get("debug.tools", {})
-    )
-)
-
-
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
@@ -238,8 +223,7 @@ env.Replace(
     CC="%s-elf-gcc" % toolchain_arch,
     CXX="%s-elf-g++" % toolchain_arch,
     GDB="%s-elf-gdb" % toolchain_arch,
-    OBJCOPY=join(
-        platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
+    OBJCOPY=join(platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
 
@@ -475,8 +459,6 @@ elif upload_protocol in debug_tools:
             ),
         ]
     )
-    #print ("firmware_merge_req: ", firmware_merge_required)
-    print ("INTEGRATION_EXTRA_DATA; application_offset: ", env.get("INTEGRATION_EXTRA_DATA").get("application_offset"))
     if "uploadfs" not in COMMAND_LINE_TARGETS:
         for image in env.get("FLASH_EXTRA_IMAGES", []):
             openocd_args.extend(
