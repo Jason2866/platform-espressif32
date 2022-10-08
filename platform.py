@@ -29,6 +29,8 @@ class Espressif32Platform(PlatformBase):
     def configure_debug_session(self, debug_config):
         build_extra_data = debug_config.build_data.get("extra", {})
         flash_images = build_extra_data.get("flash_images", [])
+        solo1_framework = build_extra_data.get("solo1_framework", False)
+        itead_framework = build_extra_data.get("itead_framework", False)
 
         ignore_conds = [
             debug_config.load_cmds != ["load"],
@@ -61,10 +63,6 @@ class Espressif32Platform(PlatformBase):
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         frameworks = variables.get("pioframework", [])
-        configure_debug_session
-        build_extra_data = debug_config.build_data.get("extra", {})
-        solo1_framework = build_extra_data.get("solo1_framework", False)
-        itead_framework = build_extra_data.get("itead_framework", False)
 
         if solo1_framework:
             self.packages.pop("framework-arduino-ITEAD", None)
