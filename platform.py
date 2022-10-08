@@ -34,7 +34,7 @@ class Espressif32Platform(PlatformBase):
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         frameworks = variables.get("pioframework", [])
 
-        build_extra_data = variables.get("extra", {})
+        build_extra_data = build_data.get("extra", {})
         print ("build_extra_data: ", build_extra_data)
         solo1_framework = build_extra_data.get("solo1_framework", False)
         itead_framework = build_extra_data.get("itead_framework", False)
