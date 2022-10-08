@@ -38,7 +38,8 @@ if "CORE32SOLO1" in extra_flags or "FRAMEWORK_ARDUINO_SOLO1" in build_flags:
     print ("Solo1 framework will be used")
 elif "CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-ITEAD")
-    env["BoardConfig"].update({"build.extra_flags": "-DCORE32ITEAD"})
+    env["BoardConfig"].Append({"build.extra_flags": "-DCORE32ITEAD"})
+    #bootloader_env.Append(CPPDEFINES=["__BOOTLOADER_BUILD"], _LIBDIRFLAGS=" -Wl,--end-group")
     print ("ITEAD framework will be used")
 else:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
