@@ -32,7 +32,7 @@ class Espressif32Platform(PlatformBase):
 
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
-        core_variant = variables.get("board_build.core_variant", board_config.get("build.core_variant"))
+        core_variant = variables.get("board_build.vendor", board_config.get("build.vendor"))
         print ("core_variant: ", core_variant)
         frameworks = variables.get("pioframework", [])
 
