@@ -32,12 +32,15 @@ class Espressif32Platform(PlatformBase):
 
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
+        frmwrk = variables.get("board_build.extra_flags", board_config.get("build.extra_flags"))
+        print ("frmwrk: ", frmwrk)
         frameworks = variables.get("pioframework", [])
 
-        build_extra_data = build_data.get("extra", {})
-        print ("build_extra_data: ", build_extra_data)
-        solo1_framework = build_extra_data.get("solo1_framework", False)
-        itead_framework = build_extra_data.get("itead_framework", False)
+        #build_extra_data = build_data.get("extra", {})
+        #print ("build_extra_data: ", build_extra_data)
+        ##"env["BoardConfig"].update({"build.extra_flags": "-DCORE32SOLO1"})
+        #solo1_framework = build_extra_data.get("solo1_framework", False)
+        #itead_framework = build_extra_data.get("itead_framework", False)
         print ("solo1: ", solo1_framework, "itead: ", itead_framework)
 
 #        if solo1_framework:
