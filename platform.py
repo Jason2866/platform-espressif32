@@ -27,14 +27,24 @@ IS_WINDOWS = sys.platform.startswith("win")
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
-        solo1_framework = build_extra_data.get("solo1_framework", False)
-        itead_framework = build_extra_data.get("itead_framework", False)
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
 
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         frameworks = variables.get("pioframework", [])
+        solo1_framework = build_extra_data.get("solo1_framework", False)
+        itead_framework = build_extra_data.get("itead_framework", False)
+
+        if solo1_framework:
+            self.packages.pop("framework-arduino-ITEAD", None)
+            self.packages.pop("framework-arduinoespressif32", None)
+        elif itead_framework:
+            self.packages.pop("framework-arduino-solo1", None)
+            self.packages.pop("framework-arduinoespressif32", None)
+        else:
+            self.packages.pop("framework-arduino-ITEAD", None)
+            self.packages.pop("framework-arduino-solo1", None)
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "spiffs")
