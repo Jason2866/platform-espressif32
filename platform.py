@@ -35,18 +35,20 @@ class Espressif32Platform(PlatformBase):
         frameworks = variables.get("pioframework", [])
 
         build_extra_data = variables.get("extra", {})
+        print ("build_extra_data: ", build_extra_data)
         solo1_framework = build_extra_data.get("solo1_framework", False)
         itead_framework = build_extra_data.get("itead_framework", False)
+        print ("solo1: ", solo1_framework, "itead: ", itead_framework)
 
-        if solo1_framework:
-            self.packages.pop("framework-arduino-ITEAD", None)
-            self.packages.pop("framework-arduinoespressif32", None)
-        elif itead_framework:
-            self.packages.pop("framework-arduino-solo1", None)
-            self.packages.pop("framework-arduinoespressif32", None)
-        else:
-            self.packages.pop("framework-arduino-ITEAD", None)
-            self.packages.pop("framework-arduino-solo1", None)
+#        if solo1_framework:
+#            self.packages.pop("framework-arduino-ITEAD", None)
+#            self.packages.pop("framework-arduinoespressif32", None)
+#        elif itead_framework:
+#            self.packages.pop("framework-arduino-solo1", None)
+#            self.packages.pop("framework-arduinoespressif32", None)
+#        else:
+#            self.packages.pop("framework-arduino-ITEAD", None)
+#            self.packages.pop("framework-arduino-solo1", None)
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "spiffs")
