@@ -41,7 +41,7 @@ class Espressif32Platform(PlatformBase):
         ##"env["BoardConfig"].update({"build.extra_flags": "-DCORE32SOLO1"})
         #solo1_framework = build_extra_data.get("solo1_framework", False)
         #itead_framework = build_extra_data.get("itead_framework", False)
-        print ("solo1: ", solo1_framework, "itead: ", itead_framework)
+        #print ("solo1: ", solo1_framework, "itead: ", itead_framework)
 
 #        if solo1_framework:
 #            self.packages.pop("framework-arduino-ITEAD", None)
