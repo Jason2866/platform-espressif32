@@ -27,6 +27,8 @@ IS_WINDOWS = sys.platform.startswith("win")
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
+        solo1_framework = build_extra_data.get("solo1_framework", False)
+        itead_framework = build_extra_data.get("itead_framework", False)
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
 
