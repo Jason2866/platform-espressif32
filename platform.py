@@ -33,7 +33,8 @@ class Espressif32Platform(PlatformBase):
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         core_variant = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
-        core_variant = element.replace("-D", " ") for element in core_variant
+        core_variant = [element.replace("-D", " ") for element in core_variant]
+        #[element.replace("-D", " ") for element in env.GetProjectOption("build_flags")]
         print ("core_variant: ", core_variant)
         frameworks = variables.get("pioframework", [])
 
