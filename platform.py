@@ -26,6 +26,34 @@ IS_WINDOWS = sys.platform.startswith("win")
 
 
 class Espressif32Platform(PlatformBase):
+    def configure_debug_session(self, debug_config):
+        build_extra_data = debug_config.build_data.get("extra", {})
+        flash_images = build_extra_data.get("flash_images", [])
+
+        ignore_conds = [
+            debug_config.load_cmds != ["load"],
+            not flash_images,
+            not all([os.path.isfile(item["path"]) for item in flash_images]),
+        ]
+
+        if any(ignore_conds):
+            return
+
+        load_cmds = [
+            'monitor program_esp "{{{path}}}" {offset} verify'.format(
+                path=to_unix_path(item["path"]), offset=item["offset"]
+            )
+            for item in flash_images
+        ]
+        load_cmds.append(
+            'monitor program_esp "{%s.bin}" %s verify'
+            % (
+                to_unix_path(debug_config.build_data["prog_path"][:-4]),
+                build_extra_data.get("application_offset", "0x10000"),
+            )
+        )
+        debug_config.load_cmds = load_cmds
+
     def configure_default_packages(self, variables, targets):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
@@ -197,31 +225,3 @@ class Espressif32Platform(PlatformBase):
 
         board.manifest["debug"] = debug
         return board
-
-    def configure_debug_session(self, debug_config):
-        build_extra_data = debug_config.build_data.get("extra", {})
-        flash_images = build_extra_data.get("flash_images", [])
-
-        ignore_conds = [
-            debug_config.load_cmds != ["load"],
-            not flash_images,
-            not all([os.path.isfile(item["path"]) for item in flash_images]),
-        ]
-
-        if any(ignore_conds):
-            return
-
-        load_cmds = [
-            'monitor program_esp "{{{path}}}" {offset} verify'.format(
-                path=to_unix_path(item["path"]), offset=item["offset"]
-            )
-            for item in flash_images
-        ]
-        load_cmds.append(
-            'monitor program_esp "{%s.bin}" %s verify'
-            % (
-                to_unix_path(debug_config.build_data["prog_path"][:-4]),
-                build_extra_data.get("application_offset", "0x10000"),
-            )
-        )
-        debug_config.load_cmds = load_cmds
