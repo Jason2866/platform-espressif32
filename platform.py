@@ -35,6 +35,8 @@ class Espressif32Platform(PlatformBase):
         core_variant = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
         core_variant = core_variant.replace("-D", " ")
         print ("core_variant: ", core_variant)
+        test1 = build_extra_data.get("build_core")
+        print ("build_core: ", test1)
         frameworks = variables.get("pioframework", [])
 
         if "CORE32SOLO1" in core_variant:
