@@ -43,7 +43,7 @@ elif "CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags:
     #expand_build_flags = "".join([element.replace("ö", "ä") for element in list_build_flags])                                                                   
     print ("expand_extra_flags", expand_extra_flags)
     #print ("expand_build_flags", expand_build_flags)
-    #env["BoardConfig"].update({"build.extra_flags": expand_extra_flags})
+    env["BoardConfig"].update({"build.extra_flags": expand_extra_flags})
     #env["GetProjectOption"].update({"build_flags": expand_build_flags})
     #env["INTEGRATION_EXTRA_DATA"].update({"application_offset": str(hex(bound))})
     print ("ITEAD framework will be used")
