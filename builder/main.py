@@ -32,6 +32,9 @@ platform = env.PioPlatform()
 extra_flags = ''.join([element.replace("-D", " ") for element in env.BoardConfig().get("build.extra_flags", "")])
 build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
 
+if "INTEGRATION_EXTRA_DATA" not in env:
+    env["INTEGRATION_EXTRA_DATA"] = {}
+
 if "CORE32SOLO1" in extra_flags or "FRAMEWORK_ARDUINO_SOLO1" in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-solo1")
     #env["BoardConfig"].update({"build.extra_flags": "-DCORE32SOLO1"})
@@ -44,9 +47,9 @@ elif "CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags:
     #expand_build_flags = "".join([element.replace("ö", "ä") for element in list_build_flags])                                                                   
     print ("expand_extra_flags", expand_extra_flags)
     #print ("expand_build_flags", expand_build_flags)
-    env["BoardConfig"].update({"build.extra_flags": list_extra_flags})
+    #env["BoardConfig"].update({"build.extra_flags": list_extra_flags})
     #env["GetProjectOption"].update({"build_flags": expand_build_flags})
-    #env["INTEGRATION_EXTRA_DATA"].update({"application_offset": str(hex(bound))})
+    env["INTEGRATION_EXTRA_DATA"].update({"build_core": "-DCORE32ITEAD"})
     print ("ITEAD framework will be used")
 else:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
