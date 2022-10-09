@@ -40,7 +40,7 @@ elif "CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-ITEAD")
     list_extra_flags = (env.BoardConfig().get("build.extra_flags").append("-DCORE32ITEAD")
     #print ("list_extra_flags", (''.join(list_extra_flags)))
-    env["BoardConfig"].update(list_extra_flags)
+    env["BoardConfig"].update({"build.extra_flags": list_extra_flags})
     #bootloader_env.Append(CPPDEFINES=["__BOOTLOADER_BUILD"], _LIBDIRFLAGS=" -Wl,--end-group")
     print ("ITEAD framework will be used")
 else:
