@@ -39,7 +39,8 @@ if "CORE32SOLO1" in extra_flags or "FRAMEWORK_ARDUINO_SOLO1" in build_flags:
 elif "CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-ITEAD")
     expand_extra_flags = env.BoardConfig().get("build.extra_flags") + " -DCORE32ITEAD"
-    expand_build_flags = ''.join(env.GetProjectOption("build_flags")).append("-DFRAMEWORK_ARDUINO_ITEAD")
+    list_build_flags = (env.GetProjectOption("build_flags"))).append("-DFRAMEWORK_ARDUINO_ITEAD"
+    expand_build_flags = ''.join(list_build_flags)                                                                   
     print ("expand_extra_flags", expand_extra_flags)
     print ("expand_build_flags", expand_build_flags)
     #env["BoardConfig"].update({"build.extra_flags": expand_extra_flags})
