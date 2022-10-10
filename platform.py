@@ -34,7 +34,7 @@ class Espressif32Platform(PlatformBase):
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         core_variant = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
         core_variant = core_variant.replace("-D", " ")
-        print ("core_variant: ", core_variant)
+        print ("Extra_flags core_variant: ", core_variant)
         #build_extra_data = debug_config.build_data.get("extra", {})
         #test1 = build_extra_data.get("build_core")
         #print ("build_core: ", test1)
@@ -46,7 +46,7 @@ class Espressif32Platform(PlatformBase):
         elif "CORE32ITEAD" in core_variant:
             self.packages.pop("framework-arduino-solo1", None)
             self.packages.pop("framework-arduinoespressif32", None)
-        else:
+        elif "CORE32ITEAD" not in core_variant or "CORE32SOLO1" not in core_variant:
             self.packages.pop("framework-arduino-ITEAD", None)
             self.packages.pop("framework-arduino-solo1", None)
 
