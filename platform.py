@@ -41,13 +41,10 @@ class Espressif32Platform(PlatformBase):
         #print ("Extra_flags core_variant_board: ", core_variant_board)
         frameworks = variables.get("pioframework", [])
 
-        self.packages.pop("framework-arduinoespressif32", None)
         if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
             self.packages["framework-arduino-solo1"]["optional"] = False
         elif "CORE32ITEAD" in core_variant_board or "FRAMEWORK_ARDUINO_ITEAD" in core_variant_build:
             self.packages["framework-arduino-ITEAD"]["optional"] = False
-        else:
-            self.packages["framework-arduinoespressif32"]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "spiffs")
