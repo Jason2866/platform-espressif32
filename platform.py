@@ -30,23 +30,24 @@ class Espressif32Platform(PlatformBase):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
 
+        buildflags = variables.get("build_flags", [])
+        core_variant_build = ''.join(buildflags)
+        core_variant_build = core_variant_build.replace("-D", " ")
+        print ("core_variant_build: ", core_variant_build)
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
-        core_variant = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
-        core_variant = core_variant.replace("-D", " ")
-        print ("Extra_flags core_variant: ", core_variant)
-        #build_extra_data = debug_config.build_data.get("extra", {})
-        #test1 = build_extra_data.get("build_core")
-        #print ("build_core: ", test1)
+        core_variant_board = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
+        core_variant_board = core_variant_board.replace("-D", " ")
+        print ("Extra_flags core_variant_board: ", core_variant_board)
         frameworks = variables.get("pioframework", [])
 
-        if "CORE32SOLO1" in core_variant:
+        if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
             self.packages.pop("framework-arduino-ITEAD", None)
             self.packages.pop("framework-arduinoespressif32", None)
-        elif "CORE32ITEAD" in core_variant:
+        elif "CORE32ITEAD" in core_variant_board or "FRAMEWORK_ARDUINO_ITEAD" in core_variant_build:
             self.packages.pop("framework-arduino-solo1", None)
             self.packages.pop("framework-arduinoespressif32", None)
-        elif "CORE32ITEAD" not in core_variant or "CORE32SOLO1" not in core_variant:
+        else:
             self.packages.pop("framework-arduino-ITEAD", None)
             self.packages.pop("framework-arduino-solo1", None)
 
@@ -225,3 +226,4 @@ class Espressif32Platform(PlatformBase):
             )
         )
         debug_config.load_cmds = load_cmds
+
