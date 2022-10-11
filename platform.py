@@ -30,15 +30,11 @@ class Espressif32Platform(PlatformBase):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
 
-        buildflags = variables.get("build_flags", [])
-        core_variant_build = ''.join(buildflags)
-        core_variant_build = core_variant_build.replace("-D", " ")
-        #print ("core_variant_build: ", core_variant_build)
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         core_variant_board = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
         core_variant_board = core_variant_board.replace("-D", " ")
-        #print ("Extra_flags core_variant_board: ", core_variant_board)
+        core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
 
         if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
