@@ -8,7 +8,7 @@ How to build PlatformIO based project
 
 ```shell
 # Change directory to example
-$ cd platform-espressif32/examples/arduino-briki-internal-libs
+$ cd platform-espressif32/examples/espidf-ulp-pulse
 
 # Build project
 $ pio run
@@ -17,10 +17,10 @@ $ pio run
 $ pio run --target upload
 
 # Build specific environment
-$ pio run -e briki_abc_esp32
+$ pio run -e esp32dev
 
 # Upload firmware for the specific environment
-$ pio run -e briki_abc_esp32 --target upload
+$ pio run -e esp32dev --target upload
 
 # Clean build files
 $ pio run --target clean
