@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Create a recursive clone source zip
-        uses: jason2866/github-actions/release_zips@master
+        uses: jason2866/github-actions/release_zips@release_idf
         env:
             RELEASE_PROJECT_NAME: platform-espressif32
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
