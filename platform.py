@@ -73,7 +73,7 @@ class Espressif32Platform(PlatformBase):
                     "xtensa-esp32s3",
                     "riscv32-esp"
                 ):
-                    self.packages["toolchain-%s" % target]["version"] = "esp-2022r1-11.2.0"
+                    self.packages["toolchain-%s" % target]["version"] = "11.2.0+2022r1"
 
         for available_mcu in ("esp32", "esp32s2", "esp32s3"):
             if available_mcu == mcu:
