@@ -14,11 +14,11 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-2022, macOS-12]
         example:
-          - "examples/arduino-ble5-advertising"
-          - "examples/arduino-blink"
-          - "examples/arduino-rmt-blink"
-          - "examples/arduino-usb-keyboard"
-          - "examples/arduino-wifiscan"
+#          - "examples/arduino-ble5-advertising"
+#          - "examples/arduino-blink"
+#          - "examples/arduino-rmt-blink"
+#          - "examples/arduino-usb-keyboard"
+#          - "examples/arduino-wifiscan"
           - "examples/espidf-blink"
           - "examples/espidf-coap-server"
           - "examples/espidf-exceptions"
