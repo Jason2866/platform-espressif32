@@ -15,6 +15,7 @@
 import re
 import sys
 from os.path import isfile, join
+from shutil import which
 
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
@@ -218,6 +219,18 @@ if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
+if which("ccache"):
+    env.Replace(
+        CC="ccache %s-elf-gcc" % toolchain_arch, 
+        CXX="ccache %s-elf-g++" % toolchain_arch,
+    )
+else:
+    env.Replace(
+        CC="%s-elf-gcc" % toolchain_arch,
+        CXX="%s-elf-g++" % toolchain_arch,
+    )
+
+
 env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
     __get_board_f_flash=_get_board_f_flash,
@@ -227,8 +240,6 @@ env.Replace(
 
     AR="%s-elf-gcc-ar" % toolchain_arch,
     AS="%s-elf-as" % toolchain_arch,
-    CC="%s-elf-gcc" % toolchain_arch,
-    CXX="%s-elf-g++" % toolchain_arch,
     GDB=join(
         platform.get_package_dir(
             "tool-riscv32-esp-elf-gdb"
