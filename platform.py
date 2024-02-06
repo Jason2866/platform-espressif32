@@ -20,7 +20,7 @@ import re
 import requests
 
 from platformio.public import PlatformBase, to_unix_path
-
+from platformio import util
 
 IS_WINDOWS = sys.platform.startswith("win")
 
@@ -55,6 +55,8 @@ class Espressif32Platform(PlatformBase):
         core_variant_board = core_variant_board.replace("-D", " ")
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
+        # Use the same string identifier as seen in "pio system info" and registry
+        sys_type = util.get_systype()
 
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
