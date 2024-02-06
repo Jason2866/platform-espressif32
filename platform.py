@@ -26,6 +26,25 @@ IS_WINDOWS = sys.platform.startswith("win")
 
 
 class Espressif32Platform(PlatformBase):
+
+    def is_embedded(self):
+        return True
+
+    xtensa_toolchain = {
+        # Windows
+        "windows_amd64": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/x86_64-w64-mingw32.arm-none-eabi-d04e724.240125.zip",
+        "windows_x86": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/i686-w64-mingw32.arm-none-eabi-d04e724.240125.zip",
+        # No Windows ARM64 or ARM32 builds.
+        # Linux
+        "linux_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240109/xtensa-esp-elf-13.2.0_20240109-x86_64-linux-gnu.tar.gz",
+        "linux_i686": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/i686-linux-gnu.arm-none-eabi-d04e724.240125.tar.gz",
+        "linux_aarch64": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/aarch64-linux-gnu.arm-none-eabi-d04e724.240125.tar.gz",
+        "linux_armv7l": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/arm-linux-gnueabihf.arm-none-eabi-d04e724.240125.tar.gz",
+        "linux_armv6l": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/arm-linux-gnueabihf.arm-none-eabi-d04e724.240125.tar.gz",
+        # Mac (Intel and ARM are separate)
+        "darwin_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240109/xtensa-esp-elf-13.2.0_20240109-x86_64-apple-darwin.tar.gz",
+        "darwin_arm64": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/aarch64-apple-darwin20.4.arm-none-eabi-d04e724.240127.tar.gz"
+    }
     def configure_default_packages(self, variables, targets):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
@@ -44,6 +63,21 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
+                    for available_mcu in ("esp32", "esp32s2", "esp32s3"):
+            if available_mcu == mcu:
+                self.packages["toolchain-xtensa-%s" % mcu]["optional"] = False
+            else:
+                self.packages.pop("toolchain-xtensa-%s" % available_mcu, None)
+
+            if mcu in ("esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c6", "esp32h2"):
+                if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
+                    self.packages.pop("toolchain-esp32ulp", None)
+                # RISC-V based toolchain for ESP32C3, ESP32C6 ESP32S2, ESP32S3 ULP
+                self.packages["toolchain-riscv32-esp"]["optional"] = False
+
+        if "espidf" in frameworks:
+            # Configure toolchain download link dynamically
+            self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
@@ -87,18 +121,8 @@ class Espressif32Platform(PlatformBase):
                     elif p in ("tool-mconf", "tool-idf") and IS_WINDOWS:
                         self.packages[p]["optional"] = False
 
-        for available_mcu in ("esp32", "esp32s2", "esp32s3"):
-            if available_mcu == mcu:
-                self.packages["toolchain-xtensa-%s" % mcu]["optional"] = False
-            else:
-                self.packages.pop("toolchain-xtensa-%s" % available_mcu, None)
 
-        if mcu in ("esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c6", "esp32h2"):
-            if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
-                self.packages.pop("toolchain-esp32ulp", None)
-            # RISC-V based toolchain for ESP32C3, ESP32C6 ESP32S2, ESP32S3 ULP
-            self.packages["toolchain-riscv32-esp"]["optional"] = False
-
+ 
         return super().configure_default_packages(variables, targets)
 
     def get_boards(self, id_=None):
