@@ -79,7 +79,8 @@ class Espressif32Platform(PlatformBase):
 
         if "espidf" in frameworks:
             # Configure toolchain download link dynamically
-            self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
+            #self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
+            self.packages["toolchain-xtensa-esp"]["version"] = "https://github.com/Jason2866/crosstool-NG/releases/download/v13.2.0.240109/xtensa-esp-elf-13.2.0_20240109-x86_64-linux-gnu.zip"
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
