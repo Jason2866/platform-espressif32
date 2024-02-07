@@ -74,6 +74,15 @@ class Espressif32Platform(PlatformBase):
         # Use the same string identifier as seen in "pio system info" and registry
         sys_type = util.get_systype()
 
+        if "espidf" in frameworks:
+            # Configure toolchain download link dynamically
+            self.packages["toolchain-xtensa-esp"]["optional"] = False
+            self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
+            self.packages["toolchain-riscv32-esp"]["optional"] = False
+            self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
+            print("Use xtensa toolchain (for system):", Espressif32Platform.xtensa_toolchain[sys_type])
+            print("Use riscv32 toolchain (for system):", Espressif32Platform.riscv32_toolchain[sys_type])
+
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
                 self.packages["framework-arduino-solo1"]["optional"] = False
@@ -92,16 +101,6 @@ class Espressif32Platform(PlatformBase):
                     self.packages.pop("toolchain-esp32ulp", None)
                 # RISC-V based toolchain for ESP32C3, ESP32C6 ESP32S2, ESP32S3 ULP
                 self.packages["toolchain-riscv32-esp"]["optional"] = False
-
-        if "espidf" in frameworks:
-            # Configure toolchain download link dynamically
-            self.packages["toolchain-xtensa-esp"]["optional"] = False
-            self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
-            self.packages.pop("toolchain-riscv32-esp", None)
-            self.packages["toolchain-riscv32-esp"]["optional"] = False
-            self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
-            print("Use xtensa toolchain (for system):", Espressif32Platform.xtensa_toolchain[sys_type])
-            print("Use riscv32 toolchain (for system):", Espressif32Platform.riscv32_toolchain[sys_type])
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
