@@ -81,7 +81,7 @@ class Espressif32Platform(PlatformBase):
             # Configure toolchain download link dynamically
             #self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
             print("Use toolchain (for system): ", Espressif32Platform.xtensa_toolchain[sys_type])
-            self.packages["toolchain-xtensa-esp"]["version"] = "https://github.com/Jason2866/crosstool-NG/releases/download/v13.2.0.240109/xtensa-esp-elf-13.2.0_20240109-x86_64-linux-gnu.zip"
+            self.packages["toolchain-xtensa-esp"]["version"] = "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/x86_64-linux-gnu.arm-none-eabi-028e019.240125.tar.gz"
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
