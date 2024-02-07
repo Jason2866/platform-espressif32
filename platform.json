@@ -56,7 +56,7 @@
     "toolchain-xtensa-esp": {
       "type": "toolchain",
       "optional": true,
-      "owner": "espressif",
+      "owner": "",
       "version": "https://github.com/jason2866/toolchain-dummy/archive/refs/heads/main.zip"
     },
     "toolchain-xtensa-esp32": {
