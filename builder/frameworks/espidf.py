@@ -65,9 +65,6 @@ TOOLCHAIN_DIR = platform.get_package_dir(
     "toolchain-%s" % ("riscv32-esp" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2") else ("xtensa-esp"))
 )
 
-print("framework dir: ", FRAMEWORK_DIR)
-print("toolchain dir: ", TOOLCHAIN_DIR)
-
 assert os.path.isdir(FRAMEWORK_DIR)
 assert os.path.isdir(TOOLCHAIN_DIR)
 
