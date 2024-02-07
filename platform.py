@@ -97,6 +97,7 @@ class Espressif32Platform(PlatformBase):
             # Configure toolchain download link dynamically
             self.packages["toolchain-xtensa-esp"]["optional"] = False
             self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
+            self.packages.pop("toolchain-riscv32-esp", None)
             self.packages["toolchain-riscv32-esp"]["optional"] = False
             self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
             print("Use xtensa toolchain (for system):", Espressif32Platform.xtensa_toolchain[sys_type])
