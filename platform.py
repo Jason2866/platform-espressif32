@@ -24,7 +24,6 @@ from platformio import util
 
 IS_WINDOWS = sys.platform.startswith("win")
 
-
 class Espressif32Platform(PlatformBase):
 
     def is_embedded(self):
@@ -32,18 +31,18 @@ class Espressif32Platform(PlatformBase):
 
     xtensa_toolchain = {
         # Windows
-        "windows_amd64": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/x86_64-w64-mingw32.arm-none-eabi-d04e724.240125.zip",
-        "windows_x86": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/i686-w64-mingw32.arm-none-eabi-d04e724.240125.zip",
+        "windows_amd64": "",
+        "windows_x86": "",
         # No Windows ARM64 or ARM32 builds.
         # Linux
-        "linux_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240109/xtensa-esp-elf-13.2.0_20240109-x86_64-linux-gnu.tar.gz",
-        "linux_i686": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/i686-linux-gnu.arm-none-eabi-d04e724.240125.tar.gz",
-        "linux_aarch64": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/aarch64-linux-gnu.arm-none-eabi-d04e724.240125.tar.gz",
-        "linux_armv7l": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/arm-linux-gnueabihf.arm-none-eabi-d04e724.240125.tar.gz",
-        "linux_armv6l": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/arm-linux-gnueabihf.arm-none-eabi-d04e724.240125.tar.gz",
+        "linux_x86_64": "",
+        "linux_i686": "",
+        "linux_aarch64": "",
+        "linux_armv7l": "",
+        "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
-        "darwin_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240109/xtensa-esp-elf-13.2.0_20240109-x86_64-apple-darwin.tar.gz",
-        "darwin_arm64": "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/aarch64-apple-darwin20.4.arm-none-eabi-d04e724.240127.tar.gz"
+        "darwin_x86_64": "",
+        "darwin_arm64": "https://github.com/Jason2866/crosstool-NG/releases/download/v13.2.0.240109/xtensa-esp-elf-13.2.0_20240109-aarch64-apple-darwin.zip"
     }
     def configure_default_packages(self, variables, targets):
         if not variables.get("board"):
