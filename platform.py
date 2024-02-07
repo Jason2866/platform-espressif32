@@ -44,6 +44,23 @@ class Espressif32Platform(PlatformBase):
         "darwin_x86_64": "",
         "darwin_arm64": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/xtensa-esp32-elf.tar.gz"
     }
+
+    riscv32_toolchain = {
+        # Windows
+        "windows_amd64": "",
+        "windows_x86": "",
+        # No Windows ARM64 or ARM32 builds.
+        # Linux
+        "linux_x86_64": "",
+        "linux_i686": "",
+        "linux_aarch64": "",
+        "linux_armv7l": "",
+        "linux_armv6l": "",
+        # Mac (Intel and ARM are separate)
+        "darwin_x86_64": "",
+        "darwin_arm64": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/riscv32-esp-elf-gcc8_4_0-esp-2021r2-patch5-win64_arm.zip"
+    }
+
     def configure_default_packages(self, variables, targets):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
@@ -80,7 +97,10 @@ class Espressif32Platform(PlatformBase):
             # Configure toolchain download link dynamically
             self.packages["toolchain-xtensa-esp"]["optional"] = False
             self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
-            print("Use toolchain (for system):", Espressif32Platform.xtensa_toolchain[sys_type])
+            self.packages["toolchain-riscv32-esp"]["optional"] = False
+            self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
+            print("Use xtensa toolchain (for system):", Espressif32Platform.xtensa_toolchain[sys_type])
+            print("Use riscv32 toolchain (for system):", Espressif32Platform.riscv32_toolchain[sys_type])
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
