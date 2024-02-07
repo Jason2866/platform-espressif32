@@ -79,9 +79,9 @@ class Espressif32Platform(PlatformBase):
 
         if "espidf" in frameworks:
             # Configure toolchain download link dynamically
-            #self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
-            print("Use toolchain (for system): ", Espressif32Platform.xtensa_toolchain[sys_type])
-            self.packages["toolchain-xtensa-esp"]["version"] = "https://github.com/earlephilhower/pico-quick-toolchain/releases/download/2.2.0/x86_64-linux-gnu.arm-none-eabi-028e019.240125.tar.gz"
+            self.packages["toolchain-xtensa-esp"]["optional"] = False
+            self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
+            print("Use toolchain (for system):", Espressif32Platform.xtensa_toolchain[sys_type])
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
