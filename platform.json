@@ -57,7 +57,7 @@
       "type": "toolchain",
       "optional": true,
       "owner": "",
-      "version": "https://github.com/jason2866/toolchain-dummy/archive/refs/heads/main.zip"
+      "version": "https://github.com/Jason2866/crosstool-NG/releases/download/v13.2.0.240109/xtensa-esp-elf-13.2.0_20240109-x86_64-linux-gnu.zip"
     },
     "toolchain-xtensa-esp32": {
       "type": "toolchain",
