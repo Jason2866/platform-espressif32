@@ -42,7 +42,7 @@ class Espressif32Platform(PlatformBase):
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
         "darwin_x86_64": "",
-        "darwin_arm64": "https://github.com/Jason2866/crosstool-NG/releases/download/v13.2.0.240109/xtensa-esp-elf-13.2.0_20240109-aarch64-apple-darwin.zip"
+        "darwin_arm64": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/xtensa-esp32-elf.tar.gz"
     }
     def configure_default_packages(self, variables, targets):
         if not variables.get("board"):
