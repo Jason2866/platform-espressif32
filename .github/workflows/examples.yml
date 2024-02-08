@@ -52,7 +52,7 @@ jobs:
         run: |
           # Check out Tasmota
           git clone https://github.com/arendst/Tasmota.git examples/tasmota
-          cp tasmota_platformio_override.ini examples/tasmota/platformio_override.ini
+          cp examples/tasmota_platformio_override.ini examples/tasmota/platformio_override.ini
 
       - name: Build examples
         run: |
