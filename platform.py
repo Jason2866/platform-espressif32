@@ -80,6 +80,13 @@ class Espressif32Platform(PlatformBase):
             self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
             self.packages["toolchain-riscv32-esp"]["optional"] = False
             self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
+            # Common packages for IDF and mixed Arduino+IDF projects
+            self.packages["toolchain-esp32ulp"]["optional"] = False
+            for p in self.packages:
+                if p in ("tool-cmake", "tool-ninja"):
+                    self.packages[p]["optional"] = False
+                elif p in ("tool-mconf", "tool-idf") and IS_WINDOWS:
+                    self.packages[p]["optional"] = False
 
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
@@ -132,14 +139,6 @@ class Espressif32Platform(PlatformBase):
                 # Note: On Windows GDB v12 is not able to
                 # launch a GDB server in pipe mode while v11 works fine
                 self.packages[gdb_package]["version"] = "~11.2.0"
-
-            # Common packages for IDF and mixed Arduino+IDF projects
-            if "espidf" in frameworks:
-                for p in self.packages:
-                    if p in ("tool-cmake", "tool-ninja"):
-                        self.packages[p]["optional"] = False
-                    elif p in ("tool-mconf", "tool-idf") and IS_WINDOWS:
-                        self.packages[p]["optional"] = False
 
         return super().configure_default_packages(variables, targets)
 
