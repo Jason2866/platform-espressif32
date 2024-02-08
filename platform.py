@@ -135,15 +135,12 @@ class Espressif32Platform(PlatformBase):
 
             # Common packages for IDF and mixed Arduino+IDF projects
             if "espidf" in frameworks:
-                self.packages["toolchain-esp32ulp"]["optional"] = False
                 for p in self.packages:
                     if p in ("tool-cmake", "tool-ninja"):
                         self.packages[p]["optional"] = False
                     elif p in ("tool-mconf", "tool-idf") and IS_WINDOWS:
                         self.packages[p]["optional"] = False
 
-
- 
         return super().configure_default_packages(variables, targets)
 
     def get_boards(self, id_=None):
