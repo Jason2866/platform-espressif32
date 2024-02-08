@@ -42,7 +42,7 @@ class Espressif32Platform(PlatformBase):
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
         "darwin_x86_64": "",
-        "darwin_arm64": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/xtensa-esp32-elf.tar.gz"
+        "darwin_arm64": "https://github.com/ivankravets/pioreg-ci-mirror/releases/download/toolchain-xtensa-esp32-darwin_arm64/10f9f70-toolchain-xtensa-esp32-darwin_arm64-12.2.0+20230208.tar.gz"
     }
 
     riscv32_toolchain = {
@@ -58,7 +58,7 @@ class Espressif32Platform(PlatformBase):
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
         "darwin_x86_64": "",
-        "darwin_arm64": ""
+        "darwin_arm64": "https://github.com/ivankravets/pioreg-ci-mirror/releases/download/toolchain-riscv32-esp-darwin_arm64/9a8161e-toolchain-riscv32-esp-darwin_arm64-12.2.0+20230208.tar.gz"
     }
 
     def configure_default_packages(self, variables, targets):
