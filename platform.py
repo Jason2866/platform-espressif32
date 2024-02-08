@@ -80,8 +80,6 @@ class Espressif32Platform(PlatformBase):
             self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
             self.packages["toolchain-riscv32-esp"]["optional"] = False
             self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
-            print("Use xtensa toolchain (for system):", Espressif32Platform.xtensa_toolchain[sys_type])
-            print("Use riscv32 toolchain (for system):", Espressif32Platform.riscv32_toolchain[sys_type])
 
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
