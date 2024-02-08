@@ -58,7 +58,7 @@ class Espressif32Platform(PlatformBase):
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
         "darwin_x86_64": "",
-        "darwin_arm64": "https://github.com/Jason2866/crosstool-NG/releases/download/v8.4.0/riscv32-esp-elf-gcc8_4_0-esp-2021r2-patch5-win64_arm.zip"
+        "darwin_arm64": ""
     }
 
     def configure_default_packages(self, variables, targets):
