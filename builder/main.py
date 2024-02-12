@@ -211,7 +211,7 @@ def __fetch_fs_size(target, source, env):
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 toolchain_arch = "xtensa-%s" % mcu
-filesystem = board.get("build.filesystem", "littlefs")
+filesystem = board.get("build.filesystem", "spiffs")
 if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
     toolchain_arch = "riscv32-esp"
 
@@ -256,8 +256,20 @@ env.Replace(
     ],
     ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase_flash',
 
-    MKFSTOOL="mk%s" % filesystem,
-
+    # mkspiffs package contains two different binaries for IDF and Arduino
+    MKFSTOOL="mk%s" % filesystem
+    + (
+        (
+            "_${PIOPLATFORM}_"
+            + (
+                "espidf"
+                if "espidf" in env.subst("$PIOFRAMEWORK")
+                else "${PIOFRAMEWORK}"
+            )
+        )
+        if filesystem == "spiffs"
+        else ""
+    ),
     # Legacy `ESP32_SPIFFS_IMAGE_NAME` is used as the second fallback value for
     # backward compatibility
     ESP32_FS_IMAGE_NAME=env.get(
@@ -298,7 +310,7 @@ env.Append(
                             "-b",
                             "$FS_BLOCK",
                         ]
-                        if filesystem in ("littlefs")
+                        if filesystem in ("spiffs", "littlefs")
                         else []
                     )
                     + ["$TARGET"]
