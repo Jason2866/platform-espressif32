@@ -29,15 +29,7 @@ platform = env.PioPlatform()
 # Helpers
 #
 
-extra_flags = ''.join([element.replace("-D", " ") for element in env.BoardConfig().get("build.extra_flags", "")])
-build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
-
-if "CORE32SOLO1" in extra_flags or "FRAMEWORK_ARDUINO_SOLO1" in build_flags:
-    FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-solo1")
-elif "CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags:
-    FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-ITEAD")
-else:
-    FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 def BeforeUpload(target, source, env):
     upload_options = {}
@@ -70,20 +62,13 @@ def _get_board_memory_type(env):
         ),
     )
 
-def _get_board_img_freq(env):
+def _get_board_f_flash(env):
     board_config = env.BoardConfig()
     img_freq = board_config.get("build.img_freq", "")
     if img_freq =="":
         img_freq = board_config.get("build.f_flash", "")
     img_freq = str(img_freq).replace("L", "")
     return str(int(int(img_freq) / 1000000)) + "m"
-
-
-def _get_board_f_flash(env):
-    board_config = env.BoardConfig()
-    frequency = board_config.get("build.f_flash", "")
-    frequency = str(frequency).replace("L", "")
-    return str(int(int(frequency) / 1000000)) + "m"
 
 
 def _get_board_flash_mode(env):
@@ -293,7 +278,7 @@ env.Append(
                 "--chip", mcu, "elf2image",
                 "--dont-append-digest",
                 "--flash_mode", "${__get_board_flash_mode(__env__)}",
-                "--flash_freq", "${__get_board_img_freq(__env__)}",
+                "--flash_freq", "${__get_board_f_flash(__env__)}",
                 "--flash_size", board.get("upload.flash_size", "4MB"),
                 "-o", "$TARGET", "$SOURCES"
             ]), "Building $TARGET"),
@@ -424,7 +409,7 @@ elif upload_protocol == "esptool":
             "--after", board.get("upload.after_reset", "hard_reset"),
             "write_flash", "-z",
             "--flash_mode", "${__get_board_flash_mode(__env__)}",
-            "--flash_freq", "${__get_board_img_freq(__env__)}",
+            "--flash_freq", "${__get_board_f_flash(__env__)}",
             "--flash_size", "detect"
         ],
         UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS $ESP32_APP_OFFSET $SOURCE'
@@ -442,7 +427,7 @@ elif upload_protocol == "esptool":
                 "--after", board.get("upload.after_reset", "hard_reset"),
                 "write_flash", "-z",
                 "--flash_mode", "${__get_board_flash_mode(__env__)}",
-                "--flash_freq", "${__get_board_img_freq(__env__)}",
+                "--flash_freq", "${__get_board_f_flash(__env__)}",
                 "--flash_size", "detect",
                 "$FS_START"
             ],
