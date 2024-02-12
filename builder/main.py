@@ -206,7 +206,6 @@ if "INTEGRATION_EXTRA_DATA" not in env:
 env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
     __get_board_f_flash=_get_board_f_flash,
-    __get_board_img_freq=_get_board_img_freq,
     __get_board_flash_mode=_get_board_flash_mode,
     __get_board_memory_type=_get_board_memory_type,
 
