@@ -68,6 +68,46 @@ class Espressif32Platform(PlatformBase):
         else:
             del self.packages["tool-dfuutil-arduino"]
 
+        build_core = variables.get(
+            "board_build.core", board_config.get("build.core", "arduino")
+        ).lower()
+
+        if frameworks == ["arduino"] and build_core == "esp32":
+            # In case the upstream Arduino framework is specified in the configuration
+            # file then we need to dynamically extract toolchain versions from the
+            # Arduino index file. This feature can be disabled via a special option:
+            if (
+                variables.get(
+                    "board_build.arduino.upstream_packages",
+                    board_config.get("build.arduino.upstream_packages", "yes"),
+                ).lower()
+                == "yes"
+            ):
+                package_version = self.packages["framework-arduinoespressif32"][
+                    "version"
+                ]
+
+                url_items = urllib.parse.urlparse(package_version)
+                # Only GitHub repositories support dynamic packages
+                if (
+                    url_items.scheme in ("http", "https")
+                    and url_items.netloc.startswith("github")
+                    and url_items.path.endswith(".git")
+                ):
+                    try:
+                        self.configure_upstream_arduino_packages(url_items)
+                    except Exception as e:
+                        sys.stderr.write(
+                            "Error! Failed to extract upstream toolchain"
+                            "configurations:\n%s\n" % str(e)
+                        )
+                        sys.stderr.write(
+                            "You can disable this feature via the "
+                            "`board_build.arduino.upstream_packages = no` setting in "
+                            "your `platformio.ini` file.\n"
+                        )
+                        sys.exit(1)
+
         # Starting from v12, Espressif's toolchains are shipped without
         # bundled GDB. Instead, it's distributed as separate packages for Xtensa
         # and RISC-V targets.
