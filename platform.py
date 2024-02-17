@@ -36,7 +36,6 @@ class Espressif32Platform(PlatformBase):
         core_variant_board = core_variant_board.replace("-D", " ")
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks_board = ''.join(variables.get("board.frameworks", board_config.get("frameworks", "")))
-        #print("framework entrys from board ", frameworks_board)
         frameworks = variables.get("pioframework", [])
 
         if "arduino" in frameworks:
@@ -46,11 +45,12 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
-                if "ARDUINO_TASMOTA" not in core_variant_board and "espidf" in frameworks_board:
-                    self.packages["framework-arduinoespressif32-libs"]["optional"] = False
-                    self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
-                    self.packages["framework-espidf"]["owner"] = "platformio"
-                    self.packages["framework-espidf"]["version"] = "~3.50102.0"
+                # use orig. espressif Arduino and IDF
+                #if "ARDUINO_TASMOTA" not in core_variant_board and "espidf" in frameworks_board:
+                    #self.packages["framework-arduinoespressif32-libs"]["optional"] = False
+                    #self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
+                    #self.packages["framework-espidf"]["owner"] = "platformio"
+                    #self.packages["framework-espidf"]["version"] = "~3.50102.0"
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
