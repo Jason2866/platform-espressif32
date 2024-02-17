@@ -36,6 +36,7 @@ class Espressif32Platform(PlatformBase):
         core_variant_board = core_variant_board.replace("-D", " ")
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         framework_board = ''.join(variables.get("board_build.framework", board_config.get("build.framework", "")))
+        print("framework entry from boards ", framework_board)
         frameworks = variables.get("pioframework", [])
 
         if "arduino" in frameworks:
