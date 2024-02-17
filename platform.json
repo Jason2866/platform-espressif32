@@ -29,6 +29,12 @@
     }
   },
   "packages": {
+    "framework-arduinoespressif32-libs": {
+      "type": "framework",
+      "optional": true,
+      "owner": "espressif",
+      "version": "https://codeload.github.com/espressif/esp32-arduino-libs/zip/bef34d984ad9348f2055653b62998a023273dece"
+    },
     "framework-arduinoespressif32": {
       "type": "framework",
       "optional": true,
