@@ -49,6 +49,7 @@ class Espressif32Platform(PlatformBase):
                 if "ARDUINO_TASMOTA" not in core_variant_board and "espidf" in frameworks_board:
                     self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
+                    self.packages["framework-espidf"]["owner"] = "platformio"
                     self.packages["framework-espidf"]["version"] = "~3.50102.0"
 
         if "buildfs" in targets:
