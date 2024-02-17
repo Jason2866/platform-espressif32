@@ -44,6 +44,8 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
+                if "ARDUINO_TASMOTA" not in core_variant_board:
+                    self.packages["framework-arduinoespressif32-libs"]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
