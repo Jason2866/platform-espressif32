@@ -35,6 +35,7 @@ class Espressif32Platform(PlatformBase):
         core_variant_board = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
         core_variant_board = core_variant_board.replace("-D", " ")
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
+        framework_board = ''.join(variables.get("board_build.framework", board_config.get("build.framework", "")))
         frameworks = variables.get("pioframework", [])
 
         if "arduino" in frameworks:
@@ -44,7 +45,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
-                if "ARDUINO_TASMOTA" not in core_variant_board and "espressif" in frameworks:
+                if "ARDUINO_TASMOTA" not in core_variant_board and "espidf" in framework_board:
                     self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
 
