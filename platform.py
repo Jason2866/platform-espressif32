@@ -161,6 +161,10 @@ class Espressif32Platform(PlatformBase):
         return result
 
     def _add_dynamic_options(self, board):
+        # set flag "espressif" to indicate between Tasmota and orig. framework
+        #frameworks = variables.get("pioframework", [])
+        if "espressif" in frameworks:
+            board.manifest["frameworks"] = ["arduino", "espidf", "espressif"]
         # upload protocols
         if not board.get("upload.protocols", []):
             board.manifest["upload"]["protocols"] = ["esptool", "espota"]
