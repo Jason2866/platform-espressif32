@@ -51,7 +51,7 @@ class Espressif32Platform(PlatformBase):
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
                     self.packages["framework-espidf"]["version"] = "~3.50102.0"
-                    variables.manifest["frameworks"] = frameworks
+                    variables["frameworks"] = frameworks
                     frameworks_board = ''.join(variables.get("board.frameworks", board_config.get("frameworks", "")))
                     print("frameworks_board: ", frameworks_board)
 
