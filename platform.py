@@ -29,7 +29,6 @@ class Espressif32Platform(PlatformBase):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
 
-        print("variables: ", variables)
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         core_variant_board = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
@@ -37,6 +36,9 @@ class Espressif32Platform(PlatformBase):
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks_board = ''.join(variables.get("board.frameworks", board_config.get("frameworks", "")))
         frameworks = variables.get("pioframework", [])
+        print("variables: ", variables)
+        print("frameworks_board: ", frameworks_board)
+        print("frameworks: ", frameworks)
 
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
@@ -51,6 +53,7 @@ class Espressif32Platform(PlatformBase):
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
                     self.packages["framework-espidf"]["version"] = "~3.50102.0"
+                    board_config.set("frameworks") = frameworks
 
 
         if "buildfs" in targets:
