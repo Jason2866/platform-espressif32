@@ -52,6 +52,8 @@ class Espressif32Platform(PlatformBase):
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
                     self.packages["framework-espidf"]["version"] = "~3.50102.0"
+                    # set flag "espressif" to indicate between Tasmota and orig. framework
+                    board.manifest["frameworks"] = frameworks       
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
@@ -161,11 +163,6 @@ class Espressif32Platform(PlatformBase):
         return result
 
     def _add_dynamic_options(self, board):
-        # set flag "espressif" to indicate between Tasmota and orig. framework
-        frameworks = variables.get("pioframework", [])
-        if "espressif" in frameworks:
-            board.manifest["frameworks"] = frameworks
-            
         # upload protocols
         if not board.get("upload.protocols", []):
             board.manifest["upload"]["protocols"] = ["esptool", "espota"]
