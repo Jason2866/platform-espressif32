@@ -30,6 +30,7 @@ class Espressif32Platform(PlatformBase):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
 
+        print("variables: ", variables)
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         core_variant_board = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
