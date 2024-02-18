@@ -24,6 +24,8 @@ from platformio.public import PlatformBase, to_unix_path
 
 IS_WINDOWS = sys.platform.startswith("win")
 
+frameworks_global = get("pioframework", [])
+print("frameworks: "' frameworks_global)
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
