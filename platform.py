@@ -169,7 +169,7 @@ class Espressif32Platform(PlatformBase):
     def _add_dynamic_options(self, board):
         # set flag "espressif" to indicate between Tasmota and orig. framework
         #board.manifest["frameworks"] = ["arduino", "espressif"]
-        build_extra_data = board.build_data.get("extra", {})
+        build_extra_data = board.get("extra", {})
         #flash_images = build_extra_data.get("flash_images", [])
         board.manifest["frameworks"] = build_extra_data.get("frameworks"),
         # upload protocols
