@@ -53,9 +53,9 @@ class Espressif32Platform(PlatformBase):
                     self.packages["framework-espidf"]["version"] = "~3.50102.0"
                     #env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
                     # Propagate changed frameworks to debug configurations
-                    env["INTEGRATION_EXTRA_DATA"].update({"frameworks": frameworks})
+                    ["INTEGRATION_EXTRA_DATA"].update({"frameworks": frameworks})
                     #board_config("frameworks") = frameworks
-                    #board.manifest["frameworks"] = frameworks
+                    manifest["frameworks"] = frameworks
                     frameworks_board = ''.join(variables.get("board.frameworks", board_config.get("frameworks", "")))
                     print("frameworks_board: ", frameworks_board)
 
