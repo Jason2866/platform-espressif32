@@ -26,6 +26,9 @@
     "espidf": {
       "package": "framework-espidf",
       "script": "builder/frameworks/espidf.py"
+    },
+    "espressif": {
+      "script": "builder/frameworks/espressif.py"
     }
   },
   "packages": {
