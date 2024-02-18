@@ -15,8 +15,7 @@
   },
   "frameworks": [
     "arduino",
-    "espidf",
-    "espressif"
+    "espidf"
   ],
   "name": "Espressif ESP32-C6-DevKitC-1",
   "upload": {
