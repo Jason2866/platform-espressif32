@@ -28,7 +28,7 @@
       "script": "builder/frameworks/espidf.py"
     },
     "espressif": {
-      "script": "builder/frameworks/espressif.py"
+      "script": "builder/frameworks/arduino.py"
     }
   },
   "packages": {
