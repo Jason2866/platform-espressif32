@@ -51,7 +51,7 @@ class Espressif32Platform(PlatformBase):
                     self.packages["framework-espidf"]["owner"] = "platformio"
                     self.packages["framework-espidf"]["version"] = "~3.50102.0"
                     #board_config["frameworks"].update[frameworks]
-                    board_config["upload"]["protocols"].update("esptool", "espota")
+                    board_config["upload"]["protocol"].update("esptool")
                     frameworks_board = variables.get("board.frameworks", board_config.get("frameworks"))
                     frmwrk_board = board_config.get("frameworks")
                     print("frameworks_board: ", frameworks_board)
