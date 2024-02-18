@@ -32,7 +32,7 @@ build_core = board.get("build.core", "").lower()
 
 SConscript("_embed_files.py", exports="env")
 
-if "espidf" not in env.subst("$PIOFRAMEWORK"):
+if "espidf" not in env.subst("$PIOFRAMEWORK") and "espressif" in env.subst("$PIOFRAMEWORK")
     SConscript(
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduinoespressif32"), "tools", "platformio-build.py"))
