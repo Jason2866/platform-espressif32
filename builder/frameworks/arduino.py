@@ -108,5 +108,5 @@ def install_python_deps():
             )
         )
 
-if "FRAMEWORK_ARDUINO_ESPRESSIF" not in core_variant_build:
+if "FRAMEWORK_ARDUINO_ESPRESSIF" not in build_flags:
     install_python_deps()
