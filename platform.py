@@ -35,7 +35,6 @@ class Espressif32Platform(PlatformBase):
         core_variant_board = core_variant_board.replace("-D", " ")
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
-        #print("variables: ", variables)
 
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
@@ -45,18 +44,17 @@ class Espressif32Platform(PlatformBase):
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
                 # use orig. espressif Arduino and IDF
-                if "ARDUINO_TASMOTA" not in core_variant_board and "espressif" in frameworks:
+                if "ARDUINO_TASMOTA" not in core_variant_board and "FRAMEWORK_ARDUINO_ESPRESSIF" in core_variant_build:
                     self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
                     self.packages["framework-espidf"]["version"] = "~3.50102.0"
                     #board_config["frameworks"].update[frameworks]
-                    board_config["upload"]["protocol"].update("esptool")
-                    frameworks_board = variables.get("board.frameworks", board_config.get("frameworks"))
-                    frmwrk_board = board_config.get("frameworks")
-                    print("frameworks_board: ", frameworks_board)
-                    print("frmwrk_board: ", frmwrk_board)
-                    print("frameworks: ", frameworks)
+                    #frameworks_board = variables.get("board.frameworks", board_config.get("frameworks"))
+                    #frmwrk_board = board_config.get("frameworks")
+                    #print("frameworks_board: ", frameworks_board)
+                    #print("frmwrk_board: ", frmwrk_board)
+                    #print("frameworks: ", frameworks)
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
@@ -166,11 +164,8 @@ class Espressif32Platform(PlatformBase):
         return result
 
     def _add_dynamic_options(self, board):
-        # set flag "espressif" to indicate between Tasmota and orig. framework
-        #board.manifest["frameworks"] = ["arduino", "espressif"]
-        #build_extra_data = board.get("extra", {})
-        #flash_images = build_extra_data.get("flash_images", [])
-        #board.manifest["frameworks"] = build_extra_data.get("frameworks"),
+        frameworks = board.get("pioframework", [])
+        print("frameworks ", frameworks)
         # upload protocols
         if not board.get("upload.protocols", []):
             board.manifest["upload"]["protocols"] = ["esptool", "espota"]
