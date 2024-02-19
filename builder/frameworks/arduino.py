@@ -108,4 +108,5 @@ def install_python_deps():
             )
         )
 
-install_python_deps()
+if "FRAMEWORK_ARDUINO_ESPRESSIF" not in core_variant_build:
+    install_python_deps()
