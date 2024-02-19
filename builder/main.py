@@ -259,8 +259,20 @@ env.Replace(
     ],
     ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase_flash',
 
-    MKFSTOOL="mk%s" % filesystem,
-
+    # mkspiffs package contains two different binaries for IDF and Arduino
+    MKFSTOOL="mk%s" % filesystem
+    + (
+        (
+            "_${PIOPLATFORM}_"
+            + (
+                "espidf"
+                if "espidf" in env.subst("$PIOFRAMEWORK")
+                else "${PIOFRAMEWORK}"
+            )
+        )
+        if filesystem == "spiffs"
+        else ""
+    ),
     # Legacy `ESP32_SPIFFS_IMAGE_NAME` is used as the second fallback value for
     # backward compatibility
     ESP32_FS_IMAGE_NAME=env.get(
@@ -301,7 +313,7 @@ env.Append(
                             "-b",
                             "$FS_BLOCK",
                         ]
-                        if filesystem in ("littlefs")
+                        if filesystem in ("littlefs", "spiffs")
                         else []
                     )
                     + ["$TARGET"]

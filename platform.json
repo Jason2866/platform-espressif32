@@ -26,9 +26,18 @@
     "espidf": {
       "package": "framework-espidf",
       "script": "builder/frameworks/espidf.py"
+    },
+    "espressif": {
+      "script": "builder/frameworks/espressif.py"
     }
   },
   "packages": {
+    "framework-arduinoespressif32-libs": {
+      "type": "framework",
+      "optional": true,
+      "owner": "espressif",
+      "version": "https://codeload.github.com/espressif/esp32-arduino-libs/zip/bef34d984ad9348f2055653b62998a023273dece"
+    },
     "framework-arduinoespressif32": {
       "type": "framework",
       "optional": true,
@@ -122,6 +131,12 @@
       "optional": true,
       "owner": "platformio",
       "version": "~2.0.0"
+    },
+    "tool-mkspiffs": {
+      "type": "uploader",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~2.230.0"
     },
     "tool-cmake": {
       "optional": true,
