@@ -164,8 +164,6 @@ class Espressif32Platform(PlatformBase):
         return result
 
     def _add_dynamic_options(self, board):
-        frameworks = board.get("pioframework", [])
-        print("frameworks ", frameworks)
         # upload protocols
         if not board.get("upload.protocols", []):
             board.manifest["upload"]["protocols"] = ["esptool", "espota"]
