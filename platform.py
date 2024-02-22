@@ -48,7 +48,8 @@ class Espressif32Platform(PlatformBase):
                     URL = "https://raw.githubusercontent.com/espressif/arduino-esp32/idf-release/v5.1/package/package_esp32_index.template.json"
                     #response = request.urlretrieve(URL, "package_esp32_index.template.json")
                     packjdata = requests.get(URL).json()
-                    print(packjdata)
+                    for i in packjdata['tools']:
+                        print(i) 
                     self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
