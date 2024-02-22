@@ -36,7 +36,7 @@
       "type": "framework",
       "optional": true,
       "owner": "espressif",
-      "version": "https://codeload.github.com/espressif/esp32-arduino-libs/zip/86e4fbbff4374330585949f17603fa0bba7e5a3c"
+      "version": "https://codeload.github.com/espressif/esp32-arduino-libs/zip/302a33cf8f23da9b734e59b8994b503a8ac0b3c0"
     },
     "framework-arduinoespressif32": {
       "type": "framework",
