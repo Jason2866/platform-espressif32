@@ -50,6 +50,7 @@ class Espressif32Platform(PlatformBase):
                     packjdata = requests.get(URL).json()
                     #print(packjdata.get("packages"))
                     print(packjdata['packages'][0]['email'])
+                    print(packjdata['tools'][0]['version'])
                     self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
