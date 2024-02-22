@@ -65,8 +65,6 @@ TOOLCHAIN_DIR = platform.get_package_dir(
     "toolchain-%s" % ("riscv32-esp" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2") else ("xtensa-esp"))
 )
 
-print("mcu: ", mcu)
-print("toolchain dir: ", TOOLCHAIN_DIR)
 
 assert os.path.isdir(FRAMEWORK_DIR)
 assert os.path.isdir(TOOLCHAIN_DIR)
@@ -423,7 +421,7 @@ def get_app_flags(app_config, default_config):
 
     # Flags are sorted because CMake randomly populates build flags in code model
     return {
-        "ASFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM"))),
+        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM"))),
         "CFLAGS": sorted(app_flags.get("C", default_flags.get("C"))),
         "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX"))),
     }
@@ -641,7 +639,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                 parsed_flags = build_env.ParseFlags(build_flags)
                 build_env.AppendUnique(**parsed_flags)
                 if cg.get("language", "") == "ASM":
-                    build_env.AppendUnique(ASFLAGS=parsed_flags.get("CCFLAGS", []))
+                    build_env.AppendUnique(ASPPFLAGS=parsed_flags.get("CCFLAGS", []))
         build_env.AppendUnique(CPPDEFINES=defines, CPPPATH=includes)
         if sys_includes:
             build_env.Append(CCFLAGS=[("-isystem", inc) for inc in sys_includes])
@@ -964,7 +962,7 @@ def generate_empty_partition_image(binary_path, image_size):
 def get_partition_info(pt_path, pt_offset, pt_params):
     if not os.path.isfile(pt_path):
         sys.stderr.write(
-            "Missing partition table file `%s`\n" % os.path.basename(pt_path)
+            "Missing partition table file `%s`\n" % pt_path
         )
         env.Exit(1)
 
