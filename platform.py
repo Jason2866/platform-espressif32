@@ -45,6 +45,8 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduinoespressif32"]["optional"] = False
                 # use orig. espressif Arduino and IDF
                 if "ARDUINO_TASMOTA" not in core_variant_board and "FRAMEWORK_ARDUINO_ESPRESSIF" in core_variant_build:
+                    URL = "https://raw.githubusercontent.com/espressif/arduino-esp32/idf-release/v5.1/package/package_esp32_index.template.json"
+                    response = request.urlretrieve(URL, "package_esp32_index.template.json")
                     self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                     self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
