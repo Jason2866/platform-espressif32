@@ -47,11 +47,11 @@ class Espressif32Platform(PlatformBase):
                 packjdata = requests.get(URL).json()
                 dyn_lib_url = packjdata['packages'][0]['tools'][0]['systems'][0]['url']
                 self.packages["framework-arduinoespressif32-libs"]["version"] = dyn_lib_url
+                #self.packages["framework-arduinoespressif32-libs"]["version"] = "https://codeload.github.com/espressif/esp32-arduino-libs/zip/302a33cf8f23da9b734e59b8994b503a8ac0b3c0"
                 self.packages["framework-arduinoespressif32-libs"]["optional"] = False
-                self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
+                #self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
+                self.packages["framework-arduinoespressif32"]["version"] = "https://github.com/espressif/arduino-esp32/archive/refs/heads/master.zip"
                 self.packages["framework-arduinoespressif32"]["optional"] = False
-                #self.packages["framework-espidf"]["owner"] = "espressif"
-                #self.packages["framework-espidf"]["version"] = "https://github.com/tasmota/esp-idf/releases/download/v5.1.2.240221/esp-idf-v5.1.2.zip"
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
 
