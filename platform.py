@@ -46,15 +46,13 @@ class Espressif32Platform(PlatformBase):
                 # use orig. espressif Arduino and IDF
                 if "ARDUINO_TASMOTA" not in core_variant_board and "FRAMEWORK_ARDUINO_ESPRESSIF" in core_variant_build:
                     URL = "https://raw.githubusercontent.com/espressif/arduino-esp32/idf-release/v5.1/package/package_esp32_index.template.json"
-                    #response = request.urlretrieve(URL, "package_esp32_index.template.json")
                     packjdata = requests.get(URL).json()
-                    #print(packjdata.get("packages"))
-                    print(packjdata['packages'][0]['email'])
-                    #print(packjdata['packages']['platforms'][0]['architecture'])
+                    dyn_lib_url = packjdata['packages'][0]['tools'][0]['systems'][0]['url']
                     self.packages["framework-arduinoespressif32-libs"]["optional"] = False
-                    self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
+                    self.packages["framework-arduinoespressif32"]["version"] = dyn_lib_url
+                    #self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                     self.packages["framework-espidf"]["owner"] = "platformio"
-                    self.packages["framework-espidf"]["version"] = "https://github.com/Jason2866/esp-idf/releases/download/v5.1.2.240206/esp-idf-v5.1.2.zip"
+                    self.packages["framework-espidf"]["version"] = "https://github.com/tasmota/esp-idf/releases/download/v5.1.2.240221/esp-idf-v5.1.2.zip"
                     #board_config["frameworks"].update[frameworks]
                     #frameworks_board = variables.get("board.frameworks", board_config.get("frameworks"))
                     #frmwrk_board = board_config.get("frameworks")
