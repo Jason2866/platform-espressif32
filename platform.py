@@ -41,7 +41,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduino-solo1"]["optional"] = False
             elif "CORE32ITEAD" in core_variant_board or "FRAMEWORK_ARDUINO_ITEAD" in core_variant_build:
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
-            elif "ARDUINO_TASMOTA" not in core_variant_board and "FRAMEWORK_ARDUINO_ESPRESSIF" in core_variant_build:
+            elif "FRAMEWORK_ARDUINO_ESPRESSIF" in core_variant_build and "ARDUINO_TASMOTA" not in core_variant_board:
                 # use orig. espressif Arduino and IDF
                 URL = "https://raw.githubusercontent.com/espressif/arduino-esp32/idf-release/v5.1/package/package_esp32_index.template.json"
                 packjdata = requests.get(URL).json()
@@ -51,14 +51,8 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                 self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                 self.packages["framework-arduinoespressif32"]["optional"] = False
-                self.packages["framework-espidf"]["owner"] = "espressif"
-                self.packages["framework-espidf"]["version"] = "https://github.com/tasmota/esp-idf/releases/download/v5.1.2.240221/esp-idf-v5.1.2.zip"
-                #board_config["frameworks"].update[frameworks]
-                #frameworks_board = variables.get("board.frameworks", board_config.get("frameworks"))
-                #frmwrk_board = board_config.get("frameworks")
-                #print("frameworks_board: ", frameworks_board)
-                #print("frmwrk_board: ", frmwrk_board)
-                #print("frameworks: ", frameworks)
+                #self.packages["framework-espidf"]["owner"] = "espressif"
+                #self.packages["framework-espidf"]["version"] = "https://github.com/tasmota/esp-idf/releases/download/v5.1.2.240221/esp-idf-v5.1.2.zip"
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
 
