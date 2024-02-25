@@ -47,7 +47,7 @@ elif ("CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags) 
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduino-ITEAD"), "tools", "platformio-build.py"))
 
-elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flags and "FRAMEWORK_ARDUINO_SOLO1" not in build_flags and "CORE32ITEAD" not in extra_flags and "FRAMEWORK_ARDUINO_ITEAD" not in build_flags and "espidf" not in env.subst("$PIOFRAMEWORK") and "espressif" not in env.subst("$PIOFRAMEWORK"):
+elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flags and "FRAMEWORK_ARDUINO_SOLO1" not in build_flags and "CORE32ITEAD" not in extra_flags and "FRAMEWORK_ARDUINO_ITEAD" not in build_flags and "espidf" not in env.subst("$PIOFRAMEWORK"):
     SConscript(
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduinoespressif32"), "tools", "platformio-build.py"))
