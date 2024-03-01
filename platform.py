@@ -53,8 +53,8 @@ class Espressif32Platform(PlatformBase):
                 #self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                 self.packages["framework-arduinoespressif32"]["version"] = "https://github.com/espressif/arduino-esp32/archive/refs/heads/master.zip"
                 self.packages["framework-arduinoespressif32"]["optional"] = False
-                self.packages["framework-espidf"]["owner"] = "platformio"
-                self.packages["framework-espidf"]["version"] = "~3.50102.0" 
+                self.packages["framework-espidf"]["owner"] = "jason2866"
+                self.packages["framework-espidf"]["version"] = "https://github.com/Jason2866/esp-idf/releases/download/v5.1.3/esp-idf-v5.1.3.zip" 
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
 
