@@ -13,6 +13,7 @@
     ],
     "f_cpu": "240000000L",
     "f_flash": "80000000L",
+    "f_image": "120000000L",
     "flash_mode": "dout",
     "mcu": "esp32s3",
     "variant": "esp32s3"
