@@ -66,7 +66,7 @@ class Espressif32Platform(PlatformBase):
             ):
                 # fetch framework and toolchains from Arduino repo dynamically
                 print("Fetch framework and toolchains from Arduino repo dynamically")
-                #self.packages["framework-arduinoespressif32-libs"]["optional"] = False
+                self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                 self.packages["framework-arduinoespressif32"]["version"] = "https://github.com/tasmota/arduino-esp32.git"
             else:
                 # use Tasmota espressif32 framework
