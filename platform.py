@@ -38,8 +38,10 @@ class Espressif32Platform(PlatformBase):
 
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
+                # use Tasmota Esp32 solo1 framework
                 self.packages["framework-arduino-solo1"]["optional"] = False
             elif "CORE32ITEAD" in core_variant_board or "FRAMEWORK_ARDUINO_ITEAD" in core_variant_build:
+                # use Tasmota ESP32 ITEAD framework
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
             elif "FRAMEWORK_ARDUINO_ESPRESSIF" in core_variant_build and "ARDUINO_TASMOTA" not in core_variant_board:
                 # use orig. espressif Arduino and IDF
@@ -55,7 +57,18 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduinoespressif32"]["optional"] = False
                 self.packages["framework-espidf"]["owner"] = "jason2866"
                 self.packages["framework-espidf"]["version"] = "https://github.com/Jason2866/esp-idf/releases/download/v5.1.3.240313/esp-idf-v5.1.3.zip" 
+            elif (
+                variables.get(
+                    "board_build.arduino.upstream_packages",
+                    board_config.get("build.arduino.upstream_packages", "yes"),
+                ).lower()
+                == "yes"
+            ):
+                # fetch framework and toolchains from Arduino repo dynamically
+                print("Fetch framework and toolchains from Arduino repo dynamically")
+                #self.packages["framework-arduinoespressif32-libs"]["optional"] = False
             else:
+                # use Tasmota espressif32 framework
                 self.packages["framework-arduinoespressif32"]["optional"] = False
 
         if "buildfs" in targets:
