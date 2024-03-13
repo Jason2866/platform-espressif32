@@ -60,7 +60,7 @@ class Espressif32Platform(PlatformBase):
             elif (
                 variables.get(
                     "board_build.arduino.upstream_packages",
-                    board_config.get("build.arduino.upstream_packages", "yes"),
+                    board_config.get("build.arduino.upstream_packages", "no"),
                 ).lower()
                 == "yes"
             ):
