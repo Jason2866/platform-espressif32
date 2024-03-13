@@ -330,6 +330,7 @@ class Espressif32Platform(PlatformBase):
             )
             for pattern in version_patterns:
                 match = re.search(pattern, original_version)
+                print("match:", match)
                 if match:
                     result = "%s.%s.%s" % (
                         match.group("MAJOR"),
