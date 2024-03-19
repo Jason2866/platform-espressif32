@@ -88,6 +88,13 @@ def _get_board_f_image(env):
     return _get_board_f_flash(env)
 
 
+def _get_board_f_boot(env):
+    board_config = env.BoardConfig()
+    if "build.f_boot" in board_config:
+        return _normalize_frequency(board_config.get("build.f_boot"))
+
+    return _get_board_f_flash(env)
+
 
 def _get_board_flash_mode(env):
     if _get_board_memory_type(env) in (
@@ -95,6 +102,7 @@ def _get_board_flash_mode(env):
         "opi_qspi",
     ):
         return "dout"
+
 
     mode = env.subst("$BOARD_FLASH_MODE")
     if mode in ("qio", "qout"):
@@ -225,6 +233,7 @@ env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
     __get_board_f_flash=_get_board_f_flash,
     __get_board_f_image=_get_board_f_image,
+    __get_board_f_boot=_get_board_f_boot,
     __get_board_flash_mode=_get_board_flash_mode,
     __get_board_memory_type=_get_board_memory_type,
 
@@ -540,7 +549,7 @@ env.AddPlatformTarget(
     "erase_upload",
     target_firm,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ],
@@ -555,7 +564,7 @@ env.AddPlatformTarget(
     "erase",
     None,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing...")
     ],
     "Erase Flash",
