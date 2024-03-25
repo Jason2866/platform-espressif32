@@ -80,7 +80,7 @@
     "toolchain-riscv32-esp": {
       "type": "toolchain",
       "optional": true,
-      "owner": "espressif",
+      "owner": "platformio",
       "version": "13.2.0+20230928"
     },
     "toolchain-esp32ulp": {
