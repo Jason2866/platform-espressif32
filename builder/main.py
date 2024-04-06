@@ -87,6 +87,12 @@ def _get_board_f_image(env):
 
     return _get_board_f_flash(env)
 
+def _get_board_f_boot(env):
+    board_config = env.BoardConfig()
+    if "build.f_boot" in board_config:
+        return _normalize_frequency(board_config.get("build.f_boot"))
+
+    return _get_board_f_flash(env)
 
 
 def _get_board_flash_mode(env):
@@ -225,6 +231,7 @@ env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
     __get_board_f_flash=_get_board_f_flash,
     __get_board_f_image=_get_board_f_image,
+    __get_board_f_boot=_get_board_f_boot,
     __get_board_flash_mode=_get_board_flash_mode,
     __get_board_memory_type=_get_board_memory_type,
 
@@ -282,7 +289,6 @@ env.Append(
             action=env.VerboseAction(" ".join([
                 '"$PYTHONEXE" "$OBJCOPY"',
                 "--chip", mcu, "elf2image",
-                "--dont-append-digest",
                 "--flash_mode", "${__get_board_flash_mode(__env__)}",
                 "--flash_freq", "${__get_board_f_image(__env__)}",
                 "--flash_size", board.get("upload.flash_size", "4MB"),
@@ -529,7 +535,7 @@ env.AddPlatformTarget(
     "erase_upload",
     target_firm,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ],
@@ -544,7 +550,7 @@ env.AddPlatformTarget(
     "erase",
     None,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing...")
     ],
     "Erase Flash",
