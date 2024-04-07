@@ -87,13 +87,13 @@
       "type": "debugger",
       "optional": true,
       "owner": "espressif",
-      "version": "~12.1.0"
+      "version": "https://github.com/espressif/binutils-gdb/releases/download/esp-gdb-v14.2_20240403/xtensa-esp-elf-gdb-14.2_20240403-aarch64-apple-darwin21.1.tar.gz"
     },
     "tool-riscv32-esp-elf-gdb": {
       "type": "debugger",
       "optional": true,
       "owner": "espressif",
-      "version": "~12.1.0"
+      "version": "https://github.com/espressif/binutils-gdb/releases/download/esp-gdb-v14.2_20240403/riscv32-esp-elf-gdb-14.2_20240403-aarch64-apple-darwin21.1.tar.gz"
     },
     "tool-esptoolpy": {
       "type": "uploader",
