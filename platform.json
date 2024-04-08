@@ -33,7 +33,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2257/framework-arduinoespressif32-all-release_v5.1-11140aa.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2261/framework-arduinoespressif32-all-release_v5.1-11140aa.zip"
     },
      "framework-arduino-solo1": {
       "type": "framework",
@@ -110,7 +110,7 @@
       "type": "debugger",
       "optional": true,
       "owner": "platformio",
-      "version": "~2.1100.0"
+      "version": "https://github.com/Jason2866/openocd-esp32/releases/download/v0.12.0-esp32-20240318/openocd-esp32-macos-arm64-0.12.0-esp32-20240318.tar.gz"
     },
     "tool-mklittlefs": {
       "type": "uploader",
