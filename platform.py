@@ -77,6 +77,7 @@ class Espressif32Platform(PlatformBase):
         if "espidf" in frameworks:
             # Configure toolchain download link dynamically
             self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
+            self.packages["toolchain-xtensa-esp-elf"]["owner"] = "platformio"
             self.packages["toolchain-xtensa-esp-elf"]["version"] = "13.2.0+20230928"
             #self.packages["toolchain-xtensa-esp-elf"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
             self.packages["toolchain-riscv32-esp"]["optional"] = False
