@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14]
+        os: [ubuntu-latest]
         example:
           - "examples/arduino-blink"
           - "examples/arduino-rmt-blink"
