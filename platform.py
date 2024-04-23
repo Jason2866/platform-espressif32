@@ -80,6 +80,7 @@ class Espressif32Platform(PlatformBase):
             self.packages["toolchain-xtensa-esp-elf"]["version"] = "13.2.0+20230928"
             #self.packages["toolchain-xtensa-esp-elf"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
             self.packages["toolchain-riscv32-esp"]["optional"] = False
+            self.packages["toolchain-riscv32-esp"]["owner"] = "platformio"
             self.packages["toolchain-riscv32-esp"]["version"] = "13.2.0+20230928"
             #self.packages["toolchain-riscv32-esp-elf"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
             # Common packages for IDF and mixed Arduino+IDF projects
