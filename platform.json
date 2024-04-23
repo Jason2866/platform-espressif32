@@ -53,10 +53,10 @@
       "owner": "tasmota",
       "version": "https://github.com/tasmota/esp-idf/releases/download/v5.3.0.240207/esp-idf-v5.3.0.zip"
     },
-    "toolchain-xtensa-esp": {
+    "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
       "optional": true,
-      "owner": "",
+      "owner": "platformio",
       "version": ""
     },
     "toolchain-xtensa-esp32": {
