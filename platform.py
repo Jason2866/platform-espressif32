@@ -42,7 +42,7 @@ class Espressif32Platform(PlatformBase):
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
         "darwin_x86_64": "",
-        "darwin_arm64": "https://github.com/ivankravets/pioreg-ci-mirror/releases/download/toolchain-xtensa-esp32-darwin_arm64/10f9f70-toolchain-xtensa-esp32-darwin_arm64-12.2.0+20230208.tar.gz"
+        "darwin_arm64": ""
     }
 
     riscv32_toolchain = {
@@ -58,7 +58,7 @@ class Espressif32Platform(PlatformBase):
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
         "darwin_x86_64": "",
-        "darwin_arm64": "https://github.com/ivankravets/pioreg-ci-mirror/releases/download/toolchain-riscv32-esp-darwin_arm64/9a8161e-toolchain-riscv32-esp-darwin_arm64-12.2.0+20230208.tar.gz"
+        "darwin_arm64": ""
     }
 
     def configure_default_packages(self, variables, targets):
@@ -77,9 +77,11 @@ class Espressif32Platform(PlatformBase):
         if "espidf" in frameworks:
             # Configure toolchain download link dynamically
             self.packages["toolchain-xtensa-esp"]["optional"] = False
-            self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
+            self.packages["toolchain-xtensa-esp"]["version"] = "13.2.0+20230928"
+            #self.packages["toolchain-xtensa-esp"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
             self.packages["toolchain-riscv32-esp"]["optional"] = False
-            self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
+            self.packages["toolchain-riscv32-esp"]["version"] = "13.2.0+20230928"
+            #self.packages["toolchain-riscv32-esp"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
             # Common packages for IDF and mixed Arduino+IDF projects
             self.packages["toolchain-esp32ulp"]["optional"] = False
             for p in self.packages:
