@@ -53,4 +53,5 @@ jobs:
       - name: Build examples
         if: "matrix.example != 'examples/tasmota' || matrix.os != 'windows-2022'"
         run: |
+          export ARDUINO_SKIP_IDF_VERSION_CHECK=1
           pio run -d ${{ matrix.example }}
