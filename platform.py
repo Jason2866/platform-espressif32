@@ -49,14 +49,14 @@ class Espressif32Platform(PlatformBase):
                 #packjdata = requests.get(URL).json()
                 #dyn_lib_url = packjdata['packages'][0]['tools'][0]['systems'][0]['url']
                 #self.packages["framework-arduinoespressif32-libs"]["version"] = dyn_lib_url
-                self.packages["framework-arduinoespressif32-libs"]["version"] = "https://github.com/espressif/arduino-esp32/releases/download/3.0.0/esp32-arduino-libs-3.0.0.zip"
+                self.packages["framework-arduinoespressif32-libs"]["version"] = "https://github.com/espressif/esp32-arduino-libs/archive/refs/heads/idf-release/v5.1.zip"
                 #self.packages["framework-arduinoespressif32-libs"]["version"] = "https://codeload.github.com/espressif/esp32-arduino-libs/zip/302a33cf8f23da9b734e59b8994b503a8ac0b3c0"
                 self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                 #self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
-                self.packages["framework-arduinoespressif32"]["version"] = "https://github.com/espressif/arduino-esp32/releases/download/3.0.0/esp32-3.0.0.zip"
+                self.packages["framework-arduinoespressif32"]["version"] = "https://github.com/espressif/arduino-esp32/archive/refs/heads/master.zip"
                 self.packages["framework-arduinoespressif32"]["optional"] = False
                 self.packages["framework-espidf"]["owner"] = "jason2866"
-                self.packages["framework-espidf"]["version"] = "https://github.com/Jason2866/esp-idf/releases/download/v5.1.4.240525/esp-idf-v5.1.4.zip" 
+                self.packages["framework-espidf"]["version"] = "https://github.com/Jason2866/esp-idf/releases/download/v5.1.3.240418/esp-idf-v5.1.3.zip" 
             elif (
                 variables.get(
                     "board_build.arduino.upstream_packages",
