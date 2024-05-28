@@ -71,7 +71,6 @@ def _get_board_memory_type(env):
         ),
     )
 
-
 def _normalize_frequency(frequency):
     frequency = str(frequency).replace("L", "")
     return str(int(int(frequency) / 1000000)) + "m"
@@ -173,12 +172,31 @@ def _parse_partitions(env):
 def _update_max_upload_size(env):
     if not env.get("PARTITIONS_TABLE_CSV"):
         return
-    sizes = [
-        _parse_size(p["size"]) for p in _parse_partitions(env)
+    sizes = {
+        p["subtype"]: _parse_size(p["size"]) for p in _parse_partitions(env)
         if p["type"] in ("0", "app")
-    ]
-    if sizes:
-        board.update("upload.maximum_size", max(sizes))
+    }
+
+    partitions = {p["name"]: p for p in _parse_partitions(env)}
+
+    # User-specified partition name has the highest priority
+    custom_app_partition_name = board.get("build.app_partition_name", "")
+    if custom_app_partition_name:
+        selected_partition = partitions.get(custom_app_partition_name, {})
+        if selected_partition:
+            board.update("upload.maximum_size", _parse_size(selected_partition["size"]))
+            return
+        else:
+            print(
+                "Warning! Selected partition `%s` is not available in the partition " \
+                "table! Default partition will be used!" % custom_app_partition_name
+            )
+
+    for p in partitions.values():
+        if p["type"] in ("0", "app") and p["subtype"] in ("ota_0"):
+            board.update("upload.maximum_size", _parse_size(p["size"]))
+            break
+
 
 
 def _to_unix_slashes(path):
@@ -231,7 +249,7 @@ if "INTEGRATION_EXTRA_DATA" not in env:
 
 if which("ccache"):
     env.Replace(
-        CC="ccache %s-elf-gcc" % toolchain_arch, 
+        CC="ccache %s-elf-gcc" % toolchain_arch,
         CXX="ccache %s-elf-g++" % toolchain_arch,
     )
 else:
