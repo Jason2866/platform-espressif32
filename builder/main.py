@@ -87,6 +87,12 @@ def _get_board_f_image(env):
 
     return _get_board_f_flash(env)
 
+def _get_board_f_boot(env):
+    board_config = env.BoardConfig()
+    if "build.f_boot" in board_config:
+        return _normalize_frequency(board_config.get("build.f_boot"))
+
+    return _get_board_f_flash(env)
 
 
 def _get_board_flash_mode(env):
@@ -165,12 +171,31 @@ def _parse_partitions(env):
 def _update_max_upload_size(env):
     if not env.get("PARTITIONS_TABLE_CSV"):
         return
-    sizes = [
-        _parse_size(p["size"]) for p in _parse_partitions(env)
+    sizes = {
+        p["subtype"]: _parse_size(p["size"]) for p in _parse_partitions(env)
         if p["type"] in ("0", "app")
-    ]
-    if sizes:
-        board.update("upload.maximum_size", max(sizes))
+    }
+
+    partitions = {p["name"]: p for p in _parse_partitions(env)}
+
+    # User-specified partition name has the highest priority
+    custom_app_partition_name = board.get("build.app_partition_name", "")
+    if custom_app_partition_name:
+        selected_partition = partitions.get(custom_app_partition_name, {})
+        if selected_partition:
+            board.update("upload.maximum_size", _parse_size(selected_partition["size"]))
+            return
+        else:
+            print(
+                "Warning! Selected partition `%s` is not available in the partition " \
+                "table! Default partition will be used!" % custom_app_partition_name
+            )
+
+    for p in partitions.values():
+        if p["type"] in ("0", "app") and p["subtype"] in ("ota_0"):
+            board.update("upload.maximum_size", _parse_size(p["size"]))
+            break
+
 
 
 def _to_unix_slashes(path):
@@ -225,6 +250,7 @@ env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
     __get_board_f_flash=_get_board_f_flash,
     __get_board_f_image=_get_board_f_image,
+    __get_board_f_boot=_get_board_f_boot,
     __get_board_flash_mode=_get_board_flash_mode,
     __get_board_memory_type=_get_board_memory_type,
 
@@ -282,7 +308,6 @@ env.Append(
             action=env.VerboseAction(" ".join([
                 '"$PYTHONEXE" "$OBJCOPY"',
                 "--chip", mcu, "elf2image",
-                "--dont-append-digest",
                 "--flash_mode", "${__get_board_flash_mode(__env__)}",
                 "--flash_freq", "${__get_board_f_image(__env__)}",
                 "--flash_size", board.get("upload.flash_size", "4MB"),
@@ -529,7 +554,7 @@ env.AddPlatformTarget(
     "erase_upload",
     target_firm,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ],
@@ -544,7 +569,7 @@ env.AddPlatformTarget(
     "erase",
     None,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing...")
     ],
     "Erase Flash",
