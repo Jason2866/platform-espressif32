@@ -18,7 +18,7 @@
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif32.git"
   },
-  "version": "2024.00.99",
+  "version": "2024.06.00+NimBLE",
   "frameworks": {
     "arduino": {
       "script": "builder/frameworks/arduino.py"
@@ -32,14 +32,14 @@
     "framework-arduinoespressif32": {
       "type": "framework",
       "optional": true,
-      "owner": "espressif",
-      "version": "https://codeload.github.com/espressif/arduino-esp32/zip/297757a6bfafcbf2818347386299fb67f22ca568"
+      "owner": "jason2866",
+      "version": ""
     },
     "framework-arduinoespressif32-libs": {
       "type": "framework",
       "optional": true,
-      "owner": "espressif",
-      "version": "https://codeload.github.com/espressif/esp32-arduino-libs/zip/a6dac936bfcfa4c11468e003f550b41c76efeae6"
+      "owner": "",
+      "version": ""
     },
     "framework-espidf": {
       "type": "framework",
