@@ -35,12 +35,6 @@
       "owner": "jason2866",
       "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2475/framework-arduinoespressif32-release_v5.1-877a93f.zip"
     },
-    "framework-arduinoespressif32-libs": {
-      "type": "framework",
-      "optional": true,
-      "owner": "",
-      "version": ""
-    },
     "framework-espidf": {
       "type": "framework",
       "optional": true,
