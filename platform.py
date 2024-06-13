@@ -36,7 +36,7 @@ class Espressif32Platform(PlatformBase):
 
         if "arduino" in frameworks:
             self.packages["framework-arduinoespressif32"]["optional"] = False
-            self.packages["framework-arduinoespressif32-libs"]["optional"] = False
+            self.packages["framework-arduinoespressif32-libs"]["optional"] = True
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
