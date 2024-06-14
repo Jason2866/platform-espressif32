@@ -14,10 +14,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-14]
         example:
-          - "examples/arduino-blink"
           - "examples/arduino-rmt-blink"
           - "examples/arduino-usb-keyboard"
           - "examples/arduino-wifiscan"
+          - "examples/arduino-nimble-advertising"
           - "examples/espidf-arduino-blink"
           - "examples/espidf-arduino-littlefs"
           - "examples/espidf-blink"
