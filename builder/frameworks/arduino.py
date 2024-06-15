@@ -41,6 +41,7 @@ if "espidf" not in env.subst("$PIOFRAMEWORK"):
     FRAMEWORK_DIR = DefaultEnvironment().PioPlatform().get_package_dir("framework-arduinoespressif32")
     NIMBLE_DIR = DefaultEnvironment().PioPlatform().get_package_dir("esp-nimble-cpp")
     FRAMEWORK_LIBRARY_DIR = join(FRAMEWORK_DIR, "libraries")
+    TARGET_NIMBLE_DIR = join(FRAMEWORK_LIBRARY_DIR, "esp-nimble-cpp"
     if os.path.exists(FRAMEWORK_DIR):
-        if not os.path.exists(join(FRAMEWORK_LIBRARY_DIR), "esp-nimble-cpp"):
+        if not os.path.exists(TARGET_NIMBLE_DIR):
             shutil.copytree(NIMBLE_DIR, FRAMEWORK_LIBRARY_DIR)
