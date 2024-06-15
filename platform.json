@@ -41,6 +41,11 @@
       "owner": "jason2866",
       "version": "https://github.com/Jason2866/esp-idf/releases/download/v5.1.4.240614/esp-idf-v5.1.4.zip"
     },
+    "esp-nimble-cpp": {
+      "optional": true,
+      "owner": "h2zero",
+      "version": "https://github.com/h2zero/esp-nimble-cpp/archive/refs/heads/master.zip"
+    },
     "toolchain-xtensa-esp32": {
       "type": "toolchain",
       "optional": true,
