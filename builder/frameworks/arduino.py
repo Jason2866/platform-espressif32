@@ -23,6 +23,7 @@ http://arduino.cc/en/Reference/HomePage
 """
 
 from os.path import join
+import shutil
 
 from SCons.Script import DefaultEnvironment, SConscript
 
