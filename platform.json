@@ -44,7 +44,7 @@
     "esp-nimble-cpp": {
       "optional": true,
       "owner": "h2zero",
-      "version": "https://github.com/h2zero/esp-nimble-cpp/archive/refs/heads/master.zip"
+      "version": "https://github.com/Jason2866/esp-nimble-cpp/archive/refs/tags/v1.5.0.zip"
     },
     "toolchain-xtensa-esp32": {
       "type": "toolchain",
