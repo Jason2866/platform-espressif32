@@ -42,6 +42,8 @@ if "espidf" not in env.subst("$PIOFRAMEWORK"):
     NIMBLE_DIR = DefaultEnvironment().PioPlatform().get_package_dir("esp-nimble-cpp")
     FRAMEWORK_LIBRARY_DIR = join(FRAMEWORK_DIR, "libraries")
     TARGET_NIMBLE_DIR = join(FRAMEWORK_LIBRARY_DIR, "esp-nimble-cpp"
+    print("Framework Dir: ", FRAMEWORK_DIR)
+    print("Target Dir: ", TARGET_NIMBLE_DIR)
     if os.path.exists(FRAMEWORK_DIR):
         if not os.path.exists(TARGET_NIMBLE_DIR):
             shutil.copytree(NIMBLE_DIR, FRAMEWORK_LIBRARY_DIR)
