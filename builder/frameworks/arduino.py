@@ -22,6 +22,7 @@ kinds of creative coding, interactive objects, spaces or physical experiences.
 http://arduino.cc/en/Reference/HomePage
 """
 
+import os
 from os.path import join
 import shutil
 
