@@ -36,6 +36,7 @@ class Espressif32Platform(PlatformBase):
 
         if "arduino" in frameworks:
             self.packages["framework-arduinoespressif32"]["optional"] = False
+            self.packages["esp-nimble-cpp"]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
