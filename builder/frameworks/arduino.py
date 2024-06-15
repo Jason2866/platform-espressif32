@@ -40,7 +40,7 @@ if "espidf" not in env.subst("$PIOFRAMEWORK"):
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduinoespressif32"), "tools", "platformio-build.py"))
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
-    NIMBLE_DIR = "".join(platform.get_package_dir("esp-nimble-cpp")
+    NIMBLE_DIR = "".join(platform.get_package_dir("esp-nimble-cpp"))
     FRAMEWORK_LIBRARY_DIR = join(FRAMEWORK_DIR, "libraries")
     TARGET_NIMBLE_DIR = join(FRAMEWORK_LIBRARY_DIR, "esp-nimble-cpp")
     print("Framework Lib Dir: ", FRAMEWORK_LIBRARY_DIR)
