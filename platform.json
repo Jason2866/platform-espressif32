@@ -33,7 +33,7 @@
       "type": "framework",
       "optional": true,
       "owner": "jason2866",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2484/framework-arduinoespressif32-release_v5.1-6b09599.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2488/framework-arduinoespressif32-release_v5.1-09da9c2.zip"
     },
     "framework-espidf": {
       "type": "framework",
@@ -44,7 +44,7 @@
     "esp-nimble-cpp": {
       "optional": true,
       "owner": "h2zero",
-      "version": "https://github.com/Jason2866/esp-nimble-cpp/archive/refs/tags/v1.5.0.zip"
+      "version": "https://github.com/h2zero/esp-nimble-cpp/archive/refs/heads/master.zip"
     },
     "toolchain-xtensa-esp32": {
       "type": "toolchain",
