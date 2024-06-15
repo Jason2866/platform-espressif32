@@ -43,4 +43,4 @@ if "espidf" not in env.subst("$PIOFRAMEWORK"):
     SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
     if os.path.exists(FRAMEWORK_LIBRARY_DIR):
         if not os.path.exists(TARGET_NIMBLE_DIR):
-            shutil.copytree(NIMBLE_DIR, FRAMEWORK_LIBRARY_DIR)
+            shutil.copytree(NIMBLE_DIR, TARGET_NIMBLE_DIR)
