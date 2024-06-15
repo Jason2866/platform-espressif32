@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import shutil
 import urllib
 import sys
 import json
@@ -38,11 +37,6 @@ class Espressif32Platform(PlatformBase):
         if "arduino" in frameworks:
             self.packages["framework-arduinoespressif32"]["optional"] = False
             self.packages["esp-nimble-cpp"]["optional"] = False
-            FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
-            NIMBLE_DIR = platform.get_package_dir("esp-nimble-cpp")
-            FRAMEWORK_LIBRARY_DIR = join(FRAMEWORK_DIR, "libraries")
-            if os.path.exists(FRAMEWORK_DIR) and (not os.path.exists(join(FRAMEWORK_LIBRARY_DIR),"esp-nimble-cpp")):
-                shutil.copytree(NIMBLE_DIR, FRAMEWORK_LIBRARY_DIR)
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
