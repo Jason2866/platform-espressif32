@@ -51,7 +51,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.2.2.240629/esp-idf-v5.2.2.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.2.2.240704/esp-idf-v5.2.2.zip"
     },
     "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
