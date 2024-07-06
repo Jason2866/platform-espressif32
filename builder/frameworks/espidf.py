@@ -1232,7 +1232,7 @@ def get_idf_venv_dir():
     # as an IDF component requires a different version of the IDF package and
     # hence a different set of Python deps or their versions
     idf_version_long = get_original_version(platform.get_package_version("framework-espidf"))
-    cut_pos = idf_version_long.rfind("+")
+    cut_pos = str.find(idf_version_long, "+")
     idf_version = idf_version_long[:cut_pos]
     print("idf version: ", idf_version)
     idf_version = "5.2.2"
