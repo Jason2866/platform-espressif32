@@ -1232,6 +1232,7 @@ def get_idf_venv_dir():
     # as an IDF component requires a different version of the IDF package and
     # hence a different set of Python deps or their versions
     #idf_version = get_original_version(platform.get_package_version("framework-espidf"))
+    print("idf version: ", platform.get_package_version("framework-espidf"))
     idf_version = "5.2.2"
     return os.path.join(
         env.subst("$PROJECT_CORE_DIR"), "penv", ".espidf-" + idf_version
