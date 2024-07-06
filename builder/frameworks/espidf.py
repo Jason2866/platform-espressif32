@@ -1231,13 +1231,11 @@ def get_idf_venv_dir():
     # unnecessary reinstallation of Python dependencies in cases when Arduino
     # as an IDF component requires a different version of the IDF package and
     # hence a different set of Python deps or their versions
-    idf_version_long = platform.get_package_version("framework-espidf")
-    print("idf version long: ", idf_version_long)
-    cut_pos = str.find(idf_version_long, "+")
-    idf_version = idf_version_long[:cut_pos]
-    print("idf version: ", idf_version)
+    idf_version = platform.get_package_version("framework-espidf")
+    if "+" in idf_version:
+        cut_pos = str.find(idf_version, "+")
+        idf_version = idf_version[:cut_pos]
     idf_version = get_original_version(idf_version)
-    print("idf version: ", idf_version)
     return os.path.join(
         env.subst("$PROJECT_CORE_DIR"), "penv", ".espidf-" + idf_version
     )
