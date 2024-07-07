@@ -1005,7 +1005,6 @@ def create_version_file():
             v_minor = list[(list.index("IDF_VERSION_MINOR"))+1]
             v_patch = list[(list.index("IDF_VERSION_PATCH"))+1]
             version = v_major + "." + v_minor + "." + v_patch
-            print("version: ", version)
             fp.write(version)
 
 
