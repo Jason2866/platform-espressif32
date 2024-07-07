@@ -51,7 +51,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/espressif/esp-idf.git#release/v5.2"
+      "version": "https://github.com/tasmota/esp-idf.git#release/v5.2"
     },
     "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
