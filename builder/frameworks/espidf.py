@@ -998,13 +998,11 @@ def create_version_file():
     version_cmake = os.path.join(FRAMEWORK_DIR, "tools", "cmake", "version.cmake")
     if not os.path.isfile(version_file):
         with open(version_cmake, "r") as file:
-            string = file.read().replace('\n', '')
-            string = string.replace("(", " ")
-            string = string.replace(")", " ")
+            string = file.read().replace('\n', '').replace("(", " ").replace(")", " ")
             print("version cmake: ", string)
         with open(version_file, "w") as fp:
             list = string.split()
-            print("camke list: ", list)
+            print("cmake list: ", list)
             v_major = list[(list.index("IDF_VERSION_MAJOR"))+1]
             v_minor = list[(list.index("IDF_VERSION_MINOR"))+1]
             v_patch = list[(list.index("IDF_VERSION_PATCH"))+1]
