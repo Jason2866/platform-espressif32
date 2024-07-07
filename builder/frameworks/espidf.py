@@ -999,6 +999,8 @@ def create_version_file():
     if not os.path.isfile(version_file):
         with open(version_cmake, "r") as file:
             string = file.read().replace('\n', '')
+            string = string.replace("(", " ")
+            string = string.replace(")", " ")
             print("version cmake: ", string)
         with open(version_file, "w") as fp:
             list = string.split()
