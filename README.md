@@ -33,3 +33,7 @@ The released frameworks can be downloaded [here](https://github.com/tasmota/ardu
 # Configuration
 
 Please navigate to [documentation](http://docs.platformio.org/page/platforms/espressif32.html).
+
+# ESP32-P4 support
+Since i dont have a P4 devboard issues can (probably) not be solved. 
+P4 Hardware donation welcome (contact me via Tasmota Discord @Jason2866 )
