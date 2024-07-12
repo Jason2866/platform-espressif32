@@ -26,6 +26,7 @@ import subprocess
 import sys
 import shutil
 import os
+import re
 import platform as sys_platform
 
 import click
@@ -58,7 +59,11 @@ mcu = board.get("build.mcu", "esp32")
 idf_variant = mcu.lower()
 
 # Required until Arduino switches to v5
-IDF5 = platform.get_package_version("framework-espidf").split(".")[1].startswith("5")
+IDF5 = (
+    platform.get_package_version("framework-espidf")
+    .split(".")[1]
+    .startswith("5")
+)
 IDF_ENV_VERSION = "1.0.0"
 FRAMEWORK_DIR = platform.get_package_dir("framework-espidf")
 TOOLCHAIN_DIR = platform.get_package_dir(
@@ -482,7 +487,7 @@ def load_component_paths(framework_components_dir, ignored_component_prefixes=No
     return components or _scan_components_from_framework()
 
 
-def extract_linker_script_fragments(framework_components_dir, sdk_config):
+def extract_linker_script_fragments_backup(framework_components_dir, sdk_config):
     # Hardware-specific components are excluded from search and added manually below
     project_components = load_component_paths(
         framework_components_dir, ignored_component_prefixes=("esp32", "riscv")
@@ -530,6 +535,52 @@ def extract_linker_script_fragments(framework_components_dir, sdk_config):
     return result
 
 
+def extract_linker_script_fragments(
+    ninja_buildfile, framework_components_dir, sdk_config
+):
+    def _normalize_fragment_path(base_dir, fragment_path):
+        if not os.path.isabs(fragment_path):
+            fragment_path = os.path.abspath(
+                os.path.join(base_dir, fragment_path)
+            )
+        if not os.path.isfile(fragment_path):
+            print("Warning! The `%s` fragment is not found!" % fragment_path)
+
+        return fragment_path
+
+    assert os.path.isfile(
+        ninja_buildfile
+    ), "Cannot extract linker fragments! Ninja build file is missing!"
+
+    result = []
+    with open(ninja_buildfile, encoding="utf8") as fp:
+        for line in fp.readlines():
+            if "sections.ld: CUSTOM_COMMAND" not in line:
+                continue
+            for fragment_match in re.finditer(r"(\S+\.lf\b)+", line):
+                result.append(_normalize_fragment_path(
+                    BUILD_DIR, fragment_match.group(0).replace("$:", ":")
+                ))
+
+            break
+
+    # Fall back option if the new algorithm didn't work
+    if not result:
+        result = extract_linker_script_fragments_backup(
+            framework_components_dir, sdk_config
+        )
+
+    if board.get("build.esp-idf.extra_lf_files", ""):
+        for fragment_path in board.get(
+            "build.esp-idf.extra_lf_files"
+        ).splitlines():
+            if not fragment_path.strip():
+                continue
+            result.append(_normalize_fragment_path(PROJECT_DIR, fragment_path))
+
+    return result
+
+
 def create_custom_libraries_list(ldgen_libraries_file, ignore_targets):
     if not os.path.isfile(ldgen_libraries_file):
         sys.stderr.write("Error: Couldn't find the list of framework libraries\n")
@@ -558,11 +609,13 @@ def create_custom_libraries_list(ldgen_libraries_file, ignore_targets):
 def generate_project_ld_script(sdk_config, ignore_targets=None):
     ignore_targets = ignore_targets or []
     linker_script_fragments = extract_linker_script_fragments(
-        os.path.join(FRAMEWORK_DIR, "components"), sdk_config
+        os.path.join(BUILD_DIR, "build.ninja"),
+        os.path.join(FRAMEWORK_DIR, "components"),
+        sdk_config
     )
 
-    # Create a new file to avoid automatically generated library entry as files from
-    # this library are built internally by PlatformIO
+    # Create a new file to avoid automatically generated library entry as files
+    # from this library are built internally by PlatformIO
     libraries_list = create_custom_libraries_list(
         os.path.join(BUILD_DIR, "ldgen_libraries"), ignore_targets
     )
@@ -691,8 +744,8 @@ def compile_source_files(
                     obj_path = os.path.join(obj_path, os.path.basename(src_path))
 
             preserve_source_file_extension = board.get(
-                "build.esp-idf.preserve_source_file_extension", True
-            )
+                "build.esp-idf.preserve_source_file_extension", "yes"
+            ) == "yes"
 
             objects.append(
                 build_envs[compile_group_idx].StaticObject(
@@ -938,12 +991,38 @@ def find_default_component(target_configs):
     env.Exit(1)
 
 
+def get_framework_version():
+    def _extract_from_cmake_version_file():
+        version_cmake_file = os.path.join(
+            FRAMEWORK_DIR, "tools", "cmake", "version.cmake"
+        )
+        if not os.path.isfile(version_cmake_file):
+            return
+
+        with open(version_cmake_file, encoding="utf8") as fp:
+            pattern = r"set\(IDF_VERSION_(MAJOR|MINOR|PATCH) (\d+)\)"
+            matches = re.findall(pattern, fp.read())
+            if len(matches) != 3:
+                return
+            # If found all three parts of the version
+            return ".".join([match[1] for match in matches])
+
+    pkg = platform.get_package("framework-espidf")
+    version = get_original_version(str(pkg.metadata.version.truncate()))
+    if not version:
+        # Fallback value extracted directly from the cmake version file
+        version = _extract_from_cmake_version_file()
+        if not version:
+            version = "0.0.0"
+
+    return version
+
+
 def create_version_file():
     version_file = os.path.join(FRAMEWORK_DIR, "version.txt")
     if not os.path.isfile(version_file):
         with open(version_file, "w") as fp:
-            package_version = platform.get_package_version("framework-espidf")
-            fp.write(get_original_version(package_version) or package_version)
+            fp.write(get_framework_version())
 
 
 def generate_empty_partition_image(binary_path, image_size):
@@ -1176,7 +1255,7 @@ def get_idf_venv_dir():
     # unnecessary reinstallation of Python dependencies in cases when Arduino
     # as an IDF component requires a different version of the IDF package and
     # hence a different set of Python deps or their versions
-    idf_version = get_original_version(platform.get_package_version("framework-espidf"))
+    idf_version = get_framework_version()
     return os.path.join(
         env.subst("$PROJECT_CORE_DIR"), "penv", ".espidf-" + idf_version
     )
