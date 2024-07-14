@@ -39,25 +39,25 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2443/framework-arduinoespressif32-all-release_v5.1-371d83e.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2658/framework-arduinoespressif32-all-release_v5.1-9100566.zip"
     },
      "framework-arduino-solo1": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2446/framework-arduinoespressif32-solo1-release_v5.1-371d83e.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2659/framework-arduinoespressif32-solo1-release_v5.1-9100566.zip"
     },
      "framework-arduino-ITEAD": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2447/framework-arduinoespressif32-ITEAD-esp32-release_v5.1-371d83e.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2660/framework-arduinoespressif32-ITEAD-esp32-release_v5.1-9100566.zip"
     },
     "framework-espidf": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.1.4.240614/esp-idf-v5.1.4.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.1.4.240712/esp-idf-v5.1.4.zip"
     },
     "toolchain-xtensa-esp32": {
       "type": "toolchain",
@@ -104,7 +104,7 @@
     "tool-esptoolpy": {
       "type": "uploader",
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esptool/releases/download/v4.7.3/esptool.zip"
+      "version": "https://github.com/Jason2866/esptool/releases/download/v4.7.5/esptool.zip"
     },
     "tool-dfuutil-arduino": {
       "type": "uploader",
@@ -117,12 +117,6 @@
       "optional": true,
       "owner": "platformio",
       "version": "~2.1100.0"
-    },
-    "tool-mkspiffs": {
-      "type": "uploader",
-      "optional": true,
-      "owner": "platformio",
-      "version": "~2.230.0"
     },
     "tool-mklittlefs": {
       "type": "uploader",
