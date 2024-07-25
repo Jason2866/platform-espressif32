@@ -56,26 +56,8 @@
     "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
       "optional": true,
-      "owner": "platformio",
+      "owner": "espressif",
       "version": "13.2.0+20230928"
-    },
-    "toolchain-xtensa-esp32": {
-      "type": "toolchain",
-      "optional": true,
-      "owner": "espressif",
-      "version": "12.2.0+20230208"
-    },
-    "toolchain-xtensa-esp32s2": {
-      "type": "toolchain",
-      "optional": true,
-      "owner": "espressif",
-      "version": "12.2.0+20230208"
-    },
-    "toolchain-xtensa-esp32s3": {
-      "type": "toolchain",
-      "optional": true,
-      "owner": "espressif",
-      "version": "12.2.0+20230208"
     },
     "toolchain-riscv32-esp": {
       "type": "toolchain",
