@@ -101,9 +101,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduinoespressif32"]["optional"] = False
             for available_mcu in ("esp32", "esp32s2", "esp32s3"):
                 if available_mcu == mcu:
-                    self.packages["toolchain-xtensa-%s" % mcu]["optional"] = False
-                else:
-                    self.packages.pop("toolchain-xtensa-%s" % available_mcu, None)
+                    self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
 
             if mcu in ("esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c6", "esp32h2"):
                 if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
