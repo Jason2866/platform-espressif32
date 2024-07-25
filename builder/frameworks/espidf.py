@@ -91,7 +91,7 @@ if (
 ):
     print("Warning! Debugging an IDF project requires PlatformIO Core >= 6.1.11!")
 
-# Arduino framework as a component is not compatible with ESP-IDF >=4.1
+# Arduino framework as a component is not compatible with ESP-IDF >5.2
 if "arduino" in env.subst("$PIOFRAMEWORK"):
     ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
     # Possible package names in 'package@version' format is not compatible with CMake
@@ -261,8 +261,8 @@ def populate_idf_env_vars(idf_env):
             os.path.join(platform.get_package_dir("toolchain-esp32ulp"), "bin"),
         )
 
-    if IS_WINDOWS:
-        additional_packages.append(platform.get_package_dir("tool-mconf"))
+#    if IS_WINDOWS:
+#        additional_packages.append(platform.get_package_dir("tool-mconf"))
 
     idf_env["PATH"] = os.pathsep.join(additional_packages + [idf_env["PATH"]])
 
@@ -752,8 +752,8 @@ def compile_source_files(
                     obj_path = os.path.join(obj_path, os.path.basename(src_path))
 
             preserve_source_file_extension = board.get(
-                "build.esp-idf.preserve_source_file_extension", True
-            )
+                "build.esp-idf.preserve_source_file_extension", "yes"
+            ) == "yes"
 
             objects.append(
                 build_envs[compile_group_idx].StaticObject(
@@ -999,12 +999,38 @@ def find_default_component(target_configs):
     env.Exit(1)
 
 
+def get_framework_version():
+    def _extract_from_cmake_version_file():
+        version_cmake_file = os.path.join(
+            FRAMEWORK_DIR, "tools", "cmake", "version.cmake"
+        )
+        if not os.path.isfile(version_cmake_file):
+            return
+
+        with open(version_cmake_file, encoding="utf8") as fp:
+            pattern = r"set\(IDF_VERSION_(MAJOR|MINOR|PATCH) (\d+)\)"
+            matches = re.findall(pattern, fp.read())
+            if len(matches) != 3:
+                return
+            # If found all three parts of the version
+            return ".".join([match[1] for match in matches])
+
+    pkg = platform.get_package("framework-espidf")
+    version = get_original_version(str(pkg.metadata.version.truncate()))
+    if not version:
+        # Fallback value extracted directly from the cmake version file
+        version = _extract_from_cmake_version_file()
+        if not version:
+            version = "0.0.0"
+
+    return version
+
+
 def create_version_file():
     version_file = os.path.join(FRAMEWORK_DIR, "version.txt")
     if not os.path.isfile(version_file):
         with open(version_file, "w") as fp:
-            package_version = platform.get_package_version("framework-espidf")
-            fp.write(get_original_version(package_version) or package_version)
+            fp.write(get_framework_version())
 
 
 def generate_empty_partition_image(binary_path, image_size):
@@ -1220,16 +1246,16 @@ def install_python_deps():
             )
         )
 
-        # A special "esp-windows-curses" python package is required on Windows
-        # for Menuconfig on IDF <5
-        if not IDF5 and "esp-windows-curses" not in installed_packages:
-            env.Execute(
-                env.VerboseAction(
-                    '"%s" -m pip install "file://%s/tools/kconfig_new/esp-windows-curses"'
-                    % (python_exe_path, FRAMEWORK_DIR),
-                    "Installing windows-curses package",
-                )
-            )
+#        # A special "esp-windows-curses" python package is required on Windows
+#        # for Menuconfig on IDF <5
+#        if not IDF5 and "esp-windows-curses" not in installed_packages:
+#            env.Execute(
+#                env.VerboseAction(
+#                    '"%s" -m pip install "file://%s/tools/kconfig_new/esp-windows-curses"'
+#                    % (python_exe_path, FRAMEWORK_DIR),
+#                    "Installing windows-curses package",
+#                )
+#            )
 
 
 def get_idf_venv_dir():
@@ -1237,7 +1263,7 @@ def get_idf_venv_dir():
     # unnecessary reinstallation of Python dependencies in cases when Arduino
     # as an IDF component requires a different version of the IDF package and
     # hence a different set of Python deps or their versions
-    idf_version = get_original_version(platform.get_package_version("framework-espidf"))
+    idf_version = get_framework_version()
     return os.path.join(
         env.subst("$PROJECT_CORE_DIR"), "penv", ".espidf-" + idf_version
     )
