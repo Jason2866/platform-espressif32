@@ -57,7 +57,7 @@
       "type": "toolchain",
       "optional": true,
       "owner": "platformio",
-      "version": ""
+      "version": "13.2.0+20230928"
     },
     "toolchain-xtensa-esp32": {
       "type": "toolchain",
@@ -81,7 +81,7 @@
       "type": "toolchain",
       "optional": true,
       "owner": "espressif",
-      "version": "12.2.0+20230208"
+      "version": "13.2.0+20230928"
     },
     "toolchain-esp32ulp": {
       "type": "toolchain",
