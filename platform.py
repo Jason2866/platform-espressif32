@@ -35,14 +35,14 @@ class Espressif32Platform(PlatformBase):
         "windows_x86": "",
         # No Windows ARM64 or ARM32 builds.
         # Linux
-        "linux_x86_64": "",
-        "linux_i686": "",
-        "linux_aarch64": "",
+        "linux_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-x86_64-linux-gnu.tar.xz",
+        "linux_i686": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-i586-linux-gnu.tar.xz",
+        "linux_aarch64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-aarch64-linux-gnu.tar.xz",
         "linux_armv7l": "",
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
-        "darwin_x86_64": "",
-        "darwin_arm64": ""
+        "darwin_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-x86_64-w64-mingw32_hotfix.zip",
+        "darwin_arm64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-aarch64-apple-darwin.tar.xz"
     }
 
     riscv32_toolchain = {
