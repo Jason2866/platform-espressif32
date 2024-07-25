@@ -32,7 +32,7 @@ class Espressif32Platform(PlatformBase):
     xtensa_toolchain = {
         # Windows
         "windows_amd64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-x86_64-w64-mingw32_hotfix.zip",
-        "windows_x86": "",
+        "windows_x86": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-i686-w64-mingw32_hotfix.zip",
         # No Windows ARM64 or ARM32 builds.
         # Linux
         "linux_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-x86_64-linux-gnu.tar.xz",
@@ -41,14 +41,14 @@ class Espressif32Platform(PlatformBase):
         "linux_armv7l": "",
         "linux_armv6l": "",
         # Mac (Intel and ARM are separate)
-        "darwin_x86_64": "",
+        "darwin_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-x86_64-apple-darwin.tar.xz",
         "darwin_arm64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/xtensa-esp-elf-13.2.0_20240530-aarch64-apple-darwin.tar.xz"
     }
 
     riscv32_toolchain = {
         # Windows
         "windows_amd64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/riscv32-esp-elf-13.2.0_20240530-x86_64-w64-mingw32.zip",
-        "windows_x86": "",
+        "windows_x86": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/riscv32-esp-elf-13.2.0_20240530-i686-w64-mingw32.zip",
         # No Windows ARM64 or ARM32 builds.
         # Linux
         "linux_x86_64": "https://github.com/espressif/crosstool-NG/releases/download/esp-13.2.0_20240530/riscv32-esp-elf-13.2.0_20240530-x86_64-linux-gnu.tar.xz",
@@ -78,12 +78,12 @@ class Espressif32Platform(PlatformBase):
             # Configure toolchain download link dynamically
             self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
             self.packages["toolchain-xtensa-esp-elf"]["owner"] = "platformio"
-            self.packages["toolchain-xtensa-esp-elf"]["version"] = "13.2.0+20230928"
-            #self.packages["toolchain-xtensa-esp-elf"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
+            #self.packages["toolchain-xtensa-esp-elf"]["version"] = "13.2.0+20230928"
+            self.packages["toolchain-xtensa-esp-elf"]["version"] = Espressif32Platform.xtensa_toolchain[sys_type]
             self.packages["toolchain-riscv32-esp"]["optional"] = False
             self.packages["toolchain-riscv32-esp"]["owner"] = "platformio"
-            self.packages["toolchain-riscv32-esp"]["version"] = "13.2.0+20230928"
-            #self.packages["toolchain-riscv32-esp-elf"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
+            #self.packages["toolchain-riscv32-esp"]["version"] = "13.2.0+20230928"
+            self.packages["toolchain-riscv32-esp-elf"]["version"] = Espressif32Platform.riscv32_toolchain[sys_type]
             # Common packages for IDF and mixed Arduino+IDF projects
             self.packages["toolchain-esp32ulp"]["optional"] = False
             for p in self.packages:
