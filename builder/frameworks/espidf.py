@@ -59,10 +59,8 @@ mcu = board.get("build.mcu", "esp32")
 idf_variant = mcu.lower()
 
 IDF_version = platform.get_package_version("framework-espidf")
-IDF5 = IDF_version.split(".")[1].startswith("5")
-IDF_minor = int(("".join(IDF_version.split(".")[1]))[1:3])
-print("IDF5", IDF5)
-print("Minor", IDF_minor)
+IDF5 = IDF_version.split(".")[1].startswith("5")               # bool; Major IDF5 ?
+IDF_minor = int(("".join(IDF_version.split(".")[1]))[1:3])     # Minor version as int
 IDF_ENV_VERSION = "1.0.0"
 FRAMEWORK_DIR = platform.get_package_dir("framework-espidf")
 TOOLCHAIN_DIR = platform.get_package_dir(
