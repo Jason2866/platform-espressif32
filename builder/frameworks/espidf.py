@@ -58,16 +58,9 @@ board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 idf_variant = mcu.lower()
 
-# Required until Arduino switches to v5
-IDF5 = (
-    platform.get_package_version("framework-espidf")
-    .split(".")[1]
-    .startswith("5")
-)
-IDF_minor = (
-    platform.get_package_version("framework-espidf")
-    .split(".")[2:2]
-)
+IDF_version = platform.get_package_version("framework-espidf")
+IDF5 = IDF_version.split(".")[1].startswith("5")
+IDF_minor = "".join(IDF_version.split(".")[1])
 print("IDF5", IDF5)
 print("Minor", IDF_minor)
 IDF_ENV_VERSION = "1.0.0"
