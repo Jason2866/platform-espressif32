@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 
 from platformio import fs
 from platformio.util import get_systype
@@ -34,7 +35,9 @@ ULP_BUILD_DIR = os.path.join(
 def prepare_ulp_env_vars(env):
     ulp_env.PrependENVPath("IDF_PATH", FRAMEWORK_DIR)
 
-    toolchain_path = platform.get_package_dir("toolchain-xtensa-esp-elf")
+    toolchain_path = platform.get_package_dir(
+        toolchain-xtensa-esp-elf
+    )
 
     additional_packages = [
         toolchain_path,
@@ -47,8 +50,8 @@ def prepare_ulp_env_vars(env):
         os.path.dirname(where_is_program("python")),
     ]
 
-    if "windows" in get_systype():
-        additional_packages.append(platform.get_package_dir("tool-mconf"))
+#    if "windows" in get_systype():
+#        additional_packages.append(platform.get_package_dir("tool-mconf"))
 
     for package in additional_packages:
         ulp_env.PrependENVPath("PATH", package)
@@ -56,7 +59,7 @@ def prepare_ulp_env_vars(env):
 
 def collect_ulp_sources():
     return [
-        fs.to_unix_path(os.path.join(ulp_env.subst("$PROJECT_DIR"), "ulp", f))
+        os.path.join(ulp_env.subst("$PROJECT_DIR"), "ulp", f)
         for f in os.listdir(os.path.join(ulp_env.subst("$PROJECT_DIR"), "ulp"))
         if f.endswith((".c", ".S", ".s"))
     ]
@@ -94,7 +97,7 @@ def generate_ulp_config(target_config):
                     "-riscv" if riscv_ulp_enabled else "",
                 ),
             ),
-            "-DULP_S_SOURCES=%s" % ";".join([s.get_abspath() for s in source]),
+            "-DULP_S_SOURCES=%s" % ";".join([fs.to_unix_path(s.get_abspath()) for s in source]),
             "-DULP_APP_NAME=ulp_main",
             "-DCOMPONENT_DIR=" + os.path.join(ulp_env.subst("$PROJECT_DIR"), "ulp"),
             "-DCOMPONENT_INCLUDES=%s" % ";".join(get_component_includes(target_config)),
@@ -109,7 +112,10 @@ def generate_ulp_config(target_config):
             os.path.join(FRAMEWORK_DIR, "components", "ulp", "cmake"),
         )
 
-        exec_command(cmd)
+        result = exec_command(cmd)
+        if result["returncode"] != 0:
+            sys.stderr.write(result["err"] + "\n")
+            env.Exit(1)
 
     ulp_sources = collect_ulp_sources()
     ulp_sources.sort()
