@@ -60,7 +60,7 @@ idf_variant = mcu.lower()
 
 IDF_version = platform.get_package_version("framework-espidf")
 IDF5 = IDF_version.split(".")[1].startswith("5")
-IDF_minor = ("".join(IDF_version.split(".")[1]))[1:2]
+IDF_minor = ("".join(IDF_version.split(".")[1]))[1:3]
 print("IDF5", IDF5)
 print("Minor", IDF_minor)
 IDF_ENV_VERSION = "1.0.0"
