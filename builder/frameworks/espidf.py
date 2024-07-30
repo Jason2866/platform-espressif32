@@ -66,7 +66,7 @@ IDF5 = (
 )
 IDF_minor = (
     platform.get_package_version("framework-espidf")
-    .split(".")[2,3]
+    .split(".")[2:2]
 )
 print("IDF5", IDF5)
 print("Minor", IDF_minor)
