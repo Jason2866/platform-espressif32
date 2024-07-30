@@ -83,7 +83,7 @@ if (
 ):
     print("Warning! Debugging an IDF project requires PlatformIO Core >= 6.1.11!")
 
-# Arduino framework as a component is not compatible with ESP-IDF >=4.1
+# Arduino framework as a component is not compatible with ESP-IDF >5.2
 if "arduino" in env.subst("$PIOFRAMEWORK"):
     ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
     # Possible package names in 'package@version' format is not compatible with CMake
@@ -248,13 +248,13 @@ def populate_idf_env_vars(idf_env):
         os.path.dirname(get_python_exe()),
     ]
 
-    if mcu not in ("esp32c2", "esp32c3", "esp32c6","esp32h2"):
+    if mcu not in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
         additional_packages.append(
             os.path.join(platform.get_package_dir("toolchain-esp32ulp"), "bin"),
         )
 
-    if IS_WINDOWS:
-        additional_packages.append(platform.get_package_dir("tool-mconf"))
+#    if IS_WINDOWS:
+#        additional_packages.append(platform.get_package_dir("tool-mconf"))
 
     idf_env["PATH"] = os.pathsep.join(additional_packages + [idf_env["PATH"]])
 
@@ -1238,16 +1238,16 @@ def install_python_deps():
             )
         )
 
-        # A special "esp-windows-curses" python package is required on Windows
-        # for Menuconfig on IDF <5
-        if not IDF5 and "esp-windows-curses" not in installed_packages:
-            env.Execute(
-                env.VerboseAction(
-                    '"%s" -m pip install "file://%s/tools/kconfig_new/esp-windows-curses"'
-                    % (python_exe_path, FRAMEWORK_DIR),
-                    "Installing windows-curses package",
-                )
-            )
+#        # A special "esp-windows-curses" python package is required on Windows
+#        # for Menuconfig on IDF <5
+#        if not IDF5 and "esp-windows-curses" not in installed_packages:
+#            env.Execute(
+#                env.VerboseAction(
+#                    '"%s" -m pip install "file://%s/tools/kconfig_new/esp-windows-curses"'
+#                    % (python_exe_path, FRAMEWORK_DIR),
+#                    "Installing windows-curses package",
+#                )
+#            )
 
 
 def get_idf_venv_dir():
@@ -1523,7 +1523,9 @@ libs = find_lib_deps(
 
 # Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
 # cannot merge them correctly
-extra_flags = filter_args(link_args["LINKFLAGS"], ["-T", "-u"])
+extra_flags = filter_args(
+    link_args["LINKFLAGS"], ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"]
+)
 link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
 
 # remove the main linker script flags '-T memory.ld'
@@ -1710,7 +1712,7 @@ env["BUILDERS"]["ElfToBin"].action = action
 #
 
 ulp_dir = os.path.join(PROJECT_DIR, "ulp")
-if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
+if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32h2"):
     env.SConscript("ulp.py", exports="env sdk_config project_config idf_variant")
 
 #
