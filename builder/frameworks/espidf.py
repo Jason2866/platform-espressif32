@@ -64,6 +64,7 @@ IDF5 = (
     .split(".")[1]
     .startswith("5")
 )
+print("IDF5", IDF5)
 IDF_ENV_VERSION = "1.0.0"
 FRAMEWORK_DIR = platform.get_package_dir("framework-espidf")
 TOOLCHAIN_DIR = platform.get_package_dir(
