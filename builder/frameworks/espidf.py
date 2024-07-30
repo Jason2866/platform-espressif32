@@ -64,9 +64,12 @@ IDF5 = (
     .split(".")[1]
     .startswith("5")
 )
+IDF_minor = (
+    platform.get_package_version("framework-espidf")
+    .split(".")[2]
+)
 print("IDF5", IDF5)
-version = _extract_from_cmake_version_file()
-print("version", version)
+print("Minor", IDF_minor)
 IDF_ENV_VERSION = "1.0.0"
 FRAMEWORK_DIR = platform.get_package_dir("framework-espidf")
 TOOLCHAIN_DIR = platform.get_package_dir(
