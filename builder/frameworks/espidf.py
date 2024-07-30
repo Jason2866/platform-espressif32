@@ -250,13 +250,13 @@ def populate_idf_env_vars(idf_env):
         os.path.dirname(get_python_exe()),
     ]
 
-    if mcu not in ("esp32c2", "esp32c3", "esp32c6","esp32h2","esp32p4"):
+    if mcu not in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
         additional_packages.append(
             os.path.join(platform.get_package_dir("toolchain-esp32ulp"), "bin"),
         )
 
-    if IS_WINDOWS:
-        additional_packages.append(platform.get_package_dir("tool-mconf"))
+#    if IS_WINDOWS:
+#        additional_packages.append(platform.get_package_dir("tool-mconf"))
 
     idf_env["PATH"] = os.pathsep.join(additional_packages + [idf_env["PATH"]])
 
@@ -1525,7 +1525,9 @@ libs = find_lib_deps(
 
 # Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
 # cannot merge them correctly
-extra_flags = filter_args(link_args["LINKFLAGS"], ["-T", "-u"])
+extra_flags = filter_args(
+    link_args["LINKFLAGS"], ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"]
+)
 link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
 
 # remove the main linker script flags '-T memory.ld'
@@ -1535,19 +1537,6 @@ try:
     extra_flags.pop(ld_index - 1)
 except:
     print("Warning! Couldn't find the main linker script in the CMake code model.")
-
-# remove circle linker commands
-try:
-    link_args_index = link_args["LINKFLAGS"].index("-Wl,--start-group")
-    link_args["LINKFLAGS"].pop(link_args_index)
-except:
-    pass
-
-try:
-    link_args_index = link_args["LINKFLAGS"].index("-Wl,--end-group")
-    link_args["LINKFLAGS"].pop(link_args_index)
-except:
-    pass
 
 #
 # Process project sources
