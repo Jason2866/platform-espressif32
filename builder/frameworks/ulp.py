@@ -36,7 +36,7 @@ def prepare_ulp_env_vars(env):
     ulp_env.PrependENVPath("IDF_PATH", FRAMEWORK_DIR)
 
     toolchain_path = platform.get_package_dir(
-        toolchain-xtensa-esp-elf
+        "toolchain-xtensa-esp-elf"
     )
 
     additional_packages = [
