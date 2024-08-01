@@ -51,21 +51,19 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.2.2.240712/esp-idf-v5.2.2.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.2.2.240730/esp-idf-v5.2.2.zip"
     },
     "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
       "optional": true,
       "owner": "platformio",
-      "version": "13.2.0+20230928",
-      "optionalVersions": ["13.2.0+20240530"]
+      "version": "13.2.0+20240530"
     },
     "toolchain-riscv32-esp": {
       "type": "toolchain",
       "optional": true,
       "owner": "platformio",
-      "version": "13.2.0+20230928",
-      "optionalVersions": ["13.2.0+20240530"]
+      "version": "13.2.0+20240530"
     },
     "toolchain-esp32ulp": {
       "type": "toolchain",
