@@ -1663,6 +1663,9 @@ env.Prepend(
     ESPIDF_PYTHONEXE=get_python_exe(),
     LINKFLAGS=extra_flags,
     LIBS=libs,
+    print("**** mcu", mcu)
+    fl_offset = "0x0" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32s3", "esp32h2") else ("0x2000" if mcu in ("esp32p4") else "0x1000")
+    print("flash offset", fl_offset)
     FLASH_EXTRA_IMAGES=[
         (
             board.get(
