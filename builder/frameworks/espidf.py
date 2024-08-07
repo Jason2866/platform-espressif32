@@ -1657,15 +1657,15 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 
 project_flags.update(link_args)
 env.MergeFlags(project_flags)
+print("**** mcu", mcu)
+fl_offset = "0x0" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32s3", "esp32h2") else ("0x2000" if mcu in ("esp32p4") else "0x1000")
+print("flash offset", fl_offset)
 env.Prepend(
     CPPPATH=app_includes["plain_includes"],
     CPPDEFINES=project_defines,
     ESPIDF_PYTHONEXE=get_python_exe(),
     LINKFLAGS=extra_flags,
     LIBS=libs,
-    print("**** mcu", mcu)
-    fl_offset = "0x0" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32s3", "esp32h2") else ("0x2000" if mcu in ("esp32p4") else "0x1000")
-    print("flash offset", fl_offset)
     FLASH_EXTRA_IMAGES=[
         (
             board.get(
