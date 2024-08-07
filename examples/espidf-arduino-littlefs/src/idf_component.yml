@@ -2,7 +2,7 @@ dependencies:
   # Required IDF version
   idf: ">=4.4"
 
-  esp_littlefs:
+  esp-nimble-cpp:
     git: https://github.com/h2zero/esp-nimble-cpp.git
 
   # nghttp: "^1.50.0"
