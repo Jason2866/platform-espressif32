@@ -42,7 +42,7 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
             ~/.espressif
-          key: ${{ runner.os }}-pio 
+          key: ${{ runner.os }}-pio_platform
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
