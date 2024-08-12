@@ -105,10 +105,14 @@ class Espressif32Platform(PlatformBase):
             del self.packages["tool-dfuutil"]
 
         # Common packages for IDF and mixed Arduino+IDF projects
-        if "espidf" in frameworks and os.path.exists(IDF_TOOLS):
+        if os.path.exists(IDF_TOOLS):
+            if "espidf" in frameworks:
+                flag = False
+            else:
+                flag = True
             for p in self.packages:
                 if p in ("tool-cmake", "tool-ninja"):
-                    self.packages[p]["optional"] = False
+                    self.packages[p]["optional"] = flag
 
         if os.path.isdir("ulp") and "espidf" in frameworks:
             self.packages["tc-ulp"]["optional"] = False
