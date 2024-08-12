@@ -106,13 +106,10 @@ class Espressif32Platform(PlatformBase):
 
         # Common packages for IDF and mixed Arduino+IDF projects
         if os.path.exists(IDF_TOOLS):
-            if "espidf" in frameworks:
-                flag = False
-            else:
-                flag = True
+            
             for p in self.packages:
                 if p in ("tool-cmake", "tool-ninja", "tc-ulp"):
-                    self.packages[p]["optional"] = flag
+                    self.packages[p]["optional"] = False if frameworks in ("espidf") else True
 
         for available_mcu in ("esp32", "esp32s2", "esp32s3"):
             if available_mcu == mcu and os.path.exists(IDF_TOOLS):
