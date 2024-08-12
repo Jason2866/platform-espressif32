@@ -109,7 +109,7 @@ class Espressif32Platform(PlatformBase):
             
             for p in self.packages:
                 if p in ("tool-cmake", "tool-ninja", "tc-ulp"):
-                    self.packages[p]["optional"] = False if frameworks in ("espidf") else True
+                    self.packages[p]["optional"] = False if "espidf" in frameworks else True
 
         for available_mcu in ("esp32", "esp32s2", "esp32s3"):
             if available_mcu == mcu and os.path.exists(IDF_TOOLS):
