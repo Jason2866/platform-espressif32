@@ -51,13 +51,17 @@ class Espressif32Platform(PlatformBase):
                 shutil.copytree(join(IDF_TOOLS_PATH_DEFAULT, "tools", "tool-packages"), join(IDF_TOOLS_PATH_DEFAULT, "tools"), symlinks=False, ignore=None, ignore_dangling_symlinks=False, dirs_exist_ok=True)
 
         if os.path.exists(IDF_TOOLS):
+            # Install all tools and toolchains
             self.packages["tl-install"]["optional"] = True
             for p in self.packages:
                 if p in ("tool-mklittlefs", "tool-mkfatfs", "tool-mkspiffs", "tool-dfuutil", "tool-openocd", "tool-cmake", "tool-ninja", "tc-ulp", "tc-rv32", "tl-xt-gdb", "tl-rv-gdb"):
                     tl_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", p)
                     self.packages[p]["optional"] = False
                     self.packages[p]["version"] = tl_path
-
+            # Enable common packages for IDF and mixed Arduino+IDF projects
+            for p in self.packages:
+                if p in ("tool-cmake", "tool-ninja", "tc-ulp"):
+                    self.packages[p]["optional"] = False if "espidf" in frameworks else True
 
         if "arduino" in frameworks:
             self.packages["framework-arduinoespressif32"]["optional"] = False
@@ -104,13 +108,7 @@ class Espressif32Platform(PlatformBase):
         else:
             del self.packages["tool-dfuutil"]
 
-        # Common packages for IDF and mixed Arduino+IDF projects
-        if os.path.exists(IDF_TOOLS):
-            
-            for p in self.packages:
-                if p in ("tool-cmake", "tool-ninja", "tc-ulp"):
-                    self.packages[p]["optional"] = False if "espidf" in frameworks else True
-
+        # Enable needed toolchains
         for available_mcu in ("esp32", "esp32s2", "esp32s3"):
             if available_mcu == mcu and os.path.exists(IDF_TOOLS):
                 tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-xt-%s" % mcu)
@@ -118,7 +116,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages["tc-xt-%s" % mcu]["version"] = tc_path
                 if available_mcu == "esp32":
                     del self.packages["tc-rv32"]
-
+        # Enable ULP toolchains
         if mcu in ("esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c6", "esp32h2"):
             if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
                 del self.packages["tc-ulp"]
