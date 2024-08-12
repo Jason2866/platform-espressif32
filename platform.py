@@ -123,7 +123,7 @@ class Espressif32Platform(PlatformBase):
 
         if mcu in ("esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c6", "esp32h2"):
             if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
-                del self.packages("tc-ulp")
+                del self.packages["tc-ulp"]
             # RISC-V based toolchain for ESP32C3, ESP32C6 ESP32S2, ESP32S3 ULP
             if os.path.exists(IDF_TOOLS):
                 self.packages["tc-rv32"]["optional"] = False
