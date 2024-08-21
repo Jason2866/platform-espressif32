@@ -43,18 +43,18 @@ class Espressif32Platform(PlatformBase):
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
             elif "FRAMEWORK_ARDUINO_ESPRESSIF" in core_variant_build and "ARDUINO_TASMOTA" not in core_variant_board:
                 # use orig. espressif Arduino and IDF
-                #URL = "https://raw.githubusercontent.com/espressif/arduino-esp32/idf-release/v5.1/package/package_esp32_index.template.json"
-                #packjdata = requests.get(URL).json()
-                #dyn_lib_url = packjdata['packages'][0]['tools'][0]['systems'][0]['url']
-                #self.packages["framework-arduinoespressif32-libs"]["version"] = dyn_lib_url
-                self.packages["framework-arduinoespressif32-libs"]["version"] = "https://github.com/espressif/esp32-arduino-libs/archive/refs/heads/idf-release/v5.1.zip"
+                URL = "https://raw.githubusercontent.com/espressif/arduino-esp32/idf-release/v5.1/package/package_esp32_index.template.json"
+                packjdata = requests.get(URL).json()
+                dyn_lib_url = packjdata['packages'][0]['tools'][0]['systems'][0]['url']
+                self.packages["framework-arduinoespressif32-libs"]["version"] = dyn_lib_url
+                #self.packages["framework-arduinoespressif32-libs"]["version"] = "https://github.com/espressif/esp32-arduino-libs/archive/refs/heads/idf-release/v5.1.zip"
                 #self.packages["framework-arduinoespressif32-libs"]["version"] = "https://codeload.github.com/espressif/esp32-arduino-libs/zip/302a33cf8f23da9b734e59b8994b503a8ac0b3c0"
                 self.packages["framework-arduinoespressif32-libs"]["optional"] = False
                 #self.packages["framework-arduinoespressif32"]["version"] = "https://codeload.github.com/espressif/arduino-esp32/zip/bc769fd35a1d4ee26f453e9965412b7e3a8d2dc8"
                 self.packages["framework-arduinoespressif32"]["version"] = "https://github.com/espressif/arduino-esp32/archive/refs/heads/master.zip"
                 self.packages["framework-arduinoespressif32"]["optional"] = False
-                self.packages["framework-espidf"]["owner"] = "jason2866"
-                self.packages["framework-espidf"]["version"] = "https://github.com/Jason2866/esp-idf/releases/download/v5.1.4.240702/esp-idf-v5.1.4.zip" 
+                self.packages["framework-espidf"]["owner"] = "pioarduino"
+                self.packages["framework-espidf"]["version"] = "https://github.com/pioarduino/esp-idf/releases/download/v5.1.4.240805/esp-idf-v5.1.4.zip" 
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
 
