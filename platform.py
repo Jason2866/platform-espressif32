@@ -65,8 +65,10 @@ class Espressif32Platform(PlatformBase):
             self.packages["riscv32-esp-elf-gdb"]["optional"] = True
             self.packages["xtensa-esp-elf-gdb"]["optional"] = True
 
-        # Enable check tools only when "check_tool" is enabled
         if tl_flag:
+            # Install tool is not needed anymore
+            del self.packages["tl-install"]
+            # Enable check tools only when "check_tool" is enabled
             for p in self.packages:
                 if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
                     self.packages[p]["optional"] = False if str(variables.get("check_tool")).strip("['']") in p else True
