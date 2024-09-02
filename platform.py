@@ -66,9 +66,10 @@ class Espressif32Platform(PlatformBase):
             self.packages["xtensa-esp-elf-gdb"]["optional"] = True
 
         # Enable check tools only when "check_tool" is enabled
-        for p in self.packages:
-            if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
-                self.packages[p]["optional"] = False if str(variables.get("check_tool")).strip("['']") in p else True
+        if tl_flag:
+            for p in self.packages:
+                if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
+                    self.packages[p]["optional"] = False if str(variables.get("check_tool")).strip("['']") in p else True
 
         if "arduino" in frameworks:
             self.packages["framework-arduinoespressif32"]["optional"] = False
