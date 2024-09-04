@@ -100,6 +100,11 @@
       "owner": "pioarduino",
       "version": "https://github.com/pioarduino/esp_install/releases/download/v1.7.0/esp_install-v1.7.0.zip"
     },
+    "tool-scons": {
+      "optional": true,
+      "owner": "",
+      "version": "https://github.com/pioarduino/scons/releases/download/4.8.1/scons-local-4.8.1.tar.gz"
+    },
     "tool-cmake": {
       "optional": true,
       "owner": "",
