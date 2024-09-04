@@ -77,6 +77,12 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-arduinoespressif32"]["optional"] = False
             self.packages["framework-arduinoespressif32-libs"]["optional"] = False
 
+        # packages for IDF and mixed Arduino+IDF projects
+        if tl_flag and "espidf" in frameworks:
+            for p in self.packages:
+                if p in ("tool-scons", "tool-cmake", "tool-ninja"):
+                    self.packages[p]["optional"] = False
+
         if "".join(targets) in ("upload", "buildfs", "uploadfs"):
             filesystem = variables.get("board_build.filesystem", "littlefs")
             if filesystem == "littlefs":
