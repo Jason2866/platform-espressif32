@@ -23,6 +23,13 @@ from platformio.proc import get_pythonexe_path
 from platformio.project.config import ProjectConfig
 from platformio.package.manager.tool import ToolPackageManager
 
+IS_WINDOWS = sys.platform.startswith("win")
+# Set Platformio env var to use windows_amd64 for all windows architectures
+# only windows_amd64 native espressif toolchains are available
+# needs platformio core >= 6.1.16b2 or pioarduino core 6.1.16+test
+if IS_WINDOWS:
+    os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
+
 python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
