@@ -69,7 +69,7 @@ IDF5 = (
 IDF_ENV_VERSION = "1.0.0"
 FRAMEWORK_DIR = platform.get_package_dir("framework-espidf")
 TOOLCHAIN_DIR = platform.get_package_dir(
-    "%s" % ("riscv32-esp-elf" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2") else ("xtensa-esp-elf"))
+    "toolchain-%s" % ("riscv32-esp" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2") else ("xtensa-%s" % mcu))
 )
 
 
@@ -252,7 +252,7 @@ def populate_idf_env_vars(idf_env):
 
     if mcu not in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
         additional_packages.append(
-            os.path.join(platform.get_package_dir("esp32ulp-elf"), "bin"),
+            os.path.join(platform.get_package_dir("toolchain-esp32ulp"), "bin"),
         )
 
     idf_env["PATH"] = os.pathsep.join(additional_packages + [idf_env["PATH"]])
