@@ -53,12 +53,14 @@ if os.environ.get("PYTHONPATH"):
 env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
 
+# Allow changes in folders of managed components
+os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
+
 platform = env.PioPlatform()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 idf_variant = mcu.lower()
 
-# Required until Arduino switches to v5
 IDF5 = (
     platform.get_package_version("framework-espidf")
     .split(".")[1]
@@ -253,9 +255,6 @@ def populate_idf_env_vars(idf_env):
             os.path.join(platform.get_package_dir("toolchain-esp32ulp"), "bin"),
         )
 
-#    if IS_WINDOWS:
-#        additional_packages.append(platform.get_package_dir("tool-mconf"))
-
     idf_env["PATH"] = os.pathsep.join(additional_packages + [idf_env["PATH"]])
 
     # Some users reported that the `IDF_TOOLS_PATH` var can seep into the
@@ -322,8 +321,9 @@ def extract_defines(compile_group):
         define_string = define_string.strip()
         if "=" in define_string:
             define, value = define_string.split("=", maxsplit=1)
-            if '"' in value and not value.startswith("\\"):
-                # Escape only raw values
+            if any(char in value for char in (' ', '<', '>')):
+                value = f'"{value}"'
+            elif '"' in value and not value.startswith("\\"):
                 value = value.replace('"', '\\"')
             return (define, value)
         return define_string
@@ -334,8 +334,11 @@ def extract_defines(compile_group):
     ]
 
     for f in compile_group.get("compileCommandFragments", []):
-        if f.get("fragment", "").startswith("-D"):
-            result.append(_normalize_define(f["fragment"][2:]))
+        fragment = f.get("fragment", "").strip()
+        if fragment.startswith('"'):
+            fragment = fragment.strip('"')
+        if fragment.startswith("-D"):
+            result.append(_normalize_define(fragment[2:]))
 
     return result
 
@@ -421,8 +424,8 @@ def get_app_flags(app_config, default_config):
         for cg in config["compileGroups"]:
             flags[cg["language"]] = []
             for ccfragment in cg["compileCommandFragments"]:
-                fragment = ccfragment.get("fragment", "")
-                if not fragment.strip() or fragment.startswith("-D"):
+                fragment = ccfragment.get("fragment", "").strip("\" ")
+                if not fragment or fragment.startswith("-D"):
                     continue
                 flags[cg["language"]].extend(
                     click.parser.split_arg_string(fragment.strip())
@@ -503,7 +506,7 @@ def extract_linker_script_fragments_backup(framework_components_dir, sdk_config)
         sys.stderr.write("Error: Failed to extract paths to linker script fragments\n")
         env.Exit(1)
 
-    if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
+    if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
         result.append(os.path.join(framework_components_dir, "riscv", "linker.lf"))
 
     # Add extra linker fragments
@@ -644,16 +647,31 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
         '--objdump "{objdump}"'
     ).format(**args)
 
+    initial_ld_script = os.path.join(
+        FRAMEWORK_DIR,
+        "components",
+        "esp_system",
+        "ld",
+        idf_variant,
+        "sections.ld.in",
+    )
+
+    framework_version = [int(v) for v in get_framework_version().split(".")]
+    if framework_version[:2] > [5, 2]:
+        initial_ld_script = preprocess_linker_file(
+            initial_ld_script,
+            os.path.join(
+                BUILD_DIR,
+                "esp-idf",
+                "esp_system",
+                "ld",
+                "sections.ld.in",
+            )
+        )
+
     return env.Command(
         os.path.join("$BUILD_DIR", "sections.ld"),
-        os.path.join(
-            FRAMEWORK_DIR,
-            "components",
-            "esp_system",
-            "ld",
-            idf_variant,
-            "sections.ld.in",
-        ),
+        initial_ld_script,
         env.VerboseAction(cmd, "Generating project linker script $TARGET"),
     )
 
@@ -692,7 +710,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
         build_env = default_env.Clone()
         build_env.SetOption("implicit_cache", 1)
         for cc in compile_commands:
-            build_flags = cc.get("fragment")
+            build_flags = cc.get("fragment", "").strip("\" ")
             if not build_flags.startswith("-D"):
                 if build_flags.startswith("-include") and ".." in build_flags:
                     source_index = cg.get("sourceIndexes")[0]
@@ -1103,6 +1121,46 @@ def get_app_partition_offset(pt_table, pt_offset):
     return app_params.get("offset", "0x10000")
 
 
+def preprocess_linker_file(src_ld_script, target_ld_script):
+    return env.Command(
+        target_ld_script,
+        src_ld_script,
+        env.VerboseAction(
+            " ".join(
+                [
+                    os.path.join(
+                        platform.get_package_dir("tool-cmake"),
+                        "bin",
+                        "cmake",
+                    ),
+                    "-DCC=%s"
+                    % os.path.join(
+                        TOOLCHAIN_DIR,
+                        "bin",
+                        "$CC",
+                    ),
+                    "-DSOURCE=$SOURCE",
+                    "-DTARGET=$TARGET",
+                    "-DCONFIG_DIR=%s" % os.path.join(BUILD_DIR, "config"),
+                    "-DLD_DIR=%s"
+                    % os.path.join(
+                        FRAMEWORK_DIR, "components", "esp_system", "ld"
+                    ),
+                    "-P",
+                    os.path.join(
+                        "$BUILD_DIR",
+                        "esp-idf",
+                        "esp_system",
+                        "ld",
+                        "linker_script_generator.cmake",
+                    ),
+                ]
+            ),
+            "Generating LD script $TARGET",
+        ),
+    )
+
+
 def generate_mbedtls_bundle(sdk_config):
     bundle_path = os.path.join("$BUILD_DIR", "x509_crt_bundle")
     if os.path.isfile(env.subst(bundle_path)):
@@ -1201,7 +1259,7 @@ def install_python_deps():
         "future": ">=0.18.3",
         "pyparsing": ">=3.1.0,<4" if IDF5 else ">=2.0.3,<2.4.0",
         "kconfiglib": "~=14.1.0" if IDF5 else "~=13.7.1",
-        "idf-component-manager": "~=1.5.2" if IDF5 else "~=1.0",
+        "idf-component-manager": "~=2.0.1" if IDF5 else "~=1.0",
         "esp-idf-kconfig": ">=1.4.2,<2.0.0"
     }
 
@@ -1237,17 +1295,6 @@ def install_python_deps():
                 "Installing windows-curses package",
             )
         )
-
-#        # A special "esp-windows-curses" python package is required on Windows
-#        # for Menuconfig on IDF <5
-#        if not IDF5 and "esp-windows-curses" not in installed_packages:
-#            env.Execute(
-#                env.VerboseAction(
-#                    '"%s" -m pip install "file://%s/tools/kconfig_new/esp-windows-curses"'
-#                    % (python_exe_path, FRAMEWORK_DIR),
-#                    "Installing windows-curses package",
-#                )
-#            )
 
 
 def get_idf_venv_dir():
@@ -1349,19 +1396,31 @@ generate_default_component()
 #
 
 if not board.get("build.ldscript", ""):
-    linker_script = env.Command(
-        os.path.join("$BUILD_DIR", "memory.ld"),
-        board.get(
-            "build.esp-idf.ldscript",
+    initial_ld_script = board.get("build.esp-idf.ldscript", os.path.join(
+        FRAMEWORK_DIR,
+        "components",
+        "esp_system",
+        "ld",
+        idf_variant,
+        "memory.ld.in",
+    ))
+
+    framework_version = [int(v) for v in get_framework_version().split(".")]
+    if framework_version[:2] > [5, 2]:
+        initial_ld_script = preprocess_linker_file(
+            initial_ld_script,
             os.path.join(
-                FRAMEWORK_DIR,
-                "components",
+                BUILD_DIR,
+                "esp-idf",
                 "esp_system",
                 "ld",
-                idf_variant,
                 "memory.ld.in",
-            ),
-        ),
+            )
+        )
+
+    linker_script = env.Command(
+        os.path.join("$BUILD_DIR", "memory.ld"),
+        initial_ld_script,
         env.VerboseAction(
             '$CC -I"$BUILD_DIR/config" -I"%s" -C -P -x c -E $SOURCE -o $TARGET'
             % os.path.join(FRAMEWORK_DIR, "components", "esp_system", "ld"),
