@@ -424,8 +424,8 @@ def get_app_flags(app_config, default_config):
         for cg in config["compileGroups"]:
             flags[cg["language"]] = []
             for ccfragment in cg["compileCommandFragments"]:
-                fragment = ccfragment.get("fragment", "")
-                if not fragment.strip() or fragment.startswith("-D"):
+                fragment = ccfragment.get("fragment", "").strip("\" ")
+                if not fragment or fragment.startswith("-D"):
                     continue
                 flags[cg["language"]].extend(
                     click.parser.split_arg_string(fragment.strip())
@@ -710,7 +710,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
         build_env = default_env.Clone()
         build_env.SetOption("implicit_cache", 1)
         for cc in compile_commands:
-            build_flags = cc.get("fragment")
+            build_flags = cc.get("fragment", "").strip("\" ")
             if not build_flags.startswith("-D"):
                 if build_flags.startswith("-include") and ".." in build_flags:
                     source_index = cg.get("sourceIndexes")[0]
