@@ -84,6 +84,7 @@ def generate_ulp_config(target_config):
 
         cmd = (
             os.path.join(platform.get_package_dir("tool-cmake"), "bin", "cmake"),
+            "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             "-DCMAKE_GENERATOR=Ninja",
             "-DCMAKE_TOOLCHAIN_FILE="
             + os.path.join(
