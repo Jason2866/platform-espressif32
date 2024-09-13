@@ -146,7 +146,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages["xtensa-esp-elf"]["optional"] = False
                 self.packages["xtensa-esp-elf"]["version"] = tc_path
                 if available_mcu == "esp32":
-                    self.packages["riscv32-esp-elf"]["optional"] = True
+                    del self.packages["riscv32-esp-elf"]
             else:
                 tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-rv32")
                 self.packages["riscv32-esp-elf"]["optional"] = False
@@ -157,12 +157,12 @@ class Espressif32Platform(PlatformBase):
             tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-ulp")
             self.packages["esp32ulp-elf"]["optional"] = False
             self.packages["esp32ulp-elf"]["version"] = tc_path
-            if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
-                self.packages["esp32ulp-elf"]["optional"] = True
             # RISC-V based toolchain for ESP32C3, ESP32C6 ESP32S2, ESP32S3 ULP
             tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-rv32")
             self.packages["riscv32-esp-elf"]["optional"] = False
             self.packages["riscv32-esp-elf"]["version"] = tc_path
+            if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2"):
+                del self.packages["esp32ulp-elf"]
 
         return super().configure_default_packages(variables, targets)
 
