@@ -148,7 +148,7 @@ class Espressif32Platform(PlatformBase):
                 if available_mcu == "esp32":
                     del self.packages["riscv32-esp-elf"]
         # Enable riscv and ULP toolchains
-        if tl_flag and mcu in ("esp32", "esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c6", "esp32h2"):
+        if mcu in ("esp32", "esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c6", "esp32h2"):
             tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-ulp")
             self.packages["esp32ulp-elf"]["optional"] = False
             self.packages["esp32ulp-elf"]["version"] = tc_path
