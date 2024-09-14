@@ -83,7 +83,7 @@ def generate_ulp_config(target_config):
         riscv_ulp_enabled = sdk_config.get("ULP_COPROC_TYPE_RISCV", False)
         lp_core_ulp_enabled = sdk_config.get("ULP_COPROC_TYPE_LP_CORE", False)
 
-        if lp_core_ulp_enabled == False
+        if lp_core_ulp_enabled == False:
             ulp_toolchain = "toolchain-%sulp%s.cmake"
                 % (
                     "" if riscv_ulp_enabled else idf_variant + "-",
