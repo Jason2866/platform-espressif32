@@ -53,12 +53,14 @@ if os.environ.get("PYTHONPATH"):
 env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
 
+# Allow changes in folders of managed components
+os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
+
 platform = env.PioPlatform()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 idf_variant = mcu.lower()
 
-# Required until Arduino switches to v5
 IDF5 = (
     platform.get_package_version("framework-espidf")
     .split(".")[1]
@@ -324,8 +326,9 @@ def extract_defines(compile_group):
         define_string = define_string.strip()
         if "=" in define_string:
             define, value = define_string.split("=", maxsplit=1)
-            if '"' in value and not value.startswith("\\"):
-                # Escape only raw values
+            if any(char in value for char in (' ', '<', '>')):
+                value = f'"{value}"'
+            elif '"' in value and not value.startswith("\\"):
                 value = value.replace('"', '\\"')
             return (define, value)
         return define_string
@@ -336,8 +339,11 @@ def extract_defines(compile_group):
     ]
 
     for f in compile_group.get("compileCommandFragments", []):
-        if f.get("fragment", "").startswith("-D"):
-            result.append(_normalize_define(f["fragment"][2:]))
+        fragment = f.get("fragment", "").strip()
+        if fragment.startswith('"'):
+            fragment = fragment.strip('"')
+        if fragment.startswith("-D"):
+            result.append(_normalize_define(fragment[2:]))
 
     return result
 
@@ -423,8 +429,8 @@ def get_app_flags(app_config, default_config):
         for cg in config["compileGroups"]:
             flags[cg["language"]] = []
             for ccfragment in cg["compileCommandFragments"]:
-                fragment = ccfragment.get("fragment", "")
-                if not fragment.strip() or fragment.startswith("-D"):
+                fragment = ccfragment.get("fragment", "").strip("\" ")
+                if not fragment or fragment.startswith("-D"):
                     continue
                 flags[cg["language"]].extend(
                     click.parser.split_arg_string(fragment.strip())
@@ -655,7 +661,8 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
         "sections.ld.in",
     )
 
-    if IDF5:
+    framework_version = [int(v) for v in get_framework_version().split(".")]
+    if framework_version[:2] > [5, 2]:
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             os.path.join(
@@ -708,7 +715,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
         build_env = default_env.Clone()
         build_env.SetOption("implicit_cache", 1)
         for cc in compile_commands:
-            build_flags = cc.get("fragment")
+            build_flags = cc.get("fragment", "").strip("\" ")
             if not build_flags.startswith("-D"):
                 if build_flags.startswith("-include") and ".." in build_flags:
                     source_index = cg.get("sourceIndexes")[0]
@@ -1257,7 +1264,7 @@ def install_python_deps():
         "future": ">=0.18.3",
         "pyparsing": ">=3.1.0,<4" if IDF5 else ">=2.0.3,<2.4.0",
         "kconfiglib": "~=14.1.0" if IDF5 else "~=13.7.1",
-        "idf-component-manager": "~=1.5.2" if IDF5 else "~=1.0",
+        "idf-component-manager": "~=2.0.1" if IDF5 else "~=1.0",
         "esp-idf-kconfig": ">=1.4.2,<2.0.0"
     }
 
@@ -1414,7 +1421,8 @@ if not board.get("build.ldscript", ""):
         "memory.ld.in",
     ))
 
-    if IDF5:
+    framework_version = [int(v) for v in get_framework_version().split(".")]
+    if framework_version[:2] > [5, 2]:
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             os.path.join(
@@ -1779,7 +1787,7 @@ env["BUILDERS"]["ElfToBin"].action = action
 #
 
 ulp_dir = os.path.join(PROJECT_DIR, "ulp")
-if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
+if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32h2"):
     env.SConscript("ulp.py", exports="env sdk_config project_config idf_variant")
 
 #
