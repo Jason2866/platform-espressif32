@@ -85,10 +85,10 @@ def generate_ulp_config(target_config):
 
         if lp_core_ulp_enabled == False:
             ulp_toolchain = "toolchain-%sulp%s.cmake"
-                % (
-                    "" if riscv_ulp_enabled else idf_variant + "-",
-                    "-riscv" if riscv_ulp_enabled else "",
-                )
+            % (
+                "" if riscv_ulp_enabled else idf_variant + "-",
+                "-riscv" if riscv_ulp_enabled else "",
+            )
         else:
             ulp_toolchain = "toolchain-lp-core-riscv"
 
