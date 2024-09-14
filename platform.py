@@ -140,12 +140,13 @@ class Espressif32Platform(PlatformBase):
             del self.packages["tool-dfuutil"]
 
         # Enable needed toolchain for MCU
-        for available_mcu in ("esp32", "esp32s2", "esp32s3"):
-            if available_mcu == mcu and tl_flag:
+        if available_mcu in ("esp32", "esp32s2", "esp32s3"):
+            if tl_flag:
                 tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-xt-esp32")
                 self.packages["xtensa-esp-elf"]["optional"] = False
                 self.packages["xtensa-esp-elf"]["version"] = tc_path
-            else:
+        else:
+            if tl_flag:
                 tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-rv32")
                 self.packages["riscv32-esp-elf"]["optional"] = False
                 self.packages["riscv32-esp-elf"]["version"] = tc_path
