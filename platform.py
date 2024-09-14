@@ -145,10 +145,12 @@ class Espressif32Platform(PlatformBase):
                 tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-xt-esp32")
                 self.packages["xtensa-esp-elf"]["optional"] = False
                 self.packages["xtensa-esp-elf"]["version"] = tc_path
+                del self.packages["riscv32-esp-elf"]
             else:
                 tc_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", "tc-rv32")
                 self.packages["riscv32-esp-elf"]["optional"] = False
                 self.packages["riscv32-esp-elf"]["version"] = tc_path
+                del self.packages["xtensa-esp-elf"]
                 
         # Enable FSM ULP toolchain for ESP32, ESP32S2, ESP32S3 when IDF is selected
         for available_mcu in ("esp32", "esp32s2", "esp32s3"):
