@@ -250,11 +250,6 @@ def populate_idf_env_vars(idf_env):
         os.path.dirname(get_python_exe()),
     ]
 
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        additional_packages.append(
-            os.path.join(platform.get_package_dir("esp32ulp-elf"), "bin"),
-        )
-
     idf_env["PATH"] = os.pathsep.join(additional_packages + [idf_env["PATH"]])
 
     # Some users reported that the `IDF_TOOLS_PATH` var can seep into the
