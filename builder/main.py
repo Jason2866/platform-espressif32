@@ -256,9 +256,6 @@ env.Replace(
             if mcu in ("esp32c2", "esp32c3", "esp32c6")
             else "xtensa-esp-elf-gdb"
         )
-        or "",
-        "bin",
-        "%s-elf-gdb" % toolchain_arch,
     ),
     OBJCOPY=join(platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
