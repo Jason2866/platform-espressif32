@@ -250,10 +250,11 @@ def populate_idf_env_vars(idf_env):
         os.path.dirname(get_python_exe()),
     ]
 
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        additional_packages.append(
-            os.path.join(platform.get_package_dir("toolchain-esp32ulp"), "bin"),
-        )
+#    if mcu in ("esp32", "esp32s2", "esp32s3"):
+#        additional_packages.append(
+#            os.path.join(platform.get_package_dir("toolchain-esp32ulp"), "bin"),
+#        )
+
 
     idf_env["PATH"] = os.pathsep.join(additional_packages + [idf_env["PATH"]])
 
@@ -870,6 +871,7 @@ def build_bootloader(sdk_config):
             "-DPYTHON=" + get_python_exe(),
             "-DIDF_PATH=" + FRAMEWORK_DIR,
             "-DSDKCONFIG=" + SDKCONFIG_PATH,
+            "-DPROJECT_SOURCE_DIR=" + PROJECT_DIR,
             "-DLEGACY_INCLUDE_COMMON_HEADERS=",
             "-DEXTRA_COMPONENT_DIRS="
             + os.path.join(FRAMEWORK_DIR, "components", "bootloader"),
@@ -1772,7 +1774,7 @@ env["BUILDERS"]["ElfToBin"].action = action
 
 ulp_dir = os.path.join(PROJECT_DIR, "ulp")
 if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32h2"):
-    env.SConscript("ulp.py", exports="env sdk_config project_config idf_variant")
+    env.SConscript("ulp.py", exports="env sdk_config project_config app_includes idf_variant")
 
 #
 # Process OTA partition and image
