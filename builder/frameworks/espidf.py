@@ -69,7 +69,9 @@ IDF5 = (
 IDF_ENV_VERSION = "1.0.0"
 FRAMEWORK_DIR = platform.get_package_dir("framework-espidf")
 TOOLCHAIN_DIR = platform.get_package_dir(
-    "%s" % ("riscv32-esp-elf" if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2") else ("xtensa-esp-elf"))
+    "xtensa-esp-elf"
+    if mcu in ("esp32", "esp32s2", "esp32s3")
+    else "riscv32-esp-elf"
 )
 
 
@@ -501,7 +503,7 @@ def extract_linker_script_fragments_backup(framework_components_dir, sdk_config)
         sys.stderr.write("Error: Failed to extract paths to linker script fragments\n")
         env.Exit(1)
 
-    if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
+    if mcu not in ("esp32", "esp32s2", "esp32s3"):
         result.append(os.path.join(framework_components_dir, "riscv", "linker.lf"))
 
     # Add extra linker fragments
@@ -1656,7 +1658,7 @@ env.Prepend(
         (
             board.get(
                 "upload.bootloader_offset",
-                "0x0" if mcu in ["esp32c2", "esp32c3", "esp32c6", "esp32s3", "esp32h2"] else ("0x2000" if mcu in ["esp32p4"] else "0x1000"),
+                "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32p4"] else "0x0"),
             ),
             os.path.join("$BUILD_DIR", "bootloader.bin"),
         ),
