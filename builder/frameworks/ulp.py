@@ -36,7 +36,7 @@ def prepare_ulp_env_vars(env):
     ulp_env.PrependENVPath("IDF_PATH", FRAMEWORK_DIR)
 
     toolchain_path = platform.get_package_dir(
-        "toolchain-xtensa-%s" % idf_variant
+        "toolchain-xtensa-esp-elf"
         if idf_variant not in ("esp32c6", "esp32p4")
         else "toolchain-riscv32-esp"
     )
