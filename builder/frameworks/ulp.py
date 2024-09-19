@@ -118,7 +118,7 @@ def generate_ulp_config(target_config):
             "-DSDKCONFIG_HEADER=" + os.path.join(BUILD_DIR, "config", "sdkconfig.h"),
             "-DPYTHON=" + env.subst("$PYTHONEXE"),
             "-DSDKCONFIG_CMAKE=" + os.path.join(BUILD_DIR, "config", "sdkconfig.cmake"),
-            "-DCMAKE_MODULE_PATH=" + os.path.join(fs.to_unix_path(FRAMEWORK_DIR), "components", "ulp", "cmake"),
+            "-DCMAKE_MODULE_PATH=" + os.path.join(fs.to_unix_path(s.get_abspath(FRAMEWORK_DIR), "components", "ulp", "cmake"),
             "-GNinja",
             "-B",
             ULP_BUILD_DIR,
