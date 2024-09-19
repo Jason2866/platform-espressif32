@@ -7,15 +7,12 @@ on:
     - '.github/**'        # Ignore changes towards the .github directory
     - '**.md'             # Do no build if *.md files changes
 
-env:
-  ARDUINO_SKIP_IDF_VERSION_CHECK: true
-
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14]
+        os: [macos-latest]
         example:
           - "examples/arduino-blink"
           - "examples/arduino-rmt-blink"
@@ -33,7 +30,7 @@ jobs:
           - "examples/espidf-storage-sdcard"
           - "examples/espidf-ulp"
           - "examples/espidf-ulp-riscv"
-          #- "examples/tasmota"
+          - "examples/tasmota"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
