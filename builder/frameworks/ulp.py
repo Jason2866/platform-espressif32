@@ -103,7 +103,7 @@ def generate_ulp_config(target_config):
             "-DCMAKE_GENERATOR=Ninja",
             "-DCMAKE_TOOLCHAIN_FILE="
             + os.path.join(
-                FRAMEWORK_DIR,
+                fs.to_unix_path(FRAMEWORK_DIR),
                 "components",
                 "ulp",
                 "cmake",
@@ -122,7 +122,7 @@ def generate_ulp_config(target_config):
             "-GNinja",
             "-B",
             ULP_BUILD_DIR,
-            os.path.join(FRAMEWORK_DIR, "components", "ulp", "cmake"),
+            os.path.join(fs.to_unix_path(FRAMEWORK_DIR), "components", "ulp", "cmake"),
         )
 
         result = exec_command(cmd)
