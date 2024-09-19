@@ -86,7 +86,7 @@
     "tl-install": {
       "optional": false,
       "owner": "pioarduino",
-      "version": "https://github.com/pioarduino/esp_install/releases/download/v2.0.0/esp_install-v2.0.0.zip"
+      "version": "https://github.com/pioarduino/esp_install/releases/download/v3.0.0/esp_install-v3.0.0.zip"
     },
     "tool-scons": {
       "optional": true,
