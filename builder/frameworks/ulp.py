@@ -103,7 +103,7 @@ def generate_ulp_config(target_config):
             "-DCMAKE_GENERATOR=Ninja",
             "-DCMAKE_TOOLCHAIN_FILE="
             + os.path.join(
-                fs.to_unix_path(FRAMEWORK_DIR),
+                FRAMEWORK_DIR,
                 "components",
                 "ulp",
                 "cmake",
@@ -118,11 +118,11 @@ def generate_ulp_config(target_config):
             "-DSDKCONFIG_HEADER=" + os.path.join(BUILD_DIR, "config", "sdkconfig.h"),
             "-DPYTHON=" + env.subst("$PYTHONEXE"),
             "-DSDKCONFIG_CMAKE=" + os.path.join(BUILD_DIR, "config", "sdkconfig.cmake"),
-            "-DCMAKE_MODULE_PATH=" + os.path.normpath(os.path.expanduser(str(FRAMEWORK_DIR) + "/components/ulp/cmake")),
+            "-DCMAKE_MODULE_PATH=" + fs.to_unix_path(os.path.join(FRAMEWORK_DIR), "components", "ulp", "cmake"),
             "-GNinja",
             "-B",
             ULP_BUILD_DIR,
-            os.path.join(fs.to_unix_path(FRAMEWORK_DIR), "components", "ulp", "cmake"),
+            os.path.join(FRAMEWORK_DIR, "components", "ulp", "cmake"),
         )
 
         result = exec_command(cmd)
