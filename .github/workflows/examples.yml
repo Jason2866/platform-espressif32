@@ -52,6 +52,6 @@ jobs:
           git clone -b development --recursive --depth 1 --shallow-submodule https://github.com/arendst/Tasmota.git examples/tasmota
           cp examples/tasmota_platformio_override.ini examples/tasmota/platformio_override.ini
       - name: Build examples
-        if: not ("matrix.example == 'examples/tasmota' && matrix.os == 'macos-latest'")
+        if: "matrix.example != 'examples/tasmota' || matrix.os != 'macos-latest'"
         run: |
           pio run -d ${{ matrix.example }}
