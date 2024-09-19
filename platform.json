@@ -33,7 +33,7 @@
       "type": "framework",
       "optional": true,
       "owner": "espressif",
-      "version": "https://github.com/espressif/arduino-esp32/archive/refs/heads/release/v3.1.x.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2963/framework-arduinoespressif32-all-release_v5.3-b2dba612.zip"
     },
     "framework-arduinoespressif32-libs": {
       "type": "framework",
