@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-14]
+        os: [ubuntu-22.04, windows-2022, macos-latest]
         example:
           - "examples/arduino-blink"
           - "examples/arduino-rmt-blink"
@@ -30,6 +30,7 @@ jobs:
           - "examples/espidf-storage-sdcard"
           - "examples/espidf-ulp"
           - "examples/espidf-ulp-riscv"
+          - "examples/tasmota"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -46,11 +47,11 @@ jobs:
           pip install -U https://github.com/Jason2866/platformio-core/archive/refs/tags/v6.1.16+test.tar.gz
           pio pkg install --global --platform symlink://.
       - name: git clone Tasmota and add to examples
-        if: "matrix.example == 'examples/tasmota' && matrix.os != 'windows-2022'"
+        if: "matrix.example == 'examples/tasmota' && matrix.os == 'macos-latest'"
         run: |
           git clone -b development --recursive --depth 1 --shallow-submodule https://github.com/arendst/Tasmota.git examples/tasmota
           cp examples/tasmota_platformio_override.ini examples/tasmota/platformio_override.ini
       - name: Build examples
-        if: "matrix.example != 'examples/tasmota' || matrix.os != 'windows-2022'"
+        if: "matrix.example == 'examples/tasmota' || matrix.os == 'macos-latest'"
         run: |
           pio run -d ${{ matrix.example }}
