@@ -41,13 +41,9 @@ class Espressif32Platform(PlatformBase):
         core_variant_board = core_variant_board.replace("-D", " ")
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
-        print("frameworks", frameworks)
+
         if variables.get("custom_sdkconfig") is not None:
-            #custom_sdkconfig = variables.get("custom_sdkconfig", [])
-            #print("*******", custom_sdkconfig, "*******")
-            #if frameworks is not None:
             frameworks.append("espidf")
-            print("frameworks new", frameworks)       
 
         if "arduino" in frameworks:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
