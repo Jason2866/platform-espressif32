@@ -45,9 +45,9 @@ class Espressif32Platform(PlatformBase):
         try:
             custom_sdkconfig = variables.get("custom_sdkconfig", [])
             print("*******", custom_sdkconfig, "*******")
-            if frameworks is not None:
-                frameworks.append("espidf")
-                print("frameworks new", frameworks)
+            #if frameworks is not None:
+            frameworks.append("espidf")
+            print("frameworks new", frameworks)
         except:
             pass        
 
