@@ -42,7 +42,7 @@ class Espressif32Platform(PlatformBase):
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
         print("frameworks", frameworks)
-        if variables.get("custom_sdkconfig", []) is not None:
+        if variables.get("custom_sdkconfig") is not None:
             #custom_sdkconfig = variables.get("custom_sdkconfig", [])
             #print("*******", custom_sdkconfig, "*******")
             #if frameworks is not None:
