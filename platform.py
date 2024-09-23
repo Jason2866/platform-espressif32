@@ -43,6 +43,8 @@ class Espressif32Platform(PlatformBase):
         try:
             custom_sdkconfig = variables.get("custom_sdkconfig", [])
             print("*******", custom_sdkconfig)
+            variables = variables.get("pioframework", []).append("espidf")
+            print("variables new", variables)
         except:
             pass
         frameworks = variables.get("pioframework", [])
