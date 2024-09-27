@@ -44,6 +44,11 @@ from platformio.proc import exec_command
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
 from platformio.package.version import get_original_version, pepver_to_semver
 
+try:
+    from arduino import ARDUINO_FRAMEWORK_DIR
+except:
+    pass
+
 # Added to avoid conflicts between installed Python packages from
 # the IDF virtual environment and PlatformIO Core
 # Note: This workaround can be safely deleted when PlatformIO 6.1.7 is released
