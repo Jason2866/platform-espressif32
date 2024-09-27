@@ -44,11 +44,6 @@ from platformio.proc import exec_command
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
 from platformio.package.version import get_original_version, pepver_to_semver
 
-try:
-    from arduino import ARDUINO_FRAMEWORK_DIR
-except:
-    pass
-
 # Added to avoid conflicts between installed Python packages from
 # the IDF virtual environment and PlatformIO Core
 # Note: This workaround can be safely deleted when PlatformIO 6.1.7 is released
@@ -1791,8 +1786,8 @@ if ota_partition_params["size"] and ota_partition_params["offset"]:
     # Generate an empty image if OTA is enabled in partition table
     ota_partition_image = os.path.join("$BUILD_DIR", "ota_data_initial.bin")
     if "arduino" in env.subst("$PIOFRAMEWORK"):
+        from arduino import ARDUINO_FRAMEWORK_DIR
         ota_partition_image = os.path.join(ARDUINO_FRAMEWORK_DIR, "tools", "partitions", "boot_app0.bin")
-        ota_partition_image = os.path.join("$BUILD_DIR", "ota_data_initial.bin")
     else:
         generate_empty_partition_image(ota_partition_image, ota_partition_params["size"])
 
