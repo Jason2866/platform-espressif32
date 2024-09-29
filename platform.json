@@ -56,8 +56,8 @@
     "framework-espidf": {
       "type": "framework",
       "optional": true,
-      "owner": "pioarduino",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.0.240918/esp-idf-v5.4.0.zip"
+      "owner": "tasmota",
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.0.240921/esp-idf-v5.4.0.zip"
     },
     "xtensa-esp-elf": {
       "type": "toolchain",
