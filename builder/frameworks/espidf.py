@@ -110,6 +110,7 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 ))
 
 print("Build Flags", env.subst("$BUILD_FLAGS"))
+print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
 print("Source Dir", PROJECT_SRC_DIR)
 
 def get_project_lib_includes(env):
