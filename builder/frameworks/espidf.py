@@ -111,7 +111,7 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 
 print("Build Flags", env.subst("$BUILD_FLAGS"))
 print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-print("Source Dir", PROJECT_SRC_DIR)
+
 try:
     print("Custom Pio sdkconfig", env.GetProjectOption("custom_sdkconfig").splitlines())
     if env.GetProjectOption("custom_sdkconfig").splitlines():
@@ -121,8 +121,14 @@ try:
         env("$BUILD_FLAGS").clear()
         env("$BUILD_UNFLAGS").clear()
         PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
+        env("$PROJECT_SRC_DIR").clear()
+        env("$PROJECT_SRC_DIR").append(PROJECT_SRC_DIR)
 except:
     pass
+print("Source Dir", PROJECT_SRC_DIR)
+print("Build Flags", env.subst("$BUILD_FLAGS"))
+print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
