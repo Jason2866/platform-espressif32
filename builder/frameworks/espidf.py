@@ -118,10 +118,10 @@ try:
         ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
         ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
         ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
-        ["$BUILD_FLAGS"] = []
-        ["$BUILD_UNFLAGS"] = []
+        del ["$BUILD_FLAGS"][:]
+        del ["$BUILD_UNFLAGS"][:]
         PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
-        ["$PROJECT_SRC_DIR"] = []
+        del ["$PROJECT_SRC_DIR"][:]
         ["$PROJECT_SRC_DIR"].append(PROJECT_SRC_DIR)
 except:
     pass
