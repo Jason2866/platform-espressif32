@@ -109,6 +109,8 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
         os.path.join(PROJECT_DIR, "sdkconfig.%s" % env.subst("$PIOENV")),
 ))
 
+print("Build Flags", env.subst("$BUILD_FLAGS"))
+print("Source Dir", PROJECT_SRC_DIR)
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
