@@ -163,6 +163,7 @@ try:
             BUILD_FLAGS="",
             BUILD_UNFLAGS="",
             LINKFLAGS="",
+            PIOFRAMEWORK="arduino",
         )
         print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
         print("Build Flags", env.subst("$BUILD_FLAGS"))
@@ -1856,7 +1857,7 @@ def esp32_copy_new_arduino_libs(target, source, env):
 # Compile Arduino sources
 #
 
-if libs_flag:
+if ["arduino"] == env.get("PIOFRAMEWORK"):
     print("Starting Arduino compile run")
     PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
     env.Replace(
@@ -1864,7 +1865,6 @@ if libs_flag:
         BUILD_FLAGS=ORIG_BUILD_FLAGS,
         BUILD_UNFLAGS=ORIG_BUILD_UNFLAGS,
         LINKFLAGS=ORIG_LINKFLAGS,
-        PIOFRAMEWORK="arduino"
     )
     print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
     print("Build Flags", env.subst("$BUILD_FLAGS"))
