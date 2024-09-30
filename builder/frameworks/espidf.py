@@ -128,7 +128,7 @@ try:
             PROJECT_SRC_DIR=PROJECT_SRC_DIR,
             BUILD_FLAGS="",
             BUILD_UNFLAGS="",
-            LINKFLAGS="",
+            LINKFLAGS="-fno-lto",
         )
 except:
     pass
