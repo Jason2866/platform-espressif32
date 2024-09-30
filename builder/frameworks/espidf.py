@@ -109,23 +109,26 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
         os.path.join(PROJECT_DIR, "sdkconfig.%s" % env.subst("$PIOENV")),
 ))
 
-if env.GetProjectOption("custom_sdkconfig").splitlines():
-    ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
-    ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
-    ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
-    ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
-    NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
-    PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
-    env.Replace(
-        PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
-        BUILD_FLAGS="",
-        BUILD_UNFLAGS="",
-        LINKFLAGS="",
-    )
-    print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
-    print("Build Flags", env.subst("$BUILD_FLAGS"))
-    print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-    print("Link flags", env.subst("$LINKFLAGS"))
+try:
+    if env.GetProjectOption("custom_sdkconfig").splitlines():
+        ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
+        ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
+        ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
+        ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
+        NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
+        PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
+        env.Replace(
+            PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
+            BUILD_FLAGS="",
+            BUILD_UNFLAGS="",
+            LINKFLAGS="",
+        )
+        print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
+        print("Build Flags", env.subst("$BUILD_FLAGS"))
+        print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+        print("Link flags", env.subst("$LINKFLAGS"))
+except:
+    pass
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
@@ -1793,25 +1796,28 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 # Compile Arduino sources
 #
 
-print("Custom Pio sdkconfig", env.GetProjectOption("custom_sdkconfig").splitlines())
-if env.GetProjectOption("custom_sdkconfig").splitlines():
-    print("Starting Arduino compile run")
-    env.GetProjectOption("custom_sdkconfig").clear()
-    print("custom sdkconfig", env.GetProjectOption("custom_sdkconfig"))
-    PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
-    env.Replace(
-        PROJECT_SRC_DIR=ORIG_PROJECT_SRC_DIR,
-        BUILD_FLAGS=ORIG_BUILD_FLAGS,
-        BUILD_UNFLAGS=ORIG_BUILD_UNFLAGS,
-        LINKFLAGS=ORIG_LINKFLAGS,
-        PIOFRAMEWORK="arduino"
-    )
-    print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
-    print("Build Flags", env.subst("$BUILD_FLAGS"))
-    print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-    print("Link flags", env.subst("$LINKFLAGS"))
-    print("Pio framework", env.get("PIOFRAMEWORK"))
-    env.SConscript("arduino.py", exports="env")
+try:
+    print("Custom Pio sdkconfig", env.GetProjectOption("custom_sdkconfig").splitlines())
+    if env.GetProjectOption("custom_sdkconfig").splitlines():
+        print("Starting Arduino compile run")
+        env.GetProjectOption("custom_sdkconfig").clear()
+        #print("custom sdkconfig", env.GetProjectOption("custom_sdkconfig"))
+        PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
+        env.Replace(
+            PROJECT_SRC_DIR=ORIG_PROJECT_SRC_DIR,
+            BUILD_FLAGS=ORIG_BUILD_FLAGS,
+            BUILD_UNFLAGS=ORIG_BUILD_UNFLAGS,
+            LINKFLAGS=ORIG_LINKFLAGS,
+            PIOFRAMEWORK="arduino"
+        )
+        print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
+        print("Build Flags", env.subst("$BUILD_FLAGS"))
+        print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+        print("Link flags", env.subst("$LINKFLAGS"))
+        print("Pio framework", env.get("PIOFRAMEWORK"))
+        env.SConscript("arduino.py", exports="env")
+except:
+    pass
 
 #
 # Process OTA partition and image
