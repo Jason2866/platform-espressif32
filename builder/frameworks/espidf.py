@@ -109,31 +109,23 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
         os.path.join(PROJECT_DIR, "sdkconfig.%s" % env.subst("$PIOENV")),
 ))
 
-print("Build Flags", env.subst("$BUILD_FLAGS"))
-print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-print("Link flags", env.subst("$LINKFLAGS"))
-
-try:
-    print("Custom Pio sdkconfig", env.GetProjectOption("custom_sdkconfig").splitlines())
-    if env.GetProjectOption("custom_sdkconfig").splitlines():
-        ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
-        ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
-        ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
-        ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
-        NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
-        PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
-        env.Replace(
-            PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
-            BUILD_FLAGS="",
-            BUILD_UNFLAGS="",
-            LINKFLAGS="",
-        )
-except:
-    pass
-print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
-print("Build Flags", env.subst("$BUILD_FLAGS"))
-print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-print("Link flags", env.subst("$LINKFLAGS"))
+if env.GetProjectOption("custom_sdkconfig").splitlines():
+    ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
+    ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
+    ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
+    ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
+    NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
+    PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
+    env.Replace(
+        PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
+        BUILD_FLAGS="",
+        BUILD_UNFLAGS="",
+        LINKFLAGS="",
+    )
+    print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
+    print("Build Flags", env.subst("$BUILD_FLAGS"))
+    print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+    print("Link flags", env.subst("$LINKFLAGS"))
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
