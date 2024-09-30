@@ -126,7 +126,7 @@ try:
         PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
         env.Replace(
             PROJECT_SRC_DIR=PROJECT_SRC_DIR,
-            BUILD_FLAGS="",
+            BUILD_FLAGS="-fno-lto",
             BUILD_UNFLAGS="",
             LINKFLAGS="-fno-lto",
         )
