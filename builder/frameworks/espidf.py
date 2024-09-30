@@ -120,16 +120,13 @@ try:
         ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
         ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
         ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
-        #env.GetProjectOption("build_flags").clear()
-        #env.GetProjectOption("build_unflags").clear()
-        #env.GetProjectOption("linkflags").clear()
         NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
         PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
         env.Replace(
             PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
-            BUILD_FLAGS="-fno-lto",
+            BUILD_FLAGS="",
             BUILD_UNFLAGS="",
-            LINKFLAGS="-fno-lto",
+            LINKFLAGS="",
         )
 except:
     pass
