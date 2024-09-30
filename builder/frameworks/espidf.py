@@ -147,7 +147,8 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 ))
 
 try:
-    if env.GetProjectOption("custom_sdkconfig").splitlines():
+    if idf_config_flags := env.GetProjectOption("custom_sdkconfig").splitlines():
+        HandleArduinoIDFbuild(env, idf_config_flags)
         ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
         ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
         ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
