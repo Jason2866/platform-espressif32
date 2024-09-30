@@ -1906,12 +1906,16 @@ if ota_partition_params["size"] and ota_partition_params["offset"]:
             )
         ]
     )
-    EXTRA_IMG_DIR = join(env.subst("$PROJECT_DIR"), "variants", "tasmota")
-    env.Append(
-        FLASH_EXTRA_IMAGES=[
-            (offset, join(EXTRA_IMG_DIR, img)) for offset, img in board.get("upload.arduino.flash_extra_images", [])
-        ]
-    )
+    try:
+        if env.GetProjectOption("custom_sdkconfig").splitlines():
+            EXTRA_IMG_DIR = join(env.subst("$PROJECT_DIR"), "variants", "tasmota")
+            env.Append(
+                FLASH_EXTRA_IMAGES=[
+                    (offset, join(EXTRA_IMG_DIR, img)) for offset, img in board.get("upload.arduino.flash_extra_images", [])
+                ]
+            )
+    except:
+        pass
 
 
 def _parse_size(value):
