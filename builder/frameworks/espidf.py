@@ -118,10 +118,10 @@ try:
         ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
         ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
         ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
-        while(len(env.subst("$BUILD_FLAGS")) != 0):
-            env.subst("$BUILD_FLAGS").pop()
-        while(len(env.subst("$BUILD_UNFLAGS")) != 0):
-            env.subst("$BUILD_UNFLAGS").pop()
+        while(len(env.GetProjectOption("build_flags")) != 0):
+            env.GetProjectOption("build_flags").pop()
+        while(len(env.GetProjectOption("build_unflags")) != 0):
+            env.GetProjectOption("build_unflags").pop()
         PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
         while(len(env.subst("$PROJECT_SRC_DIR")) != 0):
             env.subst("$PROJECT_SRC_DIR").pop()
