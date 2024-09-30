@@ -111,7 +111,6 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 
 print("Build Flags", env.subst("$BUILD_FLAGS"))
 print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-print("Link flags", env["LINKFLAGS"])
 print("Link flags", env.subst("$LINKFLAGS"))
 
 try:
@@ -123,7 +122,7 @@ try:
         ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
         env.GetProjectOption("build_flags").clear()
         env.GetProjectOption("build_unflags").clear()
-        env.GetProjectOption("linkflags").clear()
+        #env.GetProjectOption("linkflags").clear()
         PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
         env.Replace(
             PROJECT_SRC_DIR=PROJECT_SRC_DIR,
@@ -136,7 +135,6 @@ except:
 print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
 print("Build Flags", env.subst("$BUILD_FLAGS"))
 print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-print("Link flags", env["LINKFLAGS"])
 print("Link flags", env.subst("$LINKFLAGS"))
 
 def get_project_lib_includes(env):
