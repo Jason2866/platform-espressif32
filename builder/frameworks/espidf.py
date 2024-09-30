@@ -89,7 +89,7 @@ if (
 
 # Arduino framework as a component is not compatible with ESP-IDF >5.2
 if "arduino" in env.subst("$PIOFRAMEWORK"):
-    ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+    ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32") # todo Tasmota ?
     # Possible package names in 'package@version' format is not compatible with CMake
     if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
         new_path = os.path.join(
@@ -99,6 +99,43 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
         os.rename(ARDUINO_FRAMEWORK_DIR, new_path)
         ARDUINO_FRAMEWORK_DIR = new_path
     assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
+
+
+def HandleArduinoIDFbuild(env, idf_config_flags):
+    print("Build customized Arduino libs!")
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
+    print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
+    sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
+
+    def get_flag(line):
+        if line.startswith("#") and "is not set" in line:
+            return line.split(" ")[1]
+        elif not line.startswith("#") and len(line.split("=")) > 1:
+            return line.split("=")[0]
+        else:
+            return None
+
+    with open(sdkconfig_src) as src:
+        sdkconfig_dst = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
+        dst = open(sdkconfig_dst,"w")
+        dst.write("# TASMOTA\n")
+        while line := src.readline():
+            flag = get_flag(line)
+            # print(flag)
+            if flag is None:
+                dst.write(line)
+            else:
+                no_match = True
+                for item in idf_config_flags:
+                    if flag in item:
+                        dst.write(item+"\n")
+                        no_match = False
+                        print("Replace:",line," with: ",item)
+                if no_match:
+                    dst.write(line)
+        dst.close()
+
 
 BUILD_DIR = env.subst("$BUILD_DIR")
 PROJECT_DIR = env.subst("$PROJECT_DIR")
@@ -1792,6 +1829,25 @@ ulp_dir = os.path.join(PROJECT_DIR, "ulp")
 if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32h2"):
     env.SConscript("ulp.py", exports="env sdk_config project_config app_includes idf_variant")
 
+
+def esp32_copy_new_arduino_libs(target, source, env):
+    print("Will copy new Arduino libs to .platformio")
+    lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
+    lib_dst = join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
+    src = [join(lib_src,x) for x in os.listdir(lib_src)]
+    src = [folder for folder in src if not os.path.isfile(folder)] # folders only
+    for folder in src:
+        # print(folder)
+        files = [join(folder,x) for x in os.listdir(folder)]
+        for file in files:
+            if file.strip().endswith(".a"):
+                # print(file.split("/")[-1])
+                shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
+    if not bool(os.path.isfile(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
+        shutil.move(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
+    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
+
+
 #
 # Compile Arduino sources
 #
@@ -1815,6 +1871,7 @@ try:
         print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         print("Link flags", env.subst("$LINKFLAGS"))
         print("Pio framework", env.get("PIOFRAMEWORK"))
+        esp32_copy_new_arduino_libs()
         env.SConscript("arduino.py", exports="env")
 except:
     pass
@@ -1848,6 +1905,13 @@ if ota_partition_params["size"] and ota_partition_params["offset"]:
             )
         ]
     )
+    EXTRA_IMG_DIR = join(env.subst("$PROJECT_DIR"), "variants", "tasmota")
+    env.Append(
+        FLASH_EXTRA_IMAGES=[
+            (offset, join(EXTRA_IMG_DIR, img)) for offset, img in board.get("upload.arduino.flash_extra_images", [])
+        ]
+    )
+
 
 def _parse_size(value):
     if isinstance(value, int):
