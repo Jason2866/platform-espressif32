@@ -103,7 +103,7 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
 
 
 def HandleArduinoIDFbuild(env, idf_config_flags):
-    print("Build customized Arduino libs!")
+    print("Build customized Arduino IDF libraries!")
     if mcu in ("esp32", "esp32s2", "esp32s3"):
         env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
     print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
@@ -151,7 +151,7 @@ try:
     if idf_config_flags := env.GetProjectOption("custom_sdkconfig").splitlines():
         HandleArduinoIDFbuild(env, idf_config_flags)
         env.GetProjectOption("custom_sdkconfig").clear()
-        print("*** env custom sdkconfig", env.GetProjectOption("custom_sdkconfig"))
+        env.GetProjectOption("custom_sdkconfig").append("idf_libs_compiled")
         ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
         ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
         ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
@@ -169,6 +169,7 @@ try:
         print("Build Flags", env.subst("$BUILD_FLAGS"))
         print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         print("Link flags", env.subst("$LINKFLAGS"))
+        print("*** env custom sdkconfig", env.GetProjectOption("custom_sdkconfig"))
 except:
     pass
 
@@ -1836,7 +1837,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 
 
 def esp32_copy_new_arduino_libs(target, source, env):
-    print("Will copy new Arduino libs to .platformio")
+    print("Copy compiled IDF libraries to Arduino framework")
     lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
     lib_dst = join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
     src = [join(lib_src,x) for x in os.listdir(lib_src)]
@@ -1857,7 +1858,7 @@ def esp32_copy_new_arduino_libs(target, source, env):
 # Compile Arduino sources
 #
 
-if ["arduino"] == env.get("PIOFRAMEWORK"):
+if ["arduino"] == env.get("PIOFRAMEWORK"): # and ["idf_libs_compiled"] == variables.get("custom_sdkconfig"):
     print("Starting Arduino compile run")
     PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
     env.Replace(
@@ -1870,9 +1871,10 @@ if ["arduino"] == env.get("PIOFRAMEWORK"):
     print("Build Flags", env.subst("$BUILD_FLAGS"))
     print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
     print("Link flags", env.subst("$LINKFLAGS"))
+    print("custom sdk config", variables.get("custom_sdkconfig"))
     print("Pio framework", env.get("PIOFRAMEWORK"))
     esp32_copy_new_arduino_libs()
-    env.SConscript("arduino.py", exports="env")
+    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
 
 #
 # Process OTA partition and image
