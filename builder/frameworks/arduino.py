@@ -46,18 +46,21 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
-#if env.GetProjectOption("custom_sdkconfig") is not None:
 try:
+    if env.GetProjectOption("custom_sdkconfig"):
+        flag_custom_sdkonfig = True
+except:
+    flag_custom_sdkonfig = False
+
+if flag_custom_sdkonfig:
     if not (["idf_libs_compiled"] == env.GetProjectOption("custom_sdkconfig")):
-        env["PIOFRAMEWORK"].append("espidf")
+        #env["PIOFRAMEWORK"].append("espidf")
         print("Arduino IDF libs compile")
         print("arduino.py script calling SConscript espidf.py")
         print("Pio framework", env.subst("$PIOFRAMEWORK"))
         SConscript("espidf.py")
-except:
-    pass
 
-if "espidf" not in env.subst("$PIOFRAMEWORK"):
+if "espidf" not in env.subst("$PIOFRAMEWORK") and not flag_custom_sdkonfig:
     print("Arduino compile")
     print("arduino.py script calling SConscript platformio-build.py")
     print("Pio framework", env.subst("$PIOFRAMEWORK"))
