@@ -1870,7 +1870,8 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 #
 
 print("*** Arduino source build with just generated customs IDF libraries ***", env.get("PIOFRAMEWORK"))
-if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
+if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and does not wait for task finished
+#if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     print("*** Starting Arduino compile run now ***")
     PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
     env.Replace(
