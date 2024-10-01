@@ -182,7 +182,7 @@ if flag_custom_sdkonfig:
     idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
     print("********** custom sdkconfig", idf_config_flags)
     HandleArduinoIDFbuild(env, idf_config_flags)
-    env.GetProjectOption("custom_sdkconfig").clear()
+    #env.GetProjectOption("custom_sdkconfig").clear()
     env.GetProjectOption("custom_sdkconfig").append("idf_libs_compiled")
     ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
     ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
