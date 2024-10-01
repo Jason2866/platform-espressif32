@@ -188,14 +188,15 @@ if flag_custom_sdkonfig:
     ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
     NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
     PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
-    env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": "True"})
     env.Replace(
         PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
         BUILD_FLAGS="",
         BUILD_UNFLAGS="",
         LINKFLAGS="",
         PIOFRAMEWORK="arduino",
+        ARDUINO_LIB_COMPILE_FLAG="True",
     )
+    env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
     print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
     print("Build Flags", env.subst("$BUILD_FLAGS"))
     print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
