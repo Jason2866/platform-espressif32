@@ -136,6 +136,7 @@ def HandleArduinoIDFbuild(env, idf_config_flags):
                 if no_match:
                     dst.write(line)
         dst.close()
+    return
 
 
 BUILD_DIR = env.subst("$BUILD_DIR")
