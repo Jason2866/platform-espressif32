@@ -1798,25 +1798,6 @@ ulp_dir = os.path.join(PROJECT_DIR, "ulp")
 if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32h2"):
     env.SConscript("ulp.py", exports="env sdk_config project_config app_includes idf_variant")
 
-
-def esp32_copy_new_arduino_libs(target, source, env):
-    print("Copy compiled IDF libraries to Arduino framework")
-    lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
-    lib_dst = join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
-    src = [join(lib_src,x) for x in os.listdir(lib_src)]
-    src = [folder for folder in src if not os.path.isfile(folder)] # folders only
-    for folder in src:
-        # print(folder)
-        files = [join(folder,x) for x in os.listdir(folder)]
-        for file in files:
-            if file.strip().endswith(".a"):
-                # print(file.split("/")[-1])
-                shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
-    if not bool(os.path.isfile(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
-        shutil.move(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
-    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
-
-
 #
 # Compile Arduino sources
 #
@@ -1842,6 +1823,7 @@ if ["arduino"] == env.get("PIOFRAMEWORK"): # and ["idf_libs_compiled"] == variab
 #
 # generate Arduino/IDF sdkconfig
 #
+
 def HandleArduinoIDFbuild(env, idf_config_flags):
     print("Build customized Arduino IDF libraries!")
     if mcu in ("esp32", "esp32s2", "esp32s3"):
@@ -1877,6 +1859,25 @@ def HandleArduinoIDFbuild(env, idf_config_flags):
                     dst.write(line)
         dst.close()
     return
+
+def esp32_copy_new_arduino_libs(target, source, env):
+    print("Copy compiled IDF libraries to Arduino framework")
+    lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
+    lib_dst = join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
+    src = [join(lib_src,x) for x in os.listdir(lib_src)]
+    src = [folder for folder in src if not os.path.isfile(folder)] # folders only
+    for folder in src:
+        # print(folder)
+        files = [join(folder,x) for x in os.listdir(folder)]
+        for file in files:
+            if file.strip().endswith(".a"):
+                # print(file.split("/")[-1])
+                shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
+    if not bool(os.path.isfile(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
+        shutil.move(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
+    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
+    return
+
 
 #
 # Process OTA partition and image
