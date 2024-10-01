@@ -180,7 +180,7 @@ except:
 
 if flag_custom_sdkonfig:
     idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
-    print("********** custom sdkconfig", idf_config_flags)
+    #print("********** custom sdkconfig", idf_config_flags)
     HandleArduinoIDFbuild(env, idf_config_flags)
     ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
     ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
@@ -197,11 +197,11 @@ if flag_custom_sdkonfig:
         ARDUINO_LIB_COMPILE_FLAG="True",
     )
     env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
-    print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
-    print("Build Flags", env.subst("$BUILD_FLAGS"))
-    print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-    print("Link flags", env.subst("$LINKFLAGS"))
-    print("arduino lib compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
+    print("LibBuild: Source Dir", env.subst("$PROJECT_SRC_DIR"))
+    print("LibBuild: Build Flags", env.subst("$BUILD_FLAGS"))
+    print("LibBuild: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+    print("LibBuild: Link flags", env.subst("$LINKFLAGS"))
+    print("LibBuild: arduino lib compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
@@ -1869,6 +1869,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 # Compile Arduino sources
 #
 
+print("*** Arduino source build with just generated customs IDF libraries ***", env.get("PIOFRAMEWORK"))
 if ["arduino"] == env.get("PIOFRAMEWORK"): # and ["idf_libs_compiled"] == variables.get("custom_sdkconfig"):
     print("Starting Arduino compile run")
     PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
