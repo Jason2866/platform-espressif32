@@ -182,28 +182,25 @@ if flag_custom_sdkonfig:
     idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
     print("********** custom sdkconfig", idf_config_flags)
     HandleArduinoIDFbuild(env, idf_config_flags)
-    #env.GetProjectOption.get("custom_sdkconfig").append("idf_libs_compiled")
-    IDF_CONFIG_FLAGS = env.GetProjectOption("custom_sdkconfig")
     ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
     ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
     ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
     ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
     NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
     PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
+    env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": True})
     env.Replace(
         PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
         BUILD_FLAGS="",
         BUILD_UNFLAGS="",
         LINKFLAGS="",
         PIOFRAMEWORK="arduino",
-        IDF_CONFIG_FLAGS="idf_libs_compiled",
     )
     print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
     print("Build Flags", env.subst("$BUILD_FLAGS"))
     print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
     print("Link flags", env.subst("$LINKFLAGS"))
-    print("*** env custom sdkconfig", env.GetProjectOption("custom_sdkconfig"))
-    print("*** IDF_CONFIG_FLAGS", env.subst("$IDF_CONFIG_FLAGS"))
+    print("arduino lib compile flag", env["INTEGRATION_EXTRA_DATA"].get({"arduino_lib_compile_flag"}))
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
