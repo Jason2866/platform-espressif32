@@ -150,7 +150,7 @@ def HandleArduinoIDFbuild(env, idf_config_flags):
         dst.close()
     return
 
-def esp32_copy_new_arduino_libs(target, source, env):
+def esp32_copy_new_arduino_libs(env):
     print("Copy compiled IDF libraries to Arduino framework")
     lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
     lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
@@ -1886,7 +1886,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
     print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
     print("Link flags", env.subst("$LINKFLAGS"))
     print("Pio framework", env.get("PIOFRAMEWORK"))
-    esp32_copy_new_arduino_libs()
+    esp32_copy_new_arduino_libs(env)
     env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
 
 #
