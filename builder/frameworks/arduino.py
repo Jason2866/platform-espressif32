@@ -119,7 +119,7 @@ def install_python_deps():
         )
     return
 
-if "espidf" not in env.subst("$PIOFRAMEWORK") and not flag_custom_sdkonfig:
+if "espidf" not in env.subst("$PIOFRAMEWORK") and "Inactive" in env.subst("$ARDUINO_LIB_COMPILE_FLAG"):
     print("Arduino compile")
     print("arduino.py script calling SConscript platformio-build.py")
     print("Pio framework", env.subst("$PIOFRAMEWORK"))
