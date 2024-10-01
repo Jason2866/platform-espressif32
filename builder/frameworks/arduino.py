@@ -60,13 +60,6 @@ if flag_custom_sdkonfig:
         print("Pio framework", env.subst("$PIOFRAMEWORK"))
         SConscript("espidf.py")
 
-if "espidf" not in env.subst("$PIOFRAMEWORK") and not flag_custom_sdkonfig:
-    print("Arduino compile")
-    print("arduino.py script calling SConscript platformio-build.py")
-    print("Pio framework", env.subst("$PIOFRAMEWORK"))
-    SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
-    install_python_deps()
-
 def install_python_deps():
     def _get_installed_pip_packages():
         result = {}
@@ -123,3 +116,10 @@ def install_python_deps():
             )
         )
     return
+
+if "espidf" not in env.subst("$PIOFRAMEWORK") and not flag_custom_sdkonfig:
+    print("Arduino compile")
+    print("arduino.py script calling SConscript platformio-build.py")
+    print("Pio framework", env.subst("$PIOFRAMEWORK"))
+    SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
+    install_python_deps()
