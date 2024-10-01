@@ -49,6 +49,7 @@ ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 #if env.GetProjectOption("custom_sdkconfig") is not None:
 try:
     if not (["idf_libs_compiled"] == env.GetProjectOption("custom_sdkconfig")):
+        env.add("$PIOFRAMEWORK")=["espidf"]
         print("Arduino IDF libs compile")
         print("arduino.py script calling SConscript espidf.py")
         print("Pio framework", env.subst("$PIOFRAMEWORK"))
