@@ -183,7 +183,7 @@ if flag_custom_sdkonfig:
     print("********** custom sdkconfig", idf_config_flags)
     HandleArduinoIDFbuild(env, idf_config_flags)
     #env.GetProjectOption("custom_sdkconfig").clear()
-    env.GetProjectOption("custom_sdkconfig").append("idf_libs_compiled")
+    #env.GetProjectOption("custom_sdkconfig").append("idf_libs_compiled")
     ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
     ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
     ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
@@ -196,6 +196,7 @@ if flag_custom_sdkonfig:
         BUILD_UNFLAGS="",
         LINKFLAGS="",
         PIOFRAMEWORK="arduino",
+        GetProjectOption("custom_sdkconfig")="idf_libs_compiled",
     )
     print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
     print("Build Flags", env.subst("$BUILD_FLAGS"))
