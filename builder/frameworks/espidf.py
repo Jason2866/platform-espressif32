@@ -201,7 +201,7 @@ if flag_custom_sdkonfig:
     print("Build Flags", env.subst("$BUILD_FLAGS"))
     print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
     print("Link flags", env.subst("$LINKFLAGS"))
-    print("arduino lib compile flag", env["INTEGRATION_EXTRA_DATA"].get({"arduino_lib_compile_flag"}))
+    print("arduino lib compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
