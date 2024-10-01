@@ -153,7 +153,7 @@ def HandleArduinoIDFbuild(env, idf_config_flags):
 def esp32_copy_new_arduino_libs(target, source, env):
     print("Copy compiled IDF libraries to Arduino framework")
     lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
-    lib_dst = join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
+    lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
     src = [join(lib_src,x) for x in os.listdir(lib_src)]
     src = [folder for folder in src if not os.path.isfile(folder)] # folders only
     for folder in src:
@@ -163,9 +163,9 @@ def esp32_copy_new_arduino_libs(target, source, env):
             if file.strip().endswith(".a"):
                 # print(file.split("/")[-1])
                 shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
-    if not bool(os.path.isfile(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
-        shutil.move(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
-    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
+    if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
+        shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
+    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
     return
 
 
@@ -183,6 +183,7 @@ if flag_custom_sdkonfig:
     print("********** custom sdkconfig", idf_config_flags)
     HandleArduinoIDFbuild(env, idf_config_flags)
     #env.GetProjectOption.get("custom_sdkconfig").append("idf_libs_compiled")
+    IDF_CONFIG_FLAGS = env.GetProjectOption("custom_sdkconfig")
     ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
     ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
     ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
@@ -195,12 +196,14 @@ if flag_custom_sdkonfig:
         BUILD_UNFLAGS="",
         LINKFLAGS="",
         PIOFRAMEWORK="arduino",
+        IDF_CONFIG_FLAGS="idf_libs_compiled",
     )
     print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
     print("Build Flags", env.subst("$BUILD_FLAGS"))
     print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
     print("Link flags", env.subst("$LINKFLAGS"))
     print("*** env custom sdkconfig", env.GetProjectOption("custom_sdkconfig"))
+    print("*** IDF_CONFIG_FLAGS", env.subst("$IDF_CONFIG_FLAGS"))
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
