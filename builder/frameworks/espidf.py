@@ -116,8 +116,8 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 
 def HandleArduinoIDFbuild(env, idf_config_flags):
     print("Build customized Arduino IDF libraries!")
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
+    #if mcu in ("esp32", "esp32s2", "esp32s3"):
+        #env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
     print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
     sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
