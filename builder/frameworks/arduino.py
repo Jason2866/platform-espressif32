@@ -53,9 +53,9 @@ try:
 except:
     flag_custom_sdkonfig = False
 
+print("Arduino libs compile flag", env["INTEGRATION_EXTRA_DATA"].get({"arduino_lib_compile_flag"}))
 if flag_custom_sdkonfig:
     if "True" not in env["INTEGRATION_EXTRA_DATA"].get({"arduino_lib_compile_flag"}):
-        print("Arduino libs compile flag", env["INTEGRATION_EXTRA_DATA"].get({"arduino_lib_compile_flag"}))
         #not (["idf_libs_compiled"] == env.GetProjectOption("custom_sdkconfig")):
         print("Arduino IDF libs compile")
         print("arduino.py script calling SConscript espidf.py")
