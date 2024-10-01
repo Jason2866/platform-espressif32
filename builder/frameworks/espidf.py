@@ -110,6 +110,7 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
         os.path.join(PROJECT_DIR, "sdkconfig.%s" % env.subst("$PIOENV")),
 ))
 
+print("********** custom sdkconfig", env.GetProjectOption("custom_sdkconfig").splitlines())
 try:
     if idf_config_flags := env.GetProjectOption("custom_sdkconfig").splitlines():
         HandleArduinoIDFbuild(env, idf_config_flags)
