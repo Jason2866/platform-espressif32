@@ -1878,12 +1878,13 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         BUILD_FLAGS=ORIG_BUILD_FLAGS,
         BUILD_UNFLAGS=ORIG_BUILD_UNFLAGS,
         LINKFLAGS=ORIG_LINKFLAGS,
+        PIOFRAMEWORK="arduino",
+        ARDUINO_LIB_COMPILE_FLAG="Inactive",
     )
     print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
     print("Build Flags", env.subst("$BUILD_FLAGS"))
     print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
     print("Link flags", env.subst("$LINKFLAGS"))
-    print("custom sdk config", variables.get("custom_sdkconfig"))
     print("Pio framework", env.get("PIOFRAMEWORK"))
     esp32_copy_new_arduino_libs()
     env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
