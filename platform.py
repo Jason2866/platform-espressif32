@@ -43,7 +43,7 @@ class Espressif32Platform(PlatformBase):
         frameworks = variables.get("pioframework", [])
 
         if variables.get("custom_sdkconfig") is not None:
-            if not ("idf_libs_compiled" == variables.get("custom_sdkconfig")):
+            if not (["idf_libs_compiled"] == variables.get("custom_sdkconfig")):
                 frameworks.append("espidf")
 
         if "arduino" in frameworks:
