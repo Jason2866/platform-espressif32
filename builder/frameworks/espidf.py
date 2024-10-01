@@ -188,7 +188,7 @@ if flag_custom_sdkonfig:
     ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
     NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
     PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
-    env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": True})
+    env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": "True"})
     env.Replace(
         PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
         BUILD_FLAGS="",
