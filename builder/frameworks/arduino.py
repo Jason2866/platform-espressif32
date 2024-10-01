@@ -47,7 +47,7 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
 if env.GetProjectOption("custom_sdkconfig") is not None:
-    if not (["idf_libs_compiled"] == env.GetProjectOption("custom_sdkconfig"):
+    if not (["idf_libs_compiled"] == env.GetProjectOption("custom_sdkconfig")):
         SConscript("espidf.py")
 
 if "espidf" not in env.subst("$PIOFRAMEWORK"):
