@@ -158,7 +158,7 @@ if flag_custom_sdkonfig:
             dst.close()
 
 if flag_custom_sdkonfig:
-    if sdk_config.get("# TASMOTA", False):
+    if True: #sdk_config.get("# TASMOTA", False): sdk_config is not yet set
         #if mcu in ("esp32", "esp32s2", "esp32s3"):
             #env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
         ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
