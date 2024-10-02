@@ -1854,7 +1854,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 # Compile Arduino sources
 #
 
-if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
+#if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     #print("*** Starting Arduino compile run ***")
     # we need to wait for finish compile. After set flag "ARDUINO_LIB_COMPILE_FLAG" to true and
     # call env.SConscript("arduino.py", exports="env")
