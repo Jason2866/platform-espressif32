@@ -178,7 +178,7 @@ if flag_custom_sdkonfig:
             BUILD_UNFLAGS="",
             LINKFLAGS="",
             PIOFRAMEWORK="arduino",
-            ARDUINO_LIB_COMPILE_FLAG="True",
+            ARDUINO_LIB_COMPILE_FLAG="Build",
         )
         env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
         print("LibBuild: Source Dir", env.subst("$PROJECT_SRC_DIR"))
