@@ -119,9 +119,16 @@ def install_python_deps():
         )
     return
 
-if "espidf" not in env.subst("$PIOFRAMEWORK") and "Inactive" in env.subst("$ARDUINO_LIB_COMPILE_FLAG"):
+if "espidf" not in env.subst("$PIOFRAMEWORK") and ("Inactive", "True") in env.subst("$ARDUINO_LIB_COMPILE_FLAG"):
     print("Arduino compile")
     print("arduino.py script calling SConscript platformio-build.py")
+    if "True" in env.subst("$ARDUINO_LIB_COMPILE_FLAG"):
+        env.Replace(
+            BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
+            BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
+            LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
+            PROJECT_SRC_DIR=env.subst("ORIG_PROJECT_SRC_DIR"),
+        )
     print("Pio framework", env.subst("$PIOFRAMEWORK"))
     install_python_deps()
     SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
