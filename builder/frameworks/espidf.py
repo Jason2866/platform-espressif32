@@ -1874,10 +1874,10 @@ def esp32_copy_new_arduino_libs(env):
 # Compile Arduino sources
 #
 
-print("*** Arduino source build with just generated customs IDF libraries ***", env.get("PIOFRAMEWORK"))
-if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and does not wait for task finished
-#if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
-    print("*** Starting Arduino compile run now ***")
+print("*** Arduino source build with customs IDF libraries ***", env.get("PIOFRAMEWORK"))
+#if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and does not wait for task finished
+if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
+    print("*** Providing env data for Arduino compile run ***")
     PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
     env.Replace(
         PROJECT_SRC_DIR=ORIG_PROJECT_SRC_DIR,
@@ -1887,14 +1887,15 @@ if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and 
         PIOFRAMEWORK="arduino",
         ARDUINO_LIB_COMPILE_FLAG="Inactive",
     )
-    print("Source Dir", env.subst("$PROJECT_SRC_DIR"))
-    print("Build Flags", env.subst("$BUILD_FLAGS"))
-    print("Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-    print("Link flags", env.subst("$LINKFLAGS"))
-    print("Pio framework", env.get("PIOFRAMEWORK"))
-    esp32_copy_new_arduino_libs(env)
+    print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
+    print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
+    print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+    print("Arduino: Link flags", env.subst("$LINKFLAGS"))
+    print("Arduino: Pio framework", env.get("PIOFRAMEWORK"))
+    #esp32_copy_new_arduino_libs(env)
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
-    env.SConscript("arduino.py", exports="env")
+    env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
+    env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
 
 #
