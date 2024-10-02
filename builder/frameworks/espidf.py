@@ -1853,49 +1853,16 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 # Copy IDF Arduino static libraries to Arduino framework library folder
 #
 
-def esp32_copy_new_arduino_libs(env):
-    print("Copy compiled IDF libraries to Arduino framework")
-    lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
-    lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
-    src = [join(lib_src,x) for x in os.listdir(lib_src)]
-    src = [folder for folder in src if not os.path.isfile(folder)] # folders only
-    for folder in src:
-        # print(folder)
-        files = [join(folder,x) for x in os.listdir(folder)]
-        for file in files:
-            if file.strip().endswith(".a"):
-                # print(file.split("/")[-1])
-                shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
-    if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
-        shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
-    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
-    return
-
 #
 # Compile Arduino sources
 #
 
-print("*** Arduino source build with customs IDF libraries ***", env.get("PIOFRAMEWORK"))
+#print("*** Arduino source build with customs IDF libraries ***", env.get("PIOFRAMEWORK"))
 #if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and does not wait for task finished
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
-    print("*** Providing env data for Arduino compile run ***")
-    PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
-    env.Replace(
-        PROJECT_SRC_DIR=ORIG_PROJECT_SRC_DIR,
-        BUILD_FLAGS=ORIG_BUILD_FLAGS,
-        BUILD_UNFLAGS=ORIG_BUILD_UNFLAGS,
-        LINKFLAGS=ORIG_LINKFLAGS,
-        PIOFRAMEWORK="arduino",
-        ARDUINO_LIB_COMPILE_FLAG="Inactive",
-    )
-    print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
-    print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
-    print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-    print("Arduino: Link flags", env.subst("$LINKFLAGS"))
-    print("Arduino: Pio framework", env.get("PIOFRAMEWORK"))
-    #esp32_copy_new_arduino_libs(env)
+    print("*** Starting Arduino compile run ***")
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
-    env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
+    #env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
     env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
 
