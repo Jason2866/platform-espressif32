@@ -57,8 +57,7 @@ except:
 
 print("Arduino libs compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
 if flag_custom_sdkonfig:
-    if "True" not in env.subst("$ARDUINO_LIB_COMPILE_FLAG"):
-        #not (["idf_libs_compiled"] == env.GetProjectOption("custom_sdkconfig")):
+    if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
         print("Arduino IDF libs compile")
         print("arduino.py script calling SConscript espidf.py")
         print("Pio framework", env.subst("$PIOFRAMEWORK"))
