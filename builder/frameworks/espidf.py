@@ -1889,7 +1889,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
     print("Pio framework", env.get("PIOFRAMEWORK"))
     esp32_copy_new_arduino_libs(env)
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
-    env.SConscript("arduino.py", exports="env"))
+    env.SConscript("arduino.py", exports="env")
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
 
 #
