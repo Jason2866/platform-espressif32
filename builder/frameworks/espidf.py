@@ -123,9 +123,9 @@ except:
     flag_custom_sdkonfig = False
     print("flag_custom_sdkonfig", flag_custom_sdkonfig)
 
-if flag_custom_sdkonfig:
-    def HandleArduinoIDFsettings(env, idf_config_flags):
-        print("Add \"custom_sdkconfig\" settings to IDF sdkconfig!")
+def HandleArduinoIDFsettings(env):
+     if flag_custom_sdkonfig == True
+        print("Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults!")
         #print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
