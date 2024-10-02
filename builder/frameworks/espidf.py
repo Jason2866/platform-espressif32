@@ -169,10 +169,10 @@ if flag_custom_sdkonfig:
         NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
         PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
         env.Replace(
-            ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
-            ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
-            ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
-            ORIG_PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
+            ORIG_BUILD_FLAGS=env.subst("$BUILD_FLAGS"),
+            ORIG_BUILD_UNFLAGS=env.subst("$BUILD_UNFLAGS"),
+            ORIG_LINKFLAGS=env.subst("$LINKFLAGS"),
+            ORIG_PROJECT_SRC_DIR=ORIG_PROJECT_SRC_DIR,
             PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
             BUILD_FLAGS="",
             BUILD_UNFLAGS="",
