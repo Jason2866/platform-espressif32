@@ -1851,15 +1851,9 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
     env.SConscript("ulp.py", exports="env sdk_config project_config app_includes idf_variant")
 
 #
-# Copy IDF Arduino static libraries to Arduino framework library folder
-#
-
-#
 # Compile Arduino sources
 #
 
-#print("*** Arduino source build with customs IDF libraries ***", env.get("PIOFRAMEWORK"))
-#if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and does not wait for task finished
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     print("*** Starting Arduino compile run ***")
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
@@ -1867,6 +1861,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
     #env.AddBuildMiddleware("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
     #env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
+    env.Exit(1)
 
 #
 # Process OTA partition and image
