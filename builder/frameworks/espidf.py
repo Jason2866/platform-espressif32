@@ -1859,7 +1859,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
     #env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", esp32_copy_new_arduino_libs(env))
     #env.AddBuildMiddleware("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
-    #env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
+    env.AddPostAction("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
     #env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", env.SConscript("arduino.py", exports="env"))
     #env.Exit(1)
 
