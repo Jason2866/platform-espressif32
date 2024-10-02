@@ -123,14 +123,14 @@ def install_python_deps():
 
 if "espidf" not in env.subst("$PIOFRAMEWORK") and env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("Inactive", "True"):
     print("Arduino compile")
-    print("Pio framework", env.get("PIOFRAMEWORK"))
+    print("Pio framework", env.subst("$PIOFRAMEWORK"))
     print("arduino.py script calling SConscript platformio-build.py")
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("True"):
         env.Replace(
             BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
             BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
             LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
-            PROJECT_SRC_DIR=env.subst("ORIG_PROJECT_SRC_DIR"),
+            PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
         )
         print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
         print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
@@ -153,7 +153,6 @@ if "espidf" not in env.subst("$PIOFRAMEWORK") and env.subst("$ARDUINO_LIB_COMPIL
                 shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
             shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
 
-    print("Pio framework", env.subst("$PIOFRAMEWORK"))
     install_python_deps()
     SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
     
