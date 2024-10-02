@@ -1634,7 +1634,8 @@ app_includes = get_app_includes(elf_config)
 # Compile bootloader
 #
 
-env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
+if flag_custom_sdkonfig = False:
+    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
 
 #
 # Target: ESP-IDF menuconfig
