@@ -138,7 +138,7 @@ if flag_custom_sdkonfig:
                 return None
 
         with open(sdkconfig_src) as src:
-            sdkconfig_dst = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
+            sdkconfig_dst = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
             dst = open(sdkconfig_dst,"w")
             dst.write("# TASMOTA\n")
             while line := src.readline():
