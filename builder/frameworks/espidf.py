@@ -124,7 +124,7 @@ except:
     print("flag_custom_sdkonfig", flag_custom_sdkonfig)
 
 def HandleArduinoIDFsettings(env):
-     if flag_custom_sdkonfig == True:
+    if flag_custom_sdkonfig == True:
         print("Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults!")
         #print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
@@ -156,11 +156,15 @@ def HandleArduinoIDFsettings(env):
                     if no_match:
                         dst.write(line)
             dst.close()
+        return
+    else:
+        return
 
 if flag_custom_sdkonfig:
     if True: #sdk_config.get("# TASMOTA", False): sdk_config is not yet set
         #if mcu in ("esp32", "esp32s2", "esp32s3"):
             #env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
+        HandleArduinoIDFsettings(env)
         ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
         ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
         ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
