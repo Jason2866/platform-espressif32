@@ -159,28 +159,28 @@ if flag_custom_sdkonfig:
 
 if flag_custom_sdkonfig:
     if sdk_config.get("# TASMOTA", False):
-    #if mcu in ("esp32", "esp32s2", "esp32s3"):
-        #env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
-    ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
-    ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
-    ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
-    ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
-    NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
-    PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
-    env.Replace(
-        PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
-        BUILD_FLAGS="",
-        BUILD_UNFLAGS="",
-        LINKFLAGS="",
-        PIOFRAMEWORK="arduino",
-        ARDUINO_LIB_COMPILE_FLAG="True",
-    )
-    env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
-    print("LibBuild: Source Dir", env.subst("$PROJECT_SRC_DIR"))
-    print("LibBuild: Build Flags", env.subst("$BUILD_FLAGS"))
-    print("LibBuild: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-    print("LibBuild: Link flags", env.subst("$LINKFLAGS"))
-    print("LibBuild: arduino lib compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
+        #if mcu in ("esp32", "esp32s2", "esp32s3"):
+            #env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
+        ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
+        ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
+        ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
+        ORIG_PROJECT_SRC_DIR = PROJECT_SRC_DIR
+        NEW_PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
+        PROJECT_SRC_DIR = NEW_PROJECT_SRC_DIR
+        env.Replace(
+            PROJECT_SRC_DIR=NEW_PROJECT_SRC_DIR,
+            BUILD_FLAGS="",
+            BUILD_UNFLAGS="",
+            LINKFLAGS="",
+            PIOFRAMEWORK="arduino",
+            ARDUINO_LIB_COMPILE_FLAG="True",
+        )
+        env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
+        print("LibBuild: Source Dir", env.subst("$PROJECT_SRC_DIR"))
+        print("LibBuild: Build Flags", env.subst("$BUILD_FLAGS"))
+        print("LibBuild: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+        print("LibBuild: Link flags", env.subst("$LINKFLAGS"))
+        print("LibBuild: arduino lib compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
