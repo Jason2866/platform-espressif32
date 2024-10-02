@@ -111,77 +111,56 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 ))
 
 #
-# generate Arduino/IDF sdkconfig
+# generate modified Arduino IDF sdkconfig, applying settings from "custom_sdkconfig"
 #
-
-def HandleArduinoIDFbuild(env, idf_config_flags):
-    print("Build customized Arduino IDF libraries!")
-    #if mcu in ("esp32", "esp32s2", "esp32s3"):
-        #env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
-    print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
-    sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
-
-    def get_flag(line):
-        if line.startswith("#") and "is not set" in line:
-            return line.split(" ")[1]
-        elif not line.startswith("#") and len(line.split("=")) > 1:
-            return line.split("=")[0]
-        else:
-            return None
-
-    with open(sdkconfig_src) as src:
-        sdkconfig_dst = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
-        dst = open(sdkconfig_dst,"w")
-        dst.write("# TASMOTA\n")
-        while line := src.readline():
-            flag = get_flag(line)
-            # print(flag)
-            if flag is None:
-                dst.write(line)
-            else:
-                no_match = True
-                for item in idf_config_flags:
-                    if flag in item:
-                        dst.write(item+"\n")
-                        no_match = False
-                        print("Replace:",line," with: ",item)
-                if no_match:
-                    dst.write(line)
-        dst.close()
-    return
-
-def esp32_copy_new_arduino_libs(env):
-    print("Copy compiled IDF libraries to Arduino framework")
-    lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
-    lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
-    src = [join(lib_src,x) for x in os.listdir(lib_src)]
-    src = [folder for folder in src if not os.path.isfile(folder)] # folders only
-    for folder in src:
-        # print(folder)
-        files = [join(folder,x) for x in os.listdir(folder)]
-        for file in files:
-            if file.strip().endswith(".a"):
-                # print(file.split("/")[-1])
-                shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
-    if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
-        shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
-    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
-    return
-
-
 flag_custom_sdkonfig = False
-try:
+try: # TODO better check if env exists
     if env.GetProjectOption("custom_sdkconfig"):
         flag_custom_sdkonfig = True
+        idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
         print("flag_custom_sdkonfig", flag_custom_sdkonfig)
 except:
     flag_custom_sdkonfig = False
     print("flag_custom_sdkonfig", flag_custom_sdkonfig)
 
 if flag_custom_sdkonfig:
-    idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
-    #print("********** custom sdkconfig", idf_config_flags)
-    HandleArduinoIDFbuild(env, idf_config_flags)
+    def HandleArduinoIDFsettings(env, idf_config_flags):
+        print("Add \"custom_sdkconfig\" settings to IDF sdkconfig!")
+        #print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
+        sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
+
+        def get_flag(line):
+            if line.startswith("#") and "is not set" in line:
+                return line.split(" ")[1]
+            elif not line.startswith("#") and len(line.split("=")) > 1:
+                return line.split("=")[0]
+            else:
+                return None
+
+        with open(sdkconfig_src) as src:
+            sdkconfig_dst = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
+            dst = open(sdkconfig_dst,"w")
+            dst.write("# TASMOTA\n")
+            while line := src.readline():
+                flag = get_flag(line)
+                # print(flag)
+                if flag is None:
+                    dst.write(line)
+                else:
+                    no_match = True
+                    for item in idf_config_flags:
+                        if flag in item:
+                            dst.write(item+"\n")
+                            no_match = False
+                            print("Replace:",line," with: ",item)
+                    if no_match:
+                        dst.write(line)
+            dst.close()
+
+if flag_custom_sdkonfig:
+    if sdk_config.get("# TASMOTA", False):
+    #if mcu in ("esp32", "esp32s2", "esp32s3"):
+        #env["BUILD_FLAGS"].append("-mtext-section-literals") # TODO ?
     ORIG_BUILD_FLAGS = env.subst("$BUILD_FLAGS")
     ORIG_BUILD_UNFLAGS = env.subst("$BUILD_UNFLAGS")
     ORIG_LINKFLAGS = env.subst("$LINKFLAGS")
@@ -1866,12 +1845,34 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
     env.SConscript("ulp.py", exports="env sdk_config project_config app_includes idf_variant")
 
 #
+# Copy IDF Arduino static libraries to Arduino framework library folder
+#
+
+def esp32_copy_new_arduino_libs(env):
+    print("Copy compiled IDF libraries to Arduino framework")
+    lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
+    lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
+    src = [join(lib_src,x) for x in os.listdir(lib_src)]
+    src = [folder for folder in src if not os.path.isfile(folder)] # folders only
+    for folder in src:
+        # print(folder)
+        files = [join(folder,x) for x in os.listdir(folder)]
+        for file in files:
+            if file.strip().endswith(".a"):
+                # print(file.split("/")[-1])
+                shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
+    if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
+        shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
+    shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
+    return
+
+#
 # Compile Arduino sources
 #
 
 print("*** Arduino source build with just generated customs IDF libraries ***", env.get("PIOFRAMEWORK"))
-#if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and does not wait for task finished
-if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
+if "1" in env.get("PIOFRAMEWORK"): # Switch off since it starts immediately and does not wait for task finished
+#if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     print("*** Starting Arduino compile run now ***")
     PROJECT_SRC_DIR = ORIG_PROJECT_SRC_DIR
     env.Replace(
