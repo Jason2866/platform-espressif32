@@ -1864,6 +1864,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
         env.Replace(
             PIOFRAMEWORK="arduino",
+            PIOMAINPROG="",
             ARDUINO_LIB_COMPILE_FLAG="True",
             BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
             BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
