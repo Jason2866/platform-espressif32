@@ -1865,7 +1865,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         )
     env.AddPostAction("checkprogsize", after_build)
 
-if "arduino" in env.get("PIOFRAMEWORK") and "Start" in env.subst("$ARDUINO_LIB_COMPILE_FLAG") "espidf" not in env.get("PIOFRAMEWORK"):
+if "arduino" in env.get("PIOFRAMEWORK") and "Start" in env.subst("$ARDUINO_LIB_COMPILE_FLAG") and "espidf" not in env.get("PIOFRAMEWORK"):
     print("*** Starting Arduino compile run ***")
     env.Replace(
         ARDUINO_LIB_COMPILE_FLAG="True",
