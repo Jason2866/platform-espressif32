@@ -1867,7 +1867,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             ARDUINO_LIB_COMPILE_FLAG="True",
         )
         print("*** Starting Arduino compile run ***")
-        env.SConscript("arduino.py", exports="env")
+        SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"), exports="env")
     env.AddPostAction("checkprogsize", after_build)
 
 #
