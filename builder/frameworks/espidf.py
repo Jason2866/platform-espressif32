@@ -1879,8 +1879,9 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
         print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         print("Arduino: Link flags", env.subst("$LINKFLAGS"))
+        print("Arduino: Board config framework", env.BoardConfig().get("frameworks", []))
 
-        print("Copy compiled IDF libraries to Arduino framework")
+        print("*** Copy compiled IDF libraries to Arduino framework ***")
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
