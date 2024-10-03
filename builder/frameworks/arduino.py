@@ -122,5 +122,5 @@ def install_python_deps():
 
 if "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK"):
     install_python_deps()
-    SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py")
+    SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
     
