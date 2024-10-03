@@ -1859,6 +1859,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         import subprocess
         import json
         from SCons.Script import ARGUMENTS, COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
+        from platformio.builder.tools.piobuild import BuildProgram
         print("[From Script] After execution of progsize check!!")
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
@@ -1878,6 +1879,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
         print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         print("Arduino: Link flags", env.subst("$LINKFLAGS"))
+
         def esp32_copy_new_arduino_libs(env):
             print("Copy compiled IDF libraries to Arduino framework")
             lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
@@ -1894,8 +1896,11 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
                 shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
             shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
-
-        SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
+        return
+        
+        esp32_copy_new_arduino_libs(env)
+        BuildProgram(env)
+        #SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
     env.AddPostAction("checkprogsize", after_build)
 
 #
