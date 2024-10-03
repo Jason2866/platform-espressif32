@@ -1860,21 +1860,19 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         import json
         from SCons.Script import ARGUMENTS, COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
         from platformio.builder.tools.piobuild import BuildProgram
-        print("[From Script] After execution of progsize check!!")
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
         env.Replace(
             PIOFRAMEWORK="arduino",
             ARDUINO_LIB_COMPILE_FLAG="True",
-        )
-        print("*** Starting Arduino compile run ***")
-        print("Pio framework", env.subst("$PIOFRAMEWORK"))
-        env.Replace(
             BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
             BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
             LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
             PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
         )
+        print("*** Starting Arduino compile run ***")
+        print("Arduino: Pio framework", env.subst("$PIOFRAMEWORK"))
+        print("Arduino: Pio Main Prog", env.get("PIOMAINPROG"))
         print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
         print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
         print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
