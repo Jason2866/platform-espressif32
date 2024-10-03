@@ -1856,21 +1856,19 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     def after_build(source, target, env): 
+        import subprocess
+        import json
+        from SCons.Script import ARGUMENTS, COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
         print("[From Script] After execution of progsize check!!")
         # Need to wait for compile finish.
-        # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'Start'
+        # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
         env.Replace(
             PIOFRAMEWORK="arduino",
-            ARDUINO_LIB_COMPILE_FLAG="Start",
+            ARDUINO_LIB_COMPILE_FLAG="True",
         )
+        print("*** Starting Arduino compile run ***")
+        env.SConscript("arduino.py", exports="env")
     env.AddPostAction("checkprogsize", after_build)
-
-if "arduino" in env.get("PIOFRAMEWORK") and "Start" in env.subst("$ARDUINO_LIB_COMPILE_FLAG") and "espidf" not in env.get("PIOFRAMEWORK"):
-    print("*** Starting Arduino compile run ***")
-    env.Replace(
-        ARDUINO_LIB_COMPILE_FLAG="True",
-    )
-    env.SConscript("arduino.py", exports="env")
 
 #
 # Process OTA partition and image
