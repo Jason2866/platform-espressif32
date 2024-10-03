@@ -1867,7 +1867,35 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             ARDUINO_LIB_COMPILE_FLAG="True",
         )
         print("*** Starting Arduino compile run ***")
-        SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"), exports="env")
+        print("Pio framework", env.subst("$PIOFRAMEWORK"))
+        env.Replace(
+            BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
+            BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
+            LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
+            PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
+        )
+        print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
+        print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
+        print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+        print("Arduino: Link flags", env.subst("$LINKFLAGS"))
+        def esp32_copy_new_arduino_libs(env):
+            print("Copy compiled IDF libraries to Arduino framework")
+            lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
+            lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
+            src = [join(lib_src,x) for x in os.listdir(lib_src)]
+            src = [folder for folder in src if not os.path.isfile(folder)] # folders only
+            for folder in src:
+                # print(folder)
+                files = [join(folder,x) for x in os.listdir(folder)]
+                for file in files:
+                    if file.strip().endswith(".a"):
+                        # print(file.split("/")[-1])
+                        shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
+            if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
+                shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
+            shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
+
+        SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
     env.AddPostAction("checkprogsize", after_build)
 
 #
