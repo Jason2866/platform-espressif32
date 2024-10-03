@@ -1897,7 +1897,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         
         # BuildProgram(env)
         # SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
-        SConscript("arduino.py"))
+        SConscript("arduino.py")
     env.AddPostAction("checkprogsize", after_build)
 
 #
