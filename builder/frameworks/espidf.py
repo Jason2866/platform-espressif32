@@ -1896,9 +1896,9 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
         
         # BuildProgram(env)
-        # SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
         # print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
-        SConscript(os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "builder", "frameworks", "arduino.py"))
+        # SConscript(os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "builder", "frameworks", "arduino.py"))
+        SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
     env.AddPostAction("checkprogsize", after_build)
 
 #
