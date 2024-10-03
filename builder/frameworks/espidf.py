@@ -1901,7 +1901,8 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         # print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
         # SConscript(os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "builder", "frameworks", "arduino.py"))
         SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
-    env.AddPostAction("checkprogsize", after_build)
+    env.AddPostAction("build_bootloader", after_build)
+    # env.AddPostAction("checkprogsize", after_build)
 
 #
 # Process OTA partition and image
