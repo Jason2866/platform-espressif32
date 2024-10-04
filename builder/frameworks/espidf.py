@@ -1868,7 +1868,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         mcu = board.get("build.mcu", "esp32")
         env.Replace(
             PIOFRAMEWORK="arduino",
-            PIOMAINPROG="none",
+            PIOMAINPROG="",
             ARDUINO_LIB_COMPILE_FLAG="True",
             BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
             BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
