@@ -1862,7 +1862,8 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         from platformio.builder.tools.piobuild import BuildProgram
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
-        env = DefaultEnvironment()
+        #env = DefaultEnvironment()
+        init_env = env.get["INIT_ENV"]
         env = init_env
         env.Replace(
             PIOFRAMEWORK="arduino",
