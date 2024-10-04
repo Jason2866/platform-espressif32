@@ -60,6 +60,7 @@ if flag_custom_sdkonfig:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
         print("Arduino IDF libs compile")
         print("arduino.py script calling SConscript espidf.py")
+        print("PIOMAINPROG", env.get("PIOMAINPROG"))
         print("Pio framework", env.subst("$PIOFRAMEWORK"))
         SConscript("espidf.py")
 
@@ -122,5 +123,7 @@ def install_python_deps():
 
 if "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK") and env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("Inactive", "True"):
     install_python_deps()
+    print("Arduino.py: PIOMAINPROG", env.get("PIOMAINPROG"))
+    print("Arduino.py: Pio framework", env.subst("$PIOFRAMEWORK"))
     SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
     
