@@ -579,6 +579,8 @@ env.AddPlatformTarget(
 
 env.SConscript("sizedata.py", exports="env")
 
+init_env = env.Clone()
+
 #
 # Default targets
 #
