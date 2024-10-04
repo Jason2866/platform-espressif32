@@ -1862,12 +1862,13 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         from platformio.builder.tools.piobuild import BuildProgram
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
-        #env = DefaultEnvironment()
-        init_env = env.get["INIT_ENV"]
-        env = init_env
+        env = DefaultEnvironment()
+        platform = env.PioPlatform()
+        board = env.BoardConfig()
+        mcu = board.get("build.mcu", "esp32")
         env.Replace(
             PIOFRAMEWORK="arduino",
-            PIOMAINPROG="",
+            PIOMAINPROG="none",
             ARDUINO_LIB_COMPILE_FLAG="True",
             BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
             BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
@@ -1882,7 +1883,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         print("Arduino: Link flags", env.subst("$LINKFLAGS"))
         print("Arduino: Board config framework", env.BoardConfig().get("frameworks", []))
-        print("Arduino: env Depends", env.subst("$Depends"))
+        print("Arduino: env Depends", env.get("Depends"))
 
         print("*** Copy compiled IDF libraries to Arduino framework ***")
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
