@@ -1866,7 +1866,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         platform = env.PioPlatform()
         board = env.BoardConfig()
         mcu = board.get("build.mcu", "esp32")
-        env.Clean(project_target_name)
+        # env.Clean(project_target_name)
         env.Replace(
             PIOFRAMEWORK="arduino",
             PIOMAINPROG="",
