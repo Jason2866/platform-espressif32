@@ -1866,6 +1866,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         platform = env.PioPlatform()
         board = env.BoardConfig()
         mcu = board.get("build.mcu", "esp32")
+        env.Clean(project_target_name)
         env.Replace(
             PIOFRAMEWORK="arduino",
             PIOMAINPROG="",
@@ -1883,6 +1884,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         print("Arduino: Link flags", env.subst("$LINKFLAGS"))
         print("Arduino: Board config framework", env.BoardConfig().get("frameworks", []))
+        print("Arduino: target_configs", target_configs.get(project_target_name))
         print("Arduino: env Depends", env.get("Depends"))
 
         print("*** Copy compiled IDF libraries to Arduino framework ***")
