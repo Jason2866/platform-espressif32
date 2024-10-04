@@ -52,6 +52,7 @@ if os.environ.get("PYTHONPATH"):
     del os.environ["PYTHONPATH"]
 
 env = DefaultEnvironment()
+init_env = env.Clone()
 env.SConscript("_embed_files.py", exports="env")
 
 # Allow changes in folders of managed components
@@ -1862,6 +1863,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         from platformio.builder.tools.piobuild import BuildProgram
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
+        env = init_env
         env.Replace(
             PIOFRAMEWORK="arduino",
             PIOMAINPROG="",
