@@ -1138,7 +1138,8 @@ def generate_empty_partition_image(binary_path, image_size):
         ),
     )
 
-    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", empty_partition)
+    if flag_custom_sdkonfig == False:
+        env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", empty_partition)
 
 
 def get_partition_info(pt_path, pt_offset, pt_params):
@@ -1635,8 +1636,8 @@ app_includes = get_app_includes(elf_config)
 # Compile bootloader
 #
 
-#if flag_custom_sdkonfig == False:
-env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
+if flag_custom_sdkonfig == False:
+    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
 
 #
 # Target: ESP-IDF menuconfig
