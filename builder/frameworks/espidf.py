@@ -52,7 +52,6 @@ if os.environ.get("PYTHONPATH"):
     del os.environ["PYTHONPATH"]
 
 env = DefaultEnvironment()
-env_bak = env
 env.SConscript("_embed_files.py", exports="env")
 
 # Allow changes in folders of managed components
@@ -1864,7 +1863,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         from platformio.builder.tools.piobuild import BuildProgram
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
-        env = env_bak
+        env = DefaultEnvironment()
         platform = env.PioPlatform()
         board = env.BoardConfig()
         mcu = board.get("build.mcu", "esp32")
