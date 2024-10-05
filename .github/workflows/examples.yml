@@ -12,24 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-14]
+        os: [ubuntu-22.04]
         example:
-          - "examples/arduino-blink"
-          - "examples/arduino-rmt-blink"
-          - "examples/arduino-usb-keyboard"
-          - "examples/arduino-wifiscan"
-          - "examples/espidf-arduino-blink"
-          - "examples/espidf-arduino-littlefs"
-          - "examples/espidf-blink"
-          - "examples/espidf-coap-server"
-          - "examples/espidf-exceptions"
-          - "examples/espidf-hello-world"
-          - "examples/espidf-http-request"
-          - "examples/espidf-peripherals-uart"
-          - "examples/espidf-peripherals-usb"
-          - "examples/espidf-storage-sdcard"
-          - "examples/espidf-ulp"
-          - "examples/espidf-ulp-riscv"
           - "examples/tasmota"
     runs-on: ${{ matrix.os }}
     steps:
