@@ -62,6 +62,7 @@ except:
     flag_custom_sdkonfig = False
 
 print("Arduino libs compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
+print("flag_custom_sdkonfig is", flag_custom_sdkonfig)
 if flag_custom_sdkonfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
         print("Arduino IDF libs compile")
