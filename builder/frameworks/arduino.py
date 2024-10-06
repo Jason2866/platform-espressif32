@@ -48,8 +48,8 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
-prj_option = env.GetProjectOption()
-flag_test = prj_option.has_section("custom_sdkconfig")
+config = env.GetProjectConfig()
+flag_test = config.has_section("custom_sdkconfig")
 print("flag test", flag_test)
 
 flag_custom_sdkonfig = False
