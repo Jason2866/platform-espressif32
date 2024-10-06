@@ -1878,15 +1878,14 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         )
         print("*** Starting Arduino compile run ***")
         print("Arduino: Pio framework", env.subst("$PIOFRAMEWORK"))
+        print("Arduino: Pio env", env["PIOENV"])
         print("Arduino: Pio Main Prog", env.subst("$PIOMAINPROG"))
         print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
         print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
         print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         print("Arduino: Link flags", env.subst("$LINKFLAGS"))
         print("Arduino: Board config framework", env.BoardConfig().get("frameworks", []))
-        print("Arduino: env Depends", env.get("Depends"))
 
-        print("*** Copy compiled IDF libraries to Arduino framework ***")
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
@@ -1901,11 +1900,22 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
-        
+        print("*** Copied compiled IDF libraries to Arduino framework ***")
+
         # BuildProgram(env)
         # print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
         # SConscript(os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "builder", "frameworks", "arduino.py"))
-        SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
+        # SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
+        python_exe_path = get_python_exe()
+        print("Python exe path", python_exe_path)
+        env.Execute(
+            env.VerboseAction(
+                (
+                    '"%s" platformio run --target tasmota32s2' % python_exe_path
+                ),
+                "Arduino compile run with customized build libraries",
+            )
+        )
     env.AddPostAction("checkprogsize", after_build)
     # env.AddPostAction("target_buildprog", after_build)
 
