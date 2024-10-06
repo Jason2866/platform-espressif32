@@ -1906,12 +1906,16 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         # print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
         # SConscript(os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "builder", "frameworks", "arduino.py"))
         # SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
-        python_exe_path = get_python_exe()
-        print("Python exe path", python_exe_path)
+        pio_exe_path = os.path.join(
+            get_idf_venv_dir(),
+            "Scripts" if IS_WINDOWS else "bin",
+            "platformio" + (".exe" if IS_WINDOWS else ""),
+        )
+        print("Platformio exe path", pio_exe_path)
         env.Execute(
             env.VerboseAction(
                 (
-                    '"%s" platformio run --target tasmota32s2' % python_exe_path
+                    '"%s" run --target tasmota32s2' % pio_exe_path
                 ),
                 "Arduino compile run with customized build libraries",
             )
