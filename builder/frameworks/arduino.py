@@ -53,7 +53,7 @@ flag_test = config.has_section("custom_sdkconfig")
 print("flag test", flag_test)
 
 flag_custom_sdkonfig = False
-print("is section custom_sdkconfig in env", cur_env.has_section("custom_sdkconfig"))
+print("is section custom_sdkconfig in env", flag_test)
 try:
     if env.GetProjectOption("custom_sdkconfig"):
         flag_custom_sdkonfig = True
