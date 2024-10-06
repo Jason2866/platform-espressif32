@@ -53,24 +53,25 @@ flag_test = config.has_section("custom_sdkconfig")
 print("flag test", flag_test)
 
 flag_custom_sdkonfig = False
-print("is section custom_sdkconfig in env", flag_test)
 try:
     if env.GetProjectOption("custom_sdkconfig"):
         flag_custom_sdkonfig = True
-        custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"])
-        print("*** custom sdkconfig file path", custom_lib_config)
-        # check if custom libs are already compiled and there. TODO better check and remove old and restore standard...
-        print("*** custom sdkconfig file exist", bool(os.path.isfile(custom_lib_config)))
-        if bool(os.path.isfile(custom_lib_config)):
-            print("*** custom sdkconfig file exists")
-            flag_custom_sdkonfig = False
-            print("*** flag_custom_sdkonfig is", flag_custom_sdkonfig)
-        else:
-            print("*** no custom sdkconfig file")
-            flag_custom_sdkonfig = True
-            print("*** flag_custom_sdkonfig is", flag_custom_sdkonfig)
 except:
     flag_custom_sdkonfig = False
+
+if flag_custom_sdkonfig == True:
+    custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"])
+    print("*** custom sdkconfig file path", custom_lib_config)
+    # check if custom libs are already compiled and there. TODO better check and remove old and restore standard...
+    print("*** custom sdkconfig file exist", bool(os.path.isfile(custom_lib_config)))
+    if bool(os.path.isfile(custom_lib_config)):
+        print("*** custom sdkconfig file exists")
+        flag_custom_sdkonfig = False
+        print("*** flag_custom_sdkonfig is", flag_custom_sdkonfig)
+    else:
+        print("*** no custom sdkconfig file")
+        flag_custom_sdkonfig = True
+        print("*** flag_custom_sdkonfig is", flag_custom_sdkonfig)
 
 print("Arduino libs compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
 print("flag_custom_sdkonfig is", flag_custom_sdkonfig)
