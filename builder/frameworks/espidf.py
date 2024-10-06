@@ -1919,7 +1919,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                     '"%s" run --target ' % pio_exe_path
                     + " ".join(['"%s"' % pio_cmd])
                 ),
-                "Arduino compile", pio_cmd, "with custom libraries",
+                "Arduino compile with custom libraries",
             )
         )
     env.AddPostAction("checkprogsize", after_build)
