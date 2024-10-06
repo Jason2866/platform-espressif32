@@ -1857,33 +1857,34 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     def after_build(source, target, env): 
-        import subprocess
-        import json
-        from SCons.Script import ARGUMENTS, COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
-        from platformio.builder.tools.piobuild import BuildProgram
+        # import subprocess
+        # import json
+        # from SCons.Script import ARGUMENTS, COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
+        # from platformio.builder.tools.piobuild import BuildProgram
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
-        env = DefaultEnvironment()
-        platform = env.PioPlatform()
-        board = env.BoardConfig()
-        mcu = board.get("build.mcu", "esp32")
-        env.Replace(
-            PIOFRAMEWORK="arduino",
-            PIOMAINPROG="",
-            ARDUINO_LIB_COMPILE_FLAG="True",
-            BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
-            BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
-            LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
-            PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
-        )
+        # env = DefaultEnvironment()
+        # platform = env.PioPlatform()
+        # board = env.BoardConfig()
+        # mcu = board.get("build.mcu", "esp32")
+        # env.Replace(
+            # PIOFRAMEWORK="arduino",
+            # PIOMAINPROG="",
+            # ARDUINO_LIB_COMPILE_FLAG="True",
+            # BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
+            # BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
+            # LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
+            # PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
+        # )
         print("*** Starting Arduino compile run ***")
         print("Arduino: Pio framework", env.subst("$PIOFRAMEWORK"))
         print("Arduino: Pio env", env["PIOENV"])
-        print("Arduino: Pio Main Prog", env.subst("$PIOMAINPROG"))
+        print("Arduino: MCU", mcu)
+        #print("Arduino: Pio Main Prog", env.subst("$PIOMAINPROG"))
         print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
-        print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
-        print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-        print("Arduino: Link flags", env.subst("$LINKFLAGS"))
+        # print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
+        # print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+        # print("Arduino: Link flags", env.subst("$LINKFLAGS"))
         print("Arduino: Board config framework", env.BoardConfig().get("frameworks", []))
 
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
@@ -1900,25 +1901,23 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
+        shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"]))
         print("*** Copied compiled IDF libraries to Arduino framework ***")
 
         # BuildProgram(env)
         # print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
         # SConscript(os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "builder", "frameworks", "arduino.py"))
         # SConscript(join(ARDUINO_FRAMEWORK_DIR, "tools", "platformio-build.py"))
-        pio_exe_path = os.path.join(
-            get_idf_venv_dir(),
-            "Scripts" if IS_WINDOWS else "bin",
-            "platformio" + (".exe" if IS_WINDOWS else ""),
-        )
-        pio_exe_path = shutil.which("Platformio")
+        
+        pio_exe_path = shutil.which("platformio"+(".exe" if IS_WINDOWS else ""))
         print("Platformio exe path", pio_exe_path)
+        pio_cmd = '"%s" run --target "%s"' % (pio_exe_path, env["PIOENV"])
         env.Execute(
             env.VerboseAction(
                 (
-                    '"%s" run --target tasmota32s2' % pio_exe_path
+                    pio_cmd
                 ),
-                "Arduino compile run with customized build libraries",
+                "Arduino compile", pio_cmd, "with custom libraries",
             )
         )
     env.AddPostAction("checkprogsize", after_build)
