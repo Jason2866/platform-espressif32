@@ -52,7 +52,7 @@ flag_custom_sdkonfig = False
 try:
     if env.GetProjectOption("custom_sdkconfig"):
         flag_custom_sdkonfig = True
-        custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"]))
+        custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"])
         # check if custom libs are already compiled and there. TODO better check and remove old and restore standard...
         if bool(os.path.isfile(custom_lib_config):
             flag_custom_sdkonfig = False
