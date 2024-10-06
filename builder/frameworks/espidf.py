@@ -1914,7 +1914,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         pio_cmd = env["PIOENV"]
         print("Pio CMD", pio_cmd)
         cmd_1 = '"%s" run --target ' % pio_exe_path
-        cmd_2 = " ".join(['"%s"' % pio_cmd])
+        cmd_2 = pio_cmd
         cmd = cmd_1 + cmd_2
         print("Cmd call", cmd)
         # env.Execute(
