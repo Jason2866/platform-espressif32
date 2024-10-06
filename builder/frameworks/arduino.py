@@ -32,6 +32,8 @@ from platformio.package.version import pepver_to_semver
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
+config = env.GetProjectConfig()
+cur_env = config.get(env["PIOENV"])
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 
@@ -49,7 +51,7 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
 flag_custom_sdkonfig = False
-print("is section custom_sdkconfig in env", env.has_sectionProjectOption("custom_sdkconfig"))
+print("is section custom_sdkconfig in env", cur_env.has_section("custom_sdkconfig"))
 try:
     if env.GetProjectOption("custom_sdkconfig"):
         flag_custom_sdkonfig = True
