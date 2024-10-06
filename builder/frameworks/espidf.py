@@ -1881,7 +1881,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         print("Arduino: Pio env", env["PIOENV"])
         print("Arduino: MCU", mcu)
         #print("Arduino: Pio Main Prog", env.subst("$PIOMAINPROG"))
-        print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
+        #print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
         # print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
         # print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
         # print("Arduino: Link flags", env.subst("$LINKFLAGS"))
@@ -1912,6 +1912,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         pio_exe_path = shutil.which("platformio"+(".exe" if IS_WINDOWS else ""))
         print("Platformio exe path", pio_exe_path)
         pio_cmd = '"%s" run --target "%s"' % (pio_exe_path, env["PIOENV"])
+        print("Pio CMD", pio_cmd)
         env.Execute(
             env.VerboseAction(
                 (
