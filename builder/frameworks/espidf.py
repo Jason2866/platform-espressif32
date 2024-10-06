@@ -1911,12 +1911,13 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         
         pio_exe_path = shutil.which("platformio"+(".exe" if IS_WINDOWS else ""))
         print("Platformio exe path", pio_exe_path)
-        pio_cmd = '"%s" run --target "%s"' % (pio_exe_path, env["PIOENV"])
+        pio_cmd = env["PIOENV"]
         print("Pio CMD", pio_cmd)
         env.Execute(
             env.VerboseAction(
                 (
-                    pio_cmd
+                    '"%s" run --target ' % pio_exe_path
+                    + " ".join(['"%s"' % pio_cmd])
                 ),
                 "Arduino compile", pio_cmd, "with custom libraries",
             )
