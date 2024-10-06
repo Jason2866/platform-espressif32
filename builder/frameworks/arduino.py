@@ -49,6 +49,7 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
 flag_custom_sdkonfig = False
+print("is section custom_sdkconfig in env", env.has_sectionProjectOption("custom_sdkconfig"))
 try:
     if env.GetProjectOption("custom_sdkconfig"):
         flag_custom_sdkonfig = True
