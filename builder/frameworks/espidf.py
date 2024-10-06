@@ -1917,16 +1917,16 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         cmd_2 = pio_cmd
         cmd = cmd_1 + cmd_2
         print("Cmd call", cmd)
-        # env.Execute(
-            # env.VerboseAction(
-                # (
-                    # '"%s" run --target ' % pio_exe_path
-                    # + " ".join(['"%s"' % pio_cmd])
-                # ),
-                # "Arduino compile with custom libraries",
-            # )
-        # )
-        exec_command(cmd)
+        env.Execute(
+            env.VerboseAction(
+                (
+                    '"%s" run -e ' % pio_exe_path
+                    + " ".join(['"%s"' % pio_cmd])
+                ),
+                "Arduino compile with custom libraries",
+            )
+        )
+        # exec_command(cmd)
     env.AddPostAction("checkprogsize", after_build)
 
 #
