@@ -1911,6 +1911,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             "Scripts" if IS_WINDOWS else "bin",
             "platformio" + (".exe" if IS_WINDOWS else ""),
         )
+        pio_exe_path = shutil.which("Platformio")
         print("Platformio exe path", pio_exe_path)
         env.Execute(
             env.VerboseAction(
