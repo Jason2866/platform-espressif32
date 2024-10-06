@@ -32,8 +32,6 @@ from platformio.package.version import pepver_to_semver
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
-config = env.GetProjectConfig()
-cur_env = config.get(env["PIOENV"])
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 
@@ -49,6 +47,10 @@ elif ("CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags) 
 elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flags and "FRAMEWORK_ARDUINO_SOLO1" not in build_flags and "CORE32ITEAD" not in extra_flags and "FRAMEWORK_ARDUINO_ITEAD" not in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
+
+config = env.GetProjectConfig()
+flag_test = config.has_section(env["PIOENV"], "custom_sdkconfig")
+print("flag test", flag_test)
 
 flag_custom_sdkonfig = False
 print("is section custom_sdkconfig in env", cur_env.has_section("custom_sdkconfig"))
