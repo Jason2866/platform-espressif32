@@ -49,7 +49,7 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
 config = env.GetProjectConfig()
-flag_test = config.has_section(env["PIOENV"], "custom_sdkconfig")
+flag_test = config.has_section("custom_sdkconfig")
 print("flag test", flag_test)
 
 flag_custom_sdkonfig = False
