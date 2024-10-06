@@ -1875,7 +1875,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
             LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
             PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
-        # )
+        )
         print("*** Starting Arduino compile run ***")
         print("Arduino: Pio framework", env.subst("$PIOFRAMEWORK"))
         print("Arduino: Pio env", env["PIOENV"])
