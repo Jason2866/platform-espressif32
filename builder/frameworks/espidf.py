@@ -1863,28 +1863,28 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         # from platformio.builder.tools.piobuild import BuildProgram
         # Need to wait for compile finish.
         # Use 'AddPostAction' for and set ARDUINO_LIB_COMPILE_FLAG to 'True'
-        # env = DefaultEnvironment()
-        # platform = env.PioPlatform()
+        env = DefaultEnvironment()
+        platform = env.PioPlatform()
         # board = env.BoardConfig()
         # mcu = board.get("build.mcu", "esp32")
-        # env.Replace(
-            # PIOFRAMEWORK="arduino",
+        env.Replace(
+            PIOFRAMEWORK="arduino",
             # PIOMAINPROG="",
             # ARDUINO_LIB_COMPILE_FLAG="True",
-            # BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
-            # BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
-            # LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
-            # PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
+            BUILD_FLAGS=env.subst("$ORIG_BUILD_FLAGS"),
+            BUILD_UNFLAGS=env.subst("$ORIG_BUILD_UNFLAGS"),
+            LINKFLAGS=env.subst("$ORIG_LINKFLAGS"),
+            PROJECT_SRC_DIR=env.subst("$ORIG_PROJECT_SRC_DIR"),
         # )
         print("*** Starting Arduino compile run ***")
         print("Arduino: Pio framework", env.subst("$PIOFRAMEWORK"))
         print("Arduino: Pio env", env["PIOENV"])
         print("Arduino: MCU", mcu)
         #print("Arduino: Pio Main Prog", env.subst("$PIOMAINPROG"))
-        #print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
-        # print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
-        # print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
-        # print("Arduino: Link flags", env.subst("$LINKFLAGS"))
+        print("Arduino: Source Dir", env.subst("$PROJECT_SRC_DIR"))
+        print("Arduino: Build Flags", env.subst("$BUILD_FLAGS"))
+        print("Arduino: Build UnFlags", env.subst("$BUILD_UNFLAGS"))
+        print("Arduino: Link flags", env.subst("$LINKFLAGS"))
         print("Arduino: Board config framework", env.BoardConfig().get("frameworks", []))
 
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
@@ -1923,7 +1923,6 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             )
         )
     env.AddPostAction("checkprogsize", after_build)
-    # env.AddPostAction("target_buildprog", after_build)
 
 #
 # Process OTA partition and image
