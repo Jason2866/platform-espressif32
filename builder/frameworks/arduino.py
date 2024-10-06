@@ -58,9 +58,11 @@ try:
         if bool(os.path.isfile(custom_lib_config)):
             print("custom sdkconfig file exists")
             flag_custom_sdkonfig = False
+            print("flag_custom_sdkonfig is", flag_custom_sdkonfig)
         else:
             print("no custom sdkconfig file")
             flag_custom_sdkonfig = True
+            print("flag_custom_sdkonfig is", flag_custom_sdkonfig)
 except:
     flag_custom_sdkonfig = False
 
