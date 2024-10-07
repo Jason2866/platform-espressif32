@@ -25,6 +25,7 @@ http://arduino.cc/en/Reference/HomePage
 import subprocess
 import json
 import semantic_version
+import os
 from os.path import join
 
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
