@@ -58,6 +58,7 @@ env.SConscript("_embed_files.py", exports="env")
 os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
 
 platform = env.PioPlatform()
+config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 idf_variant = mcu.lower()
@@ -113,11 +114,9 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 #
 # generate modified Arduino IDF sdkconfig, applying settings from "custom_sdkconfig"
 #
-flag_custom_sdkonfig = False
-try: # TODO better check if env exists
-    if env.GetProjectOption("custom_sdkconfig"):
-        flag_custom_sdkonfig = True
-except:
+if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
+    flag_custom_sdkonfig = True
+else:
     flag_custom_sdkonfig = False
 
 def HandleArduinoIDFsettings(env):
