@@ -49,7 +49,7 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 # TODO not working check for "custom_sdkconfig"
-
+config = env.GetProjectConfig()
 test_flag_custom_sdkconfig = config.has_option(env["PIOENV"], "custom_sdkconfig")
 print("flag test", test_flag_custom_sdkconfig)
 
