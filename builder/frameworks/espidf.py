@@ -159,8 +159,9 @@ def HandleArduinoIDFsettings(env):
 
 if flag_custom_sdkonfig:
     HandleArduinoIDFsettings(env)
-    #print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
-    PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
+    PROJECT_SRC_DIR = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
+    print("PROJECT_SRC_DIR", PROJECT_SRC_DIR)
+    # PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
     env.Replace(
         PROJECT_SRC_DIR=PROJECT_SRC_DIR,
         BUILD_FLAGS="",
@@ -169,9 +170,9 @@ if flag_custom_sdkonfig:
         PIOFRAMEWORK="arduino",
         ARDUINO_LIB_COMPILE_FLAG="Build",
     )
-    env.Append(
-        BUILD_FLAGS="-mtext-section-literals" if mcu in ("esp32", "esp32s2", "esp32s3") else ""
-    )
+#    env.Append(
+#        BUILD_FLAGS="-mtext-section-literals" if mcu in ("esp32", "esp32s2", "esp32s3") else ""
+#    )
     env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
 
 def get_project_lib_includes(env):
@@ -1843,7 +1844,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 #
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
-    def idf_lib_copy(source, target, env): 
+    def idf_lib_copy(source, target, env):
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
