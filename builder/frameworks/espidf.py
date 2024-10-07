@@ -159,9 +159,10 @@ def HandleArduinoIDFsettings(env):
 
 if flag_custom_sdkonfig:
     HandleArduinoIDFsettings(env)
-    PROJECT_SRC_DIR = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
-    print("PROJECT_SRC_DIR", PROJECT_SRC_DIR)
-    # PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
+    LIB_SOURCE = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
+    if not bool(os.path.exists(os.path.join(PROJECT_DIR, ".dummy"))):
+        shutil.copytree(LIB_SOURCE, os.path.join(PROJECT_DIR, ".dummy"))
+    PROJECT_SRC_DIR = os.path.join(PROJECT_DIR, ".dummy")
     env.Replace(
         PROJECT_SRC_DIR=PROJECT_SRC_DIR,
         BUILD_FLAGS="",
