@@ -37,7 +37,6 @@ board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 config = env.GetProjectConfig()
 
-flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
 extra_flags = ''.join([element.replace("-D", " ") for element in env.BoardConfig().get("build.extra_flags", "")])
 build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
 
@@ -50,7 +49,10 @@ elif ("CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags) 
 elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flags and "FRAMEWORK_ARDUINO_SOLO1" not in build_flags and "CORE32ITEAD" not in extra_flags and "FRAMEWORK_ARDUINO_ITEAD" not in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
-if flag_custom_sdkonfig == True:
+flag_custom_sdkconfig = False
+flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
+
+if flag_custom_sdkonfig:
     custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"])
     # check if custom libs are already compiled and there. TODO better check and remove old and restore standard...
     if bool(os.path.isfile(custom_lib_config)):
@@ -58,7 +60,7 @@ if flag_custom_sdkonfig == True:
     else:
         flag_custom_sdkonfig = True
 
-if flag_custom_sdkonfig == True:
+if flag_custom_sdkonfig:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
         print("Compile Arduino IDF libs for %s" % env["PIOENV"])
         SConscript("espidf.py")
