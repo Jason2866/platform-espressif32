@@ -1845,7 +1845,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 #
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
-    def after_build(source, target, env): 
+    def idf_lib_build(source, target, env): 
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
@@ -1873,10 +1873,10 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                     '"%s" run -e ' % pio_exe_path
                     + " ".join(['"%s"' % pio_cmd])
                 ),
-                "Arduino compile with custom libraries",
+                "Arduino compile", pio_cmd, "with custom libraries",
             )
         )
-    env.AddPostAction("checkprogsize", after_build)
+    env.AddPostAction("checkprogsize", idf_lib_build)
 
 #
 # Process OTA partition and image
