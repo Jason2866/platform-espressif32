@@ -117,16 +117,13 @@ flag_custom_sdkonfig = False
 try: # TODO better check if env exists
     if env.GetProjectOption("custom_sdkconfig"):
         flag_custom_sdkonfig = True
-        idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
-        print("flag_custom_sdkonfig", flag_custom_sdkonfig)
 except:
     flag_custom_sdkonfig = False
-    print("flag_custom_sdkonfig", flag_custom_sdkonfig)
 
 def HandleArduinoIDFsettings(env):
     if flag_custom_sdkonfig == True:
         print("Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults!")
-        #print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
+        idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
         def get_flag(line):
@@ -162,6 +159,7 @@ def HandleArduinoIDFsettings(env):
 
 if flag_custom_sdkonfig:
     HandleArduinoIDFsettings(env)
+    #print("Platform dir", os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms"))
     PROJECT_SRC_DIR = PROJECT_SRC_DIR.replace("tasmota", "dummy")
     env.Replace(
         PROJECT_SRC_DIR=PROJECT_SRC_DIR,
