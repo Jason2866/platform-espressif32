@@ -49,9 +49,10 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
-config = env.GetProjectConfig()
-flag_test = config.has_section("custom_sdkconfig")
-print("flag test", flag_test)
+# TODO not working check for "custom_sdkconfig"
+# config = env.GetProjectConfig()
+# flag_test = config.has_section("custom_sdkconfig")
+# print("flag test", flag_test)
 
 flag_custom_sdkonfig = False
 try:
@@ -62,26 +63,15 @@ except:
 
 if flag_custom_sdkonfig == True:
     custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"])
-    print("*** custom sdkconfig file path", custom_lib_config)
     # check if custom libs are already compiled and there. TODO better check and remove old and restore standard...
-    print("*** custom sdkconfig file exist", bool(os.path.isfile(custom_lib_config)))
     if bool(os.path.isfile(custom_lib_config)):
-        print("*** custom sdkconfig file exists")
         flag_custom_sdkonfig = False
-        print("*** flag_custom_sdkonfig is", flag_custom_sdkonfig)
     else:
-        print("*** no custom sdkconfig file")
         flag_custom_sdkonfig = True
-        print("*** flag_custom_sdkonfig is", flag_custom_sdkonfig)
 
-print("Arduino libs compile flag", env.subst("$ARDUINO_LIB_COMPILE_FLAG"))
-print("flag_custom_sdkonfig is", flag_custom_sdkonfig)
 if flag_custom_sdkonfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
-        print("Arduino IDF libs compile")
-        print("arduino.py script calling SConscript espidf.py")
-        print("PIOMAINPROG", env.get("PIOMAINPROG"))
-        print("Pio framework", env.subst("$PIOFRAMEWORK"))
+        print("Arduino IDF libs compile, calling SConscript espidf.py")
         SConscript("espidf.py")
 
 def install_python_deps():
@@ -143,7 +133,5 @@ def install_python_deps():
 
 if "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK") and env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("Inactive", "True"):
     install_python_deps()
-    print("Arduino.py: PIOMAINPROG", env.get("PIOMAINPROG"))
-    print("Arduino.py: Pio framework", env.subst("$PIOFRAMEWORK"))
     SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
     
