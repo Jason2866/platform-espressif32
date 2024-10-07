@@ -35,7 +35,9 @@ env = DefaultEnvironment()
 platform = env.PioPlatform()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
+config = env.GetProjectConfig()
 
+flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
 extra_flags = ''.join([element.replace("-D", " ") for element in env.BoardConfig().get("build.extra_flags", "")])
 build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
 
@@ -47,18 +49,6 @@ elif ("CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags) 
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-ITEAD")
 elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flags and "FRAMEWORK_ARDUINO_SOLO1" not in build_flags and "CORE32ITEAD" not in extra_flags and "FRAMEWORK_ARDUINO_ITEAD" not in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
-
-# TODO not working check for "custom_sdkconfig"
-config = env.GetProjectConfig()
-test_flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
-print("flag test", test_flag_custom_sdkconfig)
-
-flag_custom_sdkonfig = False
-try:
-    if env.GetProjectOption("custom_sdkconfig"):
-        flag_custom_sdkonfig = True
-except:
-    flag_custom_sdkonfig = False
 
 if flag_custom_sdkonfig == True:
     custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"])
