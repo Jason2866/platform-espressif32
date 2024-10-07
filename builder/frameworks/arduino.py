@@ -47,7 +47,6 @@ elif ("CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags) 
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-ITEAD")
 elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flags and "FRAMEWORK_ARDUINO_SOLO1" not in build_flags and "CORE32ITEAD" not in extra_flags and "FRAMEWORK_ARDUINO_ITEAD" not in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
-ARDUINO_FRAMEWORK_DIR = FRAMEWORK_DIR
 
 # TODO not working check for "custom_sdkconfig"
 # config = env.GetProjectConfig()
@@ -71,7 +70,7 @@ if flag_custom_sdkonfig == True:
 
 if flag_custom_sdkonfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
-        print("Arduino IDF libs compile, calling SConscript espidf.py")
+        print("Compile Arduino IDF libs for %s" % env["PIOENV"])
         SConscript("espidf.py")
 
 def install_python_deps():
