@@ -84,7 +84,7 @@ def check_reinstall_frwrk(frwrk_reinstall):
 dummy = True
 print("Test: Needs framework reinstall:", check_reinstall_frwrk(dummy))
 
-ARDUINO_FRMWRK_URL = (platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1]
+ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1]
 print("Arduino Framework URL", ARDUINO_FRMWRK_URL)
 
 if board.get("url", "") == True:
