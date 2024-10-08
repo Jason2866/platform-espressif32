@@ -57,21 +57,22 @@ def any_custom_sdkconfig(any_sdkconfig):
     # Search if any custom sdkconfig.<env> exist.
     any_sdkconfig = False
     files_lib = "".join([f for f in os.listdir(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs")) if os.path.isfile(f)])
-    print("arduino libs dir", files_lib)
     if "sdkconfig" in files_lib:
-        print("*** custom sdkconfig found ***")
         any_sdkconfig = True
     return any_sdkconfig
 
-print("Test any custom sdkconfig function", any_custom_sdkconfig(flag_custom_sdkonfig))
-
 def check_reinstall_frwrk(frwrk_reinstall):
     frwrk_reinstall = False
-    cust_sdk = any_custom_sdkconfig()
+    cust_sdk = False
+    cust_sdk = any_custom_sdkconfig(cust_sdk)
+    print("Custom sdkconfig is", cust_sdk)
     if flag_custom_sdkonfig == False and cust_sdk == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         frwrk_reinstall = True
     return frwrk_reinstall
+
+dummy = True
+print("Test: Needs framework reinstall:", check_reinstall_frwrk(dummy))
 
 if flag_custom_sdkonfig == True:
     # check if matching custom libs are already there
