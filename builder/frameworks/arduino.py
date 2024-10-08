@@ -84,12 +84,13 @@ def check_reinstall_frwrk(frwrk_reinstall):
 dummy = True
 print("Test: Needs framework reinstall:", check_reinstall_frwrk(dummy))
 
-ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
+
 print("Arduino Framework URL", ARDUINO_FRMWRK_URL)
 
 if board.get("url", "") == True:
     shutil.rmtree(FRAMEWORK_DIR)
-    pm.install("https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3005/framework-arduinoespressif32-all-release_v5.3-22a3b096.zip")
+    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
+    pm.install(ARDUINO_FRMWRK_URL)
 
 if flag_custom_sdkonfig == True:
     # check if matching custom libs are already there
