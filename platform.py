@@ -44,7 +44,7 @@ class Espressif32Platform(PlatformBase):
         frameworks = variables.get("pioframework", [])
 
         print("Framework Reinstall flag:", variables.get("board_url", board_config.get("url", "")))
-        if variables.get("board_url", board_config.get("url", "")) == True
+        if variables.get("board_url", board_config.get("url", "")) == True:
             ARDUINO_FRMWRK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "framework-arduinoespressif32")
 
 
