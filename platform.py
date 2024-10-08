@@ -20,6 +20,7 @@ import re
 import requests
 
 from platformio.public import PlatformBase, to_unix_path
+from platformio.project.config import ProjectConfig
 
 
 IS_WINDOWS = sys.platform.startswith("win")
@@ -43,6 +44,9 @@ class Espressif32Platform(PlatformBase):
         frameworks = variables.get("pioframework", [])
 
         print("Framework Reinstall flag:", variables.get("board_url", board_config.get("url", "")))
+        if variables.get("board_url", board_config.get("url", "")) == True
+            ARDUINO_FRMWRK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "framework-arduinoespressif32")
+
 
         if "arduino" in frameworks and variables.get("custom_sdkconfig") is None:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
