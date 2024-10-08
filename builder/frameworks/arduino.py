@@ -73,6 +73,7 @@ def check_reinstall_frwrk(frwrk_reinstall):
         frwrk_reinstall = True
     # hack: overwrite boards info "url" entry with info framework needs reinstall
     board.update("url", frwrk_reinstall)
+    print("Board url entry updated to:", board.get("url", ""))
     return frwrk_reinstall
 
 dummy = True
