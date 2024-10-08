@@ -18,9 +18,11 @@ import sys
 import json
 import re
 import requests
+import shutil
 
 from platformio.public import PlatformBase, to_unix_path
 from platformio.project.config import ProjectConfig
+from platformio.package.manager.tool import ToolPackageManager
 
 
 IS_WINDOWS = sys.platform.startswith("win")
@@ -30,6 +32,7 @@ IS_WINDOWS = sys.platform.startswith("win")
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
 
+pm = ToolPackageManager()
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
@@ -46,7 +49,8 @@ class Espressif32Platform(PlatformBase):
         print("Framework Reinstall flag:", variables.get("board_url", board_config.get("url", "")))
         if variables.get("board_url", board_config.get("url", "")) == True:
             ARDUINO_FRMWRK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "framework-arduinoespressif32")
-
+            shutil.rmtree(ARDUINO_FRMWRK_PATH)
+            pm.install("framework-arduinoespressif32")
 
         if "arduino" in frameworks and variables.get("custom_sdkconfig") is None:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
