@@ -42,6 +42,8 @@ class Espressif32Platform(PlatformBase):
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
 
+        print("Framework Reinstall flag:", variables.get("FRAMEWORK_REINSTALL_FLAG"))
+
         if variables.get("custom_sdkconfig") is not None:
             frameworks.append("espidf")
             self.packages["framework-espidf"]["optional"] = False
