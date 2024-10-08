@@ -26,6 +26,7 @@ import subprocess
 import json
 import semantic_version
 import os
+import shutil
 from os.path import join
 
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
