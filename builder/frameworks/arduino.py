@@ -30,12 +30,16 @@ from os.path import join
 
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
 from platformio.package.version import pepver_to_semver
+from platformio.project.config import ProjectConfig
+from platformio.package.manager.tool import ToolPackageManager
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
+
+pm = ToolPackageManager()
 
 extra_flags = ''.join([element.replace("-D", " ") for element in board.get("build.extra_flags", "")])
 build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
@@ -78,6 +82,11 @@ def check_reinstall_frwrk(frwrk_reinstall):
 
 dummy = True
 print("Test: Needs framework reinstall:", check_reinstall_frwrk(dummy))
+
+if board.get("url", "") == True:
+    ARDUINO_FRMWRK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "framework-arduinoespressif32")
+    shutil.rmtree(ARDUINO_FRMWRK_PATH)
+    pm.install("framework-arduinoespressif32")
 
 if flag_custom_sdkonfig == True:
     # check if matching custom libs are already there
