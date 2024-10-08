@@ -84,6 +84,9 @@ def check_reinstall_frwrk(frwrk_reinstall):
 dummy = True
 print("Test: Needs framework reinstall:", check_reinstall_frwrk(dummy))
 
+ARDUINO_FRMWRK_VERSION = platform.get_package_version("framework-arduinoespressif32")
+print("Arduino Framework Version", ARDUINO_FRMWRK_VERSION)
+
 if board.get("url", "") == True:
     ARDUINO_FRMWRK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "framework-arduinoespressif32")
     shutil.rmtree(ARDUINO_FRMWRK_PATH)
