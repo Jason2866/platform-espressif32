@@ -62,7 +62,7 @@ def any_custom_sdkconfig(any_sdkconfig):
         any_sdkconfig = True
     return any_sdkconfig
 
-print("Test any custom sdkconfig function", any_custom_sdkconfig())
+print("Test any custom sdkconfig function", any_custom_sdkconfig(flag_custom_sdkonfig))
 
 def check_reinstall_frwrk(frwrk_reinstall):
     frwrk_reinstall = False
