@@ -69,6 +69,9 @@ def check_reinstall_frwrk(frwrk_reinstall):
     if flag_custom_sdkonfig == False and cust_sdk == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         frwrk_reinstall = True
+    env.Replace(
+        FRAMEWORK_REINSTALL_FLAG=frwrk_reinstall,
+    )
     return frwrk_reinstall
 
 dummy = True
