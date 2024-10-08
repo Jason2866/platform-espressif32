@@ -20,7 +20,6 @@ import re
 import requests
 
 from platformio.public import PlatformBase, to_unix_path
-from platformio.project.config import ProjectConfig
 
 
 IS_WINDOWS = sys.platform.startswith("win")
@@ -29,6 +28,7 @@ IS_WINDOWS = sys.platform.startswith("win")
 # needs platformio core >= 6.1.16b2 or pioarduino core 6.1.16+test
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
+
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
