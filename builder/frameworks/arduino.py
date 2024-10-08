@@ -49,18 +49,32 @@ elif ("CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags) 
 elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flags and "FRAMEWORK_ARDUINO_SOLO1" not in build_flags and "CORE32ITEAD" not in extra_flags and "FRAMEWORK_ARDUINO_ITEAD" not in build_flags:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
+flag_custom_sdkonfig = False
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
-else:
-    flag_custom_sdkonfig = False
+
+def any_custom_sdkconfig(any_sdkconfig)
+    # Search if any custom sdkconfig.<env> exist.
+    any_sdkconfig = False # TODO code routine    
+    return any_sdkconfig
+
+def check_reinstall_frwrk(frwrk_reinstall)
+    frwrk_reinstall = False
+    cust_sdk = any_custom_sdkconfig()
+    if flag_custom_sdkonfig == False and cust_sdk == True:
+        # case custom sdkconfig exists and a env without "custom_sdkconfig"
+        frwrk_reinstall = True
+    return frwrk_reinstall
 
 if flag_custom_sdkonfig == True:
+    # check if matching custom libs are already there
     custom_lib_config = join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"])
-    # check if custom libs are already compiled and there. TODO better check and remove old and restore standard...
     if bool(os.path.isfile(custom_lib_config)):
         flag_custom_sdkonfig = False
+        # current env matches customized sdkconfig -> correct framework to use
     else:
         flag_custom_sdkonfig = True
+        # current env forces custom libs -> Build of libs is needed
 
 if flag_custom_sdkonfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
