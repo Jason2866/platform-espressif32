@@ -37,7 +37,7 @@ config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 
-extra_flags = ''.join([element.replace("-D", " ") for element in env.BoardConfig().get("build.extra_flags", "")])
+extra_flags = ''.join([element.replace("-D", " ") for element in board.get("build.extra_flags", "")])
 build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
 
 SConscript("_embed_files.py", exports="env")
@@ -71,9 +71,6 @@ def check_reinstall_frwrk(frwrk_reinstall):
     if flag_custom_sdkonfig == False and cust_sdk == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         frwrk_reinstall = True
-    env.Replace(
-        FRAMEWORK_REINSTALL_FLAG=frwrk_reinstall,
-    )
     return frwrk_reinstall
 
 dummy = True
