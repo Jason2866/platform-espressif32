@@ -57,8 +57,9 @@ def any_custom_sdkconfig(any_sdkconfig):
     # Search if any custom sdkconfig.<env> exist.
     any_sdkconfig = False
     files_lib = [f for f in os.listdir(join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs")) if os.path.isfile(f)]
+    print("arduino libs dir", files_lib)
     if "sdkconfig" in files_lib:
-        print("sdkconfig found")
+        print("*** custom sdkconfig found ***")
         any_sdkconfig = True
     return any_sdkconfig
 
