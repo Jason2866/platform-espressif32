@@ -53,12 +53,12 @@ flag_custom_sdkonfig = False
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
 
-def any_custom_sdkconfig(any_sdkconfig)
+def any_custom_sdkconfig(any_sdkconfig):
     # Search if any custom sdkconfig.<env> exist.
     any_sdkconfig = False # TODO code routine    
     return any_sdkconfig
 
-def check_reinstall_frwrk(frwrk_reinstall)
+def check_reinstall_frwrk(frwrk_reinstall):
     frwrk_reinstall = False
     cust_sdk = any_custom_sdkconfig()
     if flag_custom_sdkonfig == False and cust_sdk == True:
