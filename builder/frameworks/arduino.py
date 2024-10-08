@@ -55,8 +55,14 @@ if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
 
 def any_custom_sdkconfig(any_sdkconfig):
     # Search if any custom sdkconfig.<env> exist.
-    any_sdkconfig = False # TODO code routine    
+    any_sdkconfig = False
+    files_lib = [f for f in os.listdir(join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs")) if os.path.isfile(f)]
+    if files_lib in ("sdkconfig"):
+        print("sdkconfig found")
+        any_sdkconfig = True
     return any_sdkconfig
+
+print("Test any custom sdkconfig function", any_custom_sdkconfig())
 
 def check_reinstall_frwrk(frwrk_reinstall):
     frwrk_reinstall = False
