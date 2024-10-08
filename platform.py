@@ -44,18 +44,18 @@ class Espressif32Platform(PlatformBase):
 
         print("Framework Reinstall flag:", variables.get("FRAMEWORK_REINSTALL_FLAG"))
 
-        if variables.get("custom_sdkconfig") is not None:
-            frameworks.append("espidf")
-            self.packages["framework-espidf"]["optional"] = False
-            self.packages["framework-arduinoespressif32"]["optional"] = False
-
-        if "arduino" in frameworks:
+        if "arduino" in frameworks and variables.get("custom_sdkconfig") is None:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
                 self.packages["framework-arduino-solo1"]["optional"] = False
             elif "CORE32ITEAD" in core_variant_board or "FRAMEWORK_ARDUINO_ITEAD" in core_variant_build:
                 self.packages["framework-arduino-ITEAD"]["optional"] = False
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
+
+        if variables.get("custom_sdkconfig") is not None:
+            frameworks.append("espidf")
+            self.packages["framework-espidf"]["optional"] = False
+            self.packages["framework-arduinoespressif32"]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
