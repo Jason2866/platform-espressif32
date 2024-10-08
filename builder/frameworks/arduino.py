@@ -85,7 +85,9 @@ dummy = True
 print("Test: Needs framework reinstall:", check_reinstall_frwrk(dummy))
 
 ARDUINO_FRMWRK_VERSION = platform.get_package_version("framework-arduinoespressif32")
+ARDUINO_FRMWRK_SPEC = platform.get_package_spec("framework-arduinoespressif32")
 print("Arduino Framework Version", ARDUINO_FRMWRK_VERSION)
+print("Arduino Framework Specs", ARDUINO_FRMWRK_SPEC)
 
 if board.get("url", "") == True:
     ARDUINO_FRMWRK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "framework-arduinoespressif32")
