@@ -90,17 +90,11 @@ def check_reinstall_frwrk(frwrk_reinstall):
     if flag_custom_sdkonfig == True and cust_sdk == True and matching_sdkconfig == False:
         # check if current custom sdkconfig is differnet from existing
         frwrk_reinstall = True
-    # hack: overwrite boards info "url" entry with info framework needs reinstall
-    # board.update("url", frwrk_reinstall)
-    # print("Board url entry updated to:", board.get("url", ""))
+    print("Framework Reinstall is ", frwrk_reinstall)
     return frwrk_reinstall
 
 if check_reinstall_frwrk(frwrk_reinstall) == True:
     print("*** Reinstall framework ***")
-
-print("Framework Reinstall is:", frwrk_reinstall)
-
-if frwrk_reinstall == True:
     shutil.rmtree(FRAMEWORK_DIR)
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
