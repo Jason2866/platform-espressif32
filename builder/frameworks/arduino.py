@@ -72,6 +72,7 @@ def matching_custom_sdkconfig(matching_sdkconfig):
     # Search if any custom sdkconfig.<env> exist.
     matching_sdkconfig = False
     files_lib = "".join([f for f in os.listdir(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs")) if os.path.isfile(f)])
+    print("files_lib", files_lib)
     if str(env["PIOENV"]) in files_lib:
         matching_sdkconfig = True
     return matching_sdkconfig
@@ -90,7 +91,7 @@ def check_reinstall_frwrk(frwrk_reinstall):
     if flag_custom_sdkonfig == True and cust_sdk == True and matching_sdkconfig == False:
         # check if current custom sdkconfig is differnet from existing
         frwrk_reinstall = True
-    print("Framework Reinstall is ", frwrk_reinstall)
+    print("Framework Reinstall is", frwrk_reinstall)
     return frwrk_reinstall
 
 if check_reinstall_frwrk(frwrk_reinstall) == True:
