@@ -1845,6 +1845,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     def idf_lib_copy(source, target, env):
+        print("*** Why does Windows not work? ***")
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
@@ -1864,7 +1865,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
 
         # TODO Check if Windows path is correct, see line 1427
         pio_exe_path = shutil.which("platformio"+(".exe" if IS_WINDOWS else ""))
-        # print("Platformio exe path", pio_exe_path)
+        print("**** Platformio exe path", pio_exe_path)
         pio_cmd = env["PIOENV"]
         env.Execute(
             env.VerboseAction(
