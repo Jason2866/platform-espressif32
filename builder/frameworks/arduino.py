@@ -72,7 +72,8 @@ def existing_custom_sdkconfig(existing_sdkconfig):
     # Search if any custom sdkconfig.<env> exist.
     existing_sdkconfig = ""
     files_lib = "".join([f for f in os.listdir(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs")) if os.path.isfile(f)])
-    existing_sdkconfig = files_lib.split("sdkconfig.",1)[1]
+    if "sdkconfig" in files_lib:
+        existing_sdkconfig = files_lib.split("sdkconfig.",1)[1]
     return existing_sdkconfig
 
 def check_reinstall_frwrk(frwrk_reinstall):
