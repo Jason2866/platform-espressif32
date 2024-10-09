@@ -72,8 +72,10 @@ def matching_custom_sdkconfig(matching_sdkconfig):
     # Search if any custom sdkconfig.<env> exist.
     matching_sdkconfig = False
     files_lib = "".join([f for f in os.listdir(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs")) if os.path.isfile(f)])
+    actual_sdkonfig = "sdkonfig."+str(env["PIOENV"])
     print("files_lib", files_lib)
-    if str(env["PIOENV"]) in files_lib:
+    print("actual_sdkonfig", actual_sdkonfig)
+    if actual_sdkonfig == files_lib:
         matching_sdkconfig = True
     return matching_sdkconfig
 
