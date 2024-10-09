@@ -68,23 +68,38 @@ def any_custom_sdkconfig(any_sdkconfig):
         any_sdkconfig = True
     return any_sdkconfig
 
+def existing_custom_sdkconfig(existing_sdkconfig):
+    # Search if any custom sdkconfig.<env> exist.
+    existing_sdkconfig = ""
+    files_lib = "".join([f for f in os.listdir(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs")) if os.path.isfile(f)])
+    existing_sdkconfig = files_lib.split("sdkconfig.",1)[1]
+    return existing_sdkconfig
+
 def check_reinstall_frwrk(frwrk_reinstall):
     frwrk_reinstall = False
     cust_sdk = False
+    existing_sdkconfig = ""
     cust_sdk = any_custom_sdkconfig(cust_sdk)
-    print("Custom sdkconfig is", cust_sdk)
+    existing_sdkconfig = existing_custom_sdkconfig(existing_sdkconfig)
+    print("*** Custom sdkconfig is", cust_sdk)
+    print("*** Existing sdkconfig is", existing_sdkconfig)
     if flag_custom_sdkonfig == False and cust_sdk == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         frwrk_reinstall = True
+    if flag_custom_sdkonfig == True and cust_sdk == True and not str(env["PIOENV"]) in existing_sdkconfig
+        # check if current custom sdkconfig is differnet from existing
+        frwrk_reinstall = True
     # hack: overwrite boards info "url" entry with info framework needs reinstall
-    board.update("url", frwrk_reinstall)
-    print("Board url entry updated to:", board.get("url", ""))
+    # board.update("url", frwrk_reinstall)
+    # print("Board url entry updated to:", board.get("url", ""))
     return frwrk_reinstall
 
-dummy = True
-print("Test: Needs framework reinstall:", check_reinstall_frwrk(dummy))
+if check_reinstall_frwrk(frwrk_reinstall) == True:
+    print("*** Reinstall framework ***")
 
-if board.get("url", "") == True:
+print("Framework Reinstall is:", frwrk_reinstall)
+
+if frwrk_reinstall == True:
     shutil.rmtree(FRAMEWORK_DIR)
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
