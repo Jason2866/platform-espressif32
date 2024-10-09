@@ -1858,7 +1858,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                 if file.strip().endswith(".a"):
                     print(file.split(os.path.sep)[-1])
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
-        print("Still running........"
+        print("Still running........")
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
