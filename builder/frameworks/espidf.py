@@ -1849,25 +1849,20 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
         src = [folder for folder in src if not os.path.isfile(folder)] # folders only
-        print("Library Source", lib_src)
-        print("Library Dest", lib_dst)
         for folder in src:
-            print(folder)
+            # print(folder)
             files = [join(folder,x) for x in os.listdir(folder)]
             for file in files:
                 if file.strip().endswith(".a"):
-                    print(file.split(os.path.sep)[-1])
+                    # print(file.split(os.path.sep)[-1])
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
-        print("Still running........")
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"]))
-        print("*** Copied compiled IDF libraries to Arduino framework ***")
+        print("*** Copied compiled %s IDF libraries to Arduino framework ***" % idf_variant)
 
-        # TODO Check if Windows path is correct, see line 1427
         pio_exe_path = shutil.which("platformio"+(".exe" if IS_WINDOWS else ""))
-        print("**** Platformio exe path", pio_exe_path)
         pio_cmd = env["PIOENV"]
         env.Execute(
             env.VerboseAction(
@@ -1875,7 +1870,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                     '"%s" run -e ' % pio_exe_path
                     + " ".join(['"%s"' % pio_cmd])
                 ),
-                "Arduino compile %s with custom libraries" % pio_cmd,
+                "*** Starting Arduino compile %s with custom libraries ***" % pio_cmd,
             )
         )
     env.AddPostAction("checkprogsize", idf_lib_copy)
