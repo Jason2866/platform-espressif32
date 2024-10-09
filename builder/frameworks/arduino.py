@@ -69,12 +69,12 @@ def any_custom_sdkconfig(any_sdkconfig):
     return any_sdkconfig
 
 def matching_custom_sdkconfig(matching_sdkconfig):
-    # Search if any custom sdkconfig.<env> exist.
+    # check if current env is matching to existing sdkconfig
     matching_sdkconfig = False
     files_lib = str("".join([f for f in os.listdir(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs")) if os.path.isfile(f)])).replace(" ", "")
     actual_sdkonfig = ("sdkconfig."+str(env["PIOENV"])).replace(" ", "")
-    print("files_lib", files_lib)
-    print("actual_sdkonfig", actual_sdkonfig)
+    # print("files_lib", files_lib)
+    # print("actual_sdkonfig", actual_sdkonfig)
     if actual_sdkonfig == files_lib:
         matching_sdkconfig = True
     return matching_sdkconfig
@@ -85,19 +85,19 @@ def check_reinstall_frwrk(frwrk_reinstall):
     matching_sdkconfig = False
     cust_sdk = any_custom_sdkconfig(cust_sdk)
     matching_sdkconfig = matching_custom_sdkconfig(matching_sdkconfig)
-    print("*** Custom sdkconfig is", cust_sdk)
-    print("*** sdkconfig is matching", matching_sdkconfig)
+    # print("*** Custom sdkconfig is", cust_sdk)
+    # print("*** sdkconfig is matching", matching_sdkconfig)
     if flag_custom_sdkonfig == False and cust_sdk == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         frwrk_reinstall = True
     if flag_custom_sdkonfig == True and cust_sdk == True and matching_sdkconfig == False:
         # check if current custom sdkconfig is differnet from existing
         frwrk_reinstall = True
-    print("Framework Reinstall is", frwrk_reinstall)
+    # print("Framework Reinstall is", frwrk_reinstall)
     return frwrk_reinstall
 
 if check_reinstall_frwrk(frwrk_reinstall) == True:
-    print("*** Reinstall framework ***")
+    print("*** Reinstall Arduino framework ***")
     shutil.rmtree(FRAMEWORK_DIR)
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
@@ -114,7 +114,7 @@ if flag_custom_sdkonfig == True:
 
 if flag_custom_sdkonfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
-        print("Compile Arduino IDF libs for %s" % env["PIOENV"])
+        print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
         SConscript("espidf.py")
 
 def install_python_deps():
