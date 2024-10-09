@@ -39,15 +39,15 @@ platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
-
-pm = ToolPackageManager()
+flag_custom_sdkonfig = False
+frwrk_reinstall = False
 
 extra_flags = ''.join([element.replace("-D", " ") for element in board.get("build.extra_flags", "")])
 build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
+pm = ToolPackageManager()
 
 SConscript("_embed_files.py", exports="env")
 
-flag_custom_sdkonfig = False
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
 
