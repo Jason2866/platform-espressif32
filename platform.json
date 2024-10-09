@@ -12,13 +12,13 @@
     "RISC-V"
   ],
   "engines": {
-    "platformio": ">=6.1.15"
+    "platformio": ">=6.1.16"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif32.git"
   },
-  "version": "2024.10.30",
+  "version": "2024.10.30+hybrid",
   "frameworks": {
     "arduino": {
       "script": "builder/frameworks/arduino.py"
