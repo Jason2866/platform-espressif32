@@ -1845,18 +1845,20 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     def idf_lib_copy(source, target, env):
-        print("*** Why does Windows not work? ***")
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
         src = [folder for folder in src if not os.path.isfile(folder)] # folders only
+        print("Library Source", lib_src)
+        print("Library Dest", lib_dst)
         for folder in src:
-            # print(folder)
+            print(folder)
             files = [join(folder,x) for x in os.listdir(folder)]
             for file in files:
                 if file.strip().endswith(".a"):
-                    # print(file.split("/")[-1])
-                    shutil.copyfile(file,join(lib_dst,file.split("/")[-1]))
+                    print(file.split(os.path.sep)[-1])
+                    shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
+        print("Still running........"
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
