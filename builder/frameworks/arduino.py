@@ -86,7 +86,7 @@ def check_reinstall_frwrk(frwrk_reinstall):
     if flag_custom_sdkonfig == False and cust_sdk == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         frwrk_reinstall = True
-    if flag_custom_sdkonfig == True and cust_sdk == True and not str(env["PIOENV"]) in existing_sdkconfig
+    if flag_custom_sdkonfig == True and cust_sdk == True and not str(env["PIOENV"]) in existing_sdkconfig:
         # check if current custom sdkconfig is differnet from existing
         frwrk_reinstall = True
     # hack: overwrite boards info "url" entry with info framework needs reinstall
