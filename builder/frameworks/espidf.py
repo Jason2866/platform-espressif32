@@ -148,7 +148,7 @@ def HandleArduinoIDFsettings(env):
                         if flag in item:
                             dst.write(item.replace("\'", "")+"\n")
                             no_match = False
-                            print("Replace:",line," with: ",item)
+                            print("Replace:",line,"with:",item.replace("\'", ""))
                     if no_match:
                         dst.write(line)
             dst.close()
