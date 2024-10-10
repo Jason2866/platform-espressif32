@@ -102,8 +102,6 @@ if check_reinstall_frwrk() == True:
     shutil.rmtree(FRAMEWORK_DIR)
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
-else:
-    flag_custom_sdkconfig = False # no custom_sdkconfig or already updated libs
 
 if flag_custom_sdkconfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
