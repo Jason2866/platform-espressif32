@@ -120,8 +120,12 @@ else:
     flag_custom_sdkonfig = False
 
 def HandleArduinoIDFsettings(env):
+    def get_MD5_hash(phrase):
+        import hashlib
+        return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
+
     if flag_custom_sdkonfig == True:
-        print("Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults!")
+        print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults! ***")
         idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
@@ -136,7 +140,7 @@ def HandleArduinoIDFsettings(env):
         with open(sdkconfig_src) as src:
             sdkconfig_dst = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
             dst = open(sdkconfig_dst,"w")
-            dst.write("# TASMOTA\n")
+            dst.write("# TASMOTA__"+ get_MD5_hash(env.GetProjectOption("custom_sdkconfig").strip()) +"\n")
             while line := src.readline():
                 flag = get_flag(line)
                 # print(flag)
@@ -148,7 +152,7 @@ def HandleArduinoIDFsettings(env):
                         if flag in item:
                             dst.write(item+"\n")
                             no_match = False
-                            print("Replace:",line," with: ",item)
+                            print("Replace:", line, "with:", item)
                     if no_match:
                         dst.write(line)
             dst.close()
@@ -1840,7 +1844,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
     env.SConscript("ulp.py", exports="env sdk_config project_config app_includes idf_variant")
 
 #
-# Compile Arduino sources
+# Compile Arduino IDF sources
 #
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
@@ -1850,16 +1854,14 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
         src = [folder for folder in src if not os.path.isfile(folder)] # folders only
         for folder in src:
-            # print(folder)
             files = [join(folder,x) for x in os.listdir(folder)]
             for file in files:
                 if file.strip().endswith(".a"):
-                    # print(file.split(os.path.sep)[-1])
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
-        shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"]))
+        # shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig."+env["PIOENV"]))
         print("*** Copied compiled %s IDF libraries to Arduino framework ***" % idf_variant)
 
         pio_exe_path = shutil.which("platformio"+(".exe" if IS_WINDOWS else ""))
