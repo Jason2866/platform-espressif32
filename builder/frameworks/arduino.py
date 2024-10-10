@@ -1,3 +1,4 @@
+
 # Copyright 2014-present PlatformIO <contact@platformio.org>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,7 +77,7 @@ def matching_custom_sdkconfig():
             cust_sdk_is_present = True;
             costum_options = env.GetProjectOption("custom_sdkconfig")
             print(costum_options)
-            if (line.split("__")[1]).strip() == (get_MD5_hash(costum_options).strip()):
+            if (line.split("__")[1]).strip() == get_MD5_hash((costum_options).strip() + mcu):
                 matching_sdkconfig = True
                 # print(line.split("__")[1], get_MD5_hash(costum_options))
 
@@ -91,10 +92,11 @@ def check_reinstall_frwrk():
     if flag_custom_sdkconfig == False and cust_sdk_is_present == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         framework_reinstall = True
-    if flag_custom_sdkconfig == True and cust_sdk_is_present == True and matching_sdkconfig == False:
-        # check if current custom sdkconfig is differnet from existing
+    # if flag_custom_sdkconfig == True and cust_sdk_is_present == True and matching_sdkconfig == False:
+    if flag_custom_sdkconfig == True  and matching_sdkconfig == False:
+        # check if current custom sdkconfig is different from existing
         framework_reinstall = True
-    # print("Framework Reinstall is", framework_reinstall)
+    print("Framework Reinstall is", framework_reinstall)
     return framework_reinstall
 
 if check_reinstall_frwrk() == True:
@@ -102,6 +104,8 @@ if check_reinstall_frwrk() == True:
     shutil.rmtree(FRAMEWORK_DIR)
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
+else:
+    flag_custom_sdkconfig = False # no custom_sdkconfig or already updated libs
 
 if flag_custom_sdkconfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
