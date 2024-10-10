@@ -120,8 +120,12 @@ else:
     flag_custom_sdkonfig = False
 
 def HandleArduinoIDFsettings(env):
+    def get_MD5_hash(phrase):
+        import hashlib
+        return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
+
     if flag_custom_sdkonfig == True:
-        print("Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults!")
+        print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults! ***")
         idf_config_flags = env.GetProjectOption("custom_sdkconfig").splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
@@ -136,7 +140,7 @@ def HandleArduinoIDFsettings(env):
         with open(sdkconfig_src) as src:
             sdkconfig_dst = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
             dst = open(sdkconfig_dst,"w")
-            dst.write("# TASMOTA\n")
+            dst.write("# TASMOTA__"+ get_MD5_hash(env.GetProjectOption("custom_sdkconfig").strip()) +"\n")
             while line := src.readline():
                 flag = get_flag(line)
                 # print(flag)
