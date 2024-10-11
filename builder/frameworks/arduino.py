@@ -110,7 +110,7 @@ if check_reinstall_frwrk() == True:
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
 
-if flag_custom_sdkconfig == True:
+if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
         print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
         SConscript("espidf.py")
