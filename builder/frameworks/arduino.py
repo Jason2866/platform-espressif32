@@ -90,14 +90,17 @@ def matching_custom_sdkconfig():
 
 def check_reinstall_frwrk():
     framework_reinstall = False
-    matching_sdkconfig, cust_sdk_is_present = matching_custom_sdkconfig()
+    cust_sdk_is_present = False
+    matching_sdkconfig = False
+    if flag_custom_sdkconfig:
+        matching_sdkconfig, cust_sdk_is_present = matching_custom_sdkconfig()
     print("*** Custom sdkconfig in config", flag_custom_sdkconfig)
+    print("*** Any Custom sdkconfig is present", flag_any_custom_sdkconfig)
     print("*** Custom sdkconfig is present", cust_sdk_is_present)
     print("*** sdkconfig is matching", matching_sdkconfig)
-    if flag_custom_sdkconfig == False and cust_sdk_is_present == True:
+    if flag_custom_sdkconfig == False and flag_any_custom_sdkconfig == True:
         # case custom sdkconfig exists and a env without "custom_sdkconfig"
         framework_reinstall = True
-    # if flag_custom_sdkconfig == True and cust_sdk_is_present == True and matching_sdkconfig == False:
     if flag_custom_sdkconfig == True  and matching_sdkconfig == False:
         # check if current custom sdkconfig is different from existing
         framework_reinstall = True
