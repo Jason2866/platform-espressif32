@@ -41,6 +41,7 @@ config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
+flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
 framework_reinstall = False
 
 extra_flags = ''.join([element.replace("-D", " ") for element in board.get("build.extra_flags", "")])
@@ -67,9 +68,8 @@ def matching_custom_sdkconfig():
     # check if current env is matching to existing sdkconfig
     cust_sdk_is_present = False
     matching_sdkconfig = False
-    any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
     last_sdkconfig_path = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
-    if any_custom_sdkconfig == False:
+    if flag_any_custom_sdkconfig == False:
         matching_sdkconfig = True
         return matching_sdkconfig, cust_sdk_is_present
     if os.path.exists(last_sdkconfig_path) == False:
@@ -108,8 +108,6 @@ if check_reinstall_frwrk() == True:
     shutil.rmtree(FRAMEWORK_DIR)
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
-else:
-    flag_custom_sdkconfig = False # no custom_sdkconfig or already updated libs
 
 if flag_custom_sdkconfig == True:
     if env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("False", "Inactive"):
