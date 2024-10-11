@@ -41,7 +41,6 @@ config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
-flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
 framework_reinstall = False
 
 extra_flags = ''.join([element.replace("-D", " ") for element in board.get("build.extra_flags", "")])
@@ -58,6 +57,8 @@ elif "arduino" in env.subst("$PIOFRAMEWORK") and "CORE32SOLO1" not in extra_flag
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 elif "arduino" in env.subst("$PIOFRAMEWORK") and flag_custom_sdkconfig == True:
     FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+
+flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
 
 def get_MD5_hash(phrase):
     import hashlib
