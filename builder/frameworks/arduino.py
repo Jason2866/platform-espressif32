@@ -76,6 +76,9 @@ def matching_custom_sdkconfig():
     if os.path.exists(last_sdkconfig_path) == False:
         return matching_sdkconfig, cust_sdk_is_present
     print(last_sdkconfig_path)
+    if flag_custom_sdkconfig == False:
+        matching_sdkconfig = False
+        return matching_sdkconfig, cust_sdk_is_present
     with open(last_sdkconfig_path) as src:
         line = src.readline()
         if line.startswith("# TASMOTA__"):
