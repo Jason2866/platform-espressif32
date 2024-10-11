@@ -67,7 +67,11 @@ def matching_custom_sdkconfig():
     # check if current env is matching to existing sdkconfig
     cust_sdk_is_present = False
     matching_sdkconfig = False
+    any_custom_sdkconfig = os.path.exists(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
     last_sdkconfig_path = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
+    if any_custom_sdkconfig == False:
+        matching_sdkconfig = True
+        return matching_sdkconfig, cust_sdk_is_present
     if os.path.exists(last_sdkconfig_path) == False:
         return matching_sdkconfig, cust_sdk_is_present
     print(last_sdkconfig_path)
