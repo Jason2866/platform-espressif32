@@ -117,7 +117,7 @@ if check_reinstall_frwrk() == True:
         call_compile_libs()
         flag_custom_sdkconfig = False
     
-if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig = False:
+if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
     call_compile_libs()
 
 
