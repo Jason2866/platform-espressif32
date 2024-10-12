@@ -43,9 +43,9 @@ jobs:
       - name: Set Pio env var for Windows
         if: "matrix.os == 'windows-2022'"
         run: |
-          setx PLATFORMIO_CORE_DIR .plat /M
-          # echo "set PLATFORMIO_CORE_DIR=.plat" >> $GITHUB_ENV
-          echo "PLATFORMIO_CORE_DIR=.plat" >> $GITHUB_ENV
+          setx PLATFORMIO_CORE_DIR plat /M
+          set PLATFORMIO_CORE_DIR=plat
+          echo "PLATFORMIO_CORE_DIR=plat" >> $GITHUB_ENV
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
