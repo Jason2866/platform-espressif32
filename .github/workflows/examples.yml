@@ -12,8 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022]
-        #os: [ubuntu-22.04, windows-2022, macos-14]
+        os: [ubuntu-22.04, windows-2022, macos-14]
         example:
           - "examples/arduino-blink"
           - "examples/arduino-rmt-blink"
@@ -45,10 +44,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install wheel
           pip install -U https://github.com/Jason2866/platformio-core/archive/refs/tags/v6.1.16.tar.gz
-          pio pkg install --global --platform https://github.com/Jason2866/platform-espressif32.git#idf_install_31
+          pio pkg install --global --platform symlink://.
       - name: Build examples
-        run: pio run -d ${{ matrix.example }}
-        env:
-          PLATFORMIO_CORE_DIR: plat
-          PLATFORMIO_PACKAGES_DIR: plat/pack
-          PLATFORMIO_PLATFORMS_DIR: plat/plat
+        run: |
+          pio run -d ${{ matrix.example }}
