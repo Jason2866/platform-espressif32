@@ -45,7 +45,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install wheel
           pip install -U https://github.com/Jason2866/platformio-core/archive/refs/tags/v6.1.16.tar.gz
-          pio pkg install --global --platform symlink://.
+          pio pkg install --global --platform https://github.com/Jason2866/platform-espressif32.git#idf_install_31
       - name: Build examples
         run: pio run -d ${{ matrix.example }}
         env:
