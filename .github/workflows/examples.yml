@@ -50,3 +50,5 @@ jobs:
         run: pio run -d ${{ matrix.example }}
         env:
           PLATFORMIO_CORE_DIR: plat
+          PLATFORMIO_PACKAGES_DIR: plat/pack
+          PLATFORMIO_PLATFORMS_DIR: plat/plat
