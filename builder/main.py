@@ -256,7 +256,7 @@ env.Replace(
             if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4")
             else "xtensa-esp-elf-gdb"
         )
-        or "",   # correct?!
+        or "",
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
