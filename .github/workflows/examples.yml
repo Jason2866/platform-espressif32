@@ -45,6 +45,10 @@ jobs:
           pip install wheel
           pip install -U https://github.com/Jason2866/platformio-core/archive/refs/tags/v6.1.16.tar.gz
           pio pkg install --global --platform symlink://.
+      - name: Set Pio env var for Windows
+        if: "matrix.os == 'windows-2022'"
+        run: |
+          set PLATFORMIO_CORE_DIR='.plat'
       - name: Build examples
         run: |
           pio run -d ${{ matrix.example }}
