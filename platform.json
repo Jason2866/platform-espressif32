@@ -12,7 +12,7 @@
     "RISC-V"
   ],
   "engines": {
-    "platformio": ">=6.1.15"
+    "platformio": ">=6.1.16"
   },
   "repository": {
     "type": "git",
