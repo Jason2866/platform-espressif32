@@ -167,26 +167,6 @@ def HandleArduinoIDFsettings(env):
     else:
         return
 
-def HandleArduinoCOMPONENTsettings(env):
-    if flag_custom_component == True:
-        import yaml
-        from yaml import SafeLoader
-        print("*** \"custom_component\" is used to specify managed idf components ***")
-        idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
-        if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
-            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
-        yaml_file=open(idf_component_yml_src,"r")
-        idf_component=yaml.load(yaml_file, Loader=SafeLoader)
-        idf_component_json_string=json.dumps(idf_component)
-        component_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
-        json.dump(idf_component,component_file)
-        file.close()
-        print("The JSON from idf_component.yml:")
-        print(idf_component_json_string)
-        return
-    return
-
-
 if flag_custom_sdkonfig:
     HandleArduinoIDFsettings(env)
     LIB_SOURCE = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
@@ -1477,6 +1457,25 @@ install_python_deps()
 # in a special file "version.h" in the root folder of the package
 
 create_version_file()
+
+def HandleArduinoCOMPONENTsettings(env):
+    if flag_custom_component == True:
+        import yaml
+        from yaml import SafeLoader
+        print("*** \"custom_component\" is used to specify managed idf components ***")
+        idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
+        if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
+            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
+        yaml_file=open(idf_component_yml_src,"r")
+        idf_component=yaml.load(yaml_file, Loader=SafeLoader)
+        idf_component_json_string=json.dumps(idf_component)
+        component_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
+        json.dump(idf_component,component_file)
+        file.close()
+        print("The JSON from idf_component.yml:")
+        print(idf_component_json_string)
+        return
+    return
 
 if flag_custom_component:
     HandleArduinoCOMPONENTsettings(env)
