@@ -22,6 +22,8 @@ https://github.com/espressif/esp-idf
 
 import copy
 import json
+import yaml
+from yaml import SafeLoader
 import subprocess
 import sys
 import shutil
@@ -118,6 +120,11 @@ if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
 else:
     flag_custom_sdkonfig = False
 
+if config.has_option("env:"+env["PIOENV"], "custom_component_add") or config.has_option("env:"+env["PIOENV"], "custom_component_remove"):
+    flag_custom_component = True
+else:
+    flag_custom_component = False
+
 def HandleArduinoIDFsettings(env):
     def get_MD5_hash(phrase):
         import hashlib
@@ -162,8 +169,20 @@ def HandleArduinoIDFsettings(env):
     else:
         return
 
+def HandleArduinoCOMPONENTsettings(env):
+    if flag_custom_component == True:
+        print("*** \"custom_component\" is used to specify managed idf components ***")
+        idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
+        if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
+            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
+        return
+    return
+
+
 if flag_custom_sdkonfig:
     HandleArduinoIDFsettings(env)
+    if flag_custom_component:
+        HandleArduinoCOMPONENTsettings(env)
     LIB_SOURCE = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
     if not bool(os.path.exists(os.path.join(PROJECT_DIR, ".dummy"))):
         shutil.copytree(LIB_SOURCE, os.path.join(PROJECT_DIR, ".dummy"))
