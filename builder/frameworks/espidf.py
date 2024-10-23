@@ -22,8 +22,6 @@ https://github.com/espressif/esp-idf
 
 import copy
 import json
-import yaml
-from yaml import SafeLoader
 import subprocess
 import sys
 import shutil
@@ -171,6 +169,8 @@ def HandleArduinoIDFsettings(env):
 
 def HandleArduinoCOMPONENTsettings(env):
     if flag_custom_component == True:
+        import yaml
+        from yaml import SafeLoader
         print("*** \"custom_component\" is used to specify managed idf components ***")
         idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
@@ -1345,6 +1345,7 @@ def install_python_deps():
         return
 
     deps = {
+        "PyYAML": ">=6.0.2",
         "wheel": ">=0.35.1",
         # https://github.com/platformio/platformio-core/issues/4614
         "urllib3": "<2",
