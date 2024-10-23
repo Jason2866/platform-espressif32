@@ -189,8 +189,6 @@ def HandleArduinoCOMPONENTsettings(env):
 
 if flag_custom_sdkonfig:
     HandleArduinoIDFsettings(env)
-    if flag_custom_component:
-        HandleArduinoCOMPONENTsettings(env)
     LIB_SOURCE = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
     if not bool(os.path.exists(os.path.join(PROJECT_DIR, ".dummy"))):
         shutil.copytree(LIB_SOURCE, os.path.join(PROJECT_DIR, ".dummy"))
@@ -1479,6 +1477,9 @@ install_python_deps()
 # in a special file "version.h" in the root folder of the package
 
 create_version_file()
+
+if flag_custom_component:
+    HandleArduinoCOMPONENTsettings(env)
 
 # Generate a default component with dummy C/C++/ASM source files in the framework
 # folder. This component is used to force the IDF build system generate build
