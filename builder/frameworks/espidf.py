@@ -1469,9 +1469,9 @@ def HandleArduinoCOMPONENTsettings(env):
         yaml_file=open(idf_component_yml_src,"r")
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
         idf_component_json_string=json.dumps(idf_component)
-        component_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
-        json.dump(idf_component,component_file)
-        file.close()
+        idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
+        json.dump(idf_component,idf_component_json_file)
+        idf_component_json_file.close()
         print("The JSON from idf_component.yml:")
         print(idf_component_json_string)
         return
