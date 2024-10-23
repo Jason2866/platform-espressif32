@@ -167,6 +167,28 @@ def HandleArduinoIDFsettings(env):
     else:
         return
 
+def HandleArduinoCOMPONENTsettings(env):
+    if flag_custom_component == True:
+        import yaml
+        from yaml import SafeLoader
+        print("*** \"custom_component\" is used to specify managed idf components ***")
+        idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
+        if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
+            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
+        yaml_file=open(idf_component_yml_src,"r")
+        idf_component=yaml.load(yaml_file, Loader=SafeLoader)
+        idf_component_json_string=json.dumps(idf_component)
+        idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
+        json.dump(idf_component,idf_component_json_file)
+        idf_component_json_file.close()
+        print("JSON from idf_component.yml:")
+        print(idf_component_json_string)
+        return
+    return
+
+if flag_custom_component:
+    HandleArduinoCOMPONENTsettings(env)
+
 if flag_custom_sdkonfig:
     HandleArduinoIDFsettings(env)
     LIB_SOURCE = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
@@ -1323,7 +1345,6 @@ def install_python_deps():
         return
 
     deps = {
-        "PyYAML": ">=6.0.2",
         "wheel": ">=0.35.1",
         # https://github.com/platformio/platformio-core/issues/4614
         "urllib3": "<2",
@@ -1457,28 +1478,6 @@ install_python_deps()
 # in a special file "version.h" in the root folder of the package
 
 create_version_file()
-
-def HandleArduinoCOMPONENTsettings(env):
-    if flag_custom_component == True:
-        import yaml
-        from yaml import SafeLoader
-        print("*** \"custom_component\" is used to specify managed idf components ***")
-        idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
-        if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
-            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
-        yaml_file=open(idf_component_yml_src,"r")
-        idf_component=yaml.load(yaml_file, Loader=SafeLoader)
-        idf_component_json_string=json.dumps(idf_component)
-        idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
-        json.dump(idf_component,idf_component_json_file)
-        idf_component_json_file.close()
-        print("The JSON from idf_component.yml:")
-        print(idf_component_json_string)
-        return
-    return
-
-if flag_custom_component:
-    HandleArduinoCOMPONENTsettings(env)
 
 # Generate a default component with dummy C/C++/ASM source files in the framework
 # folder. This component is used to force the IDF build system generate build
@@ -1902,6 +1901,9 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                 "*** Starting Arduino compile %s with custom libraries ***" % pio_cmd,
             )
         )
+        if flag_custom_component == True:
+            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
+            print("*** Original Arduino \"idf_component.yml\" restored ***")
     env.AddPostAction("checkprogsize", idf_lib_copy)
 
 #
