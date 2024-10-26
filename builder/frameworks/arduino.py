@@ -45,11 +45,13 @@ framework_reinstall = False
 
 extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", "")
 build_flags = ''.join([element.replace("-D", "") for element in env.GetProjectOption("build_flags")])
-project_config = ''.join(config.get("env:"+env["PIOENV"], "build_flags"))
+config_build_flags = ''.join(config.get("env:"+env["PIOENV"], "build_flags"))
+config_build_unflags = ''.join(config.get("env:"+env["PIOENV"], "build_unflags"))
 
 print("extra_flags", extra_flags)
 print("build_flags", build_flags)
-print("project_config", project_config)
+print("config_build_flags", config_build_flags)
+print("config_build_unflags", config_build_unflags)
 
 pm = ToolPackageManager()
 
