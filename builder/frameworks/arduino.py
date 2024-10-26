@@ -43,13 +43,15 @@ mcu = board.get("build.mcu", "esp32")
 flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
 framework_reinstall = False
 
-extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", "")
-build_flags = ''.join([element.replace("-D", "") for element in env.GetProjectOption("build_flags")])
+extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", " ")
+build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
+build_unflags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_unflags")])
 config_build_flags = ''.join(config.get("env:"+env["PIOENV"], "build_flags"))
 config_build_unflags = ''.join(config.get("env:"+env["PIOENV"], "build_unflags"))
 
 print("extra_flags", extra_flags)
 print("build_flags", build_flags)
+print("build_unflags", build_unflags)
 print("config_build_flags", config_build_flags)
 print("config_build_unflags", config_build_unflags)
 
