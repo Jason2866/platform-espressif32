@@ -43,6 +43,15 @@ mcu = board.get("build.mcu", "esp32")
 flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
 framework_reinstall = False
 
+extra_flags = ''.join([element.replace("-D", " ") for element in board.get("build.extra_flags", "")])
+build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
+build_unflags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_unflags")])
+flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
+
+print("extra_flags", extra_flags)
+print("build_flags", build_flags)
+print("build_unflags", build_unflags)
+
 pm = ToolPackageManager()
 
 SConscript("_embed_files.py", exports="env")
