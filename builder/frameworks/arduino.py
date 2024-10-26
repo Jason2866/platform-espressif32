@@ -63,7 +63,7 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
 
 if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in (''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])):
-    config.update("env:"+env["PIOENV"], "custom_sdkconfig", [["# CONFIG_SPIRAM is not set"],])
+    config.update("env:"+env["PIOENV"], "custom_sdkconfig", ["# CONFIG_SPIRAM is not set"])
     custom_sdkconfig_entry = ''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])
     print("custom_sdkconfig_entry", custom_sdkconfig_entry)
     # env.BoardConfig().update("build.hwids",[["0x2341", "0x0243"],["0x2A03", "0x0043"],])
