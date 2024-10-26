@@ -66,10 +66,9 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
     custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
     print("custom_sdkconfig", custom_sdkconfig)
     # custom_sdkconfig.update("custom_sdkconfig", ["# CONFIG_SPIRAM is not set"])
-    config.append("env:"+env["PIOENV"], "custom_sdkconfig", "# CONFIG_SPIRAM is not set")
+    config.get("env:"+env["PIOENV"], "custom_sdkconfig", "# CONFIG_SPIRAM is not set")
     custom_sdkconfig_entry = ''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])
     print("custom_sdkconfig_entry", custom_sdkconfig_entry)
-    # env.BoardConfig().update("build.hwids",[["0x2341", "0x0243"],["0x2A03", "0x0043"],])
  
 
 def get_MD5_hash(phrase):
