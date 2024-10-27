@@ -54,8 +54,8 @@ extra_flags = (''.join([element for element in board.get("build.extra_flags", ""
 # ccflags_env = " ".join(env['CCFLAGS'])
 
 # Dump build environment (for debug)
-print("******", env.Dump())
-print("****************")
+# print("******", env.Dump())
+# print("****************")
 # print("extra_flags", extra_flags)
 # print("build_flags", build_flags)
 # print("build_flags_env", build_flags_env)
@@ -75,7 +75,7 @@ flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-ard
 
 if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in (''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])):
     print("string len build_flags:", len(str(env.GetProjectOption("build_flags"))))
-    if len(str(env.GetProjectOption("build_flags"))) > 1:
+    if len(str(env.GetProjectOption("build_flags"))) > 2:
         build_flags = " ".join(env['BUILD_FLAGS'])
         build_flags = build_flags + " -Tesp32.rom.newlib-funcs.ld"
         new_build_flags = build_flags.split()
@@ -84,7 +84,7 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
         )
         print("NEW build_flags:", " ".join(env['BUILD_FLAGS']))
     print("string len build_unflags:", len(str(env.GetProjectOption("build_unflags"))))
-    if len(str(env.GetProjectOption("build_unflags"))) > 1:
+    if len(str(env.GetProjectOption("build_unflags"))) > 2:
         build_unflags = " ".join(env['BUILD_UNFLAGS'])
         build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
         new_build_unflags = build_unflags.split()
