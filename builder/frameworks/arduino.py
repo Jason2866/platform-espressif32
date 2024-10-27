@@ -97,7 +97,7 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
     # custom_sdkconfig = env.GetProjectConfig().parse_multi_values(env.GetProjectOption('custom_sdkconfig'))
     custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
     new_custom_sdkconfig = (custom_sdkconfig + " # CONFIG_SPIRAM is not set").split()
-    env.GetProjectOption("custom_sdkconfig") = new_custom_sdkconfig
+    env.GetProjectOption("custom_sdkconfig") == new_custom_sdkconfig
     print("custom_sdkconfig", env.GetProjectOption("custom_sdkconfig"))
     # custom_sdkconfig.update("custom_sdkconfig", ["# CONFIG_SPIRAM is not set"])
     # config.get("env:"+env["PIOENV"], "custom_sdkconfig", "# CONFIG_SPIRAM is not set")
