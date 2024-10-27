@@ -68,65 +68,6 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
           BUILD_UNFLAGS=new_build_unflags
         )
 
-def get_MD5_hash(phrase):
-    import hashlib
-    return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
-
-
-def matching_custom_sdkconfig():
-    # check if current env is matching to existing sdkconfig
-    cust_sdk_is_present = False
-    matching_sdkconfig = False
-    last_sdkconfig_path = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
-    if flag_any_custom_sdkconfig == False:
-        matching_sdkconfig = True
-        return matching_sdkconfig, cust_sdk_is_present
-    if os.path.exists(last_sdkconfig_path) == False:
-        return matching_sdkconfig, cust_sdk_is_present
-    if flag_custom_sdkconfig == False:
-        matching_sdkconfig = False
-        return matching_sdkconfig, cust_sdk_is_present
-    with open(last_sdkconfig_path) as src:
-        line = src.readline()
-        if line.startswith("# TASMOTA__"):
-            cust_sdk_is_present = True;
-            costum_options = env.GetProjectOption("custom_sdkconfig")
-            if (line.split("__")[1]).strip() == get_MD5_hash((costum_options).strip() + mcu):
-                matching_sdkconfig = True
-
-    return matching_sdkconfig, cust_sdk_is_present
-
-def check_reinstall_frwrk():
-    framework_reinstall = False
-    cust_sdk_is_present = False
-    matching_sdkconfig = False
-    if flag_custom_sdkconfig:
-        matching_sdkconfig, cust_sdk_is_present = matching_custom_sdkconfig()
-    if flag_custom_sdkconfig == False and flag_any_custom_sdkconfig == True:
-        # case custom sdkconfig exists and a env without "custom_sdkconfig"
-        framework_reinstall = True
-    if flag_custom_sdkconfig == True  and matching_sdkconfig == False:
-        # check if current custom sdkconfig is different from existing
-        framework_reinstall = True
-    return framework_reinstall
-
-def call_compile_libs():
-    print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
-    SConscript("espidf.py")
-
-if check_reinstall_frwrk() == True:
-    print("*** Reinstall Arduino framework ***")
-    shutil.rmtree(FRAMEWORK_DIR)
-    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
-    pm.install(ARDUINO_FRMWRK_URL)
-    if flag_custom_sdkconfig == True:
-        call_compile_libs()
-        flag_custom_sdkconfig = False
-    
-if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
-    call_compile_libs()
-
-
 def install_python_deps():
     def _get_installed_pip_packages():
         result = {}
@@ -185,6 +126,64 @@ def install_python_deps():
     return
 
 install_python_deps()
+
+def get_MD5_hash(phrase):
+    import hashlib
+    return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
+
+
+def matching_custom_sdkconfig():
+    # check if current env is matching to existing sdkconfig
+    cust_sdk_is_present = False
+    matching_sdkconfig = False
+    last_sdkconfig_path = join(env.subst("$PROJECT_DIR"),"sdkconfig.defaults")
+    if flag_any_custom_sdkconfig == False:
+        matching_sdkconfig = True
+        return matching_sdkconfig, cust_sdk_is_present
+    if os.path.exists(last_sdkconfig_path) == False:
+        return matching_sdkconfig, cust_sdk_is_present
+    if flag_custom_sdkconfig == False:
+        matching_sdkconfig = False
+        return matching_sdkconfig, cust_sdk_is_present
+    with open(last_sdkconfig_path) as src:
+        line = src.readline()
+        if line.startswith("# TASMOTA__"):
+            cust_sdk_is_present = True;
+            costum_options = env.GetProjectOption("custom_sdkconfig")
+            if (line.split("__")[1]).strip() == get_MD5_hash((costum_options).strip() + mcu):
+                matching_sdkconfig = True
+
+    return matching_sdkconfig, cust_sdk_is_present
+
+def check_reinstall_frwrk():
+    framework_reinstall = False
+    cust_sdk_is_present = False
+    matching_sdkconfig = False
+    if flag_custom_sdkconfig:
+        matching_sdkconfig, cust_sdk_is_present = matching_custom_sdkconfig()
+    if flag_custom_sdkconfig == False and flag_any_custom_sdkconfig == True:
+        # case custom sdkconfig exists and a env without "custom_sdkconfig"
+        framework_reinstall = True
+    if flag_custom_sdkconfig == True  and matching_sdkconfig == False:
+        # check if current custom sdkconfig is different from existing
+        framework_reinstall = True
+    return framework_reinstall
+
+def call_compile_libs():
+    print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
+    SConscript("espidf.py")
+
+if check_reinstall_frwrk() == True:
+    print("*** Reinstall Arduino framework ***")
+    shutil.rmtree(FRAMEWORK_DIR)
+    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
+    pm.install(ARDUINO_FRMWRK_URL)
+    if flag_custom_sdkconfig == True:
+        call_compile_libs()
+        flag_custom_sdkconfig = False
+    
+if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
+    call_compile_libs()
 
 if "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK") and env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("Inactive", "True"):
     SConscript(join(FRAMEWORK_DIR, "tools", "platformio-build.py"))
