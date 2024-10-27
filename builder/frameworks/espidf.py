@@ -133,7 +133,6 @@ def HandleArduinoIDFsettings(env):
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
         if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
             idf_config_flags = idf_config_flags + "\n# CONFIG_SPIRAM is not set\n"
-            # print("**** idf_config_flags", idf_config_flags)
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
@@ -185,8 +184,8 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
         json.dump(idf_component,idf_component_json_file)
         idf_component_json_file.close()
-        print("JSON from idf_component.yml:")
-        print(idf_component_json_string)
+        # print("JSON from idf_component.yml:")
+        # print(idf_component_json_string)
         return
     return
 
