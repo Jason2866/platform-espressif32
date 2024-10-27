@@ -132,8 +132,8 @@ def HandleArduinoIDFsettings(env):
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
         if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
-            idf_config_flags = idf_config_flags + "# CONFIG_SPIRAM is not set\n"
-            print("idf_config_flags", idf_config_flags)
+            idf_config_flags = idf_config_flags + "\n# CONFIG_SPIRAM is not set\n"
+            print("**** idf_config_flags", idf_config_flags)
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
