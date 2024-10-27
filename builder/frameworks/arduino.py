@@ -41,9 +41,8 @@ config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
-framework_reinstall = False
-
 extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", " ")
+framework_reinstall = False
 
 pm = ToolPackageManager()
 
@@ -52,6 +51,7 @@ SConscript("_embed_files.py", exports="env")
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
 
+# Esp32-solo1 libs needs adopted settings
 if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in env.GetProjectOption("custom_sdkconfig"):
     if len(str(env.GetProjectOption("build_flags"))) > 2:
         build_flags = " ".join(env['BUILD_FLAGS'])
@@ -60,7 +60,6 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
         env.Replace(
           BUILD_FLAGS=new_build_flags
         )
-        print("NEW build_flags:", " ".join(env['BUILD_FLAGS']))
     if len(str(env.GetProjectOption("build_unflags"))) > 2:
         build_unflags = " ".join(env['BUILD_UNFLAGS'])
         build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
@@ -68,7 +67,6 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
         env.Replace(
           BUILD_UNFLAGS=new_build_unflags
         )
-        print("NEW build_unflags:", " ".join(env['BUILD_UNFLAGS']))
 
 def get_MD5_hash(phrase):
     import hashlib
