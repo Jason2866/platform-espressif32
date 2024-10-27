@@ -74,7 +74,6 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
 
 if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in (''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])):
-    print("string len build_flags:", len(str(env.GetProjectOption("build_flags"))))
     if len(str(env.GetProjectOption("build_flags"))) > 2:
         build_flags = " ".join(env['BUILD_FLAGS'])
         build_flags = build_flags + " -Tesp32.rom.newlib-funcs.ld"
@@ -83,7 +82,6 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
           BUILD_FLAGS=new_build_flags
         )
         print("NEW build_flags:", " ".join(env['BUILD_FLAGS']))
-    print("string len build_unflags:", len(str(env.GetProjectOption("build_unflags"))))
     if len(str(env.GetProjectOption("build_unflags"))) > 2:
         build_unflags = " ".join(env['BUILD_UNFLAGS'])
         build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
@@ -95,10 +93,10 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
     # env.Replace(env.GetProjectOption("custom_sdkconfig")="CONFIG_FREERTOS_UNICORE=y # CONFIG_SPIRAM is not set")
     # env.Replace(PROGNAME="firmware_%s" % env.GetProjectOption("custom_prog_version"))
     # custom_sdkconfig = env.GetProjectConfig().parse_multi_values(env.GetProjectOption('custom_sdkconfig'))
-    custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
-    new_custom_sdkconfig = (custom_sdkconfig + " # CONFIG_SPIRAM is not set").split()
-    env.GetProjectOption("custom_sdkconfig") == new_custom_sdkconfig
-    print("custom_sdkconfig", env.GetProjectOption("custom_sdkconfig"))
+    # custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
+    # new_custom_sdkconfig = (custom_sdkconfig + " # CONFIG_SPIRAM is not set").split()
+    # env.GetProjectOption("custom_sdkconfig") == new_custom_sdkconfig
+    # print("custom_sdkconfig", env.GetProjectOption("custom_sdkconfig"))
     # custom_sdkconfig.update("custom_sdkconfig", ["# CONFIG_SPIRAM is not set"])
     # config.get("env:"+env["PIOENV"], "custom_sdkconfig", "# CONFIG_SPIRAM is not set")
     # custom_sdkconfig_entry = ''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])
