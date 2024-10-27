@@ -43,12 +43,65 @@ mcu = board.get("build.mcu", "esp32")
 flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
 framework_reinstall = False
 
+extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", " ")
+# build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
+# build_unflags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_unflags")])
+# config_build_flags = ''.join(config.get("env:"+env["PIOENV"], "build_flags"))
+# config_build_unflags = ''.join(config.get("env:"+env["PIOENV"], "build_unflags"))
+# link_flags_env = " ".join(env['LINKFLAGS'])
+# build_flags_env = " ".join(env['BUILD_FLAGS'])
+# build_unflags_env = " ".join(env['BUILD_UNFLAGS'])
+# ccflags_env = " ".join(env['CCFLAGS'])
+
+# Dump build environment (for debug)
+# print("******", env.Dump())
+# print("****************")
+# print("extra_flags", extra_flags)
+# print("build_flags", build_flags)
+# print("build_flags_env", build_flags_env)
+# print("build_unflags_env", build_unflags_env)
+# print("link_flags_env", link_flags_env)
+# print("ccflags_env", ccflags_env)
+# print("build_unflags", build_unflags)
+# print("config_build_flags", config_build_flags)
+# print("config_build_unflags", config_build_unflags)
+
 pm = ToolPackageManager()
 
 SConscript("_embed_files.py", exports="env")
 
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
+
+if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in (''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])):
+    if len(str(env.GetProjectOption("build_flags"))) > 2:
+        build_flags = " ".join(env['BUILD_FLAGS'])
+        build_flags = build_flags + " -Tesp32.rom.newlib-funcs.ld"
+        new_build_flags = build_flags.split()
+        env.Replace(
+          BUILD_FLAGS=new_build_flags
+        )
+        print("NEW build_flags:", " ".join(env['BUILD_FLAGS']))
+    if len(str(env.GetProjectOption("build_unflags"))) > 2:
+        build_unflags = " ".join(env['BUILD_UNFLAGS'])
+        build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
+        new_build_unflags = build_unflags.split()
+        env.Replace(
+          BUILD_UNFLAGS=new_build_unflags
+        )
+        print("NEW build_unflags:", " ".join(env['BUILD_UNFLAGS']))
+    # env.Replace(env.GetProjectOption("custom_sdkconfig")="CONFIG_FREERTOS_UNICORE=y # CONFIG_SPIRAM is not set")
+    # env.Replace(PROGNAME="firmware_%s" % env.GetProjectOption("custom_prog_version"))
+    # custom_sdkconfig = env.GetProjectConfig().parse_multi_values(env.GetProjectOption('custom_sdkconfig'))
+    # custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
+    # new_custom_sdkconfig = (custom_sdkconfig + " # CONFIG_SPIRAM is not set").split()
+    # env.GetProjectOption("custom_sdkconfig") == new_custom_sdkconfig
+    # print("custom_sdkconfig", env.GetProjectOption("custom_sdkconfig"))
+    # custom_sdkconfig.update("custom_sdkconfig", ["# CONFIG_SPIRAM is not set"])
+    # config.get("env:"+env["PIOENV"], "custom_sdkconfig", "# CONFIG_SPIRAM is not set")
+    # custom_sdkconfig_entry = ''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])
+    # print("custom_sdkconfig_entry", custom_sdkconfig_entry)
+ 
 
 def get_MD5_hash(phrase):
     import hashlib
