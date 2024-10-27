@@ -74,6 +74,7 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 flag_any_custom_sdkconfig = os.path.exists(join(FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
 
 if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in (''.join([element for element in config.get("env:"+env["PIOENV"], "custom_sdkconfig")])):
+    print("string len build_flags:", len(str(env.GetProjectOption("build_flags"))))
     if len(str(env.GetProjectOption("build_flags"))) > 1:
         build_flags = " ".join(env['BUILD_FLAGS'])
         build_flags = build_flags + " -Tesp32.rom.newlib-funcs.ld"
@@ -82,6 +83,7 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
           BUILD_FLAGS=new_build_flags
         )
         print("NEW build_flags:", " ".join(env['BUILD_FLAGS']))
+    print("string len build_unflags:", len(str(env.GetProjectOption("build_unflags"))))
     if len(str(env.GetProjectOption("build_unflags"))) > 1:
         build_unflags = " ".join(env['BUILD_UNFLAGS'])
         build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
