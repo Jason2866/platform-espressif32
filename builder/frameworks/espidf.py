@@ -176,7 +176,7 @@ def HandleArduinoIDFsettings(env):
         return
 
 def HandleArduinoCOMPONENTsettings(env):
-    if flag_custom_component_add == True or flag_custom_component_remove == True:
+    if flag_custom_component_add == True or flag_custom_component_remove == True: # todo remove duplicated
         import yaml
         from yaml import SafeLoader
         print("*** \"custom_component\" is used to specify managed idf components ***")
@@ -203,7 +203,7 @@ def HandleArduinoCOMPONENTsettings(env):
         return
     return
 
-if flag_custom_component:
+if flag_custom_component_add == True or flag_custom_component_remove == True:
     HandleArduinoCOMPONENTsettings(env)
 
 if flag_custom_sdkonfig:
