@@ -204,14 +204,15 @@ def HandleArduinoCOMPONENTsettings(env):
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
                 # add entrys to json
-                print("*** Adding component:",entry)
-                # todo  idf_component_json["dependencies"][entry]
+                idf_comp_vers = entry.split("@")
+                print("*** Adding component:", idf_comp_vers)
+                idf_component_json.append["dependencies"][idf_comp_vers]
 
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
         idf_component_yml_file.close()
-        # print("JSON from modified idf_component.yml:")
-        # print(json.dumps(idf_component_json))
+        print("JSON from modified idf_component.yml:")
+        print(json.dumps(idf_component_json))
         return
     return
 
