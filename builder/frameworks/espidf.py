@@ -211,7 +211,9 @@ def HandleArduinoCOMPONENTsettings(env):
         print("JSON from modified idf_component.yml:")
         print(json.dumps(idf_component_json))
         print("modified idf_component.yml:")
-        print(open(idf_component_yml_file).read())
+        yaml_file=open(idf_component_yml_src,"r")
+        idf_component=yaml.load(yaml_file, Loader=SafeLoader)
+        print(idf_component)
         return
     return
 
