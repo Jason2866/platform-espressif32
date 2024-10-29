@@ -1918,7 +1918,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                 "*** Starting Arduino compile %s with custom libraries ***" % pio_cmd,
             )
         )
-        if flag_custom_component == True:
+        if flag_custom_component_add == True or flag_custom_component_remove == True:
             shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
             print("*** Original Arduino \"idf_component.yml\" restored ***")
     env.AddPostAction("checkprogsize", idf_lib_copy)
