@@ -197,7 +197,7 @@ def HandleArduinoCOMPONENTsettings(env):
         json.dump(idf_component,idf_component_json_file)
         idf_component_json_file.close()
         if idf_custom_component_remove != "":
-            with open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json") as jsonFile:
+            with open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json")) as jsonFile:
                 data = json.load(jsonFile)
                 jsonData = data["dependencies"]
                 for x in jsonData:
