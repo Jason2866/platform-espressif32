@@ -64,9 +64,7 @@ mcu = board.get("build.mcu", "esp32")
 idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
 flag_custom_component_add = False
-idf_custom_component_add = ""
 flag_custom_component_remove = False
-idf_custom_component_remove = ""
 
 IDF5 = (
     platform.get_package_version("framework-espidf")
@@ -182,8 +180,12 @@ def HandleArduinoCOMPONENTsettings(env):
         print("*** \"custom_component\" is used to specify managed idf components ***")
         if flag_custom_component_remove == True:
             idf_custom_component_remove = env.GetProjectOption("custom_component_remove").splitlines()
+        else:
+            idf_custom_component_remove = ""
         if flag_custom_component_add == True:
             idf_custom_component_add = env.GetProjectOption("custom_component_add").splitlines()
+        else:
+            idf_custom_component_add = ""
         idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
             shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
