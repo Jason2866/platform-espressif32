@@ -204,14 +204,14 @@ def HandleArduinoCOMPONENTsettings(env):
                     # removed_keys = idf_component_json["dependencies"][entry]
                     # print("*** component entrys removed", removed_keys)
                     del idf_component_json["dependencies"][entry]
-        # idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
-        # json.dump(idf_component,idf_component_json_file)
-        # idf_component_json_file.close()
+
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
         idf_component_yml_file.close()
-        print("modified JSON from idf_component.yml:")
+        print("JSON from modified idf_component.yml:")
         print(json.dumps(idf_component_json))
+        print("modified idf_component.yml:")
+        print(open(idf_component_yml_file).read())
         return
     return
 
