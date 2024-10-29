@@ -189,8 +189,8 @@ def HandleArduinoCOMPONENTsettings(env):
             shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
         yaml_file=open(idf_component_yml_src,"r")
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
-        idf_component_json=json.dumps(idf_component) # convert to json string
-        idf_component_json=json.loads(idf_component) # convert string to json dict
+        idf_component_str=json.dumps(idf_component)      # convert to json string
+        idf_component_json=json.loads(idf_component_str) # convert string to json dict
         for entry in idf_custom_component_remove:
             # checking if the entry exists before removing
             if entry in idf_component_json.keys():
