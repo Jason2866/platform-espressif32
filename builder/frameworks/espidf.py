@@ -195,18 +195,21 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component_json=json.loads(idf_component_str) # convert string to json dict
 
         if idf_custom_component_remove != "":
-            jsonData = idf_component_json["dependencies"]
-            print("dependencies entrys", jsonData)
+            # jsonData = idf_component_json["dependencies"]
+            # print("dependencies entrys", jsonData)
             for entry in idf_custom_component_remove:
-                print("entry", entry)
+                # print("entry", entry)
                 # checking if the entry exists before removing
                 if entry in idf_component_json["dependencies"]:
-                    removed_keys = idf_component_json["dependencies"][entry]
-                    print("*** component entrys removed", removed_keys)
+                    # removed_keys = idf_component_json["dependencies"][entry]
+                    # print("*** component entrys removed", removed_keys)
                     del idf_component_json["dependencies"][entry]
         # idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
         # json.dump(idf_component,idf_component_json_file)
         # idf_component_json_file.close()
+        idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
+        yaml.dump(idf_component_json, idf_component_yml_file)
+        idf_component_yml_file.close()
         print("modified JSON from idf_component.yml:")
         print(json.dumps(idf_component_json))
         return
