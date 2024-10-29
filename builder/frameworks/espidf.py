@@ -177,7 +177,7 @@ def HandleArduinoCOMPONENTsettings(env):
     if flag_custom_component_add == True or flag_custom_component_remove == True: # todo remove duplicated
         import yaml
         from yaml import SafeLoader
-        print("*** \"custom_component\" is used to specify managed idf components ***")
+        print("*** \"custom_component\" is used to select managed idf components ***")
         if flag_custom_component_remove == True:
             idf_custom_component_remove = env.GetProjectOption("custom_component_remove").splitlines()
         else:
@@ -198,20 +198,20 @@ def HandleArduinoCOMPONENTsettings(env):
             for entry in idf_custom_component_remove:
                 # checking if the entry exists before removing
                 if entry in idf_component_json["dependencies"]:
-                    print("*** Removing managed component:",entry)
+                    print("*** Removing component:",entry)
                     del idf_component_json["dependencies"][entry]
 
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
                 # add entrys to json
-                print("*** Adding managed component:",entry)
+                print("*** Adding component:",entry)
                 # todo  idf_component_json["dependencies"][entry]
 
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
         idf_component_yml_file.close()
-        print("JSON from modified idf_component.yml:")
-        print(json.dumps(idf_component_json))
+        # print("JSON from modified idf_component.yml:")
+        # print(json.dumps(idf_component_json))
         return
     return
 
