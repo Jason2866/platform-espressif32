@@ -194,6 +194,12 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component_str=json.dumps(idf_component)      # convert to json string
         idf_component_json=json.loads(idf_component_str) # convert string to json dict
         if idf_custom_component_remove != "":
+            jsonData = idf_component_json["dependencies"]
+            for x in jsonData:
+                keys = x.keys()
+                print("keys", keys)
+                values = x.values()
+                print("values", values)
             for entry in idf_custom_component_remove:
                 print("entry", entry)
                 # checking if the entry exists before removing
