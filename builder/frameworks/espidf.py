@@ -200,11 +200,7 @@ def HandleArduinoCOMPONENTsettings(env):
             with open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json")) as jsonFile:
                 data = json.load(jsonFile)
                 jsonData = data["dependencies"]
-                for x in jsonData:
-                    keys = x.keys()
-                    print("keys", keys)
-                    values = x.values()
-                    print("values", values)
+                print("dependencies entrys", jsonData)
             for entry in idf_custom_component_remove:
                 print("entry", entry)
                 # checking if the entry exists before removing
