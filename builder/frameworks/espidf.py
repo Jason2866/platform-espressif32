@@ -195,7 +195,7 @@ def HandleArduinoCOMPONENTsettings(env):
             for entry in idf_custom_component_remove:
                 print("entry", entry)
                 # checking if the entry exists before removing
-                if entry in idf_component_json_str:
+                if entry in idf_component_str:
                     removed_keys = idf_component_json.pop(entry)
                     print("*** component entrys removed", removed_keys)
         # idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
