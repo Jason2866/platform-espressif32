@@ -207,8 +207,9 @@ def HandleArduinoCOMPONENTsettings(env):
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
                 # add entrys to json
-                idf_comp_entry = str(entry.rstrip("@"))
-                idf_comp_vers = str(entry.lstrip("@"))
+                entry_str = str(entry)
+                idf_comp_entry = entry_str.rstrip("@")
+                idf_comp_vers = entry_str.lstrip("@")
                 print("*** Adding component:", idf_comp_entry, idf_comp_vers)
                 y = {idf_comp_entry: {"version": idf_comp_vers}}
                 # y = {"tasmota/test": {"version": "^1.14.1"}}
