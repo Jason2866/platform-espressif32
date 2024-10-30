@@ -224,7 +224,8 @@ def HandleArduinoCOMPONENTsettings(env):
                 entry_dependencies = json.loads(entry_dependencies_str)
                 print("entry dependencies:", entry_dependencies)
                 #print("*** Adding component:", idf_comp_vers)
-                y = {"tasmota/test":"1.1.2"}
+                y = {"tasmota/test": {"version": "^1.14.1"}}
+                # espressif/esp-dsp": {"version": "^1.4.12"
                 entry_dependencies.update(y)
                 idf_component_json["dependencies"].update(y)
                 # write_json(y)
