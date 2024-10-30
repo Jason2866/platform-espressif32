@@ -207,14 +207,14 @@ def HandleArduinoCOMPONENTsettings(env):
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
                 # add entrys to json
-                idf_comp_entry = str(entry.split("@")[0]).replace(" ", "")
-                idf_comp_vers = str(entry.split("@")[1]).replace(" ", "")
-                print("*** Adding component:", idf_comp_entry, idf_comp_vers)
-                # check for existing version entry
-                if len(idf_comp_vers) > 2:
-                    new_entry = {idf_comp_entry: {"version": idf_comp_vers}}
+                if "@" in entry:
+                    idf_comp_entry = str(entry.split("@")[0]).replace(" ", "")
+                    idf_comp_vers = str(entry.split("@")[1]).replace(" ", "")
                 else:
-                    new_entry = {idf_comp_entry}
+                    idf_comp_entry = str(entry).replace(" ", "")
+                    idf_comp_vers = "*"
+                print("*** Adding component:", idf_comp_entry, idf_comp_vers)
+                new_entry = {idf_comp_entry: {"version": idf_comp_vers}}
                 # {"tasmota/test": {"version": "^1.14.1"}}
                 idf_component_json["dependencies"].update(new_entry)
                 print("new entry dependencies:", idf_component_json["dependencies"])
