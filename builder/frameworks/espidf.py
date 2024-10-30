@@ -229,6 +229,7 @@ def HandleArduinoCOMPONENTsettings(env):
                      "job_profile": "Full Time"
                     }
                 entry_dependencies.update(y)
+                idf_component_json["dependencies"].update(y)
                 # write_json(y)
                 print("new entry dependencies:", entry_dependencies)
 
