@@ -193,9 +193,9 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
         idf_component_str=json.dumps(idf_component)      # convert to json string
         idf_component_json=json.loads(idf_component_str) # convert string to json dict
-        idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
-        json.dump(idf_component,idf_component_json_file)
-        idf_component_json_file.close()
+        # idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
+        # json.dump(idf_component,idf_component_json_file)
+        # idf_component_json_file.close()
 
         if idf_custom_component_remove != "":
             for entry in idf_custom_component_remove:
@@ -205,30 +205,15 @@ def HandleArduinoCOMPONENTsettings(env):
                     del idf_component_json["dependencies"][entry]
 
         if idf_custom_component_add != "":
-            def write_json(new_data, filename=os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json")):
-                with open(filename,'r+') as file:
-                    # First we load existing data into a dict.
-                    file_data = json.load(file)
-                    # Join new_data with file_data inside emp_details
-                    file_data["dependencies"].append(new_data)
-                    # Sets file's current position at offset.
-                    file.seek(0)
-                    # convert back to json.
-                    json.dump(file_data, file, indent = 4)
-
             for entry in idf_custom_component_add:
                 # add entrys to json
-                idf_comp_vers = entry.split("@")
-                entry_dependencies_dict = idf_component_json["dependencies"]
-                entry_dependencies_str = json.dumps(entry_dependencies_dict)
-                entry_dependencies = json.loads(entry_dependencies_str)
-                print("entry dependencies:", entry_dependencies)
-                #print("*** Adding component:", idf_comp_vers)
-                y = {"tasmota/test": {"version": "^1.14.1"}}
+                idf_comp_entry = str(entry.rstrip(@))
+                idf_comp_vers = ste(entry.lstrip(@))
+                print("*** Adding component:", idf_comp_entry, idf_comp_vers)
+                y = {idf_comp_entry: {"version": idf_comp_vers}}
+                # y = {"tasmota/test": {"version": "^1.14.1"}}
                 # espressif/esp-dsp": {"version": "^1.4.12"
-                entry_dependencies.update(y)
                 idf_component_json["dependencies"].update(y)
-                # write_json(y)
                 print("new entry dependencies:", idf_component_json["dependencies"])
 
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
