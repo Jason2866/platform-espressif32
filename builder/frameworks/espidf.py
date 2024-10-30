@@ -224,14 +224,13 @@ def HandleArduinoCOMPONENTsettings(env):
                 entry_dependencies = json.loads(entry_dependencies_str)
                 print("entry dependencies:", entry_dependencies)
                 #print("*** Adding component:", idf_comp_vers)
-                y = {"emp_name":"Nikhil",
-                     "email": "nikhil@geeksforgeeks.org",
-                     "job_profile": "Full Time"
+                y = {"tasmota/test",
+                     "version": "^0.4.1"
                     }
                 entry_dependencies.update(y)
                 idf_component_json["dependencies"].update(y)
                 # write_json(y)
-                print("new entry dependencies:", entry_dependencies)
+                print("new entry dependencies:", idf_component_json["dependencies"])
 
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
