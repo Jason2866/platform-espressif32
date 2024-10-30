@@ -193,6 +193,9 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
         idf_component_str=json.dumps(idf_component)      # convert to json string
         idf_component_json=json.loads(idf_component_str) # convert string to json dict
+        idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
+        json.dump(idf_component,idf_component_json_file)
+        idf_component_json_file.close()
 
         if idf_custom_component_remove != "":
             for entry in idf_custom_component_remove:
@@ -202,6 +205,17 @@ def HandleArduinoCOMPONENTsettings(env):
                     del idf_component_json["dependencies"][entry]
 
         if idf_custom_component_add != "":
+            def write_json(new_data, filename=os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json")):
+                with open(filename,'r+') as file:
+                # First we load existing data into a dict.
+                file_data = json.load(file)
+                # Join new_data with file_data inside emp_details
+                file_data["dependencies"].append(new_data)
+                # Sets file's current position at offset.
+                file.seek(0)
+                # convert back to json.
+                json.dump(file_data, file, indent = 4)
+
             for entry in idf_custom_component_add:
                 # add entrys to json
                 idf_comp_vers = entry.split("@")
@@ -212,8 +226,8 @@ def HandleArduinoCOMPONENTsettings(env):
                      "email": "nikhil@geeksforgeeks.org",
                      "job_profile": "Full Time"
                     }
-                entry_dependencies.append(y)
-                print("new entry dependencies:", entry_dependencies)
+                write_json(y)
+                #print("new entry dependencies:", entry_dependencies)
 
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
