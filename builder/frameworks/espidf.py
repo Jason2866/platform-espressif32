@@ -193,9 +193,6 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
         idf_component_str=json.dumps(idf_component)      # convert to json string
         idf_component_json=json.loads(idf_component_str) # convert string to json dict
-        # idf_component_json_file=open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.json"),"w")
-        # json.dump(idf_component,idf_component_json_file)
-        # idf_component_json_file.close()
 
         if idf_custom_component_remove != "":
             for entry in idf_custom_component_remove:
@@ -215,15 +212,13 @@ def HandleArduinoCOMPONENTsettings(env):
                     idf_comp_vers = "*"
                 print("*** Adding component:", idf_comp_entry, idf_comp_vers)
                 new_entry = {idf_comp_entry: {"version": idf_comp_vers}}
-                # {"tasmota/test": {"version": "^1.14.1"}}
                 idf_component_json["dependencies"].update(new_entry)
-                print("new entry dependencies:", idf_component_json["dependencies"])
 
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
         idf_component_yml_file.close()
-        print("JSON from modified idf_component.yml:")
-        print(json.dumps(idf_component_json))
+        # print("JSON from modified idf_component.yml:")
+        # print(json.dumps(idf_component_json))
         return
     return
 
