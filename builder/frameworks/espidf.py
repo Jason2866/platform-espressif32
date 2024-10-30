@@ -207,12 +207,12 @@ def HandleArduinoCOMPONENTsettings(env):
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
                 # add entrys to json
-                idf_comp_entry = str(entry.rstrip(@))
-                idf_comp_vers = ste(entry.lstrip(@))
+                idf_comp_entry = str(entry.rstrip("@"))
+                idf_comp_vers = ste(entry.lstrip("@"))
                 print("*** Adding component:", idf_comp_entry, idf_comp_vers)
                 y = {idf_comp_entry: {"version": idf_comp_vers}}
                 # y = {"tasmota/test": {"version": "^1.14.1"}}
-                # espressif/esp-dsp": {"version": "^1.4.12"
+                # espressif/esp-dsp": {"version": "^1.4.12"}
                 idf_component_json["dependencies"].update(y)
                 print("new entry dependencies:", idf_component_json["dependencies"])
 
