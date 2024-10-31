@@ -1945,11 +1945,11 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             )
         )
         if flag_custom_component_add == True or flag_custom_component_remove == True:
-        try:
-            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
-            print("*** Original Arduino \"idf_component.yml\" restored ***")         
-        except:
-            print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***") 
+            try:
+                shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
+                print("*** Original Arduino \"idf_component.yml\" restored ***")         
+            except:
+                print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***") 
     env.AddPostAction("checkprogsize", idf_lib_copy)
 
 if "arduino" not in env.get("PIOFRAMEWORK") and "espidf" in env.get("PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
