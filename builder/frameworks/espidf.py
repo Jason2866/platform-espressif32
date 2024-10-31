@@ -186,9 +186,16 @@ def HandleArduinoCOMPONENTsettings(env):
             idf_custom_component_add = env.GetProjectOption("custom_component_add").splitlines()
         else:
             idf_custom_component_add = ""
-        idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
-        if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
-            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
+
+        try:
+            idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
+            if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
+                shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
+        except:
+            idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
+            if not bool(os.path.isfile(join(PROJECT_SRC_DIR,"idf_component.yml.orig"))):
+                shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
+
         yaml_file=open(idf_component_yml_src,"r")
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
         idf_component_str=json.dumps(idf_component)      # convert to json string
@@ -1938,10 +1945,21 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             )
         )
         if flag_custom_component_add == True or flag_custom_component_remove == True:
+        try:
             shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
-            print("*** Original Arduino \"idf_component.yml\" restored ***")
+            print("*** Original Arduino \"idf_component.yml\" restored ***")         
+        except:
+            print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***") 
     env.AddPostAction("checkprogsize", idf_lib_copy)
 
+if "arduino" not in env.get("PIOFRAMEWORK") and "espidf" in env.get("PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
+    def idf_custom_component(source, target, env):
+        try:
+            shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml.orig"),join(PROJECT_SRC_DIR,"idf_component.yml"))
+            print("*** Original \"idf_component.yml\" restored ***")
+        except:
+            print("*** Original \"idf_component.yml\" couldnt be restored ***") 
+    env.AddPostAction("checkprogsize", idf_custom_component)
 #
 # Process OTA partition and image
 #
