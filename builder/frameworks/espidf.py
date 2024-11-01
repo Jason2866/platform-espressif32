@@ -108,6 +108,7 @@ def install_python_deps():
         return
 
     deps = {
+        "PyYAML": ">=6.0.2",
         "wheel": ">=0.35.1",
         # https://github.com/platformio/platformio-core/issues/4614
         "urllib3": "<2",
