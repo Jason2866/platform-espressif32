@@ -79,6 +79,163 @@ TOOLCHAIN_DIR = platform.get_package_dir(
     else "toolchain-riscv32-esp"
 )
 
+def install_python_deps():
+    def _get_installed_pip_packages(python_exe_path):
+        result = {}
+        packages = {}
+        pip_output = subprocess.check_output(
+            [
+                python_exe_path,
+                "-m",
+                "pip",
+                "list",
+                "--format=json",
+                "--disable-pip-version-check",
+            ]
+        )
+        try:
+            packages = json.loads(pip_output)
+        except:
+            print("Warning! Couldn't extract the list of installed Python packages.")
+            return {}
+        for p in packages:
+            result[p["name"]] = pepver_to_semver(p["version"])
+
+        return result
+
+    skip_python_packages = os.path.join(FRAMEWORK_DIR, ".pio_skip_pypackages")
+    if os.path.isfile(skip_python_packages):
+        return
+
+    deps = {
+        "wheel": ">=0.35.1",
+        # https://github.com/platformio/platformio-core/issues/4614
+        "urllib3": "<2",
+        # https://github.com/platformio/platform-espressif32/issues/635
+        "cryptography": "~=41.0.1" if IDF5 else ">=2.1.4,<35.0.0",
+        "future": ">=0.18.3",
+        "pyparsing": ">=3.1.0,<4" if IDF5 else ">=2.0.3,<2.4.0",
+        "kconfiglib": "~=14.1.0" if IDF5 else "~=13.7.1",
+        "idf-component-manager": "~=2.0.1" if IDF5 else "~=1.0",
+        "esp-idf-kconfig": ">=1.4.2,<2.0.0"
+    }
+
+    if sys_platform.system() == "Darwin" and "arm" in sys_platform.machine().lower():
+        deps["chardet"] = ">=3.0.2,<4"
+
+    python_exe_path = get_python_exe()
+    installed_packages = _get_installed_pip_packages(python_exe_path)
+    packages_to_install = []
+    for package, spec in deps.items():
+        if package not in installed_packages:
+            packages_to_install.append(package)
+        elif spec:
+            version_spec = semantic_version.Spec(spec)
+            if not version_spec.match(installed_packages[package]):
+                packages_to_install.append(package)
+
+    if packages_to_install:
+        env.Execute(
+            env.VerboseAction(
+                (
+                    '"%s" -m pip install -U ' % python_exe_path
+                    + " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
+                ),
+                "Installing ESP-IDF's Python dependencies",
+            )
+        )
+
+    if IS_WINDOWS and "windows-curses" not in installed_packages:
+        env.Execute(
+            env.VerboseAction(
+                '"%s" -m pip install windows-curses' % python_exe_path,
+                "Installing windows-curses package",
+            )
+        )
+
+
+def get_idf_venv_dir():
+    # The name of the IDF venv contains the IDF version to avoid possible conflicts and
+    # unnecessary reinstallation of Python dependencies in cases when Arduino
+    # as an IDF component requires a different version of the IDF package and
+    # hence a different set of Python deps or their versions
+    idf_version = get_framework_version()
+    return os.path.join(
+        env.subst("$PROJECT_CORE_DIR"), "penv", ".espidf-" + idf_version
+    )
+
+
+def ensure_python_venv_available():
+
+    def _is_venv_outdated(venv_data_file):
+        try:
+            with open(venv_data_file, "r", encoding="utf8") as fp:
+                venv_data = json.load(fp)
+                if venv_data.get("version", "") != IDF_ENV_VERSION:
+                    return True
+                return False
+        except:
+            return True
+
+    def _create_venv(venv_dir):
+        pip_path = os.path.join(
+            venv_dir,
+            "Scripts" if IS_WINDOWS else "bin",
+            "pip" + (".exe" if IS_WINDOWS else ""),
+        )
+
+        if os.path.isdir(venv_dir):
+            try:
+                print("Removing an oudated IDF virtual environment")
+                shutil.rmtree(venv_dir)
+            except OSError:
+                print(
+                    "Error: Cannot remove an outdated IDF virtual environment. " \
+                    "Please remove the `%s` folder manually!" % venv_dir
+                )
+                env.Exit(1)
+
+        # Use the built-in PlatformIO Python to create a standalone IDF virtual env
+        env.Execute(
+            env.VerboseAction(
+                '"$PYTHONEXE" -m venv --clear "%s"' % venv_dir,
+                "Creating a new virtual environment for IDF Python dependencies",
+            )
+        )
+
+        assert os.path.isfile(
+            pip_path
+        ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
+
+    venv_dir = get_idf_venv_dir()
+    venv_data_file = os.path.join(venv_dir, "pio-idf-venv.json")
+    if not os.path.isfile(venv_data_file) or _is_venv_outdated(venv_data_file):
+        _create_venv(venv_dir)
+        with open(venv_data_file, "w", encoding="utf8") as fp:
+            venv_info = {"version": IDF_ENV_VERSION}
+            json.dump(venv_info, fp, indent=2)
+
+
+def get_python_exe():
+    python_exe_path = os.path.join(
+        get_idf_venv_dir(),
+        "Scripts" if IS_WINDOWS else "bin",
+        "python" + (".exe" if IS_WINDOWS else ""),
+    )
+
+    assert os.path.isfile(python_exe_path), (
+        "Error: Missing Python executable file `%s`" % python_exe_path
+    )
+
+    return python_exe_path
+
+
+#
+# ESP-IDF requires Python packages with specific versions in a virtual environment
+#
+
+ensure_python_venv_available()
+install_python_deps()
 
 assert os.path.isdir(FRAMEWORK_DIR)
 assert os.path.isdir(TOOLCHAIN_DIR)
@@ -1365,165 +1522,6 @@ def generate_mbedtls_bundle(sdk_config):
             "Generating assembly for certificate bundle...",
         )
     )
-
-
-def install_python_deps():
-    def _get_installed_pip_packages(python_exe_path):
-        result = {}
-        packages = {}
-        pip_output = subprocess.check_output(
-            [
-                python_exe_path,
-                "-m",
-                "pip",
-                "list",
-                "--format=json",
-                "--disable-pip-version-check",
-            ]
-        )
-        try:
-            packages = json.loads(pip_output)
-        except:
-            print("Warning! Couldn't extract the list of installed Python packages.")
-            return {}
-        for p in packages:
-            result[p["name"]] = pepver_to_semver(p["version"])
-
-        return result
-
-    skip_python_packages = os.path.join(FRAMEWORK_DIR, ".pio_skip_pypackages")
-    if os.path.isfile(skip_python_packages):
-        return
-
-    deps = {
-        "wheel": ">=0.35.1",
-        # https://github.com/platformio/platformio-core/issues/4614
-        "urllib3": "<2",
-        # https://github.com/platformio/platform-espressif32/issues/635
-        "cryptography": "~=41.0.1" if IDF5 else ">=2.1.4,<35.0.0",
-        "future": ">=0.18.3",
-        "pyparsing": ">=3.1.0,<4" if IDF5 else ">=2.0.3,<2.4.0",
-        "kconfiglib": "~=14.1.0" if IDF5 else "~=13.7.1",
-        "idf-component-manager": "~=2.0.1" if IDF5 else "~=1.0",
-        "esp-idf-kconfig": ">=1.4.2,<2.0.0"
-    }
-
-    if sys_platform.system() == "Darwin" and "arm" in sys_platform.machine().lower():
-        deps["chardet"] = ">=3.0.2,<4"
-
-    python_exe_path = get_python_exe()
-    installed_packages = _get_installed_pip_packages(python_exe_path)
-    packages_to_install = []
-    for package, spec in deps.items():
-        if package not in installed_packages:
-            packages_to_install.append(package)
-        elif spec:
-            version_spec = semantic_version.Spec(spec)
-            if not version_spec.match(installed_packages[package]):
-                packages_to_install.append(package)
-
-    if packages_to_install:
-        env.Execute(
-            env.VerboseAction(
-                (
-                    '"%s" -m pip install -U ' % python_exe_path
-                    + " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
-                ),
-                "Installing ESP-IDF's Python dependencies",
-            )
-        )
-
-    if IS_WINDOWS and "windows-curses" not in installed_packages:
-        env.Execute(
-            env.VerboseAction(
-                '"%s" -m pip install windows-curses' % python_exe_path,
-                "Installing windows-curses package",
-            )
-        )
-
-
-def get_idf_venv_dir():
-    # The name of the IDF venv contains the IDF version to avoid possible conflicts and
-    # unnecessary reinstallation of Python dependencies in cases when Arduino
-    # as an IDF component requires a different version of the IDF package and
-    # hence a different set of Python deps or their versions
-    idf_version = get_framework_version()
-    return os.path.join(
-        env.subst("$PROJECT_CORE_DIR"), "penv", ".espidf-" + idf_version
-    )
-
-
-def ensure_python_venv_available():
-
-    def _is_venv_outdated(venv_data_file):
-        try:
-            with open(venv_data_file, "r", encoding="utf8") as fp:
-                venv_data = json.load(fp)
-                if venv_data.get("version", "") != IDF_ENV_VERSION:
-                    return True
-                return False
-        except:
-            return True
-
-    def _create_venv(venv_dir):
-        pip_path = os.path.join(
-            venv_dir,
-            "Scripts" if IS_WINDOWS else "bin",
-            "pip" + (".exe" if IS_WINDOWS else ""),
-        )
-
-        if os.path.isdir(venv_dir):
-            try:
-                print("Removing an oudated IDF virtual environment")
-                shutil.rmtree(venv_dir)
-            except OSError:
-                print(
-                    "Error: Cannot remove an outdated IDF virtual environment. " \
-                    "Please remove the `%s` folder manually!" % venv_dir
-                )
-                env.Exit(1)
-
-        # Use the built-in PlatformIO Python to create a standalone IDF virtual env
-        env.Execute(
-            env.VerboseAction(
-                '"$PYTHONEXE" -m venv --clear "%s"' % venv_dir,
-                "Creating a new virtual environment for IDF Python dependencies",
-            )
-        )
-
-        assert os.path.isfile(
-            pip_path
-        ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
-
-    venv_dir = get_idf_venv_dir()
-    venv_data_file = os.path.join(venv_dir, "pio-idf-venv.json")
-    if not os.path.isfile(venv_data_file) or _is_venv_outdated(venv_data_file):
-        _create_venv(venv_dir)
-        with open(venv_data_file, "w", encoding="utf8") as fp:
-            venv_info = {"version": IDF_ENV_VERSION}
-            json.dump(venv_info, fp, indent=2)
-
-
-def get_python_exe():
-    python_exe_path = os.path.join(
-        get_idf_venv_dir(),
-        "Scripts" if IS_WINDOWS else "bin",
-        "python" + (".exe" if IS_WINDOWS else ""),
-    )
-
-    assert os.path.isfile(python_exe_path), (
-        "Error: Missing Python executable file `%s`" % python_exe_path
-    )
-
-    return python_exe_path
-
-
-#
-# ESP-IDF requires Python packages with specific versions in a virtual environment
-#
-
-ensure_python_venv_available()
-install_python_deps()
 
 # ESP-IDF package doesn't contain .git folder, instead package version is specified
 # in a special file "version.h" in the root folder of the package
