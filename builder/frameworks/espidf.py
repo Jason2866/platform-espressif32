@@ -192,16 +192,17 @@ def HandleArduinoCOMPONENTsettings(env):
             idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
             shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
         except: # 2.nd Project source
-            idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
-            shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
-        except: # no idf_component.yml in Project source -> create
-            idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
-            idf_component_yml = """
-                dependencies:
-                  idf: \">=5.1\"
-            """
-            with open(idf_component_yml_src, 'w',) as f :
-                yaml.dump(idf_component_yml,f,sort_keys=False) 
+            try:
+                idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
+                shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
+            except: # no idf_component.yml in Project source -> create
+                idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
+                idf_component_yml = """
+                    dependencies:
+                      idf: \">=5.1\"
+                """
+                with open(idf_component_yml_src, 'w',) as f :
+                    yaml.dump(idf_component_yml,f,sort_keys=False) 
 
         yaml_file=open(idf_component_yml_src,"r")
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
