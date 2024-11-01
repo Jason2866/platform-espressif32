@@ -25,7 +25,7 @@
     },
     "espidf": {
       "package": "framework-espidf",
-      "script": "builder/frameworks/espidf.py"
+      "script": "builder/frameworks/espidf_pyenv.py"
     }
   },
   "packages": {
