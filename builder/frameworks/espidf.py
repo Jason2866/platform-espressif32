@@ -1152,6 +1152,30 @@ def find_default_component(target_configs):
     env.Exit(1)
 
 
+def get_framework_version():
+    def _extract_from_cmake_version_file():
+        version_cmake_file = os.path.join(
+            FRAMEWORK_DIR, "tools", "cmake", "version.cmake"
+        )
+        if not os.path.isfile(version_cmake_file):
+            return
+        with open(version_cmake_file, encoding="utf8") as fp:
+            pattern = r"set\(IDF_VERSION_(MAJOR|MINOR|PATCH) (\d+)\)"
+            matches = re.findall(pattern, fp.read())
+            if len(matches) != 3:
+                return
+            # If found all three parts of the version
+            return ".".join([match[1] for match in matches])
+    pkg = platform.get_package("framework-espidf")
+    version = get_original_version(str(pkg.metadata.version.truncate()))
+    if not version:
+        # Fallback value extracted directly from the cmake version file
+        version = _extract_from_cmake_version_file()
+        if not version:
+            version = "0.0.0"
+    return version
+
+
 def create_version_file():
     version_file = os.path.join(FRAMEWORK_DIR, "version.txt")
     if not os.path.isfile(version_file):
