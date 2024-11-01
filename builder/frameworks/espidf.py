@@ -1966,9 +1966,10 @@ if "arduino" not in env.get("PIOFRAMEWORK") and "espidf" in env.get("PIOFRAMEWOR
             shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml.orig"),join(PROJECT_SRC_DIR,"idf_component.yml"))
             print("*** Original \"idf_component.yml\" restored ***")
         except: # no "idf_component.yml" in source folder
-            os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
-        except:
-            print("*** \"idf_component.yml\" couldnt be removed ***") 
+            try:
+                os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
+            except:
+                print("*** \"idf_component.yml\" couldnt be removed ***") 
     env.AddPostAction("checkprogsize", idf_custom_component)
 #
 # Process OTA partition and image
