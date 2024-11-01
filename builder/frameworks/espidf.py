@@ -187,14 +187,21 @@ def HandleArduinoCOMPONENTsettings(env):
         else:
             idf_custom_component_add = ""
 
-        try:
+        # search "idf_component.yml" file
+        try: # 1.st in Arduino framework
             idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
-            if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))):
-                shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
-        except:
+            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
+        except: # 2.nd Project source
             idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
-            if not bool(os.path.isfile(join(PROJECT_SRC_DIR,"idf_component.yml.orig"))):
-                shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
+            shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
+        except: # no idf_component.yml in Project source -> create
+            idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
+            idf_component_yml = """
+                dependencies:
+                  idf: \">=5.1\"
+            """
+            with open(idf_component_yml_src, 'w',) as f :
+                yaml.dump(idf_component_yml,f,sort_keys=False) 
 
         yaml_file=open(idf_component_yml_src,"r")
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
@@ -1957,8 +1964,10 @@ if "arduino" not in env.get("PIOFRAMEWORK") and "espidf" in env.get("PIOFRAMEWOR
         try:
             shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml.orig"),join(PROJECT_SRC_DIR,"idf_component.yml"))
             print("*** Original \"idf_component.yml\" restored ***")
+        except: # no "idf_component.yml" in source folder
+            os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
         except:
-            print("*** Original \"idf_component.yml\" couldnt be restored ***") 
+            print("*** \"idf_component.yml\" couldnt be removed ***") 
     env.AddPostAction("checkprogsize", idf_custom_component)
 #
 # Process OTA partition and image
