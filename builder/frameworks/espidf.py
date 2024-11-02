@@ -276,7 +276,7 @@ def HandleArduinoCOMPONENTsettings(env):
 
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
-                if len(str(entry)) > 4 # too short or empty entry
+                if len(str(entry)) > 4: # too short or empty entry
                     print("entry:", entry)
                     # add entrys to json
                     if "@" in entry:
