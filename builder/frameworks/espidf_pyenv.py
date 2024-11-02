@@ -251,5 +251,5 @@ def get_python_exe():
 ensure_python_venv_available()
 install_python_deps()
 
-if "espidf" in env.subst("$PIOFRAMEWORK"):
-    SConscript("espidf.py")
+# if "espidf" in env.subst("$PIOFRAMEWORK"):
+#     SConscript("espidf.py")
