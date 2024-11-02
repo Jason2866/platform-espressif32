@@ -2000,7 +2000,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                 if file.strip().endswith(".a"):
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
 
-        for root, dirs, files in os.walk(lib_src):
+        for root, dirs, files in os.walk(env["PROJECT_BUILD_DIR"]):
             for file in files: 
                 if file.endswith(".h"):
                     print (root+'/'+str(file))
@@ -2010,7 +2010,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs","sdkconfig"))
-        shutil.copyfile(join(lib_src,"sdkconfig.h"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")),"include","sdkconfig.h"))
+        # shutil.copyfile(join(lib_src,"sdkconfig.h"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")),"include","sdkconfig.h"))
         print("*** Copied compiled %s IDF libraries to Arduino framework ***" % idf_variant)
 
         pio_exe_path = shutil.which("platformio"+(".exe" if IS_WINDOWS else ""))
