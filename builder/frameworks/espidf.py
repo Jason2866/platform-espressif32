@@ -53,7 +53,6 @@ if os.environ.get("PYTHONPATH"):
 
 env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
-env.SConscript("espidf_pyenv.py", exports="env")
 
 # Allow changes in folders of managed components
 os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
@@ -176,7 +175,6 @@ def HandleArduinoIDFsettings(env):
 
 def HandleArduinoCOMPONENTsettings(env):
     if flag_custom_component_add == True or flag_custom_component_remove == True: # todo remove duplicated
-        env.SConscript("espidf_pyenv.py", exports="env")
         import yaml
         from yaml import SafeLoader
         print("*** \"custom_component\" is used to select managed idf components ***")
@@ -1524,8 +1522,8 @@ def get_python_exe():
 # ESP-IDF requires Python packages with specific versions in a virtual environment
 #
 
-ensure_python_venv_available()
-install_python_deps()
+# ensure_python_venv_available()
+# install_python_deps()
 
 # ESP-IDF package doesn't contain .git folder, instead package version is specified
 # in a special file "version.h" in the root folder of the package
