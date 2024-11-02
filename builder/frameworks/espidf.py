@@ -54,6 +54,64 @@ if os.environ.get("PYTHONPATH"):
 env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
 
+def install_standard_python_deps():
+    def _get_installed_standard_pip_packages():
+        result = {}
+        packages = {}
+        pip_output = subprocess.check_output(
+            [
+                env.subst("$PYTHONEXE"),
+                "-m",
+                "pip",
+                "list",
+                "--format=json",
+                "--disable-pip-version-check",
+            ]
+        )
+        try:
+            packages = json.loads(pip_output)
+        except:
+            print("Warning! Couldn't extract the list of installed Python packages.")
+            return {}
+        for p in packages:
+            result[p["name"]] = pepver_to_semver(p["version"])
+
+        return result
+
+    deps = {
+        "wheel": ">=0.35.1",
+        "PyYAML": ">=6.0.2"
+    }
+
+    installed_packages = _get_installed_standard_pip_packages()
+    packages_to_install = []
+    for package, spec in deps.items():
+        if package not in installed_packages:
+            packages_to_install.append(package)
+        else:
+            version_spec = semantic_version.Spec(spec)
+            if not version_spec.match(installed_packages[package]):
+                packages_to_install.append(package)
+
+    if packages_to_install:
+        env.Execute(
+            env.VerboseAction(
+                (
+                    '"$PYTHONEXE" -m pip install -U '
+                    + " ".join(
+                        [
+                            '"%s%s"' % (p, deps[p])
+                            for p in packages_to_install
+                        ]
+                    )
+                ),
+                "Installing standard Python dependencies",
+            )
+        )
+    return
+
+install_standard_python_deps()
+
 # Allow changes in folders of managed components
 os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
 
