@@ -2024,16 +2024,19 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                 print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***") 
     env.AddPostAction("checkprogsize", idf_lib_copy)
 
-if "arduino" not in env.get("PIOFRAMEWORK") and "espidf" in env.get("PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
+if "espidf" in env.get("PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
     def idf_custom_component(source, target, env):
         try:
-            shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml.orig"),join(PROJECT_SRC_DIR,"idf_component.yml"))
-            print("*** Original \"idf_component.yml\" restored ***")
-        except: # no "idf_component.yml" in source folder
+            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
+            print("*** Original Arduino \"idf_component.yml\" restored ***")
+        except:
             try:
+                shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml.orig"),join(PROJECT_SRC_DIR,"idf_component.yml"))
+                print("*** Original \"idf_component.yml\" restored ***")
+            except: # no "idf_component.yml" in source folder
                 os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
                 print("*** pioarduino generated \"idf_component.yml\" removed ***")
-            except:
+            finally:
                 print("*** \"idf_component.yml\" couldnt be removed ***") 
     env.AddPostAction("checkprogsize", idf_custom_component)
 #
