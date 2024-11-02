@@ -266,6 +266,7 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
         idf_component_str=json.dumps(idf_component)      # convert to json string
         idf_component_json=json.loads(idf_component_str) # convert string to json dict
+        print("idf_component_str:", idf_component_str)
 
         if idf_custom_component_remove != "":
             for entry in idf_custom_component_remove:
@@ -277,7 +278,6 @@ def HandleArduinoCOMPONENTsettings(env):
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
                 if len(str(entry)) > 4: # too short or empty entry
-                    print("entry:", entry)
                     # add entrys to json
                     if "@" in entry:
                         idf_comp_entry = str(entry.split("@")[0]).replace(" ", "")
