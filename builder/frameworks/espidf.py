@@ -2000,14 +2000,9 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                 if file.strip().endswith(".a"):
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
 
-        for root, dirs, files in os.walk(env["PROJECT_BUILD_DIR"]):
-            for file in files: 
-                if file.endswith(".h"):
-                    print(os.path.join(root, file))
-                    sdkconfig_h_path = os.path.join(root, file)
         # /home/runner/work/platform-espressif32/platform-espressif32/examples/arduino-blink/.pio/build/esp32solo1/config/sdkconfig.h
-        test_path = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"config","sdkconfig.h")
-        print("**** sdkconfig.h path:", test_path)
+        sdkconfig_h_path = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"config","sdkconfig.h")
+        print("copy sdkconfig.h too:", join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")),"include","sdkconfig.h"))
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
