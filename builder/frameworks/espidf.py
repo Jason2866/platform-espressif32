@@ -270,7 +270,6 @@ def HandleArduinoCOMPONENTsettings(env):
         idf_component=yaml.load(yaml_file, Loader=SafeLoader)
         idf_component_str=json.dumps(idf_component)      # convert to json string
         idf_component_json=json.loads(idf_component_str) # convert string to json dict
-        print("idf_component_str:", idf_component_str)
 
         if idf_custom_component_remove != "":
             for entry in idf_custom_component_remove:
@@ -2033,6 +2032,7 @@ if "arduino" not in env.get("PIOFRAMEWORK") and "espidf" in env.get("PIOFRAMEWOR
         except: # no "idf_component.yml" in source folder
             try:
                 os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
+                print("*** pioarduino generated \"idf_component.yml\" removed ***")
             except:
                 print("*** \"idf_component.yml\" couldnt be removed ***") 
     env.AddPostAction("checkprogsize", idf_custom_component)
