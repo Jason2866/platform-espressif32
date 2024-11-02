@@ -276,17 +276,18 @@ def HandleArduinoCOMPONENTsettings(env):
 
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
-                print("entry:", entry)
-                # add entrys to json
-                if "@" in entry:
-                    idf_comp_entry = str(entry.split("@")[0]).replace(" ", "")
-                    idf_comp_vers = str(entry.split("@")[1]).replace(" ", "")
-                else:
-                    idf_comp_entry = str(entry).replace(" ", "")
-                    idf_comp_vers = "*"
-                print("*** Adding component:", idf_comp_entry, idf_comp_vers)
-                new_entry = {idf_comp_entry: {"version": idf_comp_vers}}
-                idf_component_json["dependencies"].update(new_entry)
+                if len(str(entry)) > 4 # too short or empty entry
+                    print("entry:", entry)
+                    # add entrys to json
+                    if "@" in entry:
+                        idf_comp_entry = str(entry.split("@")[0]).replace(" ", "")
+                        idf_comp_vers = str(entry.split("@")[1]).replace(" ", "")
+                    else:
+                        idf_comp_entry = str(entry).replace(" ", "")
+                        idf_comp_vers = "*"
+                    print("*** Adding component:", idf_comp_entry, idf_comp_vers)
+                    new_entry = {idf_comp_entry: {"version": idf_comp_vers}}
+                    idf_component_json["dependencies"].update(new_entry)
 
         idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
