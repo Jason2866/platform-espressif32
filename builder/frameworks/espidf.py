@@ -276,6 +276,7 @@ def HandleArduinoCOMPONENTsettings(env):
 
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
+                print("entry:", entry)
                 # add entrys to json
                 if "@" in entry:
                     idf_comp_entry = str(entry.split("@")[0]).replace(" ", "")
