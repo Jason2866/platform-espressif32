@@ -32,7 +32,6 @@ from platformio.package.version import pepver_to_semver
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
-python_install_flag = True
 
 def install_python_deps():
     def _get_installed_pip_packages():
@@ -90,9 +89,7 @@ def install_python_deps():
         )
     return
 
-if python_install_flag == True:
-    install_python_deps()
-    python_install_flag = False
+install_python_deps()
 
-if "espidf" in env.subst("$PIOFRAMEWORK") and python_install_flag == False:
+if "espidf" in env.subst("$PIOFRAMEWORK"):
     SConscript("espidf.py")
