@@ -231,7 +231,7 @@ def HandleArduinoIDFsettings(env):
     else:
         return
 
-def HandleArduinoCOMPONENTsettings(env):
+def HandleCOMPONENTsettings(env):
     if flag_custom_component_add == True or flag_custom_component_remove == True: # todo remove duplicated
         import yaml
         from yaml import SafeLoader
@@ -302,7 +302,7 @@ def HandleArduinoCOMPONENTsettings(env):
     return
 
 if flag_custom_component_add == True or flag_custom_component_remove == True:
-    HandleArduinoCOMPONENTsettings(env)
+    HandleCOMPONENTsettings(env)
 
 if flag_custom_sdkonfig and "arduino" in env.subst("$PIOFRAMEWORK"):
     HandleArduinoIDFsettings(env)
