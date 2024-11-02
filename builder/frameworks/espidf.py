@@ -90,7 +90,7 @@ def install_python_deps():
         )
     return
 
-if python_install_flag = True:
+if python_install_flag == True:
     install_python_deps()
     python_install_flag = False
 
