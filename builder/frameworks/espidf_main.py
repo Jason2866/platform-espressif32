@@ -1522,8 +1522,8 @@ def get_python_exe():
 # ESP-IDF requires Python packages with specific versions in a virtual environment
 #
 
-# ensure_python_venv_available()
-# install_python_deps()
+ensure_python_venv_available()
+install_python_deps()
 
 # ESP-IDF package doesn't contain .git folder, instead package version is specified
 # in a special file "version.h" in the root folder of the package
