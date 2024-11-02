@@ -255,10 +255,11 @@ def HandleArduinoCOMPONENTsettings(env):
                 shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
             except: # no idf_component.yml in Project source -> create
                 idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
-                idf_component_yml = """
+                idf_component_yml_str = """
                     dependencies:
                       idf: \">=5.1\"
                 """
+                idf_component_yml = yaml.safe_load(idf_component_yml_str)
                 with open(idf_component_yml_src, 'w',) as f :
                     yaml.dump(idf_component_yml,f) 
 
