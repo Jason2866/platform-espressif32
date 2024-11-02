@@ -249,12 +249,15 @@ def HandleArduinoCOMPONENTsettings(env):
         try: # 1.st in Arduino framework
             idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
             shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
+            yml_file_dir = idf_component_yml_src
         except: # 2.nd Project source
             try:
                 idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
                 shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
+                yml_file_dir = idf_component_yml_src
             except: # no idf_component.yml in Project source -> create
                 idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
+                yml_file_dir = idf_component_yml_src
                 idf_component_yml_str = """
                     dependencies:
                       idf: \">=5.1\"
@@ -291,7 +294,7 @@ def HandleArduinoCOMPONENTsettings(env):
                         new_entry = {idf_comp_entry: {"version": idf_comp_vers}}
                         idf_component_json["dependencies"].update(new_entry)
 
-        idf_component_yml_file = open(os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml"),"w")
+        idf_component_yml_file = open(yml_file_dir,"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
         idf_component_yml_file.close()
         # print("JSON from modified idf_component.yml:")
