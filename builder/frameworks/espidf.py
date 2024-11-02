@@ -2034,10 +2034,11 @@ if "espidf" in env.get("PIOFRAMEWORK") and (flag_custom_component_add == True or
                 shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml.orig"),join(PROJECT_SRC_DIR,"idf_component.yml"))
                 print("*** Original \"idf_component.yml\" restored ***")
             except: # no "idf_component.yml" in source folder
-                os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
-                print("*** pioarduino generated \"idf_component.yml\" removed ***")
-            finally:
-                print("*** \"idf_component.yml\" couldnt be removed ***") 
+                try:
+                    os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
+                    print("*** pioarduino generated \"idf_component.yml\" removed ***")
+                except:
+                    print("*** \"idf_component.yml\" couldnt be removed ***") 
     env.AddPostAction("checkprogsize", idf_custom_component)
 #
 # Process OTA partition and image
