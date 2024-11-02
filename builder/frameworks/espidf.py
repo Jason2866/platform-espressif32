@@ -2003,9 +2003,9 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         for root, dirs, files in os.walk(env["PROJECT_BUILD_DIR"]):
             for file in files: 
                 if file.endswith(".h"):
-                    print (root+'/'+str(file))
-                    sdkconfig_h_path = join(root+'/'+str(file))
-    
+                    print(os.path.join(root, file))
+                    sdkconfig_h_path = os.path.join(root, file)
+
         if not bool(os.path.isfile(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))):
             shutil.move(join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig.orig"))
         shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig"))
