@@ -2002,7 +2002,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
 
         for root, dirs, files in os.walk(lib_src):
             for file in files: 
-                if file('sdkconfig.h'):
+                if file.endswith(".h"):
                     print (root+'/'+str(file))
                     sdkconfig_h_path = join(root+'/'+str(file))
     
