@@ -30,6 +30,8 @@ from os.path import join
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
 from platformio.package.version import pepver_to_semver
 
+env = DefaultEnvironment()
+platform = env.PioPlatform()
 
 def install_python_deps():
     def _get_installed_pip_packages():
