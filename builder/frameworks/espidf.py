@@ -176,6 +176,7 @@ def HandleArduinoIDFsettings(env):
 
 def HandleArduinoCOMPONENTsettings(env):
     if flag_custom_component_add == True or flag_custom_component_remove == True: # todo remove duplicated
+        env.SConscript("espidf_pyenv.py", exports="env")
         import yaml
         from yaml import SafeLoader
         print("*** \"custom_component\" is used to select managed idf components ***")
