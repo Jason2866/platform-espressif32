@@ -216,7 +216,7 @@ def HandleArduinoIDFsettings(env):
                 else:
                     no_match = True
                     for item in idf_config_flags:
-                        if flag in item:
+                        if flag == get_flag(item):
                             dst.write(item.replace("\'", "")+"\n")
                             no_match = False
                             print("Replace:",line,"with:",item.replace("\'", ""))
