@@ -2001,6 +2001,12 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             for file in files:
                 if file.strip().endswith(".a"):
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
+
+        for root, dirs, files in os.walk(env["PROJECT_BUILD_DIR"]):
+            for file in files: 
+                if file.endswith(".ld"):
+                    print(os.path.join(root, file))
+
         shutil.move(join(lib_dst,"libspi_flash.a"),join(mem_var,"libspi_flash.a"))
         if mcu in ("esp32s3"):
             shutil.move(join(lib_dst,"libbootloader_support.a"),join(mem_var,"libbootloader_support.a"))
