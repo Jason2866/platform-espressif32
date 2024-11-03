@@ -1990,9 +1990,11 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 
 if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWORK"):
     def idf_lib_copy(source, target, env):
-        sdkconfig_h_path = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"config","sdkconfig.h")
-        lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
+        env_build = join(env["PROJECT_BUILD_DIR"],env["PIOENV"])
+        sdkconfig_h_path = join(env_build,"config","sdkconfig.h")
+        lib_src = join(env_build,"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
+        ld_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"ld")
         mem_var = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")))
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
         src = [folder for folder in src if not os.path.isfile(folder)] # folders only
@@ -2001,11 +2003,18 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             for file in files:
                 if file.strip().endswith(".a"):
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
+        shutil.copyfile(join(env_build,"memory.ld"),join(ld_dst,"memory.ld"))
+        shutil.copyfile(join(env_build,"sections.ld"),join(ld_dst,"sections.ld"))
 
-        for root, dirs, files in os.walk(env["PROJECT_BUILD_DIR"]):
-            for file in files: 
-                if file.endswith(".ld"):
-                    print(os.path.join(root, file))
+#        for root, dirs, files in os.walk(env["PROJECT_BUILD_DIR"]):
+#            for file in files: 
+#                if file.endswith(".ld"):
+#                    print(os.path.join(root, file))
+
+# /home/runner/work/platform-espressif32/platform-espressif32/examples/arduino-blink/.pio/build/esp32solo1/memory.ld
+# /home/runner/work/platform-espressif32/platform-espressif32/examples/arduino-blink/.pio/build/esp32solo1/sections.ld
+# /home/runner/work/platform-espressif32/platform-espressif32/examples/arduino-blink/.pio/build/esp32-s3-120/memory.ld
+# /home/runner/work/platform-espressif32/platform-espressif32/examples/arduino-blink/.pio/build/esp32-s3-120/sections.ld
 
         shutil.move(join(lib_dst,"libspi_flash.a"),join(mem_var,"libspi_flash.a"))
         if mcu in ("esp32s3"):
