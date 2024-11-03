@@ -1993,7 +1993,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         sdkconfig_h_path = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"config","sdkconfig.h")
         lib_src = join(env["PROJECT_BUILD_DIR"],env["PIOENV"],"esp-idf")
         lib_dst = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"lib")
-        mem_var = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi"))
+        mem_var = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")))
         src = [join(lib_src,x) for x in os.listdir(lib_src)]
         src = [folder for folder in src if not os.path.isfile(folder)] # folders only
         for folder in src:
