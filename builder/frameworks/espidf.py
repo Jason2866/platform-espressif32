@@ -2006,9 +2006,9 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
                     shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
 
         shutil.move(join(lib_dst,"libspi_flash.a"),join(mem_var,"libspi_flash.a"))
+        shutil.move(join(env_build,"memory.ld"),join(ld_dst,"memory.ld"))
         if mcu == "esp32s3":
             print("**** Debug: Copy S3 specific ***")
-            shutil.move(join(env_build,"memory.ld"),join(ld_dst,"memory.ld"))
             shutil.move(join(env_build,"sections.ld"),join(mem_var,"sections.ld"))
             shutil.move(join(lib_dst,"libesp_psram.a"),join(mem_var,"libesp_psram.a"))
             shutil.move(join(lib_dst,"libesp_system.a"),join(mem_var,"libesp_system.a"))
@@ -2016,9 +2016,8 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
             shutil.move(join(lib_dst,"libbootloader_support.a"),join(mem_var,"libbootloader_support.a"))
             shutil.move(join(lib_dst,"libesp_hw_support.a"),join(mem_var,"libesp_hw_support.a"))
         else:
-            print("**** Debug: Copy linker files ***")
-            # shutil.move(join(env_build,"memory.ld"),join(ld_dst,"memory.ld"))
-            # shutil.move(join(env_build,"sections.ld"),join(ld_dst,"sections.ld"))
+            print("**** Debug: Copy linker file ***")
+            shutil.move(join(env_build,"sections.ld"),join(ld_dst,"sections.ld"))
 
         shutil.copyfile(sdkconfig_h_path,join(mem_var,"include","sdkconfig.h"))
         if not bool(os.path.isfile(join(arduino_libs,mcu,"sdkconfig.orig"))):
