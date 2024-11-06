@@ -781,6 +781,7 @@ def extract_linker_script_fragments(
         )
 
     if board.get("build.esp-idf.extra_lf_files", ""):
+        print("from board json: idf extra_lf_files:", board.get("build.esp-idf.extra_lf_files", ""))
         for fragment_path in board.get(
             "build.esp-idf.extra_lf_files"
         ).splitlines():
