@@ -196,11 +196,12 @@ def HandleArduinoIDFsettings(env):
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
         print("*** Flash speed:", flash_speed)
         print("*** Flash mode:", flash_mode)
-        if mcu != "esp32s3" and esptool_flashmode != "qio":
+        if esptool_flashmode != "qio":
             idf_config_flags = idf_config_flags + "\n# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
             print("**** Flash mode: idf_config_flags", idf_config_flags)
         esptool_flashmode = "\nCONFIG_ESPTOOLPY_FLASHMODE_%s=y\n" % flash_mode.upper()
-        idf_config_flags = idf_config_flags + esptool_flashmode
+        if esptool_flashmode not in idf_config_flags:
+            idf_config_flags = idf_config_flags + esptool_flashmode
         if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
             idf_config_flags = idf_config_flags + "\n# CONFIG_SPIRAM is not set\n"
         print("**** New: idf_config_flags", idf_config_flags)
