@@ -120,6 +120,7 @@ config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 flash_speed = board.get("build.f_flash", "40000000L")
+flash_frequency = str(int(str(flash_speed).replace("L", "")) / 1000000) + "m"
 flash_mode = board.get("build.flash_mode", "dio")
 idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
@@ -196,6 +197,7 @@ def HandleArduinoIDFsettings(env):
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
         print("*** Flash speed:", flash_speed)
         print("*** Flash mode:", flash_mode)
+        idf_config_flags = idf_config_flags + "\n"
         if flash_mode != "qio":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
             print("**** Flash mode: idf_config_flags", idf_config_flags)
