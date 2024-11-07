@@ -197,13 +197,13 @@ def HandleArduinoIDFsettings(env):
         print("*** Flash speed:", flash_speed)
         print("*** Flash mode:", flash_mode)
         if flash_mode != "qio":
-            idf_config_flags = idf_config_flags + "\n# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
+            idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
             print("**** Flash mode: idf_config_flags", idf_config_flags)
-        esptool_flashmode = "\nCONFIG_ESPTOOLPY_FLASHMODE_%s=y\n" % flash_mode.upper()
+        esptool_flashmode = "CONFIG_ESPTOOLPY_FLASHMODE_%s=y\n" % flash_mode.upper()
         if esptool_flashmode not in idf_config_flags:
             idf_config_flags = idf_config_flags + esptool_flashmode
         if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
-            idf_config_flags = idf_config_flags + "\n# CONFIG_SPIRAM is not set\n"
+            idf_config_flags = idf_config_flags + "# CONFIG_SPIRAM is not set\n"
         print("**** New: idf_config_flags", idf_config_flags)
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
@@ -2019,7 +2019,6 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
         shutil.move(join(lib_dst,"libspi_flash.a"),join(mem_var,"libspi_flash.a"))
         shutil.move(join(env_build,"memory.ld"),join(ld_dst,"memory.ld"))
         if mcu == "esp32s3":
-            print("**** Debug: Copy S3 specific ***")
             shutil.move(join(lib_dst,"libesp_psram.a"),join(mem_var,"libesp_psram.a"))
             shutil.move(join(lib_dst,"libesp_system.a"),join(mem_var,"libesp_system.a"))
             shutil.move(join(lib_dst,"libfreertos.a"),join(mem_var,"libfreertos.a"))
