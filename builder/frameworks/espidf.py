@@ -196,7 +196,7 @@ def HandleArduinoIDFsettings(env):
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
         print("*** Flash speed:", flash_speed)
         print("*** Flash mode:", flash_mode)
-        if esptool_flashmode != "qio":
+        if flash_mode != "qio":
             idf_config_flags = idf_config_flags + "\n# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
             print("**** Flash mode: idf_config_flags", idf_config_flags)
         esptool_flashmode = "\nCONFIG_ESPTOOLPY_FLASHMODE_%s=y\n" % flash_mode.upper()
