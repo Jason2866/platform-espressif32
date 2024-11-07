@@ -192,8 +192,18 @@ def HandleArduinoIDFsettings(env):
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
+        flash_speed = board.get("build.f_flash", "")
+        flash_mode = board.get("build.flash_mode", "")
+        print("*** Flash speed:", flash_speed)
+        print("*** Flash mode:", flash_mode)
+        if mcu != "esp32s3" and esptool_flashmode != "qio":
+            idf_config_flags = idf_config_flags + "\n# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
+            print("**** Flash mode: idf_config_flags", idf_config_flags)
+        esptool_flashmode = "\nCONFIG_ESPTOOLPY_FLASHMODE_%s=y\n" % flash_mode.upper()
+        idf_config_flags = idf_config_flags + esptool_flashmode
         if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
-            idf_config_flags = idf_config_flags + "\n# CONFIG_SPIRAM is not set\n# CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE=y\n"
+            idf_config_flags = idf_config_flags + "\n# CONFIG_SPIRAM is not set\n"
+        print("**** New: idf_config_flags", idf_config_flags)
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
@@ -781,7 +791,6 @@ def extract_linker_script_fragments(
         )
 
     if board.get("build.esp-idf.extra_lf_files", ""):
-        print("from board json: idf extra_lf_files:", board.get("build.esp-idf.extra_lf_files", ""))
         for fragment_path in board.get(
             "build.esp-idf.extra_lf_files"
         ).splitlines():
