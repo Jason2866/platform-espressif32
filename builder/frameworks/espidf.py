@@ -195,11 +195,6 @@ def HandleArduinoIDFsettings(env):
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
-        print("*** Flash speed:", flash_frequency)
-        print("*** Flash mode:", flash_mode)
-        # CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
-        # CONFIG_ESPTOOLPY_FLASHFREQ_40M is not set
-        # CONFIG_ESPTOOLPY_FLASHFREQ="80m"
         idf_config_flags = idf_config_flags + "\n"
         if flash_frequency != "80m":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
@@ -208,13 +203,12 @@ def HandleArduinoIDFsettings(env):
             idf_config_flags = idf_config_flags + esptool_flashfreq_y + esptool_flashfreq_M
         if flash_mode != "qio":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
-            # print("**** Flash mode: idf_config_flags", idf_config_flags)
         esptool_flashmode = "CONFIG_ESPTOOLPY_FLASHMODE_%s=y\n" % flash_mode.upper()
         if esptool_flashmode not in idf_config_flags:
             idf_config_flags = idf_config_flags + esptool_flashmode
         if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
             idf_config_flags = idf_config_flags + "# CONFIG_SPIRAM is not set\n"
-        print("**** New: idf_config_flags", idf_config_flags)
+
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
