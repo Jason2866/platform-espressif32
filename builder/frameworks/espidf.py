@@ -119,6 +119,8 @@ platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
+flash_speed = board.get("build.f_flash", "40000000L")
+flash_mode = board.get("build.flash_mode", "dio")
 idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
 flag_custom_component_add = False
@@ -192,8 +194,6 @@ def HandleArduinoIDFsettings(env):
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
-        flash_speed = board.get("build.f_flash", "")
-        flash_mode = board.get("build.flash_mode", "")
         print("*** Flash speed:", flash_speed)
         print("*** Flash mode:", flash_mode)
         if mcu != "esp32s3" and esptool_flashmode != "qio":
