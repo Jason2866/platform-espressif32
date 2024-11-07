@@ -205,7 +205,7 @@ def HandleArduinoIDFsettings(env):
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
             esptool_flashfreq_y = "CONFIG_ESPTOOLPY_FLASHFREQ_%s=y\n" % flash_frequency.upper()
             esptool_flashfreq_M = "CONFIG_ESPTOOLPY_FLASHFREQ=\"%s\"\n" % flash_frequency
-            idf_config_flags = idf_config_flags + esptool_flashfreq + esptool_flashfreq_M
+            idf_config_flags = idf_config_flags + esptool_flashfreq_y + esptool_flashfreq_M
         if flash_mode != "qio":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
             # print("**** Flash mode: idf_config_flags", idf_config_flags)
