@@ -127,6 +127,7 @@ flag_custom_sdkonfig = False
 flag_custom_component_add = False
 flag_custom_component_remove = False
 board_idf_config_flags = ""
+idf_config_flags = ""
 
 IDF5 = (
     platform.get_package_version("framework-espidf")
@@ -181,9 +182,6 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
     idf_config_flags = env.GetProjectOption("custom_sdkconfig")
-else:
-    idf_config_flags = ""
-    env['CUSTOM_SDKCONFIG'] = {}
 
 if "espidf.custom_sdkconfig" in board:
     board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
