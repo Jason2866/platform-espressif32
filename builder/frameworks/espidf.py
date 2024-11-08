@@ -237,7 +237,7 @@ def HandleArduinoIDFsettings(env):
         with open(sdkconfig_src) as src:
             sdkconfig_dst = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
             dst = open(sdkconfig_dst,"w")
-            dst.write("# TASMOTA__"+ get_MD5_hash(idf_config_flags).strip() + mcu) +"\n")
+            dst.write("# TASMOTA__"+ get_MD5_hash(idf_config_flags.strip() + mcu) +"\n")
             while line := src.readline():
                 flag = get_flag(line)
                 if flag is None:
