@@ -126,6 +126,7 @@ idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
 flag_custom_component_add = False
 flag_custom_component_remove = False
+board_idf_config_flags = ""
 
 IDF5 = (
     platform.get_package_version("framework-espidf")
@@ -180,9 +181,10 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
 
-if len(str(board.get("espidf.custom_sdkconfig"))) > 2:
+if board.has_option("espidf.custom_sdkconfig")
+    board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
     flag_custom_sdkonfig = True
-    print("Länge board custom sdkconfig", len(str(board.get("espidf.custom_sdkconfig"))))
+    print("board custom sdkconfig", board_idf_config_flags)
 
 if config.has_option("env:"+env["PIOENV"], "custom_component_add"):
     flag_custom_component_add = True
@@ -198,7 +200,6 @@ def HandleArduinoIDFsettings(env):
 
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
-        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
         idf_config_flags = idf_config_flags + "\n" + board_idf_config_flags
         if flash_frequency != "80m":
