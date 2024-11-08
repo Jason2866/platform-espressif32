@@ -65,6 +65,7 @@ if "framework-arduinoespressif32" in FRAMEWORK_DIR:
 if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in env.GetProjectOption("custom_sdkconfig"):
     
     print("**** Länge env", len(str(env.GetProjectOption("build_unflags"))))
+    print("**** Inhalt env", env.GetProjectOption("build_unflags"))
     if len(str(env.GetProjectOption("build_unflags"))) < 3:
         env['BUILD_UNFLAGS'] = {}
         print("BUILD_UNFLAGS", env['BUILD_UNFLAGS'])
