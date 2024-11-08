@@ -67,7 +67,6 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
         env['BUILD_UNFLAGS'] = {}
     build_unflags = " ".join(env['BUILD_UNFLAGS'])
     build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
-    print("BUILD_UNFLAGS", build_unflags)
     new_build_unflags = build_unflags.split()
     env.Replace(
       BUILD_UNFLAGS=new_build_unflags
