@@ -44,8 +44,10 @@ mcu = board.get("build.mcu", "esp32")
 board_sdkconfig = board.get("espidf.custom_sdkconfig", "")
 print("*** board custom sdkconfig", board_sdkconfig)
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
+    entry_custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
     flag_custom_sdkconfig = True
 else:
+    entry_custom_sdkconfig = ""
     flag_custom_sdkconfig = False
     env['CUSTOM_SDKCONFIG'] = {}
 if len(str(board_sdkconfig)) > 2:
@@ -70,7 +72,7 @@ if "framework-arduinoespressif32" in FRAMEWORK_DIR:
     flag_any_custom_sdkconfig = os.path.exists(join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig"))
 
 # Esp32-solo1 libs needs adopted settings
-if flag_custom_sdkconfig == True and "CORE32SOLO1" in extra_flags and ("CONFIG_FREERTOS_UNICORE=y" in env.GetProjectOption("custom_sdkconfig") or "CONFIG_FREERTOS_UNICORE=y" in board_sdkconfig):
+if flag_custom_sdkconfig == True and "CORE32SOLO1" in extra_flags and ("CONFIG_FREERTOS_UNICORE=y" in entry_custom_sdkconfig or "CONFIG_FREERTOS_UNICORE=y" in board_sdkconfig):
     if len(str(env.GetProjectOption("build_unflags"))) == 2: # No valid env, needs init
         env['BUILD_UNFLAGS'] = {}
     build_unflags = " ".join(env['BUILD_UNFLAGS'])
@@ -161,7 +163,7 @@ def matching_custom_sdkconfig():
         line = src.readline()
         if line.startswith("# TASMOTA__"):
             cust_sdk_is_present = True;
-            costum_options = env.GetProjectOption("custom_sdkconfig")
+            costum_options = entry_custom_sdkconfig
             if (line.split("__")[1]).strip() == get_MD5_hash((costum_options).strip() + mcu):
                 matching_sdkconfig = True
 
