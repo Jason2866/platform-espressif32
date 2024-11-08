@@ -199,7 +199,7 @@ def HandleArduinoIDFsettings(env):
 
     if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
         flag_custom_sdkonfig = True
-        idf_config_flags = env.GetProjectOption("custom_sdkconfig")
+        custom_sdk_config_flags = env.GetProjectOption("custom_sdkconfig")
 
     print("**** board", board)
     if "espidf.custom_sdkconfig" in board:
@@ -209,6 +209,7 @@ def HandleArduinoIDFsettings(env):
 
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
+        idf_config_flags = custom_sdk_config_flags
         idf_config_flags = idf_config_flags + "\n" + board_idf_config_flags
         if flash_frequency != "80m":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
@@ -237,7 +238,7 @@ def HandleArduinoIDFsettings(env):
         with open(sdkconfig_src) as src:
             sdkconfig_dst = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
             dst = open(sdkconfig_dst,"w")
-            dst.write("# TASMOTA__"+ get_MD5_hash(''.join(idf_config_flags).strip() + mcu) +"\n")
+            dst.write("# TASMOTA__"+ get_MD5_hash(''.join(custom_sdk_config_flags).strip() + mcu) +"\n")
             while line := src.readline():
                 flag = get_flag(line)
                 if flag is None:
