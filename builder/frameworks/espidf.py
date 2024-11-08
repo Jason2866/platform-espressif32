@@ -194,7 +194,7 @@ def HandleArduinoIDFsettings(env):
         import hashlib
         return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
 
-    idf_config_flags = ""
+    custom_sdk_config_flags = ""
     board_idf_config_flags = ""
 
     if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
