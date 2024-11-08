@@ -63,18 +63,17 @@ if "framework-arduinoespressif32" in FRAMEWORK_DIR:
 
 # Esp32-solo1 libs needs adopted settings
 if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_UNICORE=y" in env.GetProjectOption("custom_sdkconfig"):
-    if "BUILD_UNFLAGS" not in env:
-        env["BUILD_UNFLAGS"] = {}
-    env.Replace(BUILD_UNFLAGS=" -DJUST_A_TEST")
-    print("BUILD_UNFLAGS", " ".join(env['BUILD_UNFLAGS']))
-    if len(str(env.GetProjectOption("build_unflags"))) > 2:
-        build_unflags = " ".join(env['BUILD_UNFLAGS'])
-        build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
-        print("BUILD_UNFLAGS", build_unflags)
-        new_build_unflags = build_unflags.split()
-        env.Replace(
-          BUILD_UNFLAGS=new_build_unflags
-        )
+    if len(str(env.GetProjectOption("build_unflags"))) < 3:
+        env['BUILD_UNFLAGS'] = {}
+        env.Replace(BUILD_UNFLAGS=" -DJUST_A_TEST")
+        print("BUILD_UNFLAGS", "".join(env['BUILD_UNFLAGS']))
+    build_unflags = " ".join(env['BUILD_UNFLAGS'])
+    build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
+    print("BUILD_UNFLAGS", build_unflags)
+    new_build_unflags = build_unflags.split()
+    env.Replace(
+      BUILD_UNFLAGS=new_build_unflags
+    )
 
 def install_python_deps():
     def _get_installed_pip_packages():
