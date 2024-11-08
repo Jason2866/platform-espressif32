@@ -37,6 +37,7 @@ class Espressif32Platform(PlatformBase):
 
         board_config = self.board_config(variables.get("board"))
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
+        board_sdkconfig = variables.get("board_espidf.custom_sdkconfig", board_config.get("espidf.custom_sdkconfig", ""))
         core_variant_board = ''.join(variables.get("board_build.extra_flags", board_config.get("build.extra_flags", "")))
         core_variant_board = core_variant_board.replace("-D", " ")
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
@@ -50,7 +51,7 @@ class Espressif32Platform(PlatformBase):
             else:
                 self.packages["framework-arduinoespressif32"]["optional"] = False
 
-        if variables.get("custom_sdkconfig") is not None:
+        if variables.get("custom_sdkconfig") is not None or len(str(board_sdkconfig)) > 3:
             frameworks.append("espidf")
             self.packages["framework-espidf"]["optional"] = False
             self.packages["framework-arduinoespressif32"]["optional"] = False
