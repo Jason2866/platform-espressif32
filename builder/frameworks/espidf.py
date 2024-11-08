@@ -200,13 +200,13 @@ def HandleArduinoIDFsettings(env):
         custom_sdk_config_flags = env.GetProjectOption("custom_sdkconfig")
 
     if "espidf.custom_sdkconfig" in board:
-        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
+        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")])
         flag_custom_sdkonfig = True
 
     if flag_custom_sdkonfig == True: # TDOO duplicated
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = custom_sdk_config_flags
-        idf_config_flags = idf_config_flags + "\n" + board_idf_config_flags
+        idf_config_flags = idf_config_flags + "\n" + board_idf_config_flags + "\n"
         if flash_frequency != "80m":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
             esptool_flashfreq_y = "CONFIG_ESPTOOLPY_FLASHFREQ_%s=y\n" % flash_frequency.upper()
