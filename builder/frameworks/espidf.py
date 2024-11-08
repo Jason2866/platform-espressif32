@@ -181,7 +181,7 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
 
-if board.has_option("espidf.custom_sdkconfig"):
+if "espidf.custom_sdkconfig" in board:
     board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
     flag_custom_sdkonfig = True
     print("board custom sdkconfig", board_idf_config_flags)
