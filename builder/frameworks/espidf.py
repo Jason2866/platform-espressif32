@@ -200,7 +200,7 @@ def HandleArduinoIDFsettings(env):
         custom_sdk_config_flags = env.GetProjectOption("custom_sdkconfig")
 
     if "espidf.custom_sdkconfig" in board:
-        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")])
+        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
         flag_custom_sdkonfig = True
 
     if flag_custom_sdkonfig == True: # TDOO duplicated
@@ -220,6 +220,7 @@ def HandleArduinoIDFsettings(env):
         if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
             idf_config_flags = idf_config_flags + "# CONFIG_SPIRAM is not set\n"
 
+        print("config flags", idf_config_flags)
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
