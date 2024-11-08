@@ -181,22 +181,21 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 #
 if config.has_option("env:"+env["PIOENV"], "custom_component_add"):
     flag_custom_component_add = True
-
 if config.has_option("env:"+env["PIOENV"], "custom_component_remove"):
     flag_custom_component_remove = True
 
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
-    idf_config_flags = env.GetProjectOption("custom_sdkconfig")
-
 if "espidf.custom_sdkconfig" in board:
-    board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
     flag_custom_sdkonfig = True
 
 def HandleArduinoIDFsettings(env):
     def get_MD5_hash(phrase):
         import hashlib
         return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
+
+    idf_config_flags = ""
+    board_idf_config_flags = ""
 
     if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
         flag_custom_sdkonfig = True
