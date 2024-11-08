@@ -126,8 +126,6 @@ idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
 flag_custom_component_add = False
 flag_custom_component_remove = False
-board_idf_config_flags = ""
-idf_config_flags = ""
 
 IDF5 = (
     platform.get_package_version("framework-espidf")
@@ -201,13 +199,11 @@ def HandleArduinoIDFsettings(env):
         flag_custom_sdkonfig = True
         custom_sdk_config_flags = env.GetProjectOption("custom_sdkconfig")
 
-    print("**** board", board)
     if "espidf.custom_sdkconfig" in board:
-        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
+        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")])
         flag_custom_sdkonfig = True
-        print("******* board custom sdkconfig", board_idf_config_flags)
 
-    if flag_custom_sdkonfig == True:
+    if flag_custom_sdkonfig == True: # TDOO duplicated
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = custom_sdk_config_flags
         idf_config_flags = idf_config_flags + "\n" + board_idf_config_flags
