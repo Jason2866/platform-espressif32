@@ -184,7 +184,14 @@ if config.has_option("env:"+env["PIOENV"], "custom_component_add"):
 
 if config.has_option("env:"+env["PIOENV"], "custom_component_remove"):
     flag_custom_component_remove = True
-    
+
+if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
+    flag_custom_sdkonfig = True
+    idf_config_flags = env.GetProjectOption("custom_sdkconfig")
+
+if "espidf.custom_sdkconfig" in board:
+    board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
+    flag_custom_sdkonfig = True
 
 def HandleArduinoIDFsettings(env):
     def get_MD5_hash(phrase):
@@ -327,7 +334,7 @@ def HandleCOMPONENTsettings(env):
 if flag_custom_component_add == True or flag_custom_component_remove == True:
     HandleCOMPONENTsettings(env)
 
-if flag_custom_sdkonfig and "arduino" in env.subst("$PIOFRAMEWORK"):
+if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK"):
     HandleArduinoIDFsettings(env)
     LIB_SOURCE = os.path.join(env.subst("$PROJECT_CORE_DIR"), "platforms", "espressif32", "builder", "build_lib")
     if not bool(os.path.exists(os.path.join(PROJECT_DIR, ".dummy"))):
