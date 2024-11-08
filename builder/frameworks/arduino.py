@@ -66,7 +66,7 @@ if flag_custom_sdkconfig and "CORE32SOLO1" in extra_flags and "CONFIG_FREERTOS_U
     if "BUILD_UNFLAGS" not in env:
         env["BUILD_UNFLAGS"] = {}
     env.Replace(BUILD_UNFLAGS=" -DJUST_A_TEST")
-    print("BUILD_UNFLAGS", " ".join(env['BUILD_UNFLAGS'])
+    print("BUILD_UNFLAGS", " ".join(env['BUILD_UNFLAGS']))
     if len(str(env.GetProjectOption("build_unflags"))) > 2:
         build_unflags = " ".join(env['BUILD_UNFLAGS'])
         build_unflags = build_unflags + " -mdisable-hardware-atomics -ustart_app_other_cores"
