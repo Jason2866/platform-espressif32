@@ -195,10 +195,11 @@ def HandleArduinoIDFsettings(env):
         flag_custom_sdkonfig = True
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
 
+    print("**** board", board)
     if "espidf.custom_sdkconfig" in board:
         board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
         flag_custom_sdkonfig = True
-        print("board custom sdkconfig", board_idf_config_flags)
+        print("******* board custom sdkconfig", board_idf_config_flags)
 
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
