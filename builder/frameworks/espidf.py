@@ -180,6 +180,10 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     flag_custom_sdkonfig = True
 
+if len(str(board.get("espidf.custom_sdkconfig"))) > 2:
+    flag_custom_sdkonfig = True
+    print("Länge board custom sdkconfig", len(str(board.get("espidf.custom_sdkconfig"))))
+
 if config.has_option("env:"+env["PIOENV"], "custom_component_add"):
     flag_custom_component_add = True
 
@@ -194,8 +198,9 @@ def HandleArduinoIDFsettings(env):
 
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
+        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
         idf_config_flags = env.GetProjectOption("custom_sdkconfig")
-        idf_config_flags = idf_config_flags + "\n"
+        idf_config_flags = idf_config_flags + "\n" + board_idf_config_flags
         if flash_frequency != "80m":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
             esptool_flashfreq_y = "CONFIG_ESPTOOLPY_FLASHFREQ_%s=y\n" % flash_frequency.upper()
