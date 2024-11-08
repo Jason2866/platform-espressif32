@@ -43,7 +43,7 @@ board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 board_sdkconfig = ''.join([element for element in board.get("espidf.custom_sdkconfig", "")])
 print("Board custom sdkconfig", board_sdkconfig)
-flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")]))
+flag_custom_sdkconfig = config.has_option("env:"+env["PIOENV"], "custom_sdkconfig")
 extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", " ")
 build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
 framework_reinstall = False
