@@ -179,15 +179,6 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 #
 # generate modified Arduino IDF sdkconfig, applying settings from "custom_sdkconfig"
 #
-if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
-    flag_custom_sdkonfig = True
-    idf_config_flags = env.GetProjectOption("custom_sdkconfig")
-
-if "espidf.custom_sdkconfig" in board:
-    board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
-    flag_custom_sdkonfig = True
-    print("board custom sdkconfig", board_idf_config_flags)
-
 if config.has_option("env:"+env["PIOENV"], "custom_component_add"):
     flag_custom_component_add = True
 
@@ -199,6 +190,15 @@ def HandleArduinoIDFsettings(env):
     def get_MD5_hash(phrase):
         import hashlib
         return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
+
+    if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
+        flag_custom_sdkonfig = True
+        idf_config_flags = env.GetProjectOption("custom_sdkconfig")
+
+    if "espidf.custom_sdkconfig" in board:
+        board_idf_config_flags = '\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")]) + "\n"
+        flag_custom_sdkonfig = True
+        print("board custom sdkconfig", board_idf_config_flags)
 
     if flag_custom_sdkonfig == True:
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
