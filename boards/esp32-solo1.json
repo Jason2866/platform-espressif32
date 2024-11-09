@@ -31,7 +31,12 @@
   },
   "espidf": {
     "custom_sdkconfig": [
-      "CONFIG_FREERTOS_UNICORE=y"
+      "CONFIG_FREERTOS_UNICORE=y",
+      "# CONFIG_TWAI_ERRATA_FIX_BUS_OFF_REC is not set",
+      "# CONFIG_TWAI_ERRATA_FIX_TX_INTR_LOST is not set",
+      "# CONFIG_TWAI_ERRATA_FIX_RX_FRAME_INVALID is not set",
+      "# CONFIG_TWAI_ERRATA_FIX_RX_FIFO_CORRUPT is not set",
+      "# CONFIG_TWAI_ERRATA_FIX_LISTEN_ONLY_DOM is not set"
     ]
   },
   "url": "https://en.wikipedia.org/wiki/ESP32",
