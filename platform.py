@@ -43,7 +43,7 @@ class Espressif32Platform(PlatformBase):
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
 
-        if "arduino" in frameworks and (variables.get("custom_sdkconfig") is None or len(str(board_sdkconfig)) < 3):
+        if "arduino" in frameworks and variables.get("custom_sdkconfig") is None and len(str(board_sdkconfig)) < 3:
             print("***** Len of board_sdkconfig entry:", len(str(board_sdkconfig)))
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
                 self.packages["framework-arduino-solo1"]["optional"] = False
