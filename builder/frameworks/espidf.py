@@ -209,11 +209,11 @@ def HandleArduinoIDFsettings(env):
                     return ""
                 return target
             if "file://" in file:
-                PROJECT_ROOT_DIR = PROJECT_DIR.rsplit(os.path.sep,1)[0]
-                print("*** project root dir", PROJECT_ROOT_DIR)
-                file_path = join(PROJECT_ROOT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
+                # PROJECT_ROOT_DIR = PROJECT_DIR.rsplit(os.path.sep,1)[0]
+                # print("*** project root dir", PROJECT_ROOT_DIR)
+                file_path = join(PROJECT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
                 print("*** project dir list", os.listdir(PROJECT_DIR))
-                print("*** root dir list", os.listdir(PROJECT_ROOT_DIR))
+                # print("*** root dir list", os.listdir(PROJECT_ROOT_DIR))
                 print("custom sdkconfig file path:", file_path)
                 if len(file_path) > 1:
                     with open(file_path, 'r') as file:
