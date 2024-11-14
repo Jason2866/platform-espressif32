@@ -233,6 +233,7 @@ def HandleArduinoIDFsettings(env):
         flag_custom_sdkonfig = True
         custom_sdk_config_flags = (env.GetProjectOption("custom_sdkconfig").rstrip("\n")) + "\n"
         custom_sdkconfig_file = str(custom_sdkconfig_file(sdkconfig_file_flags))
+        print("*** custom_sdkconfig_file", custom_sdkconfig_file)
 
     if "espidf.custom_sdkconfig" in board:
         board_idf_config_flags = ('\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")])).rstrip("\n") + "\n"
