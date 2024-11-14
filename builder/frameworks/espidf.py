@@ -222,6 +222,7 @@ def HandleArduinoIDFsettings(env):
     custom_sdk_config_flags = ""
     board_idf_config_flags = ""
     sdkconfig_file_flags = ""
+    custom_sdkconfig_file_str = ""
 
     if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
         flag_custom_sdkonfig = True
