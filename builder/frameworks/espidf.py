@@ -253,7 +253,7 @@ def HandleArduinoIDFsettings(env):
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
-        custom_sdkconfig_file = custom_sdkconfig_file()
+        custom_sdkconfig_file = custom_sdkconfig_file(custom_sdkconfig_file)
         print("custom sdkconfig file:", custom_sdkconfig_file)
         if custom_sdkconfig_file != 0:
             # There is a custom sdkconfig file, do not use any other entry from custom_sdkconfig
