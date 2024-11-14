@@ -209,10 +209,11 @@ def HandleArduinoIDFsettings(env):
                     return 0
                 return(target)
             if "file" and "://" in file:
-                target = join(BUILD_DIR,file.split(os.path.sep)[-1])
+                file_path = join(BUILD_DIR,file.split(os.path.sep)[-1])
+                print("custom sdkconfig file path:", file_path)
                 if len(file.split(" ")) > 1:
-                    target = join(BUILD_DIR,file.split(" ")[1])
-                    print("Renaming",(file.split(os.path.sep)[-1]).split(" ")[0],"to",file.split(" ")[1])
+                    with open(file_path, 'r') as file:
+                        target = file.read().decode('utf-8')
                 else:
                     print("File not found: ",file)
                     return 0
