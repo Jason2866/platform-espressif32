@@ -195,6 +195,8 @@ def HandleArduinoIDFsettings(env):
         return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
 
     def custom_sdkconfig_file(custom_sdkconfig_file):
+        if not config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
+            return 0
         file = env.GetProjectOption("custom_sdkconfig").splitlines()
         for file in files:
             if "http" and "://" in file:
