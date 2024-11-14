@@ -214,7 +214,7 @@ def HandleArduinoIDFsettings(env):
                 print("*** project root dir", PROJECT_ROOT_DIR)
                 file_path = join(PROJECT_ROOT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
                 print("custom sdkconfig file path:", file_path)
-                if len(file.split(" ")) > 1:
+                if len(file_path) > 1:
                     with open(file_path, 'r') as file:
                         target = file.read().decode('utf-8')
                 else:
