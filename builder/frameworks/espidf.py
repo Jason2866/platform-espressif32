@@ -217,7 +217,7 @@ def HandleArduinoIDFsettings(env):
                 print("custom sdkconfig file path:", file_path)
                 if len(file_path) > 1:
                     with open(file_path, 'r') as file:
-                        target = file.read().decode('utf-8')
+                        target = file.read()
                 else:
                     print("File not found: ",file)
                     return ""
@@ -241,7 +241,7 @@ def HandleArduinoIDFsettings(env):
     if flag_custom_sdkonfig == True: # TDOO duplicated
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = custom_sdk_config_flags
-        if len(custom_sdkconfig_file) > 2:
+        if custom_sdkconfig_file is not "":
             sdkconfig_file_flags = custom_sdkconfig_file.rstrip("\n") + "\n"
             idf_config_flags = idf_config_flags + sdkconfig_file_flags
         idf_config_flags = idf_config_flags + board_idf_config_flags
