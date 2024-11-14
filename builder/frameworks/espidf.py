@@ -43,7 +43,6 @@ from SCons.Script import (
 from platformio import fs, __version__
 from platformio.compat import IS_WINDOWS
 from platformio.proc import exec_command
-from platformio.project.helpers import get_project_dir
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
 from platformio.project.config import ProjectConfig
 from platformio.package.version import get_original_version, pepver_to_semver
@@ -212,7 +211,7 @@ def HandleArduinoIDFsettings(env):
                 return(target)
             if "file://" in file:
                 print("*** project dir", PROJECT_DIR)
-                print("*** project root die", get_project_dir())
+                print("*** project source dir", PROJECT_SRC_DIR)
                 file_path = join(PROJECT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
                 print("custom sdkconfig file path:", file_path)
                 if len(file.split(" ")) > 1:
@@ -227,12 +226,12 @@ def HandleArduinoIDFsettings(env):
 
     custom_sdk_config_flags = ""
     board_idf_config_flags = ""
+    sdkconfig_file_flags = ""
 
     if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
         flag_custom_sdkonfig = True
         custom_sdk_config_flags = (env.GetProjectOption("custom_sdkconfig").rstrip("\n")) + "\n"
         custom_sdkconfig_file = custom_sdkconfig_file(custom_sdkconfig_file)
-        # print("custom sdkconfig file:", custom_sdkconfig_file)
 
     if "espidf.custom_sdkconfig" in board:
         board_idf_config_flags = ('\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")])).rstrip("\n") + "\n"
@@ -242,7 +241,8 @@ def HandleArduinoIDFsettings(env):
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = custom_sdk_config_flags
         if custom_sdkconfig_file != 0:
-            idf_config_flags = idf_config_flags + str(custom_sdkconfig_file).rstrip("\n") + "\n"
+            sdkconfig_file_flags = ('n'.join(custom_sdkconfig_file)).rstrip("\n") + "\n"
+            idf_config_flags = idf_config_flags + sdkconfig_file_flags
         idf_config_flags = idf_config_flags + board_idf_config_flags
         if flash_frequency != "80m":
             idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
