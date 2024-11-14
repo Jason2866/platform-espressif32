@@ -200,7 +200,8 @@ def HandleArduinoIDFsettings(env):
         sdkconfig_entrys = env.GetProjectOption("custom_sdkconfig").splitlines()
         print("sdkconfig entrys:", sdkconfig_entrys)
         for file in sdkconfig_entrys:
-            if "http" and "://" in file:
+            print("*** Parser:", file)
+            if "http" in file and "://" in file:
                 response = requests.get(file.split(" ")[0])
                 if response.ok:
                     target = str(response.content.decode('utf-8'))
@@ -208,8 +209,8 @@ def HandleArduinoIDFsettings(env):
                     print("Failed to download: ",file)
                     return 0
                 return(target)
-            if "file" and "://" in file:
-                file_path = join(BUILD_DIR,file.split(os.path.sep)[-1])
+            if "file://" in file:
+                file_path = join(BUILD_DIR,file.lstrip("file://").split(os.path.sep)[-1])
                 print("custom sdkconfig file path:", file_path)
                 if len(file.split(" ")) > 1:
                     with open(file_path, 'r') as file:
