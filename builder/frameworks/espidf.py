@@ -43,6 +43,7 @@ from SCons.Script import (
 from platformio import fs, __version__
 from platformio.compat import IS_WINDOWS
 from platformio.proc import exec_command
+from platformio.project.helpers import get_project_dir
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
 from platformio.project.config import ProjectConfig
 from platformio.package.version import get_original_version, pepver_to_semver
@@ -210,6 +211,8 @@ def HandleArduinoIDFsettings(env):
                     return 0
                 return(target)
             if "file://" in file:
+                print("*** project dir", PROJECT_DIR)
+                print("*** project root die", get_project_dir())
                 file_path = join(PROJECT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
                 print("custom sdkconfig file path:", file_path)
                 if len(file.split(" ")) > 1:
