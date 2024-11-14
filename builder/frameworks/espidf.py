@@ -210,7 +210,7 @@ def HandleArduinoIDFsettings(env):
                     return 0
                 return(target)
             if "file://" in file:
-                file_path = join(BUILD_DIR,file.lstrip("file://").split(os.path.sep)[-1])
+                file_path = join(PROJECT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
                 print("custom sdkconfig file path:", file_path)
                 if len(file.split(" ")) > 1:
                     with open(file_path, 'r') as file:
