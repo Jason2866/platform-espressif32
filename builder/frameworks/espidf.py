@@ -210,9 +210,9 @@ def HandleArduinoIDFsettings(env):
                     return 0
                 return(target)
             if "file://" in file:
-                print("*** project dir", PROJECT_DIR)
-                print("*** project source dir", PROJECT_SRC_DIR)
-                file_path = join(PROJECT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
+                PROJECT_ROOT_DIR = PROJECT_DIR.rsplit(os.path.sep,1)[0]
+                print("*** project root dir", PROJECT_ROOT_DIR)
+                file_path = join(PROJECT_ROOT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
                 print("custom sdkconfig file path:", file_path)
                 if len(file.split(" ")) > 1:
                     with open(file_path, 'r') as file:
@@ -241,7 +241,7 @@ def HandleArduinoIDFsettings(env):
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = custom_sdk_config_flags
         if custom_sdkconfig_file != 0:
-            sdkconfig_file_flags = ('n'.join(custom_sdkconfig_file)).rstrip("\n") + "\n"
+            sdkconfig_file_flags = str(custom_sdkconfig_file).rstrip("\n") + "\n"
             idf_config_flags = idf_config_flags + sdkconfig_file_flags
         idf_config_flags = idf_config_flags + board_idf_config_flags
         if flash_frequency != "80m":
