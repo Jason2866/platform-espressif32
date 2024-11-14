@@ -203,7 +203,7 @@ def HandleArduinoIDFsettings(env):
             if "http" and "://" in file:
                 response = requests.get(file.split(" ")[0])
                 if response.ok:
-                    target = str(response.content).decode('utf-8')
+                    target = str(response.content.decode('utf-8'))
                 else:
                     print("Failed to download: ",file)
                     return 0
