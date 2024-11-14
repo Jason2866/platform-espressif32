@@ -28,6 +28,7 @@ import shutil
 import os
 from os.path import join
 import re
+import requests
 import platform as sys_platform
 
 import click
@@ -193,6 +194,34 @@ def HandleArduinoIDFsettings(env):
         import hashlib
         return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
 
+def custom_sdkconfig_file(custom_sdkconfig_file):
+    file = env.GetProjectOption("custom_sdkconfig").splitlines()
+    for file in files:
+        if "http" and "://" in file:
+            response = requests.get(file.split(" ")[0])
+            if response.ok:
+                target = join(BUILD_DIR,file.split(os.path.sep)[-1])
+                if len(file.split(" ")) > 1:
+                    target = join(BUILD_DIR,file.split(" ")[1])
+                    print("Renaming",(file.split(os.path.sep)[-1]).split(" ")[0],"to",file.split(" ")[1])
+                open(target, "wb").write(response.content)
+            else:
+                print("Failed to download: ",file)
+                return 0
+            return(target)
+        if "file" and "://" in file:
+            target = join(BUILD_DIR,file.split(os.path.sep)[-1])
+            if len(file.split(" ")) > 1:
+                target = join(BUILD_DIR,file.split(" ")[1])
+                print("Renaming",(file.split(os.path.sep)[-1]).split(" ")[0],"to",file.split(" ")[1])
+            else:
+                print("File not found: ",file)
+                return 0
+            return(target)
+    print("*** No custom sdkconfig file ***")
+    return 0
+
+
     custom_sdk_config_flags = ""
     board_idf_config_flags = ""
 
@@ -223,6 +252,13 @@ def HandleArduinoIDFsettings(env):
 
         idf_config_flags = idf_config_flags.splitlines()
         sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
+
+        sdkconfig_file = custom_sdkconfig_file()
+        print("sdkconfig file:", sdkconfig_file)
+        if sdkconfig_file != 0:
+            # There is a custom sdkconfig file, do not use any other entry from custom_sdkconfig
+            # Maybe changing to combine file and entrys
+            idf_config_flags = sdkconfig_file
 
         def get_flag(line):
             if line.startswith("#") and "is not set" in line:
