@@ -211,7 +211,7 @@ def HandleArduinoIDFsettings(env):
                 else:
                     print("Failed to download: ",file)
                     return 0
-                return(target)
+                return(response.content)
             if "file" and "://" in file:
                 target = join(BUILD_DIR,file.split(os.path.sep)[-1])
                 if len(file.split(" ")) > 1:
