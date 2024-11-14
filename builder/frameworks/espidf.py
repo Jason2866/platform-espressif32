@@ -194,11 +194,10 @@ def HandleArduinoIDFsettings(env):
         import hashlib
         return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
 
-    def custom_sdkconfig_file(custom_sdkconfig_file):
+    def custom_sdkconfig_file(string):
         if not config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
             return ""
         sdkconfig_entrys = env.GetProjectOption("custom_sdkconfig").splitlines()
-        print("sdkconfig entrys:", sdkconfig_entrys)
         for file in sdkconfig_entrys:
             print("*** Parser:", file)
             if "http" in file and "://" in file:
@@ -208,7 +207,7 @@ def HandleArduinoIDFsettings(env):
                 else:
                     print("Failed to download: ",file)
                     return ""
-                return(target)
+                return target
             if "file://" in file:
                 PROJECT_ROOT_DIR = PROJECT_DIR.rsplit(os.path.sep,1)[0]
                 print("*** project root dir", PROJECT_ROOT_DIR)
@@ -220,7 +219,7 @@ def HandleArduinoIDFsettings(env):
                 else:
                     print("File not found: ",file)
                     return ""
-                return(target)
+                return target
         return ""
 
 
@@ -231,7 +230,7 @@ def HandleArduinoIDFsettings(env):
     if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
         flag_custom_sdkonfig = True
         custom_sdk_config_flags = (env.GetProjectOption("custom_sdkconfig").rstrip("\n")) + "\n"
-        custom_sdkconfig_file = str(custom_sdkconfig_file(custom_sdkconfig_file))
+        custom_sdkconfig_file = str(custom_sdkconfig_file(sdkconfig_file_flags))
 
     if "espidf.custom_sdkconfig" in board:
         board_idf_config_flags = ('\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")])).rstrip("\n") + "\n"
@@ -240,7 +239,7 @@ def HandleArduinoIDFsettings(env):
     if flag_custom_sdkonfig == True: # TDOO duplicated
         print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
         idf_config_flags = custom_sdk_config_flags
-        if len(custom_sdkconfig_file) > 1:
+        if len(custom_sdkconfig_file) > 2:
             sdkconfig_file_flags = custom_sdkconfig_file.rstrip("\n") + "\n"
             idf_config_flags = idf_config_flags + sdkconfig_file_flags
         idf_config_flags = idf_config_flags + board_idf_config_flags
