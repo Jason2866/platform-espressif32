@@ -203,15 +203,11 @@ def HandleArduinoIDFsettings(env):
             if "http" and "://" in file:
                 response = requests.get(file.split(" ")[0])
                 if response.ok:
-                    target = join(BUILD_DIR,file.split(os.path.sep)[-1])
-                    if len(file.split(" ")) > 1:
-                        target = join(BUILD_DIR,file.split(" ")[1])
-                        print("Renaming",(file.split(os.path.sep)[-1]).split(" ")[0],"to",file.split(" ")[1])
-                    open(target, "wb").write(response.content)
+                    target = str(response.content).decode('utf-8')
                 else:
                     print("Failed to download: ",file)
                     return 0
-                return(response.content)
+                return(target)
             if "file" and "://" in file:
                 target = join(BUILD_DIR,file.split(os.path.sep)[-1])
                 if len(file.split(" ")) > 1:
