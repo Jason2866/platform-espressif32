@@ -157,7 +157,6 @@ if (
 # Arduino framework as a component is not compatible with ESP-IDF >5.3
 if "arduino" in env.subst("$PIOFRAMEWORK"):
     ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
-    ARDUINO_FRMWRK_LIB_DIR = platform.get_package_dir("framework-arduinoespressif32-libs")
     # Possible package names in 'package@version' format is not compatible with CMake
     if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
         new_path = os.path.join(
@@ -255,7 +254,7 @@ def HandleArduinoIDFsettings(env):
             idf_config_flags = idf_config_flags + "# CONFIG_SPIRAM is not set\n"
 
         idf_config_flags = idf_config_flags.splitlines()
-        sdkconfig_src = join(ARDUINO_FRMWRK_LIB_DIR,mcu,"sdkconfig")
+        sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
         def get_flag(line):
             if line.startswith("#") and "is not set" in line:
@@ -2052,7 +2051,7 @@ if "arduino" in env.get("PIOFRAMEWORK") and "espidf" not in env.get("PIOFRAMEWOR
     def idf_lib_copy(source, target, env):
         env_build = join(env["PROJECT_BUILD_DIR"],env["PIOENV"])
         sdkconfig_h_path = join(env_build,"config","sdkconfig.h")
-        arduino_libs = ARDUINO_FRMWRK_LIB_DIR
+        arduino_libs = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs")
         lib_src = join(env_build,"esp-idf")
         lib_dst = join(arduino_libs,mcu,"lib")
         ld_dst = join(arduino_libs,mcu,"ld")
