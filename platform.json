@@ -18,7 +18,7 @@
     "type": "git",
     "url": "https://github.com/pioarduino/platform-espressif32.git"
   },
-  "version": "54.03.10+develop",
+  "version": "54.03.20+develop",
   "frameworks": {
     "arduino": {
       "script": "builder/frameworks/arduino.py"
@@ -33,7 +33,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3132/framework-arduinoespressif32-all-release_v5.3-1c74f314.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3178/framework-arduinoespressif32-all-release_v5.4-87f67ba7.zip"
     },
      "framework-arduino-solo1": {
       "type": "framework",
@@ -57,7 +57,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.0.240929/esp-idf-v5.4.0.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.0.241112/esp-idf-v5.4.0.zip"
     },
     "xtensa-esp-elf": {
       "type": "toolchain",
