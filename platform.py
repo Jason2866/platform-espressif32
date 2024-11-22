@@ -70,12 +70,13 @@ class Espressif32Platform(PlatformBase):
             frameworks.append("espidf")
 
         if "arduino" in frameworks:
-            if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
-                self.packages["framework-arduino-solo1"]["optional"] = False
-            elif "CORE32ITEAD" in core_variant_board or "FRAMEWORK_ARDUINO_ITEAD" in core_variant_build:
-                self.packages["framework-arduino-ITEAD"]["optional"] = False
-            else:
-                self.packages["framework-arduinoespressif32"]["optional"] = False
+            self.packages["framework-arduinoespressif32"]["optional"] = False
+
+        if variables.get("custom_sdkconfig") is not None or len(str(board_sdkconfig)) > 3:
+            frameworks.append("espidf")
+            self.packages["framework-espidf"]["optional"] = False
+            if mcu == "esp32c2":
+                self.packages["framework-arduino-c2-skeleton-lib"]["optional"] = False
 
         # Enable debug tool gdb only when build debug is enabled
         if (variables.get("build_type") or "debug" in "".join(targets)) and tl_flag:
