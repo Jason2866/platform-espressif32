@@ -104,7 +104,7 @@ class Espressif32Platform(PlatformBase):
                 if p in ("tool-scons", "tool-cmake", "tool-ninja"):
                     self.packages[p]["optional"] = False
 
-        if "".join(targets) in ("upload", "buildfs", "uploadfs"):
+        if "".join(targets) in ("upload", "buildfs", "uploadfs") or variables.get("custom_files_upload") is not none:
             filesystem = variables.get("board_build.filesystem", "littlefs")
             if filesystem == "littlefs":
                 # Use mklittlefs v3.2.0 to generate FS
