@@ -1629,7 +1629,7 @@ def ensure_python_venv_available():
 
         if os.path.isdir(venv_dir):
             try:
-                print("Removing an oudated IDF virtual environment")
+                print("Removing an outdated IDF virtual environment")
                 shutil.rmtree(venv_dir)
             except OSError:
                 print(
