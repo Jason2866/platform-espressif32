@@ -30,7 +30,6 @@ import shutil
 from os.path import join
 
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
-from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.project.config import ProjectConfig
 from platformio.package.manager.tool import ToolPackageManager
@@ -55,8 +54,6 @@ if len(str(board_sdkconfig)) > 2:
 extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", " ")
 framework_reinstall = False
 flag_any_custom_sdkconfig = False
-
-FRAMEWORK_DIR = fs.to_unix_path(platform.get_package_dir("framework-arduinoespressif32"))
 
 SConscript("_embed_files.py", exports="env")
 
@@ -174,31 +171,6 @@ def check_reinstall_frwrk():
         framework_reinstall = True
     return framework_reinstall
 
-IS_INTEGRATION_DUMP = env.IsIntegrationDump()
-
-def shorten_includes(env, node):
-    if IS_INTEGRATION_DUMP:
-       # Don't shorten include paths for IDE integrations
-       return node
-       
-    includes = [fs.to_unix_path(inc) for inc in env.get("CPPPATH", [])]
-    shortened_includes = []
-    generic_includes = []
-    for inc in includes:
-        if inc.startswith(FRAMEWORK_DIR):
-            shortened_includes.append(
-                "-iwithprefix/"
-                + fs.to_unix_path(os.path.relpath(inc, FRAMEWORK_DIR))
-            )
-        else:
-            generic_includes.append(inc)
- 
-    return env.Object(
-        node,
-        CPPPATH=generic_includes,
-        CCFLAGS=env["CCFLAGS"] + ["-iprefix", FRAMEWORK_DIR] + shortened_includes
-    )
-
 def call_compile_libs():
     print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
     SConscript("espidf.py")
@@ -216,7 +188,6 @@ if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
     call_compile_libs()
 
 if "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK") and env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("Inactive", "True"):
-    env.AddBuildMiddleware(shorten_includes)
     if os.path.exists(join(platform.get_package_dir(
             "framework-arduinoespressif32"), "tools", "platformio-build.py")):
         PIO_BUILD = "platformio-build.py"
