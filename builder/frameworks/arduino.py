@@ -1,3 +1,4 @@
+
 # Copyright 2014-present PlatformIO <contact@platformio.org>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +27,7 @@ import subprocess
 import json
 import semantic_version
 import os
+import sys
 import shutil
 from os.path import join
 
@@ -44,6 +46,7 @@ mcu = board.get("build.mcu", "esp32")
 board_sdkconfig = board.get("espidf.custom_sdkconfig", "")
 entry_custom_sdkconfig = "\n"
 flag_custom_sdkconfig = False
+IS_WINDOWS = sys.platform.startswith("win")
 
 if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
     entry_custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
@@ -174,6 +177,19 @@ def check_reinstall_frwrk():
         framework_reinstall = True
     return framework_reinstall
 
+def call_compile_libs():
+    print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
+    SConscript("espidf.py")
+
+if check_reinstall_frwrk() == True:
+    print("*** Reinstall Arduino framework ***")
+    shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
+    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
+    pm.install(ARDUINO_FRMWRK_URL)
+    if flag_custom_sdkconfig == True:
+        call_compile_libs()
+        flag_custom_sdkconfig = False
+
 
 FRAMEWORK_SDK_DIR = fs.to_unix_path(
     os.path.join(
@@ -229,24 +245,12 @@ def shorthen_includes(env, node):
         + shortened_includes,
     )
 
-def call_compile_libs():
-    print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
-    SConscript("espidf.py")
-
-if check_reinstall_frwrk() == True:
-    print("*** Reinstall Arduino framework ***")
-    shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
-    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
-    pm.install(ARDUINO_FRMWRK_URL)
-    if flag_custom_sdkconfig == True:
-        call_compile_libs()
-        flag_custom_sdkconfig = False
-    
 if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
     call_compile_libs()
 
 if "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK") and env.subst("$ARDUINO_LIB_COMPILE_FLAG") in ("Inactive", "True"):
-    env.AddBuildMiddleware(shorthen_includes)
+    if IS_WINDOWS:
+        env.AddBuildMiddleware(shorthen_includes)
     if os.path.exists(join(platform.get_package_dir(
             "framework-arduinoespressif32"), "tools", "platformio-build.py")):
         PIO_BUILD = "platformio-build.py"
