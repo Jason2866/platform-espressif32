@@ -300,6 +300,7 @@ env.Replace(
     ),
 
     ESP32_APP_OFFSET=env.get("INTEGRATION_EXTRA_DATA").get("application_offset"),
+    ARDUINO_LIB_COMPILE_FLAG="Inactive",
 
     PROGSUFFIX=".elf"
 )
