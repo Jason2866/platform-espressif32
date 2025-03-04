@@ -5,7 +5,7 @@
 
 [![Examples](https://github.com/Jason2866/platform-espressif32/actions/workflows/examples.yml/badge.svg)](https://github.com/Jason2866/platform-espressif32/actions/workflows/examples.yml)[![GitHub Releases](https://img.shields.io/github/downloads/tasmota/platform-espressif32/total?label=downloads)](https://github.com/tasmota/platform-espressif32/releases/latest)
 
-Espressif Systems is a privately held fabless semiconductor company. They provide wireless communications and Wi-Fi chips which are widely used in mobile devices and the Internet of Things applications.
+Espressif Systems is a privately held fabless semiconductor company. They provide wireless communications chips which are widely used.
 
 * [Home](http://platformio.org/platforms/espressif32) (home page in PlatformIO Platform Registry)
 * [Documentation](http://docs.platformio.org/page/platforms/espressif32.html) (advanced usage, packages, boards, frameworks, etc.)
@@ -15,7 +15,7 @@ Espressif Systems is a privately held fabless semiconductor company. They provid
 1. [Install PlatformIO](http://platformio.org)
 2. Create PlatformIO project and configure a platform option in [platformio.ini](http://docs.platformio.org/page/projectconf.html) file:
 
-### Development build Arduino 3.3.0+ and IDF 5.5.0+ (build from development sources)
+### Arduino 3.3.0+ and IDF 5.5.0+ (build from development sources)
 Support for the ESP32/ESP32solo1, ESP32C2, ESP32C3, ESP32C5, ESP32C6, ESP32S2, ESP32S3, ESP32-H2 and ESP32-P4
 
 ```                  
@@ -24,7 +24,7 @@ platform = https://github.com/Jason2866/platform-espressif32.git#Arduino/IDF55
 framework = arduino
 ```
 
-Released frameworks are available for downloaded [here](https://github.com/tasmota/arduino-esp32/releases)
+Released frameworks are available [here](https://github.com/tasmota/arduino-esp32/releases)
 
 # Configuration
 
