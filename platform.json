@@ -35,12 +35,6 @@
       "owner": "espressif",
       "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3447/framework-arduinoespressif32-all-release_v5.3-a8f33310.zip"
     },
-    "framework-arduinoespressif32-libs": {
-      "type": "framework",
-      "optional": true,
-      "owner": "espressif",
-      "version": ""
-    },
     "framework-arduino-c2-skeleton-lib": {
       "type": "framework",
       "optional": true,
