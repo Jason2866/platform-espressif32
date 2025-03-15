@@ -1,58 +1,30 @@
-# pioarduino (p)eople (i)nitiated (o)ptimized (arduino)
-# Fork of Platformio Espressif 32: development platform for [PlatformIO](https://platformio.org)
+[![Build_special_firmware](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct.svg)](https://github.com/vshymanskyy/StandWithUkraine/blob/main/docs/README.md)
 
-[![Build Status](https://github.com/pioarduino/platform-espressif32/workflows/Examples/badge.svg)](https://github.com/pioarduino/platform-espressif32/actions)
-[![GitHub Releases](https://img.shields.io/github/downloads/pioarduino/platform-espressif32/total?label=downloads)](https://github.com/pioarduino/platform-espressif32/releases/latest)
 
-> [!NOTE]  
-> This fork was created due to the lack of ongoing development for the Espressif 32 Arduino Core for PlatformIO.
->
-> For additional information, please refer to these GitHub links:
-> 
-> https://github.com/espressif/arduino-esp32/discussions/10039
-> https://github.com/platformio/platform-espressif32/issues/1225
-> https://github.com/espressif/arduino-esp32/pull/8606
->
-> The discussions are self-explanatory, allowing you to draw your own conclusions.
+# Tasmota Espressif 32: development platform for [PlatformIO](http://platformio.org)
 
-ESP32 is a series of low-cost, low-power system on a chip microcontrollers with integrated Wi-Fi and Bluetooth. ESP32 integrates an antenna switch, RF balun, power amplifier, low-noise receive amplifier, filters, and power management modules.
+[![Examples](https://github.com/Jason2866/platform-espressif32/actions/workflows/examples.yml/badge.svg)](https://github.com/Jason2866/platform-espressif32/actions/workflows/examples.yml)[![GitHub Releases](https://img.shields.io/github/downloads/tasmota/platform-espressif32/total?label=downloads)](https://github.com/tasmota/platform-espressif32/releases/latest)
 
-* [Documentation](https://docs.platformio.org/page/platforms/espressif32.html) (advanced usage, packages, boards, frameworks, etc.)
+Espressif Systems is a privately held fabless semiconductor company. They provide wireless communications and Wi-Fi chips which are widely used in mobile devices and the Internet of Things applications.
 
-## IDE Preparation
-
-- [Download and install official Microsoft Visual Studio Code](https://code.visualstudio.com/). PlatformIO IDE is built on top of it.
-- Open the extension manager.
-- Search for the official `platformio ide` extension.
-- Install PlatformIO IDE extension.
-
-![image](https://github.com/user-attachments/assets/9549991b-6a8b-4d77-ad9f-3b08873d7e30)
+* [Home](http://platformio.org/platforms/espressif32) (home page in PlatformIO Platform Registry)
+* [Documentation](http://docs.platformio.org/page/platforms/espressif32.html) (advanced usage, packages, boards, frameworks, etc.)
 
 # Usage
-1. Setup new VSCode PlatformIO project.
-1. Configure a platform option in [platformio.ini](https://docs.platformio.org/page/projectconf.html) file:
 
-### Stable version
-espressif Arduino 3.0.3 and IDF 5.1.4
+1. [Install PlatformIO](http://platformio.org)
+2. Create PlatformIO project and configure a platform option in [platformio.ini](http://docs.platformio.org/page/projectconf.html) file:
 
-See `platform` [documentation](https://docs.platformio.org/en/latest/projectconf/sections/env/options/platform/platform.html#projectconf-env-platform) for details.
-
-```ini
-[env:stable]
-platform = https://github.com/pioarduino/platform-espressif32/releases/download/51.03.03/platform-espressif32.zip
-board = ...
-...
+### Development build Arduino 3.2.0+ and IDF 5.4.0+ (build from development branches)
+Support for the ESP32/ESP32solo1, ESP32C2, ESP32C3, ESP32C6, ESP32S2, ESP32S3, ESP32-H2 and ESP32-P4
+```                  
+[platformio]
+platform = https://github.com/Jason2866/platform-espressif32.git#idf_install_54
+framework = arduino
 ```
 
-### Development version
-
-```ini
-[env:development]
-platform = https://github.com/pioarduino/platform-espressif32.git#develop
-board = ...
-...
-```
+The released frameworks can be downloaded [here](https://github.com/tasmota/arduino-esp32/releases)
 
 # Configuration
 
-Please navigate to [documentation](https://docs.platformio.org/page/platforms/espressif32.html).
+Please navigate to [documentation](http://docs.platformio.org/page/platforms/espressif32.html).
