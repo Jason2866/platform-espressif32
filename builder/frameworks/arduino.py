@@ -58,9 +58,11 @@ extra_flags = (''.join([element for element in board.get("build.extra_flags", ""
 framework_reinstall = False
 flag_any_custom_sdkconfig = False
 
+FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+
 SConscript("_embed_files.py", exports="env")
 
-flag_any_custom_sdkconfig = os.path.exists(join(platform.get_package_dir("framework-arduinoespressif32-libs"),"sdkconfig"))
+flag_any_custom_sdkconfig = os.path.exists(join(platform.get_package_dir("framework-arduinoespressif32"),"tools","esp32-arduino-libs","sdkconfig"))
 
 # Esp32-solo1 libs needs adopted settings
 if flag_custom_sdkconfig == True and ("CORE32SOLO1" in extra_flags or "CONFIG_FREERTOS_UNICORE=y" in entry_custom_sdkconfig or "CONFIG_FREERTOS_UNICORE=y" in board_sdkconfig):
@@ -100,8 +102,8 @@ def install_python_deps():
     deps = {
         "wheel": ">=0.35.1",
         "rich-click": ">=1.8.6",
-        "PyYAML": ">=6.0.2",
-        "intelhex": ">=2.3.0"
+        "zopfli": ">=0.2.2",
+        "tasmota-metrics": ">=0.4.3"
     }
 
     installed_packages = _get_installed_pip_packages()
@@ -175,10 +177,25 @@ def check_reinstall_frwrk():
         framework_reinstall = True
     return framework_reinstall
 
+def call_compile_libs():
+    print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
+    SConscript("espidf.py")
+
+if check_reinstall_frwrk() == True:
+    print("*** Reinstall Arduino framework ***")
+    shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
+    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
+    pm.install(ARDUINO_FRMWRK_URL)
+    if flag_custom_sdkconfig == True:
+        call_compile_libs()
+        flag_custom_sdkconfig = False
+
 
 FRAMEWORK_SDK_DIR = fs.to_unix_path(
     os.path.join(
-        FRAMEWORK_LIB_DIR,
+        FRAMEWORK_DIR,
+        "tools",
+        "esp32-arduino-libs",
         mcu,
         "include",
     )
@@ -228,19 +245,6 @@ def shorthen_includes(env, node):
         + shortened_includes,
     )
 
-def call_compile_libs():
-    print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
-    SConscript("espidf.py")
-
-if check_reinstall_frwrk() == True:
-    print("*** Reinstall Arduino framework ***")
-    shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
-    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
-    pm.install(ARDUINO_FRMWRK_URL)
-    if flag_custom_sdkconfig == True:
-        call_compile_libs()
-        flag_custom_sdkconfig = False
-    
 if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
     call_compile_libs()
 
