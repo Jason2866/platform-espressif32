@@ -58,8 +58,6 @@ extra_flags = (''.join([element for element in board.get("build.extra_flags", ""
 framework_reinstall = False
 flag_any_custom_sdkconfig = False
 
-FRAMEWORK_LIB_DIR = platform.get_package_dir("framework-arduinoespressif32-libs")
-
 SConscript("_embed_files.py", exports="env")
 
 flag_any_custom_sdkconfig = os.path.exists(join(platform.get_package_dir("framework-arduinoespressif32-libs"),"sdkconfig"))
@@ -241,11 +239,8 @@ def call_compile_libs():
 if check_reinstall_frwrk() == True:
     print("*** Reinstall Arduino framework ***")
     shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
-    shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32-libs"))
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
-    ARDUINO_FRMWRK_LIB_URL = str(platform.get_package_spec("framework-arduinoespressif32-libs")).split("uri=",1)[1][:-1]
     pm.install(ARDUINO_FRMWRK_URL)
-    pm.install(ARDUINO_FRMWRK_LIB_URL)
     if flag_custom_sdkconfig == True:
         call_compile_libs()
         flag_custom_sdkconfig = False
