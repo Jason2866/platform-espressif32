@@ -255,7 +255,7 @@ def HandleArduinoIDFsettings(env):
             idf_config_flags = idf_config_flags + "# CONFIG_SPIRAM is not set\n"
 
         idf_config_flags = idf_config_flags.splitlines()
-        sdkconfig_src = join(ARDUINO_FRMWRK_LIB_DIR,mcu,"sdkconfig")
+        sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
         def get_flag(line):
             if line.startswith("#") and "is not set" in line:
@@ -405,15 +405,13 @@ def is_cmake_reconfigure_required(cmake_api_reply_dir):
     ]
     cmake_preconf_dir = os.path.join(BUILD_DIR, "config")
     deafult_sdk_config = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
-    idf_deps_lock = os.path.join(PROJECT_DIR, "dependencies.lock")
-    ninja_buildfile = os.path.join(BUILD_DIR, "build.ninja")
 
     for d in (cmake_api_reply_dir, cmake_preconf_dir):
         if not os.path.isdir(d) or not os.listdir(d):
             return True
     if not os.path.isfile(cmake_cache_file):
         return True
-    if not os.path.isfile(ninja_buildfile):
+    if not os.path.isfile(os.path.join(BUILD_DIR, "build.ninja")):
         return True
     if not os.path.isfile(SDKCONFIG_PATH) or os.path.getmtime(
         SDKCONFIG_PATH
@@ -422,10 +420,6 @@ def is_cmake_reconfigure_required(cmake_api_reply_dir):
     if os.path.isfile(deafult_sdk_config) and os.path.getmtime(
         deafult_sdk_config
     ) > os.path.getmtime(cmake_cache_file):
-        return True
-    if os.path.isfile(idf_deps_lock) and os.path.getmtime(
-        idf_deps_lock
-    ) > os.path.getmtime(ninja_buildfile):
         return True
     if any(
         os.path.getmtime(f) > os.path.getmtime(cmake_cache_file)
