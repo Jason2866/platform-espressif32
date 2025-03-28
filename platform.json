@@ -33,13 +33,13 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3473/framework-arduinoespressif32-all-release_v5.4-f9666946.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3475/framework-arduinoespressif32-all-release_v5.4-5f144874.zip"
     },
     "framework-espidf": {
       "type": "framework",
       "optional": true,
       "owner": "Jason2866",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.0.250314/esp-idf-v5.4.0.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.1/esp-idf-v5.4.1.zip"
     },
     "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
