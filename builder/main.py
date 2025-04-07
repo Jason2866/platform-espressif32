@@ -24,6 +24,7 @@ from platformio.util import get_serial_ports
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
+projectconfig = env.GetProjectConfig()
 
 #
 # Helpers
@@ -234,7 +235,7 @@ board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 toolchain_arch = "xtensa-%s" % mcu
 filesystem = board.get("build.filesystem", "spiffs")
-if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
+if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
     toolchain_arch = "riscv32-esp"
 
 if "INTEGRATION_EXTRA_DATA" not in env:
@@ -300,11 +301,13 @@ env.Replace(
     ),
 
     ESP32_APP_OFFSET=env.get("INTEGRATION_EXTRA_DATA").get("application_offset"),
-    
     ARDUINO_LIB_COMPILE_FLAG="Inactive",
 
     PROGSUFFIX=".elf"
 )
+
+# Set lib_archive to False for all envs to avoid issues with weak defs in framework and libs
+projectconfig.set("env:" + env["PIOENV"], "lib_archive", "False")
 
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
