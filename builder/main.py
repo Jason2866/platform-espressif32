@@ -294,6 +294,9 @@ env.Replace(
     PROGSUFFIX=".elf"
 )
 
+# Set lib_archive to False for all envs to avoid issues with weak defs in framework and libs
+config.set("env:" + env["PIOENV"], "lib_archive", "False")
+
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
     env.Replace(PROGNAME="firmware")
