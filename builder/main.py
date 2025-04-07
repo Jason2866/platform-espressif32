@@ -256,7 +256,7 @@ env.Replace(
     GDB=join(
         platform.get_package_dir(
             "riscv32-esp-elf-gdb"
-            if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4")
+            if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4")
             else "xtensa-esp-elf-gdb"
         )
         or "",
@@ -306,8 +306,20 @@ env.Replace(
     PROGSUFFIX=".elf"
 )
 
-# Set lib_archive to False for all envs to avoid issues with weak defs in framework and libs
-projectconfig.set("env:" + env["PIOENV"], "lib_archive", "False")
+# Check if lib_archive is set in platformio.ini and set it to False
+# if not found. This makes weak defs in framework and libs possible.
+def check_lib_archive_exists():
+    for section in projectconfig.sections():
+        if "lib_archive" in projectconfig.options(section):
+            #print(f"lib_archive in [{section}] found with value: {projectconfig.get(section, 'lib_archive')}")
+            return True
+    #print("lib_archive was not found in platformio.ini")
+    return False
+ 
+if not check_lib_archive_exists():
+    env_section = "env:" + env["PIOENV"]
+    projectconfig.set(env_section, "lib_archive", "False")
+    #print(f"lib_archive is set to False in [{env_section}]")
 
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
