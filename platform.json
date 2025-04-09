@@ -109,6 +109,11 @@
       "owner": "",
       "version": ""
     },
+    "esp-rom-elfs": {
+       "optional": true,
+       "owner": "",
+       "version": ""
+     }
     "tool-mklittlefs": {
       "type": "uploader",
       "optional": true,
