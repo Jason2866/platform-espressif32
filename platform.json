@@ -88,6 +88,11 @@
       "owner": "platformio",
       "version": "~2.1100.0"
     },
+    "tool-esp-rom-elfs": {
+      "optional": true,
+      "owner": "platformio",
+      "version": "0.0.1+20241011"
+    },
     "tool-mklittlefs": {
       "type": "uploader",
       "owner": "tasmota",
