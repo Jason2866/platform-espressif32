@@ -93,7 +93,7 @@ class Espressif32Platform(PlatformBase):
                 if p in (
                      "tool-cmake",
                      "tool-ninja",
-                     "toolchain-esp32ulp",
+                     "tool-scons",
                      "tool-esp-rom-elfs",
                  ):
                     self.packages[p]["optional"] = False
