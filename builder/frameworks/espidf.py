@@ -130,8 +130,6 @@ flag_custom_component_remove = False
 # Allow changes in folders of managed components
 os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
 
-idf_env["ESP_ROM_ELF_DIR"] = platform.get_package_dir("tool-esp-rom-elfs")
-
 IDF5 = (
     platform.get_package_version("framework-espidf")
     .split(".")[1]
@@ -537,6 +535,7 @@ def populate_idf_env_vars(idf_env):
     if "IDF_TOOLS_PATH" in idf_env:
         del idf_env["IDF_TOOLS_PATH"]
 
+    idf_env["ESP_ROM_ELF_DIR"] = platform.get_package_dir("tool-esp-rom-elfs")
 
 def get_target_config(project_configs, target_index, cmake_api_reply_dir):
     target_json = project_configs.get("targets")[target_index].get("jsonFile", "")
