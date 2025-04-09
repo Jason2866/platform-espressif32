@@ -109,6 +109,11 @@
       "owner": "",
       "version": ""
     },
+    "tool-esp-rom-elfs": {
+      "optional": true,
+      "owner": "platformio",
+      "version": "0.0.1+20241011"
+    },
     "tool-mklittlefs": {
       "type": "uploader",
       "optional": true,
