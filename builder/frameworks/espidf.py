@@ -115,11 +115,6 @@ def install_standard_python_deps():
 
 install_standard_python_deps()
 
-# Allow changes in folders of managed components
-os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
-
-idf_env["ESP_ROM_ELF_DIR"] = platform.get_package_dir("tool-esp-rom-elfs")
-
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
@@ -131,6 +126,11 @@ idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
 flag_custom_component_add = False
 flag_custom_component_remove = False
+
+# Allow changes in folders of managed components
+os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
+
+idf_env["ESP_ROM_ELF_DIR"] = platform.get_package_dir("tool-esp-rom-elfs")
 
 IDF5 = (
     platform.get_package_version("framework-espidf")
