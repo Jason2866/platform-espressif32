@@ -1531,11 +1531,10 @@ def install_python_deps():
         # https://github.com/platformio/platformio-core/issues/4614
         "urllib3": "<2",
         # https://github.com/platformio/platform-espressif32/issues/635
-        "cryptography": "~=41.0.1",
-        "future": ">=0.18.3",
+        "cryptography": "~=44.0.0",
         "pyparsing": ">=3.1.0,<4",
-        "idf-component-manager": "~=2.0.1",
-        "esp-idf-kconfig": ">=2.5.0"
+        "idf-component-manager": "~=1.5.2",
+        "esp-idf-kconfig": "~=2.5.0"
     }
 
     if sys_platform.system() == "Darwin" and "arm" in sys_platform.machine().lower():
