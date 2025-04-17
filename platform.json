@@ -32,14 +32,14 @@
     "framework-arduinoespressif32": {
       "type": "framework",
       "optional": true,
-      "owner": "espressif",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3447/framework-arduinoespressif32-all-release_v5.3-a8f33310.zip"
+      "owner": "",
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3520/framework-arduinoespressif32-all-release_v5.3-599e3a22.zip"
     },
     "framework-espidf": {
       "type": "framework",
       "optional": true,
-      "owner": "pioarduino",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.3.2.250308/esp-idf-v5.3.2.zip"
+      "owner": "",
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.3.3.250415/esp-idf-v5.3.3.zip"
     },
     "xtensa-esp-elf": {
       "type": "toolchain",
@@ -74,7 +74,7 @@
     "tool-esptoolpy": {
       "type": "uploader",
       "optional": false,
-      "owner": "pioarduino",
+      "owner": "tasmota",
       "version": "https://github.com/tasmota/esptool/releases/download/v4.8.9/esptool.zip"
     },
     "tl-install": {
