@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "keywords": [
     "dev-platform",
-    "Wi-Fi",
+    "WiFi",
     "Bluetooth",
     "Xtensa",
     "RISC-V"
@@ -33,7 +33,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3519/framework-arduinoespressif32-all-master-aa8cfbc3.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3524/framework-arduinoespressif32-all-master-6de67e43.zip"
     },
     "framework-espidf": {
       "type": "framework",
