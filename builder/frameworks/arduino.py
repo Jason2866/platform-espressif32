@@ -202,7 +202,12 @@ if check_reinstall_frwrk() == True:
 
 envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
 for env_name in envs:
-    print(f"- {env_name}")
+    #print(f"- {env_name}")
+    try:
+        print("sdkconfig.{env_name}")
+        os.remove(join(env.subst("$PROJECT_DIR"),"sdkconfig.{env_name}"))
+    except:
+        pass
 
 FRAMEWORK_SDK_DIR = fs.to_unix_path(
     os.path.join(
