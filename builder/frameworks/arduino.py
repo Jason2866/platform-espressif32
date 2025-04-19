@@ -192,6 +192,14 @@ def call_compile_libs():
     SConscript("espidf.py")
 
 if check_reinstall_frwrk() == True:
+    envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
+    for env_name in envs:
+        file_path = join(env.subst("$PROJECT_DIR"), f"sdkconfig.{env_name}")
+        if exists(file_path):
+            print(f"Removing {file_path}")
+            os.remove(file_path)
+        else:
+            print(f"File {file_path} does not exist.")
     print("*** Reinstall Arduino framework ***")
     shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
     ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
@@ -199,15 +207,6 @@ if check_reinstall_frwrk() == True:
     if flag_custom_sdkconfig == True:
         call_compile_libs()
         flag_custom_sdkconfig = False
-
-envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
-for env_name in envs:
-    file_path = join(env.subst("$PROJECT_DIR"), f"sdkconfig.{env_name}")
-    if exists(file_path):
-        print(f"Removing {file_path}")
-        os.remove(file_path)
-    else:
-        print(f"File {file_path} does not exist.")
 
 FRAMEWORK_SDK_DIR = fs.to_unix_path(
     os.path.join(
