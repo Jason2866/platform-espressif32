@@ -200,8 +200,9 @@ if check_reinstall_frwrk() == True:
         call_compile_libs()
         flag_custom_sdkconfig = False
 
-all_envs = [section for section in config.sections() if section.startswith("env:")]
-print("********* ", all_envs)
+envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
+for env_name in envs:
+    print(f"- {env_name}")
 
 FRAMEWORK_SDK_DIR = fs.to_unix_path(
     os.path.join(
