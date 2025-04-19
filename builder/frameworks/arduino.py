@@ -204,8 +204,8 @@ envs = [section.replace("env:", "") for section in config.sections() if section.
 for env_name in envs:
     #print(f"- {env_name}")
     try:
-        print("sdkconfig.{env_name}")
-        os.remove(join(env.subst("$PROJECT_DIR"),"sdkconfig.{env_name}"))
+        print(f"sdkconfig.{env_name}")
+        os.remove(join(env.subst("$PROJECT_DIR"), f"sdkconfig.{env_name}"))
     except:
         pass
 
