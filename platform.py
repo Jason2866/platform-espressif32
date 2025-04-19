@@ -53,7 +53,6 @@ if (tl_flag and not bool(os.path.exists(join(IDF_TOOLS_PATH_DEFAULT, "tools"))))
         for p in ("tool-mklittlefs", "tool-mkfatfs", "tool-mkspiffs", "tool-dfuutil", "tool-openocd", "tool-cmake", "tool-ninja", "tool-cppcheck", "tool-clangtidy", "tool-pvs-studio", "tc-xt-esp32", "tc-ulp", "tc-rv32", "tl-xt-gdb", "tl-rv-gdb", "contrib-piohome", "contrib-pioremote"):
             tl_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", p)
             pm.install(tl_path)
-            pm.install("tool-scons")
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
@@ -102,12 +101,7 @@ class Espressif32Platform(PlatformBase):
         # packages for IDF and mixed Arduino+IDF projects
         if tl_flag and "espidf" in frameworks:
             for p in self.packages:
-                if p in (
-                     "tool-cmake",
-                     "tool-ninja",
-                     "tool-scons",
-                     "tool-esp-rom-elfs",
-                 ):
+                if p in ("tool-scons", "tool-cmake", "tool-ninja", "tool-esp-rom-elfs"):
                     self.packages[p]["optional"] = False
 
         if tl_flag and ("".join(targets) in ("upload", "buildfs", "uploadfs") or variables.get("custom_files_upload") is not None):
