@@ -181,21 +181,6 @@ def call_compile_libs():
     print("*** Compile Arduino IDF libs for %s ***" % env["PIOENV"])
     SConscript("espidf.py")
 
-if check_reinstall_frwrk() == True:
-    envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
-    for env_name in envs:
-        file_path = join(env.subst("$PROJECT_DIR"), f"sdkconfig.{env_name}")
-        if exists(file_path):
-            os.remove(file_path)
-    print("*** Reinstall Arduino framework ***")
-    shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
-    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
-    pm.install(ARDUINO_FRMWRK_URL)
-    if flag_custom_sdkconfig == True:
-        call_compile_libs()
-        flag_custom_sdkconfig = False
-
-
 FRAMEWORK_SDK_DIR = fs.to_unix_path(
     os.path.join(
         FRAMEWORK_DIR,
@@ -250,6 +235,34 @@ def shorthen_includes(env, node):
         + shortened_includes,
     )
 
+# Check if framework = arduino, espidf is set -> compile Arduino as an component of IDF
+# using platformio.ini entry since we modify the framework env var for Hybrid Compile!
+def get_frameworks_in_current_env():
+    current_env_section = "env:" + env["PIOENV"]
+    if "framework" in config.options(current_env_section):
+        frameworks = config.get(current_env_section, "framework", "")
+        return frameworks
+    return []
+
+current_env_frameworks = get_frameworks_in_current_env()
+if "arduino" in current_env_frameworks and "espidf" in current_env_frameworks:
+    # Arduino as component is set, switch off Hybrid compile
+    flag_custom_sdkconfig = False
+
+if check_reinstall_frwrk() == True:
+    envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
+    for env_name in envs:
+        file_path = join(env.subst("$PROJECT_DIR"), f"sdkconfig.{env_name}")
+        if exists(file_path):
+            os.remove(file_path)
+    print("*** Reinstall Arduino framework ***")
+    shutil.rmtree(platform.get_package_dir("framework-arduinoespressif32"))
+    ARDUINO_FRMWRK_URL = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=",1)[1][:-1]
+    pm.install(ARDUINO_FRMWRK_URL)
+    if flag_custom_sdkconfig == True:
+        call_compile_libs()
+        flag_custom_sdkconfig = False
+    
 if flag_custom_sdkconfig == True and flag_any_custom_sdkconfig == False:
     call_compile_libs()
 
