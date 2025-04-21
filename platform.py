@@ -17,7 +17,6 @@ import urllib
 import sys
 import json
 import re
-import requests
 
 from platformio.public import PlatformBase, to_unix_path
 
@@ -91,10 +90,10 @@ class Espressif32Platform(PlatformBase):
             self.packages["toolchain-esp32ulp"]["optional"] = False
             for p in self.packages:
                 if p in (
-                     "tool-cmake",
-                     "tool-ninja",
-                     "tool-scons",
-                     "tool-esp-rom-elfs",
+                    "tool-cmake",
+                    "tool-ninja",
+                    "tool-scons",
+                    "tool-esp-rom-elfs",
                  ):
                     self.packages[p]["optional"] = False
                 elif p in ("tool-mconf", "tool-idf") and IS_WINDOWS:
