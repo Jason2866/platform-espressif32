@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import subprocess
 import sys
@@ -24,6 +25,15 @@ from platformio.proc import get_pythonexe_path
 from platformio.project.config import ProjectConfig
 from platformio.package.manager.tool import ToolPackageManager
 
+def get_tool_version_from_platform_json(tool_name):
+    platform_json_path = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "platform.json")
+    with open(platform_json_path, "r", encoding="utf-8") as file:
+        platform_data = json.load(file)
+    packages = platform_data.get("packages", {})
+    tool_info = packages[tool_name]
+    version = tool_info.get("version", "") # version is an URL!
+    return version
+
 IS_WINDOWS = sys.platform.startswith("win")
 # Set Platformio env var to use windows_amd64 for all windows architectures
 # only windows_amd64 native espressif toolchains are available
@@ -33,6 +43,11 @@ if IS_WINDOWS:
 
 python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
+
+if not os.path.exists(os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tool-scons")):
+    scons_uri = get_tool_version_from_platform_json("tool-scons")
+    if scons_uri is not None:
+        pm.install(scons_uri)
 
 IDF_TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".espressif")
 IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
@@ -70,6 +85,13 @@ class Espressif32Platform(PlatformBase):
         if variables.get("custom_sdkconfig") is not None:
             frameworks.append("espidf")
 
+        if "arduino" in frameworks:
+            self.packages["framework-arduinoespressif32"]["optional"] = False
+
+        if variables.get("custom_sdkconfig") is not None or len(str(board_sdkconfig)) > 3:
+            frameworks.append("espidf")
+            self.packages["framework-espidf"]["optional"] = False
+
         # Enable debug tool gdb only when build debug is enabled
         if (variables.get("build_type") or "debug" in "".join(targets)) and tl_flag:
             self.packages["riscv32-esp-elf-gdb"]["optional"] = False if mcu in ["esp32c2", "esp32c3", "esp32c6", "esp32h2"] else True
@@ -91,19 +113,13 @@ class Espressif32Platform(PlatformBase):
         if "arduino" in frameworks:
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
-        if variables.get("custom_sdkconfig") is not None or len(str(board_sdkconfig)) > 3:
-            frameworks.append("espidf")
-            self.packages["framework-espidf"]["optional"] = False
-            if mcu == "esp32c2":
-                self.packages["framework-arduino-c2-skeleton-lib"]["optional"] = False
-
         # packages for IDF and mixed Arduino+IDF projects
         if tl_flag and "espidf" in frameworks:
             for p in self.packages:
                 if p in ("tool-scons", "tool-cmake", "tool-ninja"):
                     self.packages[p]["optional"] = False
 
-        if "".join(targets) in ("upload", "buildfs", "uploadfs"):
+        if tl_flag and ("".join(targets) in ("upload", "buildfs", "uploadfs") or variables.get("custom_files_upload") is not None):
             filesystem = variables.get("board_build.filesystem", "littlefs")
             if filesystem == "littlefs":
                 # Use mklittlefs v3.2.0 to generate FS
