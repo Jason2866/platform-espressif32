@@ -38,7 +38,7 @@ pm = ToolPackageManager()
 TOOL = "tool-openocd-esp32"
 TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio", ".install")
 IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
-TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
+TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "tools.json")
 IDF_TOOLS_CMD = (
     python_exe,
     IDF_TOOLS,
@@ -48,14 +48,14 @@ IDF_TOOLS_CMD = (
 )
 
 tl_flag = bool(os.path.exists(IDF_TOOLS))
-if (tl_flag and bool(os.path.isfile(join(TOOLS_JSON_PATH, "tools.json")))):
+if (tl_flag and bool(os.path.isfile(join(TOOLS_JSON_PATH)))):
     rc = subprocess.call(IDF_TOOLS_CMD)
     if rc != 0:
         sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
     else:
         tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
         pm.install(tl_path)
-        os.remove(join(TOOLS_JSON_PATH, "tools.json"))
+        os.remove(join(TOOLS_JSON_PATH))
 
 
 class Espressif32Platform(PlatformBase):
