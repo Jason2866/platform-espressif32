@@ -28,6 +28,31 @@ IS_WINDOWS = sys.platform.startswith("win")
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
 
+python_exe = get_pythonexe_path()
+pm = ToolPackageManager()
+
+IDF_TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio", ".install")
+IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
+IDF_TOOLS_CMD = (
+    python_exe,
+    IDF_TOOLS,
+    "install",
+    "--tools-json",
+    tools_json_path
+)
+
+# IDF Install is needed only one time
+tl_flag = bool(os.path.exists(IDF_TOOLS))
+if (tl_flag and not bool(os.path.exists(join(IDF_TOOLS_PATH_DEFAULT, "tools")))):
+    rc = subprocess.call(IDF_TOOLS_CMD)
+    if rc != 0:
+        sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
+    else:
+        shutil.copytree(join(IDF_TOOLS_PATH_DEFAULT, "tools", "tool-packages"), join(IDF_TOOLS_PATH_DEFAULT, "tools"), symlinks=False, ignore=None, ignore_dangling_symlinks=False, dirs_exist_ok=True)
+        for p in ("tool-openocd-esp32"):
+            tl_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", p)
+            pm.install(tl_path)
+
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
