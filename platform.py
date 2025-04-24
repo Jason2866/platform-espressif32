@@ -49,7 +49,7 @@ IDF_TOOLS_CMD = (
 )
 
 tl_flag = bool(os.path.exists(IDF_TOOLS))
-if (tl_flag and bool(os.path.exist(TOOLS_JSON_PATH))):
+if (tl_flag and bool(os.path.exists(TOOLS_JSON_PATH))):
     rc = subprocess.call(IDF_TOOLS_CMD)
     if rc != 0:
         sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
