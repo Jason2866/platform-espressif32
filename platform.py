@@ -36,8 +36,7 @@ python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
 TOOL = "tool-openocd-esp32"
-export IDF_TOOLS_PATH=~/.platformio/.install
-TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio", ".install")
+TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".espressif", "dist")
 IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
 TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "tools.json")
 IDF_TOOLS_CMD = (
