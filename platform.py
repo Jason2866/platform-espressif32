@@ -50,7 +50,7 @@ IDF_TOOLS_CMD = (
 
 tl_flag = bool(os.path.exists(IDF_TOOLS))
 json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
-print("tl flag, json flag:" tl_flag, json_flag)
+print("tl flag, json flag:", tl_flag, json_flag)
 if tl_flag and json_flag:
     rc = subprocess.call(IDF_TOOLS_CMD)
     if rc != 0:
@@ -59,7 +59,7 @@ if tl_flag and json_flag:
         tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
         pm.install(tl_path)
-        print("******* tl flag, json flag:" tl_flag, json_flag)
+        print("******* tl flag, json flag:", tl_flag, json_flag)
         os.remove(TOOLS_JSON_PATH)
 
 
