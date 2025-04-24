@@ -76,6 +76,11 @@
       "owner": "tasmota",
       "version": "https://github.com/tasmota/esptool/releases/download/v4.8.9/esptool.zip"
     },
+    "tl-install": {
+      "optional": false,
+      "owner": "pioarduino",
+      "version": "https://github.com/pioarduino/esp_install/releases/download/v3.0.0/esp_install-v3.0.0.zip"
+    },
     "tool-dfuutil-arduino": {
       "type": "uploader",
       "optional": true,
@@ -84,7 +89,7 @@
     },
     "tool-openocd-esp32": {
       "type": "debugger",
-      "optional": true,
+      "optional": false,
       "owner": "",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/openocd-v0.12.0-esp32-20250226.zip"
     },
