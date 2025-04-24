@@ -57,7 +57,7 @@ if (tl_flag and bool(os.path.isfile(join(TOOLS_JSON_PATH)))):
         tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
         pm.install(tl_path)
-        os.remove(join(TOOLS_JSON_PATH))
+        os.remove(TOOLS_JSON_PATH)
 
 
 class Espressif32Platform(PlatformBase):
