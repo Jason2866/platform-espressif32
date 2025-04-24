@@ -44,7 +44,7 @@ IDF_TOOLS_CMD = (
     python_exe,
     IDF_TOOLS,
     "--quiet",
-    "--non-interactive"
+    "--non-interactive",
     "--tools-json",
     TOOLS_JSON_PATH,
     "install"
