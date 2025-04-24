@@ -45,7 +45,9 @@ IDF_TOOLS_CMD = (
     IDF_TOOLS,
     "--tools-json",
     TOOLS_JSON_PATH,
-    "install"
+    "install",
+    "--quiet",
+    "--non-interactive"
 )
 
 tl_flag = bool(os.path.exists(IDF_TOOLS))
