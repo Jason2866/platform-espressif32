@@ -49,7 +49,9 @@ IDF_TOOLS_CMD = (
 )
 
 tl_flag = bool(os.path.exists(IDF_TOOLS))
-if (tl_flag and bool(os.path.exists(TOOLS_JSON_PATH))):
+json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
+print("tl flag, json flag:" tl_flag, json_flag)
+if tl_flag and json_flag:
     rc = subprocess.call(IDF_TOOLS_CMD)
     if rc != 0:
         sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
@@ -57,6 +59,7 @@ if (tl_flag and bool(os.path.exists(TOOLS_JSON_PATH))):
         tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
         pm.install(tl_path)
+        print("******* tl flag, json flag:" tl_flag, json_flag)
         os.remove(TOOLS_JSON_PATH)
 
 
