@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import urllib
-import sys
 import json
-import re
+import os
+import subprocess
+import sys
+import shutil
+from os.path import isfile, join
 
 from platformio.public import PlatformBase, to_unix_path
+from platformio.proc import get_pythonexe_path
+from platformio.project.config import ProjectConfig
+from platformio.package.manager.tool import ToolPackageManager
 
 
 IS_WINDOWS = sys.platform.startswith("win")
@@ -31,27 +35,27 @@ if IS_WINDOWS:
 python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
-IDF_TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio", ".install")
+TOOL = "tool-openocd-esp32"
+TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio", ".install")
 IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
+TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
 IDF_TOOLS_CMD = (
     python_exe,
     IDF_TOOLS,
     "install",
     "--tools-json",
-    tools_json_path
+    TOOLS_JSON_PATH
 )
 
-# IDF Install is needed only one time
 tl_flag = bool(os.path.exists(IDF_TOOLS))
-if (tl_flag and not bool(os.path.exists(join(IDF_TOOLS_PATH_DEFAULT, "tools")))):
+if (tl_flag and bool(os.path.isfile(join(TOOLS_JSON_PATH, "tools.json")))):
     rc = subprocess.call(IDF_TOOLS_CMD)
     if rc != 0:
         sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
     else:
-        shutil.copytree(join(IDF_TOOLS_PATH_DEFAULT, "tools", "tool-packages"), join(IDF_TOOLS_PATH_DEFAULT, "tools"), symlinks=False, ignore=None, ignore_dangling_symlinks=False, dirs_exist_ok=True)
-        for p in ("tool-openocd-esp32"):
-            tl_path = "file://" + join(IDF_TOOLS_PATH_DEFAULT, "tools", p)
-            pm.install(tl_path)
+        tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
+        pm.install(tl_path)
+        os.remove(join(TOOLS_JSON_PATH, "tools.json"))
 
 
 class Espressif32Platform(PlatformBase):
