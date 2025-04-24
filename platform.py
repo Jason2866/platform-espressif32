@@ -43,11 +43,11 @@ TOOLS_PACK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "p
 IDF_TOOLS_CMD = (
     python_exe,
     IDF_TOOLS,
-    "--tools-json",
-    TOOLS_JSON_PATH,
-    "install",
     "--quiet",
     "--non-interactive"
+    "--tools-json",
+    TOOLS_JSON_PATH,
+    "install"
 )
 
 tl_flag = bool(os.path.exists(IDF_TOOLS))
