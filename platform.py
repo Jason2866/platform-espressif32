@@ -57,7 +57,6 @@ if tl_flag and json_flag:
     else:
         tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
-        print("Installing:", join(TOOLS_PATH_DEFAULT, "tools", TOOL))
         pm.install(tl_path)
 
 
