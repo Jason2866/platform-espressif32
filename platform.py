@@ -34,32 +34,33 @@ if IS_WINDOWS:
 python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
-TOOL = "tool-openocd-esp32"
-TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
-IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
-TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "tools.json")
-TOOLS_PACK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "package.json")
-IDF_TOOLS_CMD = (
-    python_exe,
-    IDF_TOOLS,
-    "--quiet",
-    "--non-interactive",
-    "--tools-json",
-    TOOLS_JSON_PATH,
-    "install"
-)
+def install_tool(TOOL):
+    TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
+    IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
+    TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "tools.json")
+    TOOLS_PACK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "package.json")
+    IDF_TOOLS_CMD = (
+        python_exe,
+        IDF_TOOLS,
+        "--quiet",
+        "--non-interactive",
+        "--tools-json",
+        TOOLS_JSON_PATH,
+        "install"
+    )
 
-tl_flag = bool(os.path.exists(IDF_TOOLS))
-json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
-if tl_flag and json_flag:
-    rc = subprocess.call(IDF_TOOLS_CMD)
-    if rc != 0:
-        sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
-    else:
-        tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
-        shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
-        pm.install(tl_path)
+    tl_flag = bool(os.path.exists(IDF_TOOLS))
+    json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
+    if tl_flag and json_flag:
+        rc = subprocess.call(IDF_TOOLS_CMD)
+        if rc != 0:
+            sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
+        else:
+            tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
+            shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
+            pm.install(tl_path)
 
+install_tool("tool-openocd-esp32")
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
