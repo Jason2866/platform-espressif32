@@ -95,7 +95,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages["tool-mklittlefs"]["optional"] = False
             elif filesystem == "fatfs":
                 self.packages["tool-mkfatfs"]["optional"] = False
-        if variables.get("upload_protocol"):
+        if variables.get("upload_protocol") or "debug" in targets:
             self.packages["tool-openocd-esp32"]["optional"] = False
         if os.path.isdir("ulp"):
             self.packages["toolchain-esp32ulp"]["optional"] = False
@@ -115,12 +115,9 @@ class Espressif32Platform(PlatformBase):
         # Starting from v12, Espressif's toolchains are shipped without
         # bundled GDB. Instead, it's distributed as separate packages for Xtensa
         # and RISC-V targets.
-        for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
-            self.packages[gdb_package]["optional"] = False
-            # if IS_WINDOWS:
-                # Note: On Windows GDB v12 is not able to
-                # launch a GDB server in pipe mode while v11 works fine
-                # self.packages[gdb_package]["version"] = "~11.2.0"
+        if "debug" in targets:
+            for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
+                self.packages[gdb_package]["optional"] = False
 
         # Common packages for IDF and mixed Arduino+IDF projects
         if "espidf" in frameworks:
