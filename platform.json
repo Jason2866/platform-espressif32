@@ -73,7 +73,7 @@
     },
     "tool-esptoolpy": {
       "type": "uploader",
-      "optional": true,
+      "optional": false,
       "owner": "tasmota",
       "version": "https://github.com/tasmota/esptool/releases/download/v4.8.9/esptool.zip"
     },
