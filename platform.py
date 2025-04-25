@@ -13,12 +13,15 @@
 # limitations under the License.
 
 import os
-import urllib
+import subprocess
 import sys
-import json
-import re
+import shutil
+from os.path import join
 
 from platformio.public import PlatformBase, to_unix_path
+from platformio.proc import get_pythonexe_path
+from platformio.project.config import ProjectConfig
+from platformio.package.manager.tool import ToolPackageManager
 
 
 IS_WINDOWS = sys.platform.startswith("win")
@@ -27,6 +30,36 @@ IS_WINDOWS = sys.platform.startswith("win")
 # needs platformio core >= 6.1.16b2 or pioarduino core 6.1.16+test
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
+
+python_exe = get_pythonexe_path()
+pm = ToolPackageManager()
+
+def install_tool(TOOL):
+    TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
+    IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
+    TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "tools.json")
+    TOOLS_PACK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "package.json")
+    IDF_TOOLS_CMD = (
+        python_exe,
+        IDF_TOOLS,
+        "--quiet",
+        "--non-interactive",
+        "--tools-json",
+        TOOLS_JSON_PATH,
+        "install"
+    )
+
+    tl_flag = bool(os.path.exists(IDF_TOOLS))
+    json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
+    if tl_flag and json_flag:
+        rc = subprocess.call(IDF_TOOLS_CMD)
+        if rc != 0:
+            sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
+        else:
+            tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
+            shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
+            pm.install(tl_path)
+    return
 
 
 class Espressif32Platform(PlatformBase):
@@ -38,6 +71,11 @@ class Espressif32Platform(PlatformBase):
         mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         board_sdkconfig = variables.get("board_espidf.custom_sdkconfig", board_config.get("espidf.custom_sdkconfig", ""))
         frameworks = variables.get("pioframework", [])
+
+        # Installer only needed for setup, deactivate
+        self.packages["tl-install"]["optional"] = True
+        # Installed not from pio registry, deactivate until needed
+        self.packages["tool-openocd-esp32"]["optional"] = True
 
         if "arduino" in frameworks and variables.get("custom_sdkconfig") is None and len(str(board_sdkconfig)) < 3:
             self.packages["framework-arduinoespressif32"]["optional"] = False
@@ -58,8 +96,6 @@ class Espressif32Platform(PlatformBase):
                 self.packages["tool-mklittlefs"]["optional"] = False
             elif filesystem == "fatfs":
                 self.packages["tool-mkfatfs"]["optional"] = False
-        if variables.get("upload_protocol"):
-            self.packages["tool-openocd-esp32"]["optional"] = False
         if os.path.isdir("ulp"):
             self.packages["toolchain-esp32ulp"]["optional"] = False
 
@@ -78,12 +114,11 @@ class Espressif32Platform(PlatformBase):
         # Starting from v12, Espressif's toolchains are shipped without
         # bundled GDB. Instead, it's distributed as separate packages for Xtensa
         # and RISC-V targets.
-        for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
-            self.packages[gdb_package]["optional"] = False
-            # if IS_WINDOWS:
-                # Note: On Windows GDB v12 is not able to
-                # launch a GDB server in pipe mode while v11 works fine
-                # self.packages[gdb_package]["version"] = "~11.2.0"
+        if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
+            for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
+                self.packages[gdb_package]["optional"] = False
+            install_tool("tool-openocd-esp32")
+            self.packages["tool-openocd-esp32"]["optional"] = False
 
         # Common packages for IDF and mixed Arduino+IDF projects
         if "espidf" in frameworks:
