@@ -117,6 +117,7 @@ class Espressif32Platform(PlatformBase):
         # Starting from v12, Espressif's toolchains are shipped without
         # bundled GDB. Instead, it's distributed as separate packages for Xtensa
         # and RISC-V targets.
+        print("***** targets:", targets)
         if "debug" in targets:
             for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
                 self.packages[gdb_package]["optional"] = False
