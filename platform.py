@@ -59,8 +59,8 @@ def install_tool(TOOL):
             tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
             shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
             pm.install(tl_path)
+    return
 
-install_tool("tool-openocd-esp32")
 
 class Espressif32Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
@@ -97,6 +97,7 @@ class Espressif32Platform(PlatformBase):
             elif filesystem == "fatfs":
                 self.packages["tool-mkfatfs"]["optional"] = False
         if variables.get("upload_protocol") or "debug" in targets:
+            install_tool("tool-openocd-esp32")
             self.packages["tool-openocd-esp32"]["optional"] = False
         if os.path.isdir("ulp"):
             self.packages["toolchain-esp32ulp"]["optional"] = False
