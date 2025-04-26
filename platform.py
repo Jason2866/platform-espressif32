@@ -92,7 +92,7 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-espidf"]["optional"] = False
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
-        # Enable check tools only when "check_tool" is enabled
+        # Enable check tools only when "check_tool" is active
         for p in self.packages:
             if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
                 self.packages[p]["optional"] = False if str(variables.get("check_tool")).strip("['']") in p else True
@@ -136,8 +136,6 @@ class Espressif32Platform(PlatformBase):
                     "tool-scons",
                     "tool-esp-rom-elfs",
                  ):
-                    self.packages[p]["optional"] = False
-                elif p in ("tool-mconf", "tool-idf") and IS_WINDOWS:
                     self.packages[p]["optional"] = False
 
         if mcu in ("esp32", "esp32s2", "esp32s3"):
