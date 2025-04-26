@@ -67,7 +67,8 @@ class Espressif32Platform(PlatformBase):
 
             tl_flag = bool(os.path.exists(IDF_TOOLS))
             json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
-            if tl_flag and json_flag:
+            tool_flag = bool(os.path.exists(TOOL_PATH))
+            if tl_flag and json_flag and not tool_flag:
                 rc = subprocess.call(IDF_TOOLS_CMD)
                 if rc != 0:
                     sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
@@ -77,11 +78,11 @@ class Espressif32Platform(PlatformBase):
                         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     pm.install(tl_path) 
                     self.packages[INSTALL_TOOL]["optional"] = True
-                    if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
-                        shutil.rmtree(INSTALL_TOOL_PATH)
+                    #if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
+                        #shutil.rmtree(INSTALL_TOOL_PATH)
             # tool is already installed, just activate it
-            self.packages["tool-openocd-esp32"]["version"] = TOOL_PATH
-            self.packages["tool-openocd-esp32"]["optional"] = False
+            self.packages[TOOL]["version"] = TOOL_PATH
+            self.packages[TOOL]["optional"] = False
             return
 
         # Installer only needed for setup, deactivate when installed
