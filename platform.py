@@ -46,7 +46,6 @@ class Espressif32Platform(PlatformBase):
 
         def install_tool(TOOL):
             INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
-            pm.install("https://github.com/pioarduino/registry/releases/download/0.0.1/openocd-v0.12.0-esp32-20250226.zip")
             INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             print("******* install tool path", INSTALL_TOOL_PATH)
@@ -78,12 +77,10 @@ class Espressif32Platform(PlatformBase):
                     if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
                         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     pm.install(tl_path) 
-                    #if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
-                        #shutil.rmtree(INSTALL_TOOL_PATH)
             # tool is already installed, just activate it
             self.packages[TOOL]["version"] = TOOL_PATH
             self.packages[TOOL]["optional"] = False
-            self.packages[INSTALL_TOOL]["optional"] = True
+            #self.packages[INSTALL_TOOL]["optional"] = True
             self.packages.pop(INSTALL_TOOL, None)
             return
 
