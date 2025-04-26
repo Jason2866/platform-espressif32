@@ -126,6 +126,8 @@ class Espressif32Platform(PlatformBase):
                 self.packages[gdb_package]["optional"] = False
             install_tool("tool-openocd-esp32")
             self.packages["tool-openocd-esp32"]["optional"] = False
+        else:
+            self.packages["install-openocd-esp32"]["optional"] = True
 
         # Common packages for IDF and mixed Arduino+IDF projects
         if "espidf" in frameworks:
