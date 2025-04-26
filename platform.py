@@ -27,7 +27,7 @@ from platformio.package.manager.tool import ToolPackageManager
 IS_WINDOWS = sys.platform.startswith("win")
 # Set Platformio env var to use windows_amd64 for all windows architectures
 # only windows_amd64 native espressif toolchains are available
-# needs platformio core >= 6.1.16b2 or pioarduino core 6.1.16+test
+# needs platformio/pioarduino core >= 6.1.17
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
 
@@ -118,9 +118,7 @@ class Espressif32Platform(PlatformBase):
         else:
             del self.packages["tool-dfuutil-arduino"]
 
-        # Starting from v12, Espressif's toolchains are shipped without
-        # bundled GDB. Instead, it's distributed as separate packages for Xtensa
-        # and RISC-V targets.
+        # install GDB and OpenOCD when debug mode or upload_protocol is set
         if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
             for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
                 self.packages[gdb_package]["optional"] = False
