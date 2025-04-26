@@ -65,6 +65,7 @@ def install_tool(TOOL):
             if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
                 shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
             pm.install(tl_path)
+            self.packages[INSTALL_TOOL]["optional"] = True
             if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
                 shutil.rmtree(INSTALL_TOOL_PATH)
     return
