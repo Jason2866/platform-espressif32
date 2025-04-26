@@ -35,7 +35,7 @@ python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
 def install_tool(TOOL):
-    INSTALL_TOOL = "install" + TOOL.split('-', 1)[-1]
+    INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
     INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
     print("******* install tool path", INSTALL_TOOL_PATH)
     print("******* install tool name", INSTALL_TOOL)
