@@ -46,8 +46,10 @@ class Espressif32Platform(PlatformBase):
 
         def install_tool(TOOL):
             INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
+            self.packages[INSTALL_TOOL]["optional"] = False
             INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
+            TOOL_PACKAGE_PATH = os.path.join(TOOL_PATH, "package.json")
             TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
             IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
             TOOLS_JSON_PATH = os.path.join(INSTALL_TOOL_PATH, "tools.json")
@@ -64,20 +66,22 @@ class Espressif32Platform(PlatformBase):
 
             tl_flag = bool(os.path.exists(IDF_TOOLS))
             json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
-            tool_flag = bool(os.path.exists(TOOL_PATH))
+            tool_flag = bool(os.path.exists(TOOL_PACKAGE_PATH))
             if tl_flag and json_flag and not tool_flag:
-                rc = subprocess.call(IDF_TOOLS_CMD)
+                rc = subprocess.run(IDF_TOOLS_CMD).returncode
                 if rc != 0:
                     sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
                 else:
                     tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
                     if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
                         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
-                    pm.install(tl_path) 
+                    pm.install(tl_path)
+                    self.packages[INSTALL_TOOL]["optional"] = True
             # tool is already installed, just activate it
-            self.packages[TOOL]["version"] = TOOL_PATH
-            self.packages[TOOL]["optional"] = False
-            self.packages.pop(INSTALL_TOOL, None)
+            if tl_flag and json_flag and tool_flag:
+                self.packages[TOOL]["version"] = TOOL_PATH
+                self.packages[TOOL]["optional"] = False
+            
             return
 
         # Installer only needed for setup, deactivate when installed
