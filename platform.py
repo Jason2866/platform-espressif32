@@ -47,6 +47,7 @@ class Espressif32Platform(PlatformBase):
         def install_tool(TOOL):
             INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
             INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
+            TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             print("******* install tool path", INSTALL_TOOL_PATH)
             print("******* install tool name", INSTALL_TOOL)
             print("*************** tool name", TOOL)
@@ -78,6 +79,9 @@ class Espressif32Platform(PlatformBase):
                     self.packages[INSTALL_TOOL]["optional"] = True
                     if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
                         shutil.rmtree(INSTALL_TOOL_PATH)
+            # tool is already installed, just activate it
+            self.packages["tool-openocd-esp32"]["version"] = TOOL_PATH
+            self.packages["tool-openocd-esp32"]["optional"] = False
             return
 
         # Installer only needed for setup, deactivate when installed
@@ -125,8 +129,6 @@ class Espressif32Platform(PlatformBase):
             for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
                 self.packages[gdb_package]["optional"] = False
             install_tool("tool-openocd-esp32")
-            self.packages["tool-openocd-esp32"]["version"] = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tool-openocd-esp32")
-            self.packages["tool-openocd-esp32"]["optional"] = False
         else:
             self.packages["install-openocd-esp32"]["optional"] = True
 
