@@ -35,6 +35,15 @@ python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
 def install_tool(TOOL):
+    from platform import Espressif32Platform  # Import the class
+    # Create an instance of the class
+    platform_instance = Espressif32Platform()
+    # Call the method to initialize 'self.packages' (if required)
+    #platform_instance.configure_default_packages({"board": "some-board"}, [])
+    # Modify the 'optional' field for the specific package
+    #platform_instance.packages["install-openocd-esp32"]["optional"] = True
+    # Verify the change
+    print(platform_instance.packages["install-openocd-esp32"]["optional"])  # Output: True
     INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
     INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
     print("******* install tool path", INSTALL_TOOL_PATH)
