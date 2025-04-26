@@ -35,10 +35,13 @@ python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
 def install_tool(TOOL):
+    INSTALL_TOOL = "install" + TOOL.split('-', 1)[-1]
+    print("******* install tool name", INSTALL_TOOL)
+    print("*************** tool name", INSTALL_TOOL)
     TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
     IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
-    TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "tools.json")
-    TOOLS_PACK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL, "package.json")
+    TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL, "tools.json")
+    TOOLS_PACK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL, "package.json")
     IDF_TOOLS_CMD = (
         python_exe,
         IDF_TOOLS,
@@ -76,8 +79,6 @@ class Espressif32Platform(PlatformBase):
         # Installer only needed for setup, deactivate when installed
         if bool(os.path.exists(os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py"))):
             self.packages["tl-install"]["optional"] = True
-        # Installed not from pio registry, deactivate until needed
-        self.packages["tool-openocd-esp32"]["optional"] = True
 
         if "arduino" in frameworks and variables.get("custom_sdkconfig") is None and len(str(board_sdkconfig)) < 3:
             self.packages["framework-arduinoespressif32"]["optional"] = False
