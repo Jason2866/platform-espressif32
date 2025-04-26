@@ -89,7 +89,7 @@
       "owner": "platformio",
       "version": "~1.11.0"
     },
-    "tool-openocd-esp32": {
+    "install-openocd-esp32": {
       "type": "debugger",
       "optional": false,
       "owner": "pioarduino",
