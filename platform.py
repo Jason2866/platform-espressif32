@@ -36,12 +36,14 @@ pm = ToolPackageManager()
 
 def install_tool(TOOL):
     INSTALL_TOOL = "install" + TOOL.split('-', 1)[-1]
+    INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
+    print("******* install tool path", INSTALL_TOOL_PATH)
     print("******* install tool name", INSTALL_TOOL)
-    print("*************** tool name", INSTALL_TOOL)
+    print("*************** tool name", TOOL)
     TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
     IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
-    TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL, "tools.json")
-    TOOLS_PACK_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL, "package.json")
+    TOOLS_JSON_PATH = os.path.join(INSTALL_TOOL_PATH, "tools.json")
+    TOOLS_PACK_PATH = os.path.join(INSTALL_TOOL_PATH, "package.json")
     IDF_TOOLS_CMD = (
         python_exe,
         IDF_TOOLS,
@@ -63,6 +65,8 @@ def install_tool(TOOL):
             if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
                 shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
             pm.install(tl_path)
+            if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
+                shutil.rmtree(INSTALL_TOOL_PATH)
     return
 
 
