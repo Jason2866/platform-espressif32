@@ -125,7 +125,7 @@ class Espressif32Platform(PlatformBase):
             for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
                 self.packages[gdb_package]["optional"] = False
             install_tool("tool-openocd-esp32")
-            self.packages["tool-openocd-esp32"]["optional"] = False
+            #self.packages["tool-openocd-esp32"]["optional"] = False
         else:
             self.packages["install-openocd-esp32"]["optional"] = True
 
