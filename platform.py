@@ -45,8 +45,8 @@ class Espressif32Platform(PlatformBase):
         frameworks = variables.get("pioframework", [])
 
         def install_tool(TOOL):
-            self.packages[INSTALL_TOOL]["optional"] = False
             INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
+            self.packages[INSTALL_TOOL]["optional"] = False
             INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             print("******* install tool path", INSTALL_TOOL_PATH)
