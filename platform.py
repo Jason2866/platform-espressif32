@@ -64,8 +64,7 @@ def install_tool(TOOL):
             tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
             if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
                 shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
-            pm.install(tl_path)
-            self.packages[INSTALL_TOOL]["optional"] = True
+            pm.install(tl_path) 
             if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
                 shutil.rmtree(INSTALL_TOOL_PATH)
     return
@@ -126,6 +125,7 @@ class Espressif32Platform(PlatformBase):
             for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
                 self.packages[gdb_package]["optional"] = False
             install_tool("tool-openocd-esp32")
+            self.packages["install-openocd-esp32"]["optional"] = True
             self.packages["tool-openocd-esp32"]["optional"] = False
 
         # Common packages for IDF and mixed Arduino+IDF projects
