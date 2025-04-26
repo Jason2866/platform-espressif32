@@ -78,6 +78,7 @@ class Espressif32Platform(PlatformBase):
                         shutil.copyfile(TOOLS_PACK_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     pm.install(tl_path) 
                     self.packages[INSTALL_TOOL]["optional"] = True
+                    self.packages.pop(INSTALL_TOOL, None)
                     #if os.path.exists(INSTALL_TOOL_PATH) and os.path.isdir(INSTALL_TOOL_PATH):
                         #shutil.rmtree(INSTALL_TOOL_PATH)
             # tool is already installed, just activate it
