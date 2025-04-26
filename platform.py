@@ -48,9 +48,6 @@ class Espressif32Platform(PlatformBase):
             INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
             INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
-            print("******* install tool path", INSTALL_TOOL_PATH)
-            print("******* install tool name", INSTALL_TOOL)
-            print("*************** tool name", TOOL)
             TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
             IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
             TOOLS_JSON_PATH = os.path.join(INSTALL_TOOL_PATH, "tools.json")
@@ -80,7 +77,6 @@ class Espressif32Platform(PlatformBase):
             # tool is already installed, just activate it
             self.packages[TOOL]["version"] = TOOL_PATH
             self.packages[TOOL]["optional"] = False
-            #self.packages[INSTALL_TOOL]["optional"] = True
             self.packages.pop(INSTALL_TOOL, None)
             return
 
