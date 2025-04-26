@@ -46,7 +46,7 @@ class Espressif32Platform(PlatformBase):
 
         def install_tool(TOOL):
             INSTALL_TOOL = "install-" + TOOL.split('-', 1)[-1]
-            self.packages[INSTALL_TOOL]["optional"] = False
+            pm.install("https://github.com/pioarduino/registry/releases/download/0.0.1/openocd-v0.12.0-esp32-20250226.zip")
             INSTALL_TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), INSTALL_TOOL)
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             print("******* install tool path", INSTALL_TOOL_PATH)
