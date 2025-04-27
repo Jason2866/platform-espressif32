@@ -85,7 +85,6 @@ class Espressif32Platform(PlatformBase):
             if tl_flag and pio_flag and not json_flag:
                 self.packages[TOOL]["version"] = TOOL_PATH
                 self.packages[TOOL]["optional"] = False
-                self.packages[INSTALL_TOOL]["optional"] = True
             
             return
 
