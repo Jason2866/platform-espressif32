@@ -48,7 +48,6 @@ class Espressif32Platform(PlatformBase):
         frameworks = variables.get("pioframework", [])
 
         def install_tool(TOOL):
-            self.packages["tl-install"]["optional"] = False
             self.packages[TOOL]["optional"] = False
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             TOOL_PACKAGE_PATH = os.path.join(TOOL_PATH, "package.json")
@@ -88,7 +87,7 @@ class Espressif32Platform(PlatformBase):
             if tl_flag and pio_flag and not json_flag:
                 self.packages[TOOL]["version"] = TOOL_PATH
                 self.packages[TOOL]["optional"] = False
-            self.packages["tl-install"]["optional"] = True
+                self.packages["tl-install"]["optional"] = True
             return
 
 
