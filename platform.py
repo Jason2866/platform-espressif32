@@ -87,9 +87,11 @@ class Espressif32Platform(PlatformBase):
             if tl_flag and pio_flag and not json_flag:
                 self.packages[TOOL]["version"] = TOOL_PATH
                 self.packages[TOOL]["optional"] = False
-                self.packages["tl-install"]["optional"] = True
             return
 
+        # Installer only needed for setup, deactivate when installed
+        if bool(os.path.exists(os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py"))):
+            self.packages["tl-install"]["optional"] = True
 
         if "arduino" in frameworks and variables.get("custom_sdkconfig") is None and len(str(board_sdkconfig)) < 3:
             if "CORE32SOLO1" in core_variant_board or "FRAMEWORK_ARDUINO_SOLO1" in core_variant_build:
