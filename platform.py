@@ -131,8 +131,6 @@ class Espressif32Platform(PlatformBase):
             for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
                 self.packages[gdb_package]["optional"] = False
             install_tool("tool-openocd-esp32")
-        else:
-            self.packages["install-openocd-esp32"]["optional"] = True
 
         # Common packages for IDF and mixed Arduino+IDF projects
         if "espidf" in frameworks:
