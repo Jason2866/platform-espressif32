@@ -45,7 +45,7 @@ class Espressif32Platform(PlatformBase):
         frameworks = variables.get("pioframework", [])
 
         def install_tool(TOOL):
-            #self.packages[TOOL]["optional"] = False
+            self.packages[TOOL]["optional"] = False
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             TOOL_PACKAGE_PATH = os.path.join(TOOL_PATH, "package.json")
             TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
