@@ -77,7 +77,6 @@ class Espressif32Platform(PlatformBase):
                     if os.path.exists(TOOL_PATH,) and os.path.isdir(TOOL_PATH):
                         try:
                             shutil.rmtree(TOOL_PATH)
-                            print(f"Successfully removed the tool folder: {TOOL_PATH}")
                         except Exception as e:
                             print(f"Error while removing the tool folder: {e}")                   
                     pm.install(tl_path)
