@@ -101,7 +101,7 @@ class Espressif32Platform(PlatformBase):
 
         if mcu in ("esp32", "esp32s2", "esp32s3"):
             self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
-        if mcu in ("espc2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
+        if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
             self.packages["toolchain-riscv32-esp"]["optional"] = False
 
         if os.path.isdir("ulp"):
