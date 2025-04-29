@@ -82,7 +82,7 @@ class Espressif32Platform(PlatformBase):
                     pm.install(tl_path)
             # tool is already installed, just activate it
             if tl_flag and pio_flag and not json_flag:
-                self.packages[TOOL]["version"] = TOOL_PATH
+                #self.packages[TOOL]["version"] = TOOL_PATH
                 self.packages[TOOL]["optional"] = False
             
             return
