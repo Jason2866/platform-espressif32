@@ -108,9 +108,29 @@ class Espressif32Platform(PlatformBase):
             # Xtensa FSM based ULP toolchain for ESP32, ESP32S2, ESP32S3
             if mcu in ("esp32", "esp32s2", "esp32s3"):
                 self.packages["toolchain-esp32ulp"]["optional"] = False
-            # RISC-V based ULP toolchain for ESP32S2, ESP32S3
-            if mcu in ("esp32s2", "esp32s3"):
+            # RISC-V based ULP toolchain not for esp32
+            if mcu not in ("esp32"):
                 self.packages["toolchain-riscv32-esp"]["optional"] = False
+
+        # install GDB and OpenOCD when debug mode or upload_protocol is set
+        if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
+            if mcu in ("esp32", "esp32s2", "esp32s3"):
+                install_tool("tool-xtensa-esp-elf-gdb")
+            if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
+                #else:
+                install_tool("tool-riscv32-esp-elf-gdb")
+            install_tool("tool-openocd-esp32")
+
+        # Common packages for IDF and mixed Arduino+IDF projects
+        if "espidf" in frameworks: 
+            for p in self.packages:
+                if p in (
+                    "tool-cmake",
+                    "tool-ninja",
+                    "tool-scons",
+                    "tool-esp-rom-elfs",
+                 ):
+                    self.packages[p]["optional"] = False
 
         # Enable check tools only when "check_tool" is active
         for p in self.packages:
@@ -135,25 +155,6 @@ class Espressif32Platform(PlatformBase):
             self.packages["tool-dfuutil-arduino"]["optional"] = False
         else:
             del self.packages["tool-dfuutil-arduino"]
-
-        # install GDB and OpenOCD when debug mode or upload_protocol is set
-        if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
-            if mcu in ("esp32", "esp32s2", "esp32s3"):
-                install_tool("tool-xtensa-esp-elf-gdb")
-            else:
-                install_tool("tool-riscv32-esp-elf-gdb")
-            install_tool("tool-openocd-esp32")
-
-        # Common packages for IDF and mixed Arduino+IDF projects
-        if "espidf" in frameworks: 
-            for p in self.packages:
-                if p in (
-                    "tool-cmake",
-                    "tool-ninja",
-                    "tool-scons",
-                    "tool-esp-rom-elfs",
-                 ):
-                    self.packages[p]["optional"] = False
 
         return super().configure_default_packages(variables, targets)
 
