@@ -134,8 +134,7 @@ class Espressif32Platform(PlatformBase):
             install_tool("tool-openocd-esp32")
 
         # Common packages for IDF and mixed Arduino+IDF projects
-        if "espidf" in frameworks:
-            self.packages["toolchain-esp32ulp"]["optional"] = False
+        if "espidf" in frameworks: 
             for p in self.packages:
                 if p in (
                     "tool-cmake",
@@ -144,16 +143,16 @@ class Espressif32Platform(PlatformBase):
                     "tool-esp-rom-elfs",
                  ):
                     self.packages[p]["optional"] = False
+            # Xtensa FSM based ULP toolchain for ESP32, ESP32S2, ESP32S3
+            if mcu in ("esp32", "esp32s2", "esp32s3"):
+                self.packages["toolchain-esp32ulp"]["optional"] = False
+            # RISC-V based ULP toolchain for ESP32S2, ESP32S3
+            if mcu in ("esp32s2", "esp32s3"):
+                self.packages["toolchain-riscv32-esp"]["optional"] = False
 
         if mcu in ("esp32", "esp32s2", "esp32s3"):
             self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
-        else:
-            self.packages.pop("toolchain-xtensa-esp-elf", None)
-
-        if mcu in ("esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
-            if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
-                self.packages.pop("toolchain-esp32ulp", None)
-            # RISC-V based toolchain for ESP32C3, ESP32C6 ESP32S2, ESP32S3 ULP
+        if mcu in ("espc2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
             self.packages["toolchain-riscv32-esp"]["optional"] = False
 
         return super().configure_default_packages(variables, targets)
