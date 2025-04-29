@@ -73,8 +73,8 @@ class Espressif32Platform(PlatformBase):
                     print("tool path:", TOOL_PATH)
                     print("tool:", TOOL)
                     tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
-                    if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
-                        shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
+                    #if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
+                        #shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     self.packages.pop(TOOL, None)
                     if os.path.exists(TOOL_PATH) and os.path.isdir(TOOL_PATH):
                         try:
