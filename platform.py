@@ -99,6 +99,19 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-espidf"]["optional"] = False
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
+        if mcu in ("esp32", "esp32s2", "esp32s3"):
+            self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
+        if mcu in ("espc2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
+            self.packages["toolchain-riscv32-esp"]["optional"] = False
+
+        if os.path.isdir("ulp"):
+            # Xtensa FSM based ULP toolchain for ESP32, ESP32S2, ESP32S3
+            if mcu in ("esp32", "esp32s2", "esp32s3"):
+                self.packages["toolchain-esp32ulp"]["optional"] = False
+            # RISC-V based ULP toolchain for ESP32S2, ESP32S3
+            if mcu in ("esp32s2", "esp32s3"):
+                self.packages["toolchain-riscv32-esp"]["optional"] = False
+
         # Enable check tools only when "check_tool" is active
         for p in self.packages:
             if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
@@ -110,8 +123,6 @@ class Espressif32Platform(PlatformBase):
                 self.packages["tool-mklittlefs"]["optional"] = False
             elif filesystem == "fatfs":
                 self.packages["tool-mkfatfs"]["optional"] = False
-        if os.path.isdir("ulp"):
-            self.packages["toolchain-esp32ulp"]["optional"] = False
 
         if "downloadfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
@@ -143,17 +154,6 @@ class Espressif32Platform(PlatformBase):
                     "tool-esp-rom-elfs",
                  ):
                     self.packages[p]["optional"] = False
-            # Xtensa FSM based ULP toolchain for ESP32, ESP32S2, ESP32S3
-            if mcu in ("esp32", "esp32s2", "esp32s3"):
-                self.packages["toolchain-esp32ulp"]["optional"] = False
-            # RISC-V based ULP toolchain for ESP32S2, ESP32S3
-            if mcu in ("esp32s2", "esp32s3"):
-                self.packages["toolchain-riscv32-esp"]["optional"] = False
-
-        if mcu in ("esp32", "esp32s2", "esp32s3"):
-            self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
-        if mcu in ("espc2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
-            self.packages["toolchain-riscv32-esp"]["optional"] = False
 
         return super().configure_default_packages(variables, targets)
 
