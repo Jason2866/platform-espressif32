@@ -71,7 +71,6 @@ class Espressif32Platform(PlatformBase):
                     sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
                 else:
                     tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
-                    #if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
                     try:
                         shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     except:
