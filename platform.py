@@ -70,6 +70,8 @@ class Espressif32Platform(PlatformBase):
                 if rc != 0:
                     sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
                 else:
+                    print("tool path:", TOOL_PATH)
+                    print("tool:", TOOL)
                     tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
                     if not os.path.exists(join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json")):
                         shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
@@ -82,6 +84,8 @@ class Espressif32Platform(PlatformBase):
                     pm.install(tl_path)
             # tool is already installed, just activate it
             if tl_flag and pio_flag and not json_flag:
+                print("activate: tool path:", TOOL_PATH)
+                print("acticate: tool:", TOOL)
                 self.packages[TOOL]["version"] = TOOL_PATH
                 self.packages[TOOL]["optional"] = False
             
