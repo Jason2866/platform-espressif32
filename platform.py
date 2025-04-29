@@ -127,8 +127,10 @@ class Espressif32Platform(PlatformBase):
 
         # install GDB and OpenOCD when debug mode or upload_protocol is set
         if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
-            for gdb_package in ("tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"):
-                self.packages[gdb_package]["optional"] = False
+            if mcu in ("esp32", "esp32s2", "esp32s3"):
+                install_tool("tool-xtensa-esp-elf-gdb")
+            else:
+                install_tool("tool-riscv32-esp-elf-gdb")
             install_tool("tool-openocd-esp32")
 
         # Common packages for IDF and mixed Arduino+IDF projects
