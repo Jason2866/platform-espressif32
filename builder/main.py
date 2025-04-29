@@ -255,9 +255,9 @@ env.Replace(
     CXX="%s-elf-g++" % toolchain_arch,
     GDB=join(
         platform.get_package_dir(
-            "riscv32-esp-elf-gdb"
+            "tool-riscv32-esp-elf-gdb"
             if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4")
-            else "xtensa-esp-elf-gdb"
+            else "tool-xtensa-esp-elf-gdb"
         )
         or "",
         "bin",
