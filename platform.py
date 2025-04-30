@@ -128,9 +128,9 @@ class Espressif32Platform(PlatformBase):
                 ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): ["tool-riscv32-esp-elf-gdb"]
             }
             for supported_mcus, tools in debug_tools.items():
-            if mcu in supported_mcus:
-                for tool in tools:
-                    install_tool(tool)
+                if mcu in supported_mcus:
+                    for tool in tools:
+                        install_tool(tool)
             install_tool("tool-openocd-esp32")
 
         # install debug tools when:
