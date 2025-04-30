@@ -112,10 +112,10 @@ class Espressif32Platform(PlatformBase):
 
         if os.path.isdir("ulp"):
             ulp_toolchain_mapping = {
-                # Xtensa FSM based ULP toolchain for
+                # support for Xtensa FSM based ULP toolchain
                 ("esp32", "esp32s2", "esp32s3"): "toolchain-esp32ulp",
-                # RISC-V based ULP toolchain for
-                ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): "toolchain-riscv32-esp"
+                # support for RISC-V based ULP toolchain for
+                ("esp32s2", "esp32s3"): "toolchain-riscv32-esp"
             }
             for supported_mcus, toolchain in ulp_toolchain_mapping.items():
                 if mcu in supported_mcus:
