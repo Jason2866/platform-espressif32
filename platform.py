@@ -105,7 +105,7 @@ class Espressif32Platform(PlatformBase):
             # Xtensa based and FSM toolchain
             ("esp32", "esp32s2", "esp32s3"): {
                 "toolchains": ["toolchain-xtensa-esp-elf"],
-                "ulp_toolchain": ["toolchain-esp32ulp"], #+ (["toolchain-riscv32-esp"] if mcu != "esp32" else []),
+                "ulp_toolchain": ["toolchain-esp32ulp"] + (["toolchain-riscv32-esp"] if mcu != "esp32" else []),
                 "debug_tools": ["tool-xtensa-esp-elf-gdb"]
             },
             # RISC-V based toolchain
@@ -114,7 +114,7 @@ class Espressif32Platform(PlatformBase):
                 "ulp_toolchain": None,
                 "debug_tools": ["tool-riscv32-esp-elf-gdb"]
             },
-            # Mixed support for RISC-V ULP toolchain
+            # Mixed ULPtoolchain support for MCUs with both ULPs
             ("esp32s2", "esp32s3"): {
                 "toolchains": ["toolchain-xtensa-esp-elf", "toolchain-riscv32-esp"],
                 "ulp_toolchain": ["toolchain-esp32ulp", "toolchain-riscv32-esp"],
@@ -132,7 +132,6 @@ class Espressif32Platform(PlatformBase):
                 # Set ULP toolchain if applicable
                 ulp_toolchain = toolchain_data.get("ulp_toolchain")
                 if ulp_toolchain and os.path.isdir("ulp"):
-                    print("******** ULP toolchain:", ulp_toolchain)
                     for toolchain in ulp_toolchain:
                         self.packages[toolchain]["optional"] = False
                 # Install debug tools if conditions match
