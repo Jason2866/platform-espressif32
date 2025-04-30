@@ -102,40 +102,44 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
         mcu_toolchain_mapping = {
-            ("esp32", "esp32s2", "esp32s3"): ["toolchain-xtensa-esp-elf"],
-            ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): ["toolchain-riscv32-esp"]
+            # Xtensa based and FSM toolchain
+            ("esp32", "esp32s2", "esp32s3"): {
+                "toolchains": ["toolchain-xtensa-esp-elf"],
+                "ulp_toolchain": "toolchain-esp32ulp",
+                "debug_tools": ["tool-xtensa-esp-elf-gdb"]
+            },
+            # RISC-V based toolchain
+            ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): {
+                "toolchains": ["toolchain-riscv32-esp"],
+                "ulp_toolchain": None,
+                "debug_tools": ["tool-riscv32-esp-elf-gdb"]
+            },
+            # Mixed support for RISC-V ULP toolchain
+            ("esp32s2", "esp32s3"): {
+                "toolchains": ["toolchain-xtensa-esp-elf", "toolchain-riscv32-esp"],
+                "ulp_toolchain": "toolchain-riscv32-esp",
+                "debug_tools": ["tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"]
+            }
         }
-        for supported_mcus, toolchains in mcu_toolchain_mapping.items():
+
+        # Iterate through MCU mappings
+        for supported_mcus, toolchain_data in mcu_toolchain_mapping.items():
             if mcu in supported_mcus:
-                for toolchain in toolchains:
+                # Set mandatory toolchains
+                for toolchain in toolchain_data["toolchains"]:
                     self.packages[toolchain]["optional"] = False
 
-        if os.path.isdir("ulp"):
-            ulp_toolchain_mapping = {
-                # support for Xtensa FSM based ULP toolchain
-                ("esp32", "esp32s2", "esp32s3"): "toolchain-esp32ulp",
-                # support for RISC-V based ULP toolchain for
-                ("esp32s2", "esp32s3"): "toolchain-riscv32-esp"
-            }
-            for supported_mcus, toolchain in ulp_toolchain_mapping.items():
-                if mcu in supported_mcus:
-                    self.packages[toolchain]["optional"] = False
+                # Set ULP toolchain if applicable
+                ulp_toolchain = toolchain_data.get("ulp_toolchain")
+                if ulp_toolchain and os.path.isdir("ulp"):
+                    self.packages[ulp_toolchain]["optional"] = False
 
-        # install GDB and OpenOCD
-        def install_debug_tools(mcu):
-            debug_tools = {
-                ("esp32", "esp32s2", "esp32s3"): ["tool-xtensa-esp-elf-gdb"],
-                ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): ["tool-riscv32-esp-elf-gdb"]
-            }
-            for supported_mcus, tools in debug_tools.items():
-                if mcu in supported_mcus:
-                    for tool in tools:
-                        install_tool(tool)
-            install_tool("tool-openocd-esp32")
-
-        # install debug tools when:
-        if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
-            install_debug_tools(mcu)
+                # Install debug tools if conditions match
+                if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
+                    for debug_tool in toolchain_data["debug_tools"]:
+                        install_tool(debug_tool)
+                    install_tool("tool-openocd-esp32")
+                break  # Exit loop once MCU is matched
 
         # Common packages for IDF and mixed Arduino+IDF projects
         COMMON_IDF_PACKAGES = [
