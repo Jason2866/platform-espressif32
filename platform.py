@@ -117,9 +117,9 @@ class Espressif32Platform(PlatformBase):
                 # RISC-V based ULP toolchain for
                 ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): "toolchain-riscv32-esp"
             }
-        for supported_mcus, toolchain in ulp_toolchain_mapping.items():
-            if mcu in supported_mcus:
-                self.packages[toolchain]["optional"] = False
+            for supported_mcus, toolchain in ulp_toolchain_mapping.items():
+                if mcu in supported_mcus:
+                    self.packages[toolchain]["optional"] = False
 
         # install GDB and OpenOCD
         def install_debug_tools(mcu):
