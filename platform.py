@@ -102,29 +102,23 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
         mcu_toolchain_mapping = {
-            # Pure Xtensa
-            ("esp32",): {
+            # Xtensa based and FSM toolchain
+            ("esp32", "esp32s2", "esp32s3"): {
                 "toolchains": ["toolchain-xtensa-esp-elf"],
-                "ulp_toolchain": ["toolchain-esp32ulp"],
+                "ulp_toolchain": ["toolchain-esp32ulp"] + (["toolchain-riscv32-esp"] if mcu != "esp32" else []),
                 "debug_tools": ["tool-xtensa-esp-elf-gdb"]
             },
-            # Mixed Xtensa + RISC-V (both ULPs present)
-            ("esp32s2", "esp32s3"): {
-                "toolchains": ["toolchain-xtensa-esp-elf", "toolchain-riscv32-esp"],
-                "ulp_toolchain": ["toolchain-esp32ulp", "toolchain-riscv32-esp"],
-                "debug_tools": ["tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"]
-            },
-            # Pure RISC-V
+            # RISC-V based toolchain
             ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): {
                 "toolchains": ["toolchain-riscv32-esp"],
                 "ulp_toolchain": None,
                 "debug_tools": ["tool-riscv32-esp-elf-gdb"]
-            },
+#            },
             # Mixed ULPtoolchain support for MCUs with both ULPs
-            ("esp32s2", "esp32s3"): {
-                "toolchains": ["toolchain-xtensa-esp-elf", "toolchain-riscv32-esp"],
-                "ulp_toolchain": ["toolchain-esp32ulp", "toolchain-riscv32-esp"],
-                "debug_tools": ["tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"]
+#            ("esp32s2", "esp32s3"): {
+#                "toolchains": ["toolchain-xtensa-esp-elf", "toolchain-riscv32-esp"],
+#                "ulp_toolchain": ["toolchain-esp32ulp", "toolchain-riscv32-esp"],
+#                "debug_tools": ["tool-xtensa-esp-elf-gdb", "tool-riscv32-esp-elf-gdb"]
             }
         }
 
