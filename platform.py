@@ -133,8 +133,8 @@ class Espressif32Platform(PlatformBase):
                 ulp_toolchain = toolchain_data.get("ulp_toolchain")
                 if ulp_toolchain and os.path.isdir("ulp"):
                     print("******** ULP toolchain:", ulp_toolchain)
-                    self.packages[ulp_toolchain]["optional"] = False
-
+                    for toolchain in ulp_toolchain:
+                        self.packages[toolchain]["optional"] = False
                 # Install debug tools if conditions match
                 if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
                     for debug_tool in toolchain_data["debug_tools"]:
