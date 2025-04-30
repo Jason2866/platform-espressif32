@@ -73,8 +73,8 @@ class Espressif32Platform(PlatformBase):
                     tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
                     try:
                         shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
-                    except:
-                        pass
+                    except FileNotFoundError as e:
+                        sys.stderr.write(f"Error copying tool package file: {e}\n")
                     self.packages.pop(TOOL, None)
                     if os.path.exists(TOOL_PATH) and os.path.isdir(TOOL_PATH):
                         try:
@@ -101,37 +101,52 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-espidf"]["optional"] = False
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
-        if mcu in ("esp32", "esp32s2", "esp32s3"):
-            self.packages["toolchain-xtensa-esp-elf"]["optional"] = False
-        if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
-            self.packages["toolchain-riscv32-esp"]["optional"] = False
+        mcu_toolchain_mapping = {
+            ("esp32", "esp32s2", "esp32s3"): ["toolchain-xtensa-esp-elf"],
+            ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): ["toolchain-riscv32-esp"]
+        }
+        for supported_mcus, toolchains in mcu_toolchain_mapping.items():
+            if mcu in supported_mcus:
+                for toolchain in toolchains:
+                    self.packages[toolchain]["optional"] = False
 
         if os.path.isdir("ulp"):
-            # Xtensa FSM based ULP toolchain for ESP32, ESP32S2, ESP32S3
-            if mcu in ("esp32", "esp32s2", "esp32s3"):
-                self.packages["toolchain-esp32ulp"]["optional"] = False
-            # RISC-V based ULP toolchain not for esp32
-            if mcu not in ("esp32"):
-                self.packages["toolchain-riscv32-esp"]["optional"] = False
+            ulp_toolchain_mapping = {
+                # Xtensa FSM based ULP toolchain for
+                ("esp32", "esp32s2", "esp32s3"): "toolchain-esp32ulp",
+                # RISC-V based ULP toolchain for
+                ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): "toolchain-riscv32-esp"
+            }
+        for supported_mcus, toolchain in ulp_toolchain_mapping.items():
+            if mcu in supported_mcus:
+                self.packages[toolchain]["optional"] = False
 
-        # install GDB and OpenOCD when debug mode or upload_protocol is set
-        if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
-            if mcu in ("esp32", "esp32s2", "esp32s3"):
-                install_tool("tool-xtensa-esp-elf-gdb")
-            if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
-                install_tool("tool-riscv32-esp-elf-gdb")
+        # install GDB and OpenOCD
+        def install_debug_tools(mcu):
+            debug_tools = {
+                ("esp32", "esp32s2", "esp32s3"): ["tool-xtensa-esp-elf-gdb"],
+                ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"): ["tool-riscv32-esp-elf-gdb"]
+            }
+            for supported_mcus, tools in debug_tools.items():
+            if mcu in supported_mcus:
+                for tool in tools:
+                    install_tool(tool)
             install_tool("tool-openocd-esp32")
 
+        # install debug tools when:
+        if (variables.get("build_type") or "debug" in "".join(targets)) or variables.get("upload_protocol"):
+            install_debug_tools(mcu)
+
         # Common packages for IDF and mixed Arduino+IDF projects
-        if "espidf" in frameworks: 
-            for p in self.packages:
-                if p in (
-                    "tool-cmake",
-                    "tool-ninja",
-                    "tool-scons",
-                    "tool-esp-rom-elfs",
-                 ):
-                    self.packages[p]["optional"] = False
+        COMMON_IDF_PACKAGES = [
+            "tool-cmake",
+            "tool-ninja",
+            "tool-scons",
+            "tool-esp-rom-elfs"
+        ]
+        if "espidf" in frameworks:
+            for package in COMMON_IDF_PACKAGES:
+                self.packages[package]["optional"] = False
 
         # Enable check tools only when "check_tool" is active
         for p in self.packages:
