@@ -105,7 +105,7 @@ class Espressif32Platform(PlatformBase):
             # Xtensa based and FSM toolchain
             ("esp32", "esp32s2", "esp32s3"): {
                 "toolchains": ["toolchain-xtensa-esp-elf"],
-                "ulp_toolchain": "toolchain-esp32ulp",
+                "ulp_toolchain": ["toolchain-esp32ulp", "toolchain-riscv32-esp"],
                 "debug_tools": ["tool-xtensa-esp-elf-gdb"]
             },
             # RISC-V based toolchain
