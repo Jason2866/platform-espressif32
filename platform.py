@@ -145,25 +145,10 @@ class Espressif32Platform(PlatformBase):
             for package in COMMON_IDF_PACKAGES:
                 self.packages[package]["optional"] = False
 
-        # Mapping for check-tools
-        CHECK_TOOL_MAPPING = {
-            "tool-cppcheck": {
-                "optional": True,
-                "enabled": lambda check_tool: "cppcheck" in check_tool
-            },
-            "tool-clangtidy": {
-                "optional": True,
-                "enabled": lambda check_tool: "clangtidy" in check_tool
-            },
-            "tool-pvs-studio": {
-                "optional": True,
-                "enabled": lambda check_tool: "pvs-studio" in check_tool
-            }
-        }
-        # Enable or disable check-tools based on "check_tool" variable
-        check_tool = str(variables.get("check_tool")).strip("['']")
-        for tool, config in CHECK_TOOL_MAPPING.items():
-            self.packages[tool]["optional"] = not config["enabled"](check_tool)
+        # Install check tool from pio entry "check_tool"
+        for check_tool in variables.get("check_tool", ""):
+            print("check tool:", check_tool)
+            self.packages[check_tool]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
