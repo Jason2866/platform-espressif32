@@ -101,7 +101,7 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-espidf"]["optional"] = False
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
-        mcu_toolchain_mapping = {
+        MCU_TOOLCHAIN_MAPPING = {
             # Xtensa based and FSM toolchain
             ("esp32", "esp32s2", "esp32s3"): {
                 "toolchains": ["toolchain-xtensa-esp-elf"],
@@ -115,9 +115,8 @@ class Espressif32Platform(PlatformBase):
                 "debug_tools": ["tool-riscv32-esp-elf-gdb"]
             }
         }
-
         # Iterate through MCU mappings
-        for supported_mcus, toolchain_data in mcu_toolchain_mapping.items():
+        for supported_mcus, toolchain_data in MCU_TOOLCHAIN_MAPPING.items():
             if mcu in supported_mcus:
                 # Set mandatory toolchains
                 for toolchain in toolchain_data["toolchains"]:
@@ -146,10 +145,17 @@ class Espressif32Platform(PlatformBase):
             for package in COMMON_IDF_PACKAGES:
                 self.packages[package]["optional"] = False
 
-        # Enable check tools only when "check_tool" is active
-        for p in self.packages:
-            if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
-                self.packages[p]["optional"] = False if str(variables.get("check_tool")).strip("['']") in p else True
+        CHECK_PACKAGES = [
+            "tool-cppcheck",
+            "tool-clangtidy",
+            "tool-pvs-studio"
+        ]
+        # Install check tool listed in pio entry "check_tool"
+        if variables.get("check_tool") is not None:
+            for package in CHECK_PACKAGES:
+                for check_tool in variables.get("check_tool", ""):
+                    if check_tool in package:
+                        self.packages[package]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
