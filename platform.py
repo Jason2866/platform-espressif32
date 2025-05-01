@@ -146,9 +146,10 @@ class Espressif32Platform(PlatformBase):
                 self.packages[package]["optional"] = False
 
         # Install check tool from pio entry "check_tool"
-        for check_tool in variables.get("check_tool", ""):
-            print("check tool:", check_tool)
-            self.packages[check_tool]["optional"] = False
+        if variables.get("check_tool") is not None:
+            for check_tool in variables.get("check_tool"):
+                print("check tool:", check_tool)
+                self.packages[check_tool]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
