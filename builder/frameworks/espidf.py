@@ -115,9 +115,6 @@ def install_standard_python_deps():
 
 install_standard_python_deps()
 
-# Allow changes in folders of managed components
-os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
-
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
@@ -129,6 +126,9 @@ idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
 flag_custom_component_add = False
 flag_custom_component_remove = False
+
+# Allow changes in folders of managed components
+os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
 
 IDF5 = (
     platform.get_package_version("framework-espidf")
@@ -405,13 +405,15 @@ def is_cmake_reconfigure_required(cmake_api_reply_dir):
     ]
     cmake_preconf_dir = os.path.join(BUILD_DIR, "config")
     deafult_sdk_config = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
+    idf_deps_lock = os.path.join(PROJECT_DIR, "dependencies.lock")
+    ninja_buildfile = os.path.join(BUILD_DIR, "build.ninja")
 
     for d in (cmake_api_reply_dir, cmake_preconf_dir):
         if not os.path.isdir(d) or not os.listdir(d):
             return True
     if not os.path.isfile(cmake_cache_file):
         return True
-    if not os.path.isfile(os.path.join(BUILD_DIR, "build.ninja")):
+    if not os.path.isfile(ninja_buildfile):
         return True
     if not os.path.isfile(SDKCONFIG_PATH) or os.path.getmtime(
         SDKCONFIG_PATH
@@ -420,6 +422,10 @@ def is_cmake_reconfigure_required(cmake_api_reply_dir):
     if os.path.isfile(deafult_sdk_config) and os.path.getmtime(
         deafult_sdk_config
     ) > os.path.getmtime(cmake_cache_file):
+        return True
+    if os.path.isfile(idf_deps_lock) and os.path.getmtime(
+        idf_deps_lock
+    ) > os.path.getmtime(ninja_buildfile):
         return True
     if any(
         os.path.getmtime(f) > os.path.getmtime(cmake_cache_file)
@@ -530,6 +536,7 @@ def populate_idf_env_vars(idf_env):
         del idf_env["IDF_TOOLS_PATH"]
 
     idf_env["ESP_ROM_ELF_DIR"] = platform.get_package_dir("tool-esp-rom-elfs")
+
 
 def get_target_config(project_configs, target_index, cmake_api_reply_dir):
     target_json = project_configs.get("targets")[target_index].get("jsonFile", "")
@@ -1525,11 +1532,10 @@ def install_python_deps():
         # https://github.com/platformio/platformio-core/issues/4614
         "urllib3": "<2",
         # https://github.com/platformio/platform-espressif32/issues/635
-        "cryptography": "~=41.0.1",
-        "future": ">=0.18.3",
+        "cryptography": "~=44.0.0",
         "pyparsing": ">=3.1.0,<4",
         "idf-component-manager": "~=2.0.1",
-        "esp-idf-kconfig": ">=2.5.0"
+        "esp-idf-kconfig": "~=2.5.0"
     }
 
     if sys_platform.system() == "Darwin" and "arm" in sys_platform.machine().lower():
@@ -1579,11 +1585,37 @@ def get_idf_venv_dir():
 
 def ensure_python_venv_available():
 
+    def _get_idf_venv_python_version():
+        try:
+            version = subprocess.check_output(
+                [
+                    get_python_exe(),
+                    "-c",
+                    "import sys;print('{0}.{1}.{2}-{3}.{4}'.format(*list(sys.version_info)))"
+                ], text=True
+            )
+            return version.strip()
+        except subprocess.CalledProcessError as e:
+            print("Failed to extract Python version from IDF virtual env!")
+            return None
+
     def _is_venv_outdated(venv_data_file):
         try:
             with open(venv_data_file, "r", encoding="utf8") as fp:
                 venv_data = json.load(fp)
                 if venv_data.get("version", "") != IDF_ENV_VERSION:
+                    print(
+                        "Warning! IDF virtual environment version changed!"
+                    )
+                    return True
+                if (
+                    venv_data.get("python_version", "")
+                    != _get_idf_venv_python_version()
+                ):
+                    print(
+                        "Warning! Python version in the IDF virtual environment"
+                        " differs from the current Python!"
+                    )
                     return True
                 return False
         except:
@@ -1598,7 +1630,7 @@ def ensure_python_venv_available():
 
         if os.path.isdir(venv_dir):
             try:
-                print("Removing an oudated IDF virtual environment")
+                print("Removing an outdated IDF virtual environment")
                 shutil.rmtree(venv_dir)
             except OSError:
                 print(
@@ -1623,8 +1655,12 @@ def ensure_python_venv_available():
     venv_data_file = os.path.join(venv_dir, "pio-idf-venv.json")
     if not os.path.isfile(venv_data_file) or _is_venv_outdated(venv_data_file):
         _create_venv(venv_dir)
+        install_python_deps()
         with open(venv_data_file, "w", encoding="utf8") as fp:
-            venv_info = {"version": IDF_ENV_VERSION}
+            venv_info = {
+                "version": IDF_ENV_VERSION,
+                "python_version": _get_idf_venv_python_version()
+            }
             json.dump(venv_info, fp, indent=2)
 
 
@@ -1643,11 +1679,10 @@ def get_python_exe():
 
 
 #
-# ESP-IDF requires Python packages with specific versions in a virtual environment
+# Ensure Python environment contains everything required for IDF
 #
 
 ensure_python_venv_available()
-install_python_deps()
 
 # ESP-IDF package doesn't contain .git folder, instead package version is specified
 # in a special file "version.h" in the root folder of the package
@@ -1853,7 +1888,15 @@ libs = find_lib_deps(
 # Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
 # cannot merge them correctly
 extra_flags = filter_args(
-    link_args["LINKFLAGS"], ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"]
+    link_args["LINKFLAGS"],
+    [
+        "-T",
+        "-u",
+        "-Wl,--start-group",
+        "-Wl,--end-group",
+        "-Wl,--whole-archive",
+        "-Wl,--no-whole-archive",
+    ],
 )
 link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
 
@@ -1930,7 +1973,7 @@ env.Prepend(
         (
             board.get(
                 "upload.bootloader_offset",
-                "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32p4"] else "0x0"),
+                "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
             ),
             os.path.join("$BUILD_DIR", "bootloader.bin"),
         ),
