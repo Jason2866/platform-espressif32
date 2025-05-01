@@ -155,8 +155,6 @@ class Espressif32Platform(PlatformBase):
             for package in CHECK_PACKAGES:
                 for check_tool in variables.get("check_tool", ""):
                     if check_tool in package:
-                        print("check tool:", check_tool)
-                        print("package:", package)
                         self.packages[package]["optional"] = False
 
         if "buildfs" in targets:
