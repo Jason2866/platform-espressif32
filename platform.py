@@ -150,10 +150,11 @@ class Espressif32Platform(PlatformBase):
             print("list check_tool:", variables.get("check_tool"))
             for p in self.packages:
                 if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
-                    if check_tool in variables.get("check_tool", ""):
-                        print("check tool:", check_tool)
-                        print("p:", p)
-                        self.packages[p]["optional"] = False
+                    for check_tool in variables.get("check_tool", ""):
+                        if check_tool in p:
+                            print("check tool:", check_tool)
+                            print("p:", p)
+                            self.packages[p]["optional"] = False
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
