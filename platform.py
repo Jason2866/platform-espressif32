@@ -101,7 +101,7 @@ class Espressif32Platform(PlatformBase):
             self.packages["framework-espidf"]["optional"] = False
             self.packages["framework-arduinoespressif32"]["optional"] = False
 
-        mcu_toolchain_mapping = {
+        MCU_TOOLCHAIN_MAPPING = {
             # Xtensa based and FSM toolchain
             ("esp32", "esp32s2", "esp32s3"): {
                 "toolchains": ["toolchain-xtensa-esp-elf"],
@@ -115,9 +115,8 @@ class Espressif32Platform(PlatformBase):
                 "debug_tools": ["tool-riscv32-esp-elf-gdb"]
             }
         }
-
         # Iterate through MCU mappings
-        for supported_mcus, toolchain_data in mcu_toolchain_mapping.items():
+        for supported_mcus, toolchain_data in MCU_TOOLCHAIN_MAPPING.items():
             if mcu in supported_mcus:
                 # Set mandatory toolchains
                 for toolchain in toolchain_data["toolchains"]:
@@ -146,10 +145,25 @@ class Espressif32Platform(PlatformBase):
             for package in COMMON_IDF_PACKAGES:
                 self.packages[package]["optional"] = False
 
-        # Enable check tools only when "check_tool" is active
-        for p in self.packages:
-            if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
-                self.packages[p]["optional"] = False if str(variables.get("check_tool")).strip("['']") in p else True
+        # Mapping for check-tools
+        CHECK_TOOL_MAPPING = {
+            "tool-cppcheck": {
+                "optional": True,
+                "enabled": lambda check_tool: "cppcheck" in check_tool
+            },
+            "tool-clangtidy": {
+                "optional": True,
+                "enabled": lambda check_tool: "clangtidy" in check_tool
+            },
+            "tool-pvs-studio": {
+                "optional": True,
+                "enabled": lambda check_tool: "pvs-studio" in check_tool
+            }
+        }
+        # Enable or disable check-tools based on "check_tool" variable
+        check_tool = str(variables.get("check_tool")).strip("['']")
+        for tool, config in CHECK_TOOL_MAPPING.items():
+            self.packages[tool]["optional"] = not config["enabled"](check_tool)
 
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
