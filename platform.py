@@ -146,7 +146,7 @@ class Espressif32Platform(PlatformBase):
                 self.packages[package]["optional"] = False
 
         # Install check tool listed in pio entry "check_tool"
-         for p in self.packages:
+        for p in self.packages:
             if p in ("tool-cppcheck", "tool-clangtidy", "tool-pvs-studio"):
                 for check_tool in variables.get("check_tool"):
                     print("check tool:", check_tool)
