@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import json
 import subprocess
 import sys
 import shutil
@@ -93,6 +94,13 @@ class Espressif32Platform(PlatformBase):
                 self.packages[TOOL]["optional"] = False
                 print(self.packages[TOOL]["package-version"])
                 print(self.packages[TOOL]["version"])
+                with open(TOOL_PACKAGE_PATH, "r") as file:
+                    package_data = json.load(file)
+                # Print value of version entry
+                if "version" in package_data:
+                    print(f"Version from package.json: {package_data['version']}")
+                else:
+                    print("The 'version' key is not found in the package.json file.")
 
             return
 
