@@ -48,7 +48,7 @@ class Espressif32Platform(PlatformBase):
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
 
-        def install_tool(TOOL, retry_count=0):
+        def install_tool(TOOL, retry_count=0, custom_tool=None):
             self.packages[TOOL]["optional"] = False
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             TOOL_PACKAGE_PATH = os.path.join(TOOL_PATH, "package.json")
@@ -74,7 +74,9 @@ class Espressif32Platform(PlatformBase):
                 if rc != 0:
                     sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
                 else:
-                    tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
+                    # Allow overriding only the TOOL variable
+                    effective_tool = custom_tool or TOOL
+                    tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", effective_tool)
                     try:
                         shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     except FileNotFoundError as e:
