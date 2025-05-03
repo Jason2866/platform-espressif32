@@ -86,7 +86,7 @@ class Espressif32Platform(PlatformBase):
                             print(f"Error while removing the tool folder: {e}")
                     pm.install(tl_path)
                     #print(self.packages[TOOL]["package-version"])
-                    print(self.packages[TOOL]["version"])
+                    #print(self.packages[TOOL]["version"])
             # tool is already installed, just activate it
             if tl_flag and pio_flag and not json_flag:
                 self.packages[TOOL]["version"] = TOOL_PATH
