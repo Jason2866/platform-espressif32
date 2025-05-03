@@ -91,7 +91,7 @@ class Espressif32Platform(PlatformBase):
                 with open(TOOL_PACKAGE_PATH, "r") as file:
                     package_data = json.load(file)
                 print(f"Version from package.json: {package_data['version']}")
-                if self.packages[TOOL]["package-version] = package_data['version']:
+                if self.packages[TOOL]["package-version"] = package_data['version']:
                     self.packages[TOOL]["version"] = TOOL_PATH
                     self.packages[TOOL]["optional"] = False
                     print(self.packages[TOOL]["package-version"])
