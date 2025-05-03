@@ -146,8 +146,8 @@
       "type": "tool",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "7.18.0",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/pvs-studio-v7.18.zip"
+      "package-version": "7.36.91321",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/pvs-studio-v7.36.91321.zip"
     },
     "tool-cmake": {
       "type": "tool",
