@@ -86,21 +86,24 @@ class Espressif32Platform(PlatformBase):
                         except Exception as e:
                             print(f"Error while removing the tool folder: {e}")
                     pm.install(tl_path)
-                    #print(self.packages[TOOL]["package-version"])
-                    #print(self.packages[TOOL]["version"])
             # tool is already installed, just activate it
             if tl_flag and pio_flag and not json_flag:
-                self.packages[TOOL]["version"] = TOOL_PATH
-                self.packages[TOOL]["optional"] = False
-                print(self.packages[TOOL]["package-version"])
-                print(self.packages[TOOL]["version"])
                 with open(TOOL_PACKAGE_PATH, "r") as file:
                     package_data = json.load(file)
-                # Print value of version entry
-                if "version" in package_data:
-                    print(f"Version from package.json: {package_data['version']}")
-                else:
-                    print("The 'version' key is not found in the package.json file.")
+                print(f"Version from package.json: {package_data['version']}")
+                if self.packages[TOOL]["package-version] = package_data['version']:
+                    self.packages[TOOL]["version"] = TOOL_PATH
+                    self.packages[TOOL]["optional"] = False
+                    print(self.packages[TOOL]["package-version"])
+                    print(self.packages[TOOL]["version"])
+                else: # Installed version does not match required version, deinstall existing and install needed
+                    self.packages.pop(TOOL, None)
+                    if os.path.exists(TOOL_PATH) and os.path.isdir(TOOL_PATH):
+                        try:
+                            shutil.rmtree(TOOL_PATH)
+                        except Exception as e:
+                            print(f"Error while removing the tool folder: {e}")
+                    install_tool(TOOL)
 
             return
 
