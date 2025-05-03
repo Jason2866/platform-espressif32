@@ -174,7 +174,7 @@
       "type": "tool",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "4.8.1",
+      "package-version": "4.40801.0",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/scons-4.8.1.zip"
     }
   }
