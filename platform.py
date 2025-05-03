@@ -106,7 +106,7 @@ class Espressif32Platform(PlatformBase):
                     if retry_count >= 3:  # Limit to 3 retries
                         print(f"Failed to install {TOOL} after multiple attempts. Please check your network connection and try again manually.")
                         return
-                    print(f"Wrong version for {TOOL}: installed {package_data['version']} -> required {self.packages[TOOL]['package-version']}. Reinstalling...")
+                    #print(f"Wrong version for {TOOL}: installed {package_data['version']} -> required {self.packages[TOOL]['package-version']}. Reinstalling...")
                     install_tool(TOOL, retry_count + 1, custom_tool)
 
             return
@@ -195,9 +195,9 @@ class Espressif32Platform(PlatformBase):
             if filesystem == "littlefs":
                 # Use Tasmota mklittlefs v4.0.0 to unpack, older version is incompatible
                 custom_tool = "mklittlefs-4.0.0"
-                self.packages[custom_tool]["optional"] = False
+                self.packages["tool-mklittlefs-4.0.0"]["optional"] = False
                 self.packages["tool-mklittlefs"]["package-version"] = custom_tool
-                install_tool("tool-mklittlefs", custom_tool)
+                install_tool("tool-mklittlefs", 0, custom_tool)
 
         # Currently only Arduino Nano ESP32 uses the dfuutil tool as uploader
         if variables.get("board") == "arduino_nano_esp32":
