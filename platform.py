@@ -48,7 +48,7 @@ class Espressif32Platform(PlatformBase):
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
 
-        def install_tool(TOOL):
+        def install_tool(TOOL, retry_count=0):
             self.packages[TOOL]["optional"] = False
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             TOOL_PACKAGE_PATH = os.path.join(TOOL_PATH, "package.json")
@@ -101,7 +101,10 @@ class Espressif32Platform(PlatformBase):
                             shutil.rmtree(TOOL_PATH)
                         except Exception as e:
                             print(f"Error while removing the tool folder: {e}")
-                    install_tool(TOOL)
+                    if retry_count >= 3:  # Limit to 3 retries
+                        print(f"Failed to install {TOOL} after multiple attempts. Please check your network connection and try again manually.")
+                        return
+                    install_tool(TOOL, retry_count + 1)
 
             return
 
