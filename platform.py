@@ -83,13 +83,13 @@ class Espressif32Platform(PlatformBase):
                         try:
                             shutil.rmtree(TOOL_PATH)
                         except Exception as e:
-                            print(f"Error while removing the tool folder: {e}")                   
+                            print(f"Error while removing the tool folder: {e}")
                     pm.install(tl_path)
             # tool is already installed, just activate it
             if tl_flag and pio_flag and not json_flag:
                 self.packages[TOOL]["version"] = TOOL_PATH
                 self.packages[TOOL]["optional"] = False
-            
+
             return
 
         # Installer only needed for setup, deactivate when installed
@@ -129,6 +129,8 @@ class Espressif32Platform(PlatformBase):
                 # Set mandatory toolchains
                 for toolchain in toolchain_data["toolchains"]:
                     install_tool(toolchain)
+                    print(self.packages[toolchain]["package-version"])
+                    print(self.packages[toolchain]["version"])
 
                 # Set ULP toolchain if applicable
                 ulp_toolchain = toolchain_data.get("ulp_toolchain")
