@@ -130,7 +130,6 @@ class Espressif32Platform(PlatformBase):
                 for toolchain in toolchain_data["toolchains"]:
                     install_tool(toolchain)
                     print(self.packages[toolchain]["package-version"])
-                    print(self.packages[toolchain]["version"])
 
                 # Set ULP toolchain if applicable
                 ulp_toolchain = toolchain_data.get("ulp_toolchain")
