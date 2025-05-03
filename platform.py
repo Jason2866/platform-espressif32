@@ -85,10 +85,14 @@ class Espressif32Platform(PlatformBase):
                         except Exception as e:
                             print(f"Error while removing the tool folder: {e}")
                     pm.install(tl_path)
+                    #print(self.packages[TOOL]["package-version"])
+                    print(self.packages[TOOL]["version"])
             # tool is already installed, just activate it
             if tl_flag and pio_flag and not json_flag:
                 self.packages[TOOL]["version"] = TOOL_PATH
                 self.packages[TOOL]["optional"] = False
+                print(self.packages[TOOL]["package-version"])
+                print(self.packages[TOOL]["version"])
 
             return
 
@@ -129,8 +133,6 @@ class Espressif32Platform(PlatformBase):
                 # Set mandatory toolchains
                 for toolchain in toolchain_data["toolchains"]:
                     install_tool(toolchain)
-                    print(self.packages[toolchain]["package-version"])
-
                 # Set ULP toolchain if applicable
                 ulp_toolchain = toolchain_data.get("ulp_toolchain")
                 if ulp_toolchain and os.path.isdir("ulp"):
