@@ -90,12 +90,10 @@ class Espressif32Platform(PlatformBase):
             if tl_flag and pio_flag and not json_flag:
                 with open(TOOL_PACKAGE_PATH, "r") as file:
                     package_data = json.load(file)
-                print(f"Version from package.json: {package_data['version']}")
+                # check installed tool version against listed in platforms.json
                 if self.packages[TOOL]["package-version"] == package_data['version']:
                     self.packages[TOOL]["version"] = TOOL_PATH
                     self.packages[TOOL]["optional"] = False
-                    print(self.packages[TOOL]["package-version"])
-                    print(self.packages[TOOL]["version"])
                 else: # Installed version does not match required version, deinstall existing and install needed
                     self.packages.pop(TOOL, None)
                     if os.path.exists(TOOL_PATH) and os.path.isdir(TOOL_PATH):
