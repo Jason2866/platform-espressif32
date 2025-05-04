@@ -103,7 +103,6 @@ class Espressif32Platform(PlatformBase):
                 elif "version" not in package_data:
                     print(f"Warning: Cannot determine installed version for {TOOL}. Reinstalling...")
                 else:  # Installed version does not match required version, deinstall existing and install needed
-                    self.packages.pop(TOOL, None)
                     if os.path.exists(TOOL_PATH) and os.path.isdir(TOOL_PATH):
                         try:
                             shutil.rmtree(TOOL_PATH)
