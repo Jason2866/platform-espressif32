@@ -104,7 +104,7 @@ class Espressif32Platform(PlatformBase):
                     if retry_count >= 3:  # Limit to 3 retries
                         print(f"Failed to install {TOOL} after multiple attempts. Please check your network connection and try again manually.")
                         return
-                    print(f"Wrong version for {TOOL}: installed {package_data['version']} -> required {self.packages[TOOL]['package-version']}. Reinstalling...")
+                    print(f"Wrong version for {TOOL}. Installing needed version...")
                     install_tool(TOOL, retry_count + 1)
 
             return
