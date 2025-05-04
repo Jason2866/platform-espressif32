@@ -91,10 +91,18 @@ class Espressif32Platform(PlatformBase):
                 with open(TOOL_PACKAGE_PATH, "r") as file:
                     package_data = json.load(file)
                 # check installed tool version against listed in platforms.json
-                if self.packages[TOOL]["package-version"] == package_data['version']:
+                if "package-version" in self.packages[TOOL] \
+                   and "version" in package_data \
+                   and self.packages[TOOL]["package-version"] == package_data["version"]:
                     self.packages[TOOL]["version"] = TOOL_PATH
                     self.packages[TOOL]["optional"] = False
-                else: # Installed version does not match required version, deinstall existing and install needed
+                elif "package-version" not in self.packages[TOOL]:
+                    # No version check needed, just use the installed tool
+                    self.packages[TOOL]["version"] = TOOL_PATH
+                    self.packages[TOOL]["optional"] = False
+                elif "version" not in package_data:
+                    print(f"Warning: Cannot determine installed version for {TOOL}. Reinstalling...")
+                else:  # Installed version does not match required version, deinstall existing and install needed
                     self.packages.pop(TOOL, None)
                     if os.path.exists(TOOL_PATH) and os.path.isdir(TOOL_PATH):
                         try:
