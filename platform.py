@@ -184,6 +184,13 @@ class Espressif32Platform(PlatformBase):
         if "buildfs" in targets:
             filesystem = variables.get("board_build.filesystem", "littlefs")
             if filesystem == "littlefs":
+                # ensure use of mklittlefs 3.2.0
+                piopm_path = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tool-mklittlefs", ".piopm")
+                if os.path.exists(piopm_path):
+                    with open(piopm_path, "r") as file:
+                        package_data = json.load(file)
+                    if package_data['version'] == "4.0.0":
+                        os.remove(piopm_path)
                 install_tool("tool-mklittlefs")
             elif filesystem == "fatfs":
                 install_tool("tool-mkfatfs")
@@ -193,15 +200,24 @@ class Espressif32Platform(PlatformBase):
             if filesystem == "littlefs":
                 # Use Tasmota mklittlefs v4.0.0 to unpack, older version is incompatible
                 # make sure mklittlefs 3.2.0 is installed
-                self.packages["tool-mklittlefs"]["optional"] = False
-                install_tool("tool-mklittlefs")
-                mklittlefs_dir = join(platform.get_package_dir("tool-mklittlefs"))
-                # install mklittlefs 4.0.0
-                self.packages["tool-mklittlefs-4.0.0"]["optional"] = False
-                install_tool("tool-mklittlefs-4.0.0")
-                mklittlefs400_dir = join(platform.get_package_dir("tool-mklittlefs-4.0.0"))
+                mklittlefs_dir = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tool-mklittlefs")
+                if not os.path.exists(mklittlefs_dir):
+                    install_tool("tool-mklittlefs")
+                if os.path.exists(os.path.join(mklittlefs_dir, "tools.json")):
+                    install_tool("tool-mklittlefs")
+                mklittlefs400_dir = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tool-mklittlefs-4.0.0")
+                if not os.path.exists(mklittlefs400_dir):
+                    # install mklittlefs 4.0.0
+                    install_tool("tool-mklittlefs-4.0.0")
+                if os.path.exists(os.path.join(mklittlefs400_dir, "tools.json")):
+                    install_tool("tool-mklittlefs-4.0.0")
                 # use mklittlefs 4.0.0 instead of 3.2.0 by copying over
-                shutil.copytree(mklittlefs_dir, mklittlefs400_dir, dirs_exist_ok=True)
+                if os.path.exists(mklittlefs400_dir):
+                    shutil.copyfile(
+                        os.path.join(mklittlefs_dir, "package.json"),
+                        os.path.join(mklittlefs400_dir, "package.json"),
+                    )
+                    shutil.copytree(mklittlefs400_dir, mklittlefs_dir, dirs_exist_ok=True)
 
         # Currently only Arduino Nano ESP32 uses the dfuutil tool as uploader
         if variables.get("board") == "arduino_nano_esp32":
