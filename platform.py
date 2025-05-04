@@ -76,7 +76,6 @@ class Espressif32Platform(PlatformBase):
                         shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     except FileNotFoundError as e:
                         sys.stderr.write(f"Error copying tool package file: {e}\n")
-                    self.packages.pop(TOOL, None)
                     if os.path.exists(TOOL_PATH) and os.path.isdir(TOOL_PATH):
                         try:
                             shutil.rmtree(TOOL_PATH)
