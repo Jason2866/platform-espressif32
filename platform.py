@@ -48,15 +48,13 @@ class Espressif32Platform(PlatformBase):
         core_variant_build = (''.join(variables.get("build_flags", []))).replace("-D", " ")
         frameworks = variables.get("pioframework", [])
 
-        def install_tool(TOOL, retry_count=0, custom_tool=None):
-            # Allow overriding the TOOL variable
-            effective_tool = custom_tool or TOOL
+        def install_tool(TOOL, retry_count=0):
             self.packages[TOOL]["optional"] = False
             TOOL_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), TOOL)
             TOOL_PACKAGE_PATH = os.path.join(TOOL_PATH, "package.json")
             TOOLS_PATH_DEFAULT = os.path.join(os.path.expanduser("~"), ".platformio")
             IDF_TOOLS = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py")
-            TOOLS_JSON_PATH = os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), effective_tool, "tools.json")
+            TOOLS_JSON_PATH = os.path.join(TOOL_PATH, "tools.json")
             TOOLS_PIO_PATH = os.path.join(TOOL_PATH, ".piopm")
             IDF_TOOLS_CMD = (
                 python_exe,
@@ -76,7 +74,7 @@ class Espressif32Platform(PlatformBase):
                 if rc != 0:
                     sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
                 else:
-                    tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", effective_tool)
+                    tl_path = "file://" + join(TOOLS_PATH_DEFAULT, "tools", TOOL)
                     try:
                         shutil.copyfile(TOOL_PACKAGE_PATH, join(TOOLS_PATH_DEFAULT, "tools", TOOL, "package.json"))
                     except FileNotFoundError as e:
@@ -106,8 +104,8 @@ class Espressif32Platform(PlatformBase):
                     if retry_count >= 3:  # Limit to 3 retries
                         print(f"Failed to install {TOOL} after multiple attempts. Please check your network connection and try again manually.")
                         return
-                    #print(f"Wrong version for {TOOL}: installed {package_data['version']} -> required {self.packages[TOOL]['package-version']}. Reinstalling...")
-                    install_tool(TOOL, retry_count + 1, custom_tool)
+                    print(f"Wrong version for {TOOL}: installed {package_data['version']} -> required {self.packages[TOOL]['package-version']}. Reinstalling...")
+                    install_tool(TOOL, retry_count + 1)
 
             return
 
@@ -194,10 +192,16 @@ class Espressif32Platform(PlatformBase):
             filesystem = variables.get("board_build.filesystem", "littlefs")
             if filesystem == "littlefs":
                 # Use Tasmota mklittlefs v4.0.0 to unpack, older version is incompatible
-                custom_tool = "mklittlefs-4.0.0"
+                # make sure mklittlefs 3.2.0 is installed
+                self.packages["tool-mklittlefs"]["optional"] = False
+                install_tool("tool-mklittlefs")
+                mklittlefs_dir = join(platform.get_package_dir("tool-mklittlefs"))
+                # install mklittlefs 4.0.0
                 self.packages["tool-mklittlefs-4.0.0"]["optional"] = False
-                self.packages["tool-mklittlefs"]["package-version"] = custom_tool
-                install_tool("tool-mklittlefs", 0, custom_tool)
+                install_tool("tool-mklittlefs-4.0.0")
+                mklittlefs400_dir = join(platform.get_package_dir("tool-mklittlefs-4.0.0"))
+                # use mklittlefs 4.0.0 instead of 3.2.0 by copying over
+                shutil.copytree(mklittlefs_dir, mklittlefs400_dir, dirs_exist_ok=True)
 
         # Currently only Arduino Nano ESP32 uses the dfuutil tool as uploader
         if variables.get("board") == "arduino_nano_esp32":
