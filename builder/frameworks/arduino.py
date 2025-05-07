@@ -55,6 +55,7 @@ if len(str(board_sdkconfig)) > 2:
     flag_custom_sdkconfig = True
 
 extra_flags = (''.join([element for element in board.get("build.extra_flags", "")])).replace("-D", " ")
+build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
 framework_reinstall = False
 flag_any_custom_sdkconfig = False
 
@@ -281,4 +282,4 @@ if "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFR
         PIO_BUILD = "platformio-build.py"
     else:
         PIO_BUILD = "pioarduino-build.py"
-    SConscript(join(platform.get_package_dir("framework-arduinoespressif32"), "tools", PIO_BUILD))
+    SConscript(FRAMEWORK_DIR), "tools", PIO_BUILD))
