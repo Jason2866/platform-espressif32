@@ -25,6 +25,11 @@ from platformio.util import get_serial_ports
 env = DefaultEnvironment()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
+extra_flags = ''.join([element.replace("-D", " ") for element in env.BoardConfig().get("build.extra_flags", "")])
+build_flags = ''.join([element.replace("-D", " ") for element in env.GetProjectOption("build_flags")])
+flag_custom_sdkonfig = False
+if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
+    flag_custom_sdkonfig = True
 
 #
 # Helpers
