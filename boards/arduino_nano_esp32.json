@@ -7,7 +7,7 @@
     "core": "esp32",
     "extra_flags": [
       "-DARDUINO_NANO_ESP32",
-      "-BOARD_USES_HW_GPIO_NUMBERS",
+      "-DBOARD_USES_HW_GPIO_NUMBERS",
       "-DBOARD_HAS_PSRAM",
       "-DARDUINO_USB_CDC_ON_BOOT=1",
       "-DARDUINO_RUNNING_CORE=1",
