@@ -481,28 +481,6 @@ elif upload_protocol == "esptool":
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ]
 
-elif upload_protocol == "dfu":
-
-    hwids = board.get("build.hwids", [["0x2341", "0x0070"]])
-    vid = hwids[0][0]
-    pid = hwids[0][1]
-
-    upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
-
-    env.Replace(
-        UPLOADER=join(
-            platform.get_package_dir("tool-dfuutil-arduino") or "", "dfu-util"
-        ),
-        UPLOADERFLAGS=[
-            "-d",
-            ",".join(["%s:%s" % (hwid[0], hwid[1]) for hwid in hwids]),
-            "-Q",
-            "-D"
-        ],
-        UPLOADCMD='"$UPLOADER" $UPLOADERFLAGS "$SOURCE"',
-    )
-
-
 elif upload_protocol in debug_tools:
     _parse_partitions(env)
     openocd_args = ["-d%d" % (2 if int(ARGUMENTS.get("PIOVERBOSE", 0)) else 1)]
