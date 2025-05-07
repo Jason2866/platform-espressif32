@@ -35,7 +35,12 @@ if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
 # Helpers
 #
 
-FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+if "CORE32SOLO1" in extra_flags or "FRAMEWORK_ARDUINO_SOLO1" in build_flags and flag_custom_sdkonfig is False:
+    FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-solo1")
+elif "CORE32ITEAD" in extra_flags or "FRAMEWORK_ARDUINO_ITEAD" in build_flags and flag_custom_sdkonfig is False:
+    FRAMEWORK_DIR = platform.get_package_dir("framework-arduino-ITEAD")
+else:
+    FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 def BeforeUpload(target, source, env):
     upload_options = {}
