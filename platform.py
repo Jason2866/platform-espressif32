@@ -67,16 +67,14 @@ class Espressif32Platform(PlatformBase):
             json_flag = bool(os.path.exists(TOOLS_JSON_PATH))
             pio_flag = bool(os.path.exists(TOOLS_PIO_PATH))
             if tl_flag and json_flag:
-                with open(os.devnull, 'w') as devnull:
-                    old_stdout = sys.stdout
-                    old_stderr = sys.stderr
-                    sys.stdout = devnull
-                    sys.stderr = devnull
-                    try:
-                        rc = subprocess.run(IDF_TOOLS_CMD).returncode
-                    finally:
-                        sys.stdout = old_stdout
-                        sys.stderr = old_stderr
+                with open(os.devnull, 'w') as devnull, \
+                     contextlib.redirect_stdout(devnull), \
+                     contextlib.redirect_stderr(devnull):
+                    rc = subprocess.run(
+                        IDF_TOOLS_CMD,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    ).returncode
                 if rc != 0:
                     sys.stderr.write("Error: Couldn't execute 'idf_tools.py install'\n")
                 else:
