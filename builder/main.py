@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     https://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,25 +15,28 @@
 import os
 import re
 import sys
-
 from os.path import isfile, join
+
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
-    DefaultEnvironment
-)
+    DefaultEnvironment)
+
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
+
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
 projectconfig = env.GetProjectConfig()
 IS_WINDOWS = sys.platform.startswith("win")
 
+#
+# Helpers
+#
+
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
-
-def before_upload(target, source, env):
-    """Prepare environment before uploading firmware."""
+def BeforeUpload(target, source, env):
     upload_options = {}
     if "BOARD" in env:
         upload_options = env.BoardConfig().get("upload", {})
@@ -50,55 +53,54 @@ def before_upload(target, source, env):
 
 
 def _get_board_memory_type(env):
-    """Get board memory type."""
     board_config = env.BoardConfig()
     default_type = "%s_%s" % (
         board_config.get("build.flash_mode", "dio"),
         board_config.get("build.psram_type", "qspi"),
     )
+
     return board_config.get(
         "build.memory_type",
         board_config.get(
-            "build.%s.memory_type" %
-            env.subst("$PIOFRAMEWORK").strip().replace(" ", "_"),
+            "build.%s.memory_type"
+            % env.subst("$PIOFRAMEWORK").strip().replace(" ", "_"),
             default_type,
         ),
     )
 
-
 def _normalize_frequency(frequency):
-    """Normalize frequency value to string with 'm' suffix."""
     frequency = str(frequency).replace("L", "")
     return str(int(int(frequency) / 1000000)) + "m"
-
 
 def _get_board_f_flash(env):
     frequency = env.subst("$BOARD_F_FLASH")
     return _normalize_frequency(frequency)
 
-
 def _get_board_f_image(env):
     board_config = env.BoardConfig()
     if "build.f_image" in board_config:
         return _normalize_frequency(board_config.get("build.f_image"))
-    return _get_board_f_flash(env)
 
+    return _get_board_f_flash(env)
 
 def _get_board_f_boot(env):
     board_config = env.BoardConfig()
     if "build.f_boot" in board_config:
         return _normalize_frequency(board_config.get("build.f_boot"))
+
     return _get_board_f_flash(env)
 
-
 def _get_board_flash_mode(env):
-    if _get_board_memory_type(env) in ("opi_opi", "opi_qspi"):
+    if _get_board_memory_type(env) in (
+        "opi_opi",
+        "opi_qspi",
+    ):
         return "dout"
+
     mode = env.subst("$BOARD_FLASH_MODE")
     if mode in ("qio", "qout"):
         return "dio"
     return mode
-
 
 def _get_board_boot_mode(env):
     memory_type = env.BoardConfig().get("build.arduino.memory_type", "")
@@ -107,9 +109,7 @@ def _get_board_boot_mode(env):
         build_boot = "opi"
     return build_boot
 
-
 def _parse_size(value):
-    """Parse size string (supports hex, K/M suffix, int)."""
     if isinstance(value, int):
         return value
     elif value.isdigit():
@@ -121,21 +121,17 @@ def _parse_size(value):
         return int(value[:-1]) * base
     return value
 
-
 def _parse_partitions(env):
-    """Parse partition table CSV and update env with application offset."""
     partitions_csv = env.subst("$PARTITIONS_TABLE_CSV")
     if not isfile(partitions_csv):
-        sys.stderr.write(
-            "Could not find the file %s with partitions table.\n" %
-            partitions_csv
-        )
+        sys.stderr.write("Could not find the file %s with partitions "
+                         "table.\n" % partitions_csv)
         env.Exit(1)
         return
 
     result = []
     next_offset = 0
-    app_offset = 0x10000  # default address for firmware
+    app_offset = 0x10000 # default address for firmware
     with open(partitions_csv) as fp:
         for line in fp.readlines():
             line = line.strip()
@@ -156,40 +152,36 @@ def _parse_partitions(env):
             }
             result.append(partition)
             next_offset = _parse_size(partition["offset"])
-            if partition["subtype"] == "ota_0":
+            if (partition["subtype"] == "ota_0"):
                 app_offset = next_offset
             next_offset = next_offset + _parse_size(partition["size"])
+    # Configure application partition offset
     env.Replace(ESP32_APP_OFFSET=str(hex(app_offset)))
-    env["INTEGRATION_EXTRA_DATA"].update(
-        {"application_offset": str(hex(app_offset))}
-    )
+    # Propagate application offset to debug configurations
+    env["INTEGRATION_EXTRA_DATA"].update({"application_offset": str(hex(app_offset))})
     return result
 
-
 def _update_max_upload_size(env):
-    """Update the maximum upload size based on partition table."""
     if not env.get("PARTITIONS_TABLE_CSV"):
         return
     sizes = {
-        p["subtype"]: _parse_size(p["size"])
-        for p in _parse_partitions(env)
+        p["subtype"]: _parse_size(p["size"]) for p in _parse_partitions(env)
         if p["type"] in ("0", "app")
     }
+
     partitions = {p["name"]: p for p in _parse_partitions(env)}
 
+    # User-specified partition name has the highest priority
     custom_app_partition_name = board.get("build.app_partition_name", "")
     if custom_app_partition_name:
         selected_partition = partitions.get(custom_app_partition_name, {})
         if selected_partition:
-            board.update(
-                "upload.maximum_size", _parse_size(selected_partition["size"])
-            )
+            board.update("upload.maximum_size", _parse_size(selected_partition["size"]))
             return
         else:
             print(
-                "Warning! Selected partition `%s` is not available in the "
-                "partition table! Default partition will be used!"
-                % custom_app_partition_name
+                "Warning! Selected partition `%s` is not available in the partition " \
+                "table! Default partition will be used!" % custom_app_partition_name
             )
 
     for p in partitions.values():
@@ -197,14 +189,14 @@ def _update_max_upload_size(env):
             board.update("upload.maximum_size", _parse_size(p["size"]))
             break
 
-
 def _to_unix_slashes(path):
-    """Convert backslashes to forward slashes."""
     return path.replace("\\", "/")
 
+#
+# Filesystem helpers
+#
 
 def fetch_fs_size(env):
-    """Fetch file system partition size and update env."""
     fs = None
     for p in _parse_partitions(env):
         if p["type"] == "data" and p["subtype"] in ("spiffs", "fat", "littlefs"):
@@ -221,23 +213,21 @@ def fetch_fs_size(env):
     env["FS_PAGE"] = int("0x100", 16)
     env["FS_BLOCK"] = int("0x1000", 16)
 
+    # FFat specific offsets, see:
+    # https://github.com/lorol/arduino-esp32fatfs-plugin#notes-for-fatfs
     if filesystem == "fatfs":
         env["FS_START"] += 4096
         env["FS_SIZE"] -= 4096
-
 
 def __fetch_fs_size(target, source, env):
     fetch_fs_size(env)
     return (target, source)
 
-
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 toolchain_arch = "xtensa-%s" % mcu
 filesystem = board.get("build.filesystem", "littlefs")
-if mcu in (
-    "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"
-):
+if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
     toolchain_arch = "riscv32-esp"
 
 if "INTEGRATION_EXTRA_DATA" not in env:
@@ -258,12 +248,10 @@ env.Replace(
     GDB=join(
         platform.get_package_dir(
             "tool-riscv32-esp-elf-gdb"
-            if mcu in (
-                "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2",
-                "esp32p4"
-            )
+            if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4")
             else "tool-xtensa-esp-elf-gdb"
-        ) or "",
+        )
+        or "",
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
@@ -273,13 +261,8 @@ env.Replace(
 
     ARFLAGS=["rc"],
 
-    SIZEPROGREGEXP=(
-        r"^(?:\.iram0\.text|\.iram0\.vectors|\.dram0\.data|"
-        r"\.flash\.text|\.flash\.rodata|)\s+([0-9]+).*"
-    ),
-    SIZEDATAREGEXP=(
-        r"^(?:\.dram0\.data|\.dram0\.bss|\.noinit)\s+([0-9]+).*"
-    ),
+    SIZEPROGREGEXP=r"^(?:\.iram0\.text|\.iram0\.vectors|\.dram0\.data|\.flash\.text|\.flash\.rodata|)\s+([0-9]+).*",
+    SIZEDATAREGEXP=r"^(?:\.dram0\.data|\.dram0\.bss|\.noinit)\s+([0-9]+).*",
     SIZECHECKCMD="$SIZETOOL -A -d $SOURCES",
     SIZEPRINTCMD="$SIZETOOL -B -d $SOURCES",
 
@@ -291,6 +274,8 @@ env.Replace(
 
     MKFSTOOL="mk%s" % filesystem,
 
+    # Legacy `ESP32_SPIFFS_IMAGE_NAME` is used as the second fallback value for
+    # backward compatibility
     ESP32_FS_IMAGE_NAME=env.get(
         "ESP32_FS_IMAGE_NAME", env.get("ESP32_SPIFFS_IMAGE_NAME", filesystem)
     ),
@@ -301,43 +286,43 @@ env.Replace(
     PROGSUFFIX=".elf"
 )
 
-
+# Check if lib_archive is set in platformio.ini and set it to False
+# if not found. This makes weak defs in framework and libs possible.
 def check_lib_archive_exists():
-    """Check if lib_archive is set in platformio.ini."""
     for section in projectconfig.sections():
         if "lib_archive" in projectconfig.options(section):
+            #print(f"lib_archive in [{section}] found with value: {projectconfig.get(section, 'lib_archive')}")
             return True
+    #print("lib_archive was not found in platformio.ini")
     return False
-
 
 if not check_lib_archive_exists():
     env_section = "env:" + env["PIOENV"]
     projectconfig.set(env_section, "lib_archive", "False")
+    #print(f"lib_archive is set to False in [{env_section}]")
 
+# Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
     env.Replace(PROGNAME="firmware")
 
 env.Append(
     BUILDERS=dict(
         ElfToBin=Builder(
-            action=env.VerboseAction(
-                " ".join([
-                    '"$PYTHONEXE" "$OBJCOPY"',
-                    "--chip", mcu, "elf2image",
-                    "--flash_mode", "${__get_board_flash_mode(__env__)}",
-                    "--flash_freq", "${__get_board_f_image(__env__)}",
-                    "--flash_size", board.get("upload.flash_size", "4MB"),
-                    "-o", "$TARGET", "$SOURCES"
-                ]),
-                "Building $TARGET"
-            ),
+            action=env.VerboseAction(" ".join([
+                '"$PYTHONEXE" "$OBJCOPY"',
+                "--chip", mcu, "elf2image",
+                "--flash_mode", "${__get_board_flash_mode(__env__)}",
+                "--flash_freq", "${__get_board_f_image(__env__)}",
+                "--flash_size", board.get("upload.flash_size", "4MB"),
+                "-o", "$TARGET", "$SOURCES"
+            ]), "Building $TARGET"),
             suffix=".bin"
         ),
         DataToBin=Builder(
             action=env.VerboseAction(
                 " ".join(
-                    ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "$FS_SIZE"] +
-                    (
+                    ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "$FS_SIZE"]
+                    + (
                         [
                             "-p",
                             "$FS_PAGE",
@@ -346,14 +331,14 @@ env.Append(
                         ]
                         if filesystem in ("littlefs", "spiffs")
                         else []
-                    ) +
-                    ["$TARGET"]
+                    )
+                    + ["$TARGET"]
                 ),
-                "Building FS image from '$SOURCES' directory to $TARGET"
+                "Building FS image from '$SOURCES' directory to $TARGET",
             ),
             emitter=__fetch_fs_size,
             source_factory=env.Dir,
-            suffix=".bin"
+            suffix=".bin",
         ),
     )
 )
@@ -365,38 +350,32 @@ if not env.get("PIOFRAMEWORK"):
 def clean_file_remove_undisplayable(filepath, encoding='utf-8'):
     """
     Ensures the file is written using UTF-8 encoding.
-    Replaces all characters not encodable in cp1252 with '?'.
     Overwrites the original file.
     """
+    # Always read as UTF-8 (fall back to old encoding if needed)
     try:
-        with open(filepath, 'r', encoding=encoding) as infile:
+        with open(filepath, 'r', encoding='utf-8') as infile:
             content = infile.read()
     except UnicodeDecodeError:
         with open(filepath, 'r', encoding='cp1252', errors='replace') as infile:
             content = infile.read()
-
-    def cp1252_safe(s):
-        return ''.join(
-            ch if _is_encodable(ch, 'cp1252') else '?'
-            for ch in s
-        )
-
-    safe_content = cp1252_safe(content)
+    # Write back in UTF-8 encoding
     with open(filepath, 'w', encoding='utf-8') as outfile:
-        outfile.write(safe_content)
+        outfile.write(content)
+
+def _is_encodable(char, encoding):
+    try:
+        char.encode(encoding)
+        return True
+    except UnicodeEncodeError:
+        return False
 
 
 def firmware_metrics(target, source, env):
-    """
-    Run the esp-idf-size tool on the .map file.
-    """
-    map_file = os.path.join(
-        env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map"
-    )
+    map_file = os.path.join(env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map")
     if not os.path.isfile(map_file):
-        map_file = os.path.join(
-            get_project_dir(), env.subst("$PROGNAME") + ".map"
-        )
+        # map file can be in project dir
+        map_file = os.path.join(get_project_dir(), env.subst("$PROGNAME") + ".map")
 
     if os.path.isfile(map_file):
         if IS_WINDOWS:
@@ -407,19 +386,17 @@ def firmware_metrics(target, source, env):
             run_env = os.environ.copy()
             run_env["PYTHONIOENCODING"] = "utf-8"
             run_env["PYTHONUTF8"] = "1"
-            subprocess.run(
-                [python_exe, "-m", "esp_idf_size", "--ng", map_file],
-                env=run_env, check=False
-            )
+            # Show output of esp_idf_size, but suppresses the command echo
+            subprocess.run([
+                python_exe, "-m", "esp_idf_size", "--ng", map_file
+            ], env=run_env, check=False)
         except Exception:
-            print(
-                "Warning: Failed to run firmware metrics. "
-                "Is esp-idf-size installed?"
-            )
+            print("Warning: Failed to run firmware metrics. Is esp-idf-size installed?")
             pass
 
-
+#
 # Target: Build executable and linkable firmware or FS image
+#
 
 target_elf = None
 if "nobuild" in COMMAND_LINE_TARGETS:
@@ -432,7 +409,7 @@ if "nobuild" in COMMAND_LINE_TARGETS:
 else:
     target_elf = env.BuildProgram()
     silent_action = env.Action(firmware_metrics)
-    silent_action.strfunction = lambda target, source, env: ''
+    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
     env.AddPostAction(target_elf, silent_action)
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         target_firm = env.DataToBin(
@@ -442,8 +419,7 @@ else:
         AlwaysBuild(target_firm)
     else:
         target_firm = env.ElfToBin(
-            join("$BUILD_DIR", "${PROGNAME}"), target_elf
-        )
+            join("$BUILD_DIR", "${PROGNAME}"), target_elf)
         env.Depends(target_firm, "checkprogsize")
 
 env.AddPlatformTarget("buildfs", target_firm, target_firm, "Build Filesystem Image")
@@ -456,11 +432,11 @@ if env.get("PIOMAINPROG"):
         "checkprogsize",
         env.VerboseAction(
             lambda source, target, env: _update_max_upload_size(env),
-            "Retrieving maximum program size $SOURCES"
-        )
-    )
+            "Retrieving maximum program size $SOURCES"))
 
+#
 # Target: Print binary size
+#
 
 target_size = env.AddPlatformTarget(
     "size",
@@ -470,27 +446,24 @@ target_size = env.AddPlatformTarget(
     "Calculate program size",
 )
 
+#
 # Target: Upload firmware or FS image
+#
 
 upload_protocol = env.subst("$UPLOAD_PROTOCOL")
 debug_tools = board.get("debug.tools", {})
 upload_actions = []
 
 # Compatibility with old OTA configurations
-if (
-    upload_protocol != "espota"
-    and re.match(
-        r'"?((([0-9]{1,3}\.){3}[0-9]{1,3})|[^\]+\.local)"?$',
-        env.get("UPLOAD_PORT", "")
-    )
-):
+if (upload_protocol != "espota"
+        and re.match(r"\"?((([0-9]{1,3}\.){3}[0-9]{1,3})|[^\\/]+\.local)\"?$",
+                     env.get("UPLOAD_PORT", ""))):
     upload_protocol = "espota"
     sys.stderr.write(
         "Warning! We have just detected `upload_port` as IP address or host "
         "name of ESP device. `upload_protocol` is switched to `espota`.\n"
         "Please specify `upload_protocol = espota` in `platformio.ini` "
-        "project configuration file.\n"
-    )
+        "project configuration file.\n")
 
 if upload_protocol == "espota":
     if not env.subst("$UPLOAD_PORT"):
@@ -499,10 +472,9 @@ if upload_protocol == "espota":
             "using `upload_port` for build environment or use "
             "global `--upload-port` option.\n"
             "See https://docs.platformio.org/page/platforms/"
-            "espressif32.html#over-the-air-ota-update\n"
-        )
+            "espressif32.html#over-the-air-ota-update\n")
     env.Replace(
-        UPLOADER=join(FRAMEWORK_DIR, "tools", "espota.py"),
+        UPLOADER=join(FRAMEWORK_DIR,"tools", "espota.py"),
         UPLOADERFLAGS=["--debug", "--progress", "-i", "$UPLOAD_PORT"],
         UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS -f $SOURCE'
     )
@@ -512,7 +484,8 @@ if upload_protocol == "espota":
 
 elif upload_protocol == "esptool":
     env.Replace(
-        UPLOADER=join(platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
+        UPLOADER=join(
+            platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
         UPLOADERFLAGS=[
             "--chip", mcu,
             "--port", '"$UPLOAD_PORT"',
@@ -547,7 +520,7 @@ elif upload_protocol == "esptool":
         )
 
     upload_actions = [
-        env.VerboseAction(before_upload, "Looking for upload port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ]
 
@@ -555,14 +528,14 @@ elif upload_protocol in debug_tools:
     _parse_partitions(env)
     openocd_args = ["-d%d" % (2 if int(ARGUMENTS.get("PIOVERBOSE", 0)) else 1)]
     openocd_args.extend(
-        debug_tools.get(upload_protocol).get("server").get("arguments", [])
-    )
+        debug_tools.get(upload_protocol).get("server").get("arguments", []))
     openocd_args.extend(
         [
             "-c",
             "adapter speed %s" % env.GetProjectOption("debug_speed", "5000"),
             "-c",
-            "program_esp {{$SOURCE}} %s verify" % (
+            "program_esp {{$SOURCE}} %s verify"
+            % (
                 "$FS_START"
                 if "uploadfs" in COMMAND_LINE_TARGETS
                 else env.get("INTEGRATION_EXTRA_DATA").get("application_offset")
@@ -574,9 +547,8 @@ elif upload_protocol in debug_tools:
             openocd_args.extend(
                 [
                     "-c",
-                    "program_esp {{%s}} %s verify" % (
-                        _to_unix_slashes(image[1]), image[0]
-                    ),
+                    "program_esp {{%s}} %s verify"
+                    % (_to_unix_slashes(image[1]), image[0]),
                 ]
             )
     openocd_args.extend(["-c", "reset run; shutdown"])
@@ -584,9 +556,7 @@ elif upload_protocol in debug_tools:
         f.replace(
             "$PACKAGE_DIR",
             _to_unix_slashes(
-                platform.get_package_dir("tool-openocd-esp32") or ""
-            )
-        )
+                platform.get_package_dir("tool-openocd-esp32") or ""))
         for f in openocd_args
     ]
     env.Replace(
@@ -596,47 +566,56 @@ elif upload_protocol in debug_tools:
     )
     upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
 
+# custom upload tool
 elif upload_protocol == "custom":
     upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
 
 else:
     sys.stderr.write("Warning! Unknown upload protocol %s\n" % upload_protocol)
 
+
 env.AddPlatformTarget("upload", target_firm, upload_actions, "Upload")
 env.AddPlatformTarget("uploadfs", target_firm, upload_actions, "Upload Filesystem Image")
 env.AddPlatformTarget(
-    "uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA"
-)
+    "uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
 
+#
 # Target: Erase Flash and Upload
+#
 
 env.AddPlatformTarget(
     "erase_upload",
     target_firm,
     [
-        env.VerboseAction(before_upload, "Looking for upload port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ],
     "Erase Flash and Upload",
 )
 
+#
 # Target: Erase Flash
+#
 
 env.AddPlatformTarget(
     "erase",
     None,
     [
-        env.VerboseAction(before_upload, "Looking for upload port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing...")
     ],
     "Erase Flash",
 )
 
+#
 # Override memory inspection behavior
+#
 
 env.SConscript("sizedata.py", exports="env")
 
+#
 # Default targets
+#
 
-env.Default([target_buildprog, target_size])
+Default([target_buildprog, target_size])
