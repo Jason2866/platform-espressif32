@@ -385,6 +385,7 @@ def firmware_metrics(target, source, env):
             python_exe = env.subst("$PYTHONEXE")
             run_env = os.environ.copy()
             run_env["PYTHONIOENCODING"] = "utf-8"
+            run_env["PYTHONUTF8"] = "1"
             # Show output of esp_idf_size, but suppresses the command echo
             subprocess.run([
                 python_exe, "-m", "esp_idf_size", "--ng", map_file
