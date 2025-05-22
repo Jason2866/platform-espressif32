@@ -350,25 +350,28 @@ if not env.get("PIOFRAMEWORK"):
 def clean_file_remove_undisplayable(filepath, encoding='utf-8'):
     """
     Ensures the file is written using UTF-8 encoding.
+    Replaces all characters not encodable in cp1252 with '?'.
     Overwrites the original file.
     """
-    # Always read as UTF-8 (fall back to old encoding if needed)
+    # Always try to read as UTF-8 first
     try:
-        with open(filepath, 'r', encoding='utf-8') as infile:
+        with open(filepath, 'r', encoding=encoding) as infile:
             content = infile.read()
     except UnicodeDecodeError:
+        # Fallback to cp1252, replacing undecodable bytes
         with open(filepath, 'r', encoding='cp1252', errors='replace') as infile:
             content = infile.read()
-    # Write back in UTF-8 encoding
-    with open(filepath, 'w', encoding='utf-8') as outfile:
-        outfile.write(content)
 
-def _is_encodable(char, encoding):
-    try:
-        char.encode(encoding)
-        return True
-    except UnicodeEncodeError:
-        return False
+    # Replace any characters that cannot be encoded in cp1252 with '?'
+    def cp1252_safe(s):
+        return ''.join(
+            (ch if _is_encodable(ch, 'cp1252') else '?')
+            for ch in s
+        )
+
+    safe_content = cp1252_safe(content)
+    with open(filepath, 'w', encoding='utf-8') as outfile:
+        outfile.write(safe_content)
 
 
 def firmware_metrics(target, source, env):
