@@ -349,22 +349,27 @@ if not env.get("PIOFRAMEWORK"):
 
 def clean_file_remove_undisplayable(filepath, encoding='cp1252'):
     """
-    Entfernt aus der Datei alle Zeichen, die im angegebenen Encoding nicht darstellbar sind.
-    Überschreibt die Originaldatei.
+    Removes all characters from the file that are not displayable in the specified encoding.
+    Overwrites the original file.
     """
-    with open(filepath, 'r', encoding='utf-8') as infile:
-        content = infile.read()
+    # Try reading as UTF-8; fallback to cp1252 if needed
+    try:
+        with open(filepath, 'r', encoding='utf-8') as infile:
+            content = infile.read()
+    except UnicodeDecodeError:
+        with open(filepath, 'r', encoding=encoding, errors='replace') as infile:
+            content = infile.read()
+
+    # Replace non-encodable chars with '?'
     cleaned = ''.join(
-        c for c in content
-        if _is_encodable(c, encoding)
+        c if _is_encodable(c, encoding) else '?'
+        for c in content
     )
-    with open(filepath, 'w', encoding='utf-8') as outfile:
+    # Write back in the target encoding!
+    with open(filepath, 'w', encoding=encoding) as outfile:
         outfile.write(cleaned)
 
 def _is_encodable(char, encoding):
-    """
-    Prüft, ob ein einzelnes Zeichen im angegebenen Encoding kodierbar ist.
-    """
     try:
         char.encode(encoding)
         return True
