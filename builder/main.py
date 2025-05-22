@@ -347,27 +347,21 @@ if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
 
 
-def clean_file_remove_undisplayable(filepath, encoding='cp1252'):
+def clean_file_remove_undisplayable(filepath, encoding='utf-8'):
     """
-    Removes all characters from the file that are not displayable in the specified encoding.
+    Ensures the file is written using UTF-8 encoding.
     Overwrites the original file.
     """
-    # Try reading as UTF-8; fallback to cp1252 if needed
+    # Always read as UTF-8 (fall back to old encoding if needed)
     try:
         with open(filepath, 'r', encoding='utf-8') as infile:
             content = infile.read()
     except UnicodeDecodeError:
-        with open(filepath, 'r', encoding=encoding, errors='replace') as infile:
+        with open(filepath, 'r', encoding='cp1252', errors='replace') as infile:
             content = infile.read()
-
-    # Replace non-encodable chars with '?'
-    cleaned = ''.join(
-        c if _is_encodable(c, encoding) else '?'
-        for c in content
-    )
-    # Write back in the target encoding!
-    with open(filepath, 'w', encoding=encoding) as outfile:
-        outfile.write(cleaned)
+    # Write back in UTF-8 encoding
+    with open(filepath, 'w', encoding='utf-8') as outfile:
+        outfile.write(content)
 
 def _is_encodable(char, encoding):
     try:
