@@ -347,6 +347,30 @@ if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
 
 
+def clean_file_cp1250_cp1252(filepath):
+    """
+    Removes every character from file which is not coded in cp1250 and cp1252
+    Overwrites original file
+    """
+    def get_charset(encoding):
+        charset = set()
+        for i in range(256):
+            try:
+                char = bytes([i]).decode(encoding)
+                charset.add(char)
+            except UnicodeDecodeError:
+                continue
+        return charset
+    charset_cp1250 = get_charset('cp1250')
+    charset_cp1252 = get_charset('cp1252')
+    allowed_chars = charset_cp1250 & charset_cp1252
+
+    with open(filepath, 'r', encoding='utf-8') as infile:
+        lines = infile.readlines()
+    cleaned_lines = [''.join(c for c in line if c in allowed_chars) for line in lines]
+    with open(filepath, 'w', encoding='utf-8') as outfile:
+        outfile.writelines(cleaned_lines)
+
 def firmware_metrics(target, source, env):
     map_file = os.path.join(env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map")
     if not os.path.isfile(map_file):
@@ -354,6 +378,8 @@ def firmware_metrics(target, source, env):
         map_file = os.path.join(get_project_dir(), env.subst("$PROGNAME") + ".map")
 
     if os.path.isfile(map_file):
+        if IS_WINDOWS:
+            clean_file_cp1250_cp1252(map_file)
         try:
             import subprocess
             python_exe = env.subst("$PYTHONEXE")
@@ -381,10 +407,9 @@ if "nobuild" in COMMAND_LINE_TARGETS:
         target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
 else:
     target_elf = env.BuildProgram()
-    if not IS_WINDOWS:
-        silent_action = env.Action(firmware_metrics)
-        silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
-        env.AddPostAction(target_elf, silent_action)
+    silent_action = env.Action(firmware_metrics)
+    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+    env.AddPostAction(target_elf, silent_action)
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         target_firm = env.DataToBin(
             join("$BUILD_DIR", "${ESP32_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR"
