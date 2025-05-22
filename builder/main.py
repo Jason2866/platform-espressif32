@@ -386,15 +386,6 @@ def clean_file_remove_undisplayable(filepath, encoding='utf-8'):
         outfile.write(safe_content)
 
 
-def _is_encodable(char, encoding):
-    """Return True if character can be encoded in the given encoding."""
-    try:
-        char.encode(encoding)
-        return True
-    except UnicodeEncodeError:
-        return False
-
-
 def firmware_metrics(target, source, env):
     """
     Run the esp-idf-size tool on the .map file.
