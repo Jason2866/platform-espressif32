@@ -347,29 +347,30 @@ if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
 
 
-def clean_file_cp1250_cp1252(filepath):
+def clean_file_remove_undisplayable(filepath, encoding='cp1252'):
     """
-    Removes every character from file which is not coded in cp1250 and cp1252
-    Overwrites original file
+    Entfernt aus der Datei alle Zeichen, die im angegebenen Encoding nicht darstellbar sind.
+    Überschreibt die Originaldatei.
     """
-    def get_charset(encoding):
-        charset = set()
-        for i in range(256):
-            try:
-                char = bytes([i]).decode(encoding)
-                charset.add(char)
-            except UnicodeDecodeError:
-                continue
-        return charset
-    charset_cp1250 = get_charset('cp1250')
-    charset_cp1252 = get_charset('cp1252')
-    allowed_chars = charset_cp1250 & charset_cp1252
-
     with open(filepath, 'r', encoding='utf-8') as infile:
-        lines = infile.readlines()
-    cleaned_lines = [''.join(c for c in line if c in allowed_chars) for line in lines]
+        content = infile.read()
+    cleaned = ''.join(
+        c for c in content
+        if _is_encodable(c, encoding)
+    )
     with open(filepath, 'w', encoding='utf-8') as outfile:
-        outfile.writelines(cleaned_lines)
+        outfile.write(cleaned)
+
+def _is_encodable(char, encoding):
+    """
+    Prüft, ob ein einzelnes Zeichen im angegebenen Encoding kodierbar ist.
+    """
+    try:
+        char.encode(encoding)
+        return True
+    except UnicodeEncodeError:
+        return False
+
 
 def firmware_metrics(target, source, env):
     map_file = os.path.join(env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map")
@@ -379,7 +380,7 @@ def firmware_metrics(target, source, env):
 
     if os.path.isfile(map_file):
         if IS_WINDOWS:
-            clean_file_cp1250_cp1252(map_file)
+            clean_file_remove_undisplayable(map_file)
         try:
             import subprocess
             python_exe = env.subst("$PYTHONEXE")
