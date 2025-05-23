@@ -24,8 +24,6 @@ from SCons.Script import (
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
 
-sys.stdout.reconfigure(encoding="utf-8")
-sys.stdin.reconfigure(encoding="utf-8")
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
@@ -349,45 +347,13 @@ if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
 
 
-def clean_file_remove_undisplayable(filepath, encoding='utf-8'):
-    """
-    Ensures the file is written using UTF-8 encoding.
-    Overwrites the original file.
-    """
-    # Always read as UTF-8 (fall back to old encoding if needed)
-    try:
-        with open(filepath, 'r', encoding='utf-8') as infile:
-            content = infile.read()
-    except UnicodeDecodeError:
-        with open(filepath, 'r', encoding='cp1252', errors='replace') as infile:
-            content = infile.read()
-    # Write back in UTF-8 encoding
-    with open(filepath, 'w', encoding='utf-8') as outfile:
-        outfile.write(content)
-
-def _is_encodable(char, encoding):
-    try:
-        char.encode(encoding)
-        return True
-    except UnicodeEncodeError:
-        return False
-
-
 def firmware_metrics(target, source, env):
     map_file = os.path.join(env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map")
     if not os.path.isfile(map_file):
         # map file can be in project dir
         map_file = os.path.join(get_project_dir(), env.subst("$PROGNAME") + ".map")
 
-    print("stdin encoding:", sys.stdin.encoding)
-    print("stdout encoding:", sys.stdout.encoding)
-    print("stderr encoding:", sys.stderr.encoding)
-    print("Default encoding:", sys.getdefaultencoding())
-    print("File system encoding:", sys.getfilesystemencoding())
-
     if os.path.isfile(map_file):
-        if IS_WINDOWS:
-            clean_file_remove_undisplayable(map_file)
         try:
             import subprocess
             python_exe = env.subst("$PYTHONEXE")
@@ -416,9 +382,10 @@ if "nobuild" in COMMAND_LINE_TARGETS:
         target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
 else:
     target_elf = env.BuildProgram()
-    silent_action = env.Action(firmware_metrics)
-    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
-    env.AddPostAction(target_elf, silent_action)
+    if not IS_WINDOWS:
+        silent_action = env.Action(firmware_metrics)
+        silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+        env.AddPostAction(target_elf, silent_action)
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         target_firm = env.DataToBin(
             join("$BUILD_DIR", "${ESP32_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR"
