@@ -102,8 +102,7 @@ def install_python_deps():
     deps = {
         "wheel": ">=0.35.1",
         "rich-click": ">=1.8.6",
-        "zopfli": ">=0.2.2",
-        "esp-idf-size": "git+https://github.com/espressif/esp-idf-size.git@de09cfd720a6947c5b1c558e4c2c40a37a8dbd41#egg=esp-idf-size"
+        "zopfli": ">=0.2.2"
     }
 
     installed_packages = _get_installed_pip_packages()
@@ -134,6 +133,11 @@ def install_python_deps():
     return
 
 install_python_deps()
+
+env.Execute(env.VerboseAction(('"$PYTHONEXE" -m pip install -U -q -q -q '+ " ".join("git+https://github.com/espressif/esp-idf-size.git@de09cfd720a6947c5b1c558e4c2c40a37a8dbd41#egg=esp-idf-size")),
+            "Installing Arduino Python dependencies",
+    )
+)
 
 def get_MD5_hash(phrase):
     import hashlib
