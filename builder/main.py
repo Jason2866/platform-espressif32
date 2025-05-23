@@ -394,7 +394,7 @@ def firmware_metrics(target, source, env):
             run_env["PYTHONUTF8"] = "1"
             # Show output of esp_idf_size, but suppresses the command echo
             subprocess.run([
-                python_exe, "-m", "esp_idf_size", "--ng", map_file
+                python_exe, "-m", "esp_idf_size", "--ng", "--no-color", "--force-terminal", map_file
             ], env=run_env, check=False)
         except Exception:
             print("Warning: Failed to run firmware metrics. Is esp-idf-size installed?")
