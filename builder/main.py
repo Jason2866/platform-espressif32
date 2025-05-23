@@ -377,6 +377,12 @@ def firmware_metrics(target, source, env):
         # map file can be in project dir
         map_file = os.path.join(get_project_dir(), env.subst("$PROGNAME") + ".map")
 
+    print("stdin encoding:", sys.stdin.encoding)
+    print("stdout encoding:", sys.stdout.encoding)
+    print("stderr encoding:", sys.stderr.encoding)
+    print("Default encoding:", sys.getdefaultencoding())
+    print("File system encoding:", sys.getfilesystemencoding())
+
     if os.path.isfile(map_file):
         if IS_WINDOWS:
             clean_file_remove_undisplayable(map_file)
