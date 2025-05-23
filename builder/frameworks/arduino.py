@@ -134,8 +134,11 @@ def install_python_deps():
 
 install_python_deps()
 
-env.Execute(env.VerboseAction(('"$PYTHONEXE" -m pip install -U -q -q -q '+ " ".join("git+https://github.com/espressif/esp-idf-size.git@de09cfd720a6947c5b1c558e4c2c40a37a8dbd41#egg=esp-idf-size")),
-            "Installing Arduino Python dependencies",
+esp_idf_size_url = "git+https://github.com/espressif/esp-idf-size.git@de09cfd720a6947c5b1c558e4c2c40a37a8dbd41#egg=esp-idf-size"
+env.Execute(
+    env.VerboseAction(
+        f'"$PYTHONEXE" -m pip install -U -q -q -q {esp_idf_size_url}',
+        "Installing Arduino Python dependencies",
     )
 )
 
