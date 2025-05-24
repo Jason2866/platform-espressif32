@@ -31,7 +31,7 @@ env = DefaultEnvironment()
 platform = env.PioPlatform()
 projectconfig = env.GetProjectConfig()
 IS_WINDOWS = sys.platform.startswith("win")
-terminal_cp = str(locale.getpreferredencoding())
+terminal_cp = str(locale.getpreferredencoding()).lower
 print("Terminal code page:",terminal_cp,"is set")
 
 #
