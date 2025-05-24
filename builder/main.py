@@ -352,7 +352,7 @@ if not env.get("PIOFRAMEWORK"):
 
 
 def firmware_metrics(target, source, env):
-    if not "utf-8" in terminal_cp:
+    if "utf-8" not in terminal_cp:
         print("Firmware metrics can not be shown. Set the terminal codepage to \"utf-8\"")
         return
     map_file = os.path.join(env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map")
