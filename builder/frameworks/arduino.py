@@ -93,8 +93,12 @@ if config.has_option(current_env_section, "custom_sdkconfig"):
 if len(board_sdkconfig) > 2:
     flag_custom_sdkconfig = True
 
-# Optimierte String-Operationen
-extra_flags = board.get("build.extra_flags", "").replace("-D", " ")
+extra_flags_raw = board.get("build.extra_flags", [])
+if isinstance(extra_flags_raw, list):
+    extra_flags = " ".join(extra_flags_raw).replace("-D", " ")
+else:
+    extra_flags = str(extra_flags_raw).replace("-D", " ")
+
 framework_reinstall = False
 
 FRAMEWORK_DIR = path_cache.framework_dir
