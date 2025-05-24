@@ -385,7 +385,7 @@ else:
     target_elf = env.BuildProgram()
     if IS_WINDOWS:
         import subprocess
-        check_cp_path = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "check_code_page.py")
+        check_cp_path = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "builder", "check_code_page.py")
         python_exe = env.subst("$PYTHONEXE")
         run_env = os.environ.copy()
         #run_env["PYTHONIOENCODING"] = "utf-8"
