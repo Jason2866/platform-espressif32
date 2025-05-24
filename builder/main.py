@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import re
-import sys
 import locale
 from os.path import isfile, join
 
@@ -24,15 +22,12 @@ from SCons.Script import (
 
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
-from platformio.project.config import ProjectConfig
 
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
 projectconfig = env.GetProjectConfig()
-IS_WINDOWS = sys.platform.startswith("win")
 terminal_cp = locale.getpreferredencoding().lower()
-print("Terminal code page:",terminal_cp,"is set")
 
 #
 # Helpers
@@ -389,18 +384,6 @@ if "nobuild" in COMMAND_LINE_TARGETS:
         target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
 else:
     target_elf = env.BuildProgram()
-    print("Bevorzugtes Encoding laut System:", locale.getpreferredencoding())
-    if IS_WINDOWS:
-        import subprocess
-        check_cp_path = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "builder", "check_code_page.py")
-        python_exe = env.subst("$PYTHONEXE")
-        run_env = os.environ.copy()
-        run_env["PYTHONIOENCODING"] = "utf-8"
-        run_env["PYTHONUTF8"] = "1"
-        subprocess.run([
-            python_exe, check_cp_path
-        ], env=run_env, check=False)
-
     silent_action = env.Action(firmware_metrics)
     silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
     env.AddPostAction(target_elf, silent_action)
