@@ -15,6 +15,7 @@
 import os
 import re
 import sys
+import locale
 from os.path import isfile, join
 
 from SCons.Script import (
@@ -383,13 +384,14 @@ if "nobuild" in COMMAND_LINE_TARGETS:
         target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
 else:
     target_elf = env.BuildProgram()
+    print("Bevorzugtes Encoding laut System:", locale.getpreferredencoding())
     if IS_WINDOWS:
         import subprocess
         check_cp_path = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "builder", "check_code_page.py")
         python_exe = env.subst("$PYTHONEXE")
         run_env = os.environ.copy()
-        #run_env["PYTHONIOENCODING"] = "utf-8"
-        #run_env["PYTHONUTF8"] = "1"
+        run_env["PYTHONIOENCODING"] = "utf-8"
+        run_env["PYTHONUTF8"] = "1"
         subprocess.run([
             python_exe, check_cp_path
         ], env=run_env, check=False)
