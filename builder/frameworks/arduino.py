@@ -31,10 +31,9 @@ import shutil
 import hashlib
 from os.path import join, exists, isabs, splitdrive, commonpath, relpath
 
-from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
+from SCons.Script import DefaultEnvironment, SConscript
 from platformio import fs
 from platformio.package.version import pepver_to_semver
-from platformio.project.config import ProjectConfig
 from platformio.package.manager.tool import ToolPackageManager
 
 # Constants for better performance
@@ -186,8 +185,8 @@ def matching_custom_sdkconfig():
             line = src.readline()
             if line.startswith("# TASMOTA__"):
                 cust_sdk_is_present = True
-                costum_options = entry_custom_sdkconfig
-                expected_hash = get_MD5_hash(costum_options.strip() + mcu)
+                custom_options = entry_custom_sdkconfig
+                expected_hash = get_MD5_hash(custom_options.strip() + mcu)
                 if line.split("__")[1].strip() == expected_hash:
                     return True, cust_sdk_is_present
     except (IOError, IndexError):
