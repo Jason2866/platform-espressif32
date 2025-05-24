@@ -106,9 +106,13 @@ SConscript("_embed_files.py", exports="env")
 
 flag_any_custom_sdkconfig = exists(join(FRAMEWORK_DIR, "tools", "esp32-arduino-libs", "sdkconfig"))
 
-# Optimized Esp32-solo1 libs settings
-if flag_custom_sdkconfig and any(flag in extra_flags or flag in entry_custom_sdkconfig 
-                                or flag in board_sdkconfig for flag in UNICORE_FLAGS):
+def has_unicore_flags():
+    """Check if any UNICORE flags are present in configuration"""
+    return any(flag in extra_flags or flag in entry_custom_sdkconfig 
+               or flag in board_sdkconfig for flag in UNICORE_FLAGS)
+
+# Esp32-solo1 libs settings
+if flag_custom_sdkconfig and has_unicore_flags():
     if len(str(env.GetProjectOption("build_unflags"))) == 2:  # No valid env, needs init
         env['BUILD_UNFLAGS'] = {}
     
@@ -229,6 +233,8 @@ def shorthen_includes(env, node):
     # Local references for better performance
     env_get = env.get
     to_unix_path = fs.to_unix_path
+    ccflags = env["CCFLAGS"]
+    asflags = env["ASFLAGS"]
     
     includes = [to_unix_path(inc) for inc in env_get("CPPPATH", [])]
     shortened_includes = []
@@ -247,8 +253,8 @@ def shorthen_includes(env, node):
     return env.Object(
         node,
         CPPPATH=generic_includes,
-        CCFLAGS=env["CCFLAGS"] + common_flags,
-        ASFLAGS=env["ASFLAGS"] + common_flags,
+        CCFLAGS=ccflags + common_flags,
+        ASFLAGS=asflags + common_flags,
     )
 
 def get_frameworks_in_current_env():
