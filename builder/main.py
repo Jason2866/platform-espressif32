@@ -31,6 +31,7 @@ env = DefaultEnvironment()
 platform = env.PioPlatform()
 projectconfig = env.GetProjectConfig()
 IS_WINDOWS = sys.platform.startswith("win")
+terminal_cp = locale.getpreferredencoding()
 
 #
 # Helpers
@@ -350,6 +351,9 @@ if not env.get("PIOFRAMEWORK"):
 
 
 def firmware_metrics(target, source, env):
+    if not "utf-8" in terminal_cp:
+        print("Firmware metrics can not be shown. Set the terminal codepage to \"utf-8\"")
+        return
     map_file = os.path.join(env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map")
     if not os.path.isfile(map_file):
         # map file can be in project dir
@@ -396,10 +400,9 @@ else:
             python_exe, check_cp_path
         ], env=run_env, check=False)
 
-    if not IS_WINDOWS:
-        silent_action = env.Action(firmware_metrics)
-        silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
-        env.AddPostAction(target_elf, silent_action)
+    silent_action = env.Action(firmware_metrics)
+    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+    env.AddPostAction(target_elf, silent_action)
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         target_firm = env.DataToBin(
             join("$BUILD_DIR", "${ESP32_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR"
