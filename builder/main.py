@@ -23,6 +23,7 @@ from SCons.Script import (
 
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
+from platformio.project.config import ProjectConfig
 
 
 env = DefaultEnvironment()
@@ -384,12 +385,13 @@ else:
     target_elf = env.BuildProgram()
     if IS_WINDOWS:
         import subprocess
+        check_cp_path = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "check_code_page.py")
         python_exe = env.subst("$PYTHONEXE")
         run_env = os.environ.copy()
         #run_env["PYTHONIOENCODING"] = "utf-8"
         #run_env["PYTHONUTF8"] = "1"
         subprocess.run([
-            python_exe, "check_code_page.py"
+            python_exe, check_cp_path
         ], env=run_env, check=False)
 
     if not IS_WINDOWS:
