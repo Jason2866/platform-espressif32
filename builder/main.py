@@ -382,6 +382,11 @@ if "nobuild" in COMMAND_LINE_TARGETS:
         target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
 else:
     target_elf = env.BuildProgram()
+    if IS_WINDOWS:
+        import ctypes
+        codepage = ctypes.windll.kernel32.GetConsoleOutputCP()
+        print("Aktive Codepage (Windows):", codepage)
+
     if not IS_WINDOWS:
         silent_action = env.Action(firmware_metrics)
         silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
