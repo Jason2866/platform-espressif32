@@ -383,9 +383,14 @@ if "nobuild" in COMMAND_LINE_TARGETS:
 else:
     target_elf = env.BuildProgram()
     if IS_WINDOWS:
-        import ctypes
-        codepage = ctypes.windll.kernel32.GetConsoleOutputCP()
-        print("Aktive Codepage (Windows):", codepage)
+        import subprocess
+        python_exe = env.subst("$PYTHONEXE")
+        run_env = os.environ.copy()
+        #run_env["PYTHONIOENCODING"] = "utf-8"
+        #run_env["PYTHONUTF8"] = "1"
+        subprocess.run([
+            python_exe, "check_code_page.py"
+        ], env=run_env, check=False)
 
     if not IS_WINDOWS:
         silent_action = env.Action(firmware_metrics)
