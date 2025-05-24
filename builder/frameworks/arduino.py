@@ -37,13 +37,13 @@ from platformio.package.version import pepver_to_semver
 from platformio.project.config import ProjectConfig
 from platformio.package.manager.tool import ToolPackageManager
 
-# Konstanten für bessere Performance
+# Constants for better performance
 UNICORE_FLAGS = {
     "CORE32SOLO1",
     "CONFIG_FREERTOS_UNICORE=y"
 }
 
-# Cache-Klasse für häufig verwendete Pfade
+# Cache class for frequently used paths
 class PathCache:
     def __init__(self, platform, mcu):
         self.platform = platform
@@ -65,26 +65,26 @@ class PathCache:
             )
         return self._sdk_dir
 
-# Initialisierung
+# Initialization
 env = DefaultEnvironment()
 pm = ToolPackageManager()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
 
-# Gecachte Werte
+# Cached values
 mcu = board.get("build.mcu", "esp32")
 pioenv = env["PIOENV"]
 project_dir = env.subst("$PROJECT_DIR")
 path_cache = PathCache(platform, mcu)
 
-# Board-Konfiguration
+# Board configuration
 board_sdkconfig = board.get("espidf.custom_sdkconfig", "")
 entry_custom_sdkconfig = "\n"
 flag_custom_sdkconfig = False
 IS_WINDOWS = sys.platform.startswith("win")
 
-# Custom SDKConfig Prüfung
+# Custom SDKConfig check
 current_env_section = f"env:{pioenv}"
 if config.has_option(current_env_section, "custom_sdkconfig"):
     entry_custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
@@ -107,7 +107,7 @@ SConscript("_embed_files.py", exports="env")
 
 flag_any_custom_sdkconfig = exists(join(FRAMEWORK_DIR, "tools", "esp32-arduino-libs", "sdkconfig"))
 
-# Optimierte Esp32-solo1 libs Einstellungen
+# Optimized Esp32-solo1 libs settings
 if flag_custom_sdkconfig and any(flag in extra_flags or flag in entry_custom_sdkconfig 
                                 or flag in board_sdkconfig for flag in UNICORE_FLAGS):
     if len(str(env.GetProjectOption("build_unflags"))) == 2:  # No valid env, needs init
@@ -118,7 +118,7 @@ if flag_custom_sdkconfig and any(flag in extra_flags or flag in entry_custom_sdk
     env.Replace(BUILD_UNFLAGS=new_build_unflags)
 
 def get_packages_to_install(deps, installed_packages):
-    """Generator für zu installierende Pakete"""
+    """Generator for packages to install"""
     for package, spec in deps.items():
         if package not in installed_packages:
             yield package
@@ -168,7 +168,7 @@ def get_MD5_hash(phrase):
     return hashlib.md5(phrase.encode('utf-8')).hexdigest()[:16]
 
 def matching_custom_sdkconfig():
-    """Prüft ob aktuelle Umgebung mit vorhandener sdkconfig übereinstimmt"""
+    """Checks if current environment matches existing sdkconfig"""
     cust_sdk_is_present = False
     
     if not flag_any_custom_sdkconfig:
@@ -197,7 +197,7 @@ def matching_custom_sdkconfig():
 
 def check_reinstall_frwrk():
     if not flag_custom_sdkconfig and flag_any_custom_sdkconfig:
-        # case custom sdkconfig exists and a env without "custom_sdkconfig"
+        # case custom sdkconfig exists and an env without "custom_sdkconfig"
         return True
     
     if flag_custom_sdkconfig:
@@ -227,7 +227,7 @@ def shorthen_includes(env, node):
         # Don't shorten include paths for IDE integrations
         return node
 
-    # Lokale Referenzen für bessere Performance
+    # Local references for better performance
     env_get = env.get
     to_unix_path = fs.to_unix_path
     
@@ -253,18 +253,18 @@ def shorthen_includes(env, node):
     )
 
 def get_frameworks_in_current_env():
-    """Ermittelt die Frameworks der aktuellen Umgebung"""
+    """Determines the frameworks of the current environment"""
     if "framework" in config.options(current_env_section):
         return config.get(current_env_section, "framework", "")
     return []
 
-# Framework-Prüfung
+# Framework check
 current_env_frameworks = get_frameworks_in_current_env()
 if "arduino" in current_env_frameworks and "espidf" in current_env_frameworks:
     # Arduino as component is set, switch off Hybrid compile
     flag_custom_sdkconfig = False
 
-# Framework-Neuinstallation falls erforderlich
+# Framework reinstallation if required
 if check_reinstall_frwrk():
     envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
     for env_name in envs:
@@ -285,7 +285,7 @@ if check_reinstall_frwrk():
 if flag_custom_sdkconfig and not flag_any_custom_sdkconfig:
     call_compile_libs()
 
-# Hauptlogik für Arduino Framework
+# Main logic for Arduino Framework
 pioframework = env.subst("$PIOFRAMEWORK")
 arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 
@@ -295,7 +295,7 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     if IS_WINDOWS:
         env.AddBuildMiddleware(shorthen_includes)
     
-    # Build-Script ermitteln
+    # Determine build script
     pio_build = "platformio-build.py"
     build_script_path = join(FRAMEWORK_DIR, "tools", pio_build)
     
