@@ -2167,7 +2167,9 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
                 print("*** Original Arduino \"idf_component.yml\" restored ***")
             except:
                 print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***")
-    env.AddPostAction("checkprogsize", idf_lib_copy)
+    silent_action = env.Action(idf_lib_copy)
+    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+    env.AddPostAction("checkprogsize", silent_action)
 
 if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
     def idf_custom_component(source, target, env):
