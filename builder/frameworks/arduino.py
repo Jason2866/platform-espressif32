@@ -202,14 +202,13 @@ def safe_framework_cleanup():
     
     for config_file in config_files:
         if exists(config_file):
-            safe_delete_file(config_file, backup=True)
+            safe_delete_file(config_file, backup=False)
     
     # Safe deletion of framework directories
     if exists(FRAMEWORK_DIR):
         if validate_deletion_path(FRAMEWORK_DIR, allowed_framework_paths):
             print("*** Safe framework cleanup ***")
             if safe_delete_directory(FRAMEWORK_DIR, backup=False):
-                print("Framework successfully removed")
                 return True
             else:
                 print("Error removing framework")
