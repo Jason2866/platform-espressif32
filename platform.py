@@ -92,7 +92,7 @@ def safe_file_operation(operation_func):
             return False
         except Exception as e:
             logger.error(f"Unexpected error in {operation_func.__name__}: {e}")
-            return False
+            raise  # Re-raise unexpected exceptions
     return wrapper
 
 
@@ -437,12 +437,11 @@ class Espressif32Platform(PlatformBase):
 
             self._configure_check_tools(variables)
             self._configure_filesystem_tools(variables, targets)
-            self._configure_board_specific_tools(variables)
 
             logger.info("Package configuration completed successfully")
 
         except Exception as e:
-            logger.error(f"Error in package configuration: {e}")
+            logger.error(f"Error in package configuration: {type(e).__name__}: {e}")
             # Don't re-raise to maintain compatibility
 
         return super().configure_default_packages(variables, targets)
@@ -471,9 +470,17 @@ class Espressif32Platform(PlatformBase):
         debug = board.manifest.get("debug", {})
         non_debug_protocols = ["esptool", "espota"]
         supported_debug_tools = [
-            "cmsis-dap", "esp-prog", "esp-bridge", "iot-bus-jtag", "jlink",
-            "minimodule", "olimex-arm-usb-tiny-h", "olimex-arm-usb-ocd-h",
-            "olimex-arm-usb-ocd", "olimex-jtag-tiny", "tumpa"
+            "cmsis-dap",
+            "esp-prog",
+            "esp-bridge",
+            "iot-bus-jtag",
+            "jlink",
+            "minimodule",
+            "olimex-arm-usb-tiny-h",
+            "olimex-arm-usb-ocd-h",
+            "olimex-arm-usb-ocd",
+            "olimex-jtag-tiny",
+            "tumpa"
         ]
 
         # Special configuration for Kaluga board
