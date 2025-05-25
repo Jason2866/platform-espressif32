@@ -29,12 +29,25 @@ import os
 import sys
 import shutil
 import hashlib
+import logging
 from os.path import join, exists, isabs, splitdrive, commonpath, relpath
+from pathlib import Path
+from typing import Union, List
 
 from SCons.Script import DefaultEnvironment, SConscript
 from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
+
+# Logging configuration for secure deletion operations
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('framework_operations.log'),
+        logging.StreamHandler()
+    ]
+)
 
 # Constants for better performance
 UNICORE_FLAGS = {
@@ -63,6 +76,159 @@ class PathCache:
                 join(self.framework_dir, "tools", "esp32-arduino-libs", self.mcu, "include")
             )
         return self._sdk_dir
+
+# Safe deletion functions
+def safe_delete_file(file_path: Union[str, Path], 
+                    backup: bool = False,
+                    force: bool = False) -> bool:
+    """
+    Safe file deletion with optional backup
+    
+    Args:
+        file_path: Path to file to be deleted
+        backup: Creates backup before deletion
+        force: Forces deletion even for read-only files
+    
+    Returns:
+        bool: True if successfully deleted
+    """
+    file_path = Path(file_path)
+    
+    try:
+        # Check existence
+        if not file_path.exists():
+            logging.warning(f"File does not exist: {file_path}")
+            return False
+        
+        # Create backup if requested
+        if backup:
+            backup_path = file_path.with_suffix(f"{file_path.suffix}.backup")
+            shutil.copy2(file_path, backup_path)
+            logging.info(f"Backup created: {backup_path}")
+        
+        # Remove write protection if necessary
+        if force and not os.access(file_path, os.W_OK):
+            file_path.chmod(0o666)
+        
+        # Delete file
+        file_path.unlink()
+        logging.info(f"File deleted: {file_path}")
+        return True
+        
+    except PermissionError:
+        logging.error(f"No permission to delete: {file_path}")
+        return False
+    except Exception as e:
+        logging.error(f"Error deleting {file_path}: {e}")
+        return False
+
+def safe_delete_directory(dir_path: Union[str, Path], 
+                         backup: bool = False) -> bool:
+    """
+    Safe directory deletion
+    """
+    dir_path = Path(dir_path)
+    
+    try:
+        if not dir_path.exists():
+            logging.warning(f"Directory does not exist: {dir_path}")
+            return False
+        
+        if backup:
+            backup_path = Path(f"{dir_path}.backup")
+            if backup_path.exists():
+                shutil.rmtree(backup_path)
+            shutil.copytree(dir_path, backup_path)
+            logging.info(f"Directory backup created: {backup_path}")
+        
+        shutil.rmtree(dir_path)
+        logging.info(f"Directory deleted: {dir_path}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error deleting {dir_path}: {e}")
+        return False
+
+def validate_deletion_path(path: Union[str, Path], 
+                          allowed_patterns: List[str]) -> bool:
+    """
+    Validates if a path can be safely deleted
+    
+    Args:
+        path: Path to be checked
+        allowed_patterns: Allowed path patterns
+    
+    Returns:
+        bool: True if deletion is safe
+    """
+    path = Path(path).resolve()
+    
+    # Check against critical system paths
+    critical_paths = [
+        Path.home(),
+        Path("/"),
+        Path("C:\\") if IS_WINDOWS else None,
+        Path("/usr"),
+        Path("/etc")
+    ]
+    
+    for critical in filter(None, critical_paths):
+        try:
+            if path == critical or critical in path.parents:
+                return False
+        except (OSError, ValueError):
+            # Path comparison failed, reject for safety
+            return False
+    
+    # Check against allowed patterns
+    path_str = str(path)
+    return any(pattern in path_str for pattern in allowed_patterns)
+
+def safe_framework_cleanup():
+    """Safe cleanup of Arduino Framework"""
+    
+    # Allowed path patterns for framework deletion
+    allowed_framework_paths = [
+        "framework-arduinoespressif32",
+        "esp32-arduino-libs",
+        ".platformio"
+    ]
+    
+    # Backup important configuration files
+    config_files = [
+        join(project_dir, "sdkconfig.defaults"),
+        join(project_dir, "platformio.ini")
+    ]
+    
+    for config_file in config_files:
+        if exists(config_file):
+            safe_delete_file(config_file, backup=True)
+    
+    # Safe deletion of framework directories
+    if exists(FRAMEWORK_DIR):
+        if validate_deletion_path(FRAMEWORK_DIR, allowed_framework_paths):
+            print("*** Safe framework cleanup ***")
+            if safe_delete_directory(FRAMEWORK_DIR, backup=False):
+                print("Framework successfully removed")
+                return True
+            else:
+                print("Error removing framework")
+                return False
+        else:
+            logging.error(f"Unsafe deletion path detected: {FRAMEWORK_DIR}")
+            return False
+    return True
+
+def safe_remove_sdkconfig_files():
+    """Safe removal of SDKConfig files"""
+    envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
+    for env_name in envs:
+        file_path = join(project_dir, f"sdkconfig.{env_name}")
+        if exists(file_path):
+            if safe_delete_file(file_path, backup=True):
+                logging.info(f"SDKConfig file removed: {file_path}")
+            else:
+                logging.error(f"Error removing: {file_path}")
 
 # Initialization
 env = DefaultEnvironment()
@@ -269,23 +435,24 @@ if "arduino" in current_env_frameworks and "espidf" in current_env_frameworks:
     # Arduino as component is set, switch off Hybrid compile
     flag_custom_sdkconfig = False
 
-# Framework reinstallation if required
+# Framework reinstallation if required - with safe deletion
 if check_reinstall_frwrk():
-    envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
-    for env_name in envs:
-        file_path = join(project_dir, f"sdkconfig.{env_name}")
-        if exists(file_path):
-            os.remove(file_path)
+    # Safe removal of SDKConfig files
+    safe_remove_sdkconfig_files()
     
     print("*** Reinstall Arduino framework ***")
-    shutil.rmtree(FRAMEWORK_DIR)
     
-    arduino_frmwrk_url = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=", 1)[1][:-1]
-    pm.install(arduino_frmwrk_url)
-    
-    if flag_custom_sdkconfig:
-        call_compile_libs()
-        flag_custom_sdkconfig = False
+    # Safe framework cleanup
+    if safe_framework_cleanup():
+        arduino_frmwrk_url = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=", 1)[1][:-1]
+        pm.install(arduino_frmwrk_url)
+        
+        if flag_custom_sdkconfig:
+            call_compile_libs()
+            flag_custom_sdkconfig = False
+    else:
+        logging.error("Framework cleanup failed - installation aborted")
+        sys.exit(1)
 
 if flag_custom_sdkconfig and not flag_any_custom_sdkconfig:
     call_compile_libs()
