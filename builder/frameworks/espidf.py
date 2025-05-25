@@ -2184,7 +2184,9 @@ if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True
                     print("*** pioarduino generated \"idf_component.yml\" removed ***")
                 except:
                     print("*** \"idf_component.yml\" couldnt be removed ***")
-    env.AddPostAction("checkprogsize", idf_custom_component)
+    silent_action = env.Action(idf_custom_component)
+    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+    env.AddPostAction("checkprogsize", silent_action)
 #
 # Process OTA partition and image
 #
