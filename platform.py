@@ -287,7 +287,7 @@ class Espressif32Platform(PlatformBase):
 
     def _get_mcu_config(self, mcu: str) -> Optional[Dict]:
         """MCU configuration with optimized search"""
-        for arch_name, config in MCU_TOOLCHAIN_CONFIG.items():
+        for _, config in MCU_TOOLCHAIN_CONFIG.items():
             if mcu in config["mcus"]:
                 # Dynamically add ULP toolchain
                 result = config.copy()
