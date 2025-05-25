@@ -77,17 +77,15 @@ class PathCache:
             )
         return self._sdk_dir
 
-# Safe deletion functions
+# Secure deletion functions
 def safe_delete_file(file_path: Union[str, Path], 
-                    backup: bool = False,
                     force: bool = False) -> bool:
     """
-    Safe file deletion with optional backup
+    Secure file deletion
     
     Args:
         file_path: Path to file to be deleted
-        backup: Creates backup before deletion
-        force: Forces deletion even for read-only files
+        force: Forces deletion even for write-protected files
     
     Returns:
         bool: True if successfully deleted
@@ -99,12 +97,6 @@ def safe_delete_file(file_path: Union[str, Path],
         if not file_path.exists():
             logging.warning(f"File does not exist: {file_path}")
             return False
-        
-        # Create backup if requested
-        if backup:
-            backup_path = file_path.with_suffix(f"{file_path.suffix}.backup")
-            shutil.copy2(file_path, backup_path)
-            logging.info(f"Backup created: {backup_path}")
         
         # Remove write protection if necessary
         if force and not os.access(file_path, os.W_OK):
@@ -122,10 +114,9 @@ def safe_delete_file(file_path: Union[str, Path],
         logging.error(f"Error deleting {file_path}: {e}")
         return False
 
-def safe_delete_directory(dir_path: Union[str, Path], 
-                         backup: bool = False) -> bool:
+def safe_delete_directory(dir_path: Union[str, Path]) -> bool:
     """
-    Safe directory deletion
+    Secure directory deletion
     """
     dir_path = Path(dir_path)
     
@@ -134,13 +125,6 @@ def safe_delete_directory(dir_path: Union[str, Path],
             logging.warning(f"Directory does not exist: {dir_path}")
             return False
         
-        if backup:
-            backup_path = Path(f"{dir_path}.backup")
-            if backup_path.exists():
-                shutil.rmtree(backup_path)
-            shutil.copytree(dir_path, backup_path)
-            logging.info(f"Directory backup created: {backup_path}")
-        
         shutil.rmtree(dir_path)
         logging.info(f"Directory deleted: {dir_path}")
         return True
@@ -148,6 +132,39 @@ def safe_delete_directory(dir_path: Union[str, Path],
     except Exception as e:
         logging.error(f"Error deleting {dir_path}: {e}")
         return False
+
+def validate_platformio_path(path: Union[str, Path]) -> bool:
+    """
+    Special validation for PlatformIO package paths
+    """
+    path = Path(path).resolve()
+    path_str = str(path)
+    
+    # Must be within .platformio directory structure
+    if ".platformio" not in path_str:
+        return False
+    
+    # Must be a packages directory
+    if "packages" not in path_str:
+        return False
+        
+    # Must be framework-related
+    framework_indicators = [
+        "framework-arduinoespressif32",
+        "esp32-arduino-libs",
+        ".platformio/packages",
+        "packages/framework-arduinoespressif32"
+    ]
+    
+    if not any(indicator in path_str for indicator in framework_indicators):
+        return False
+    
+    # Must not be a critical system path
+    critical_paths = ["/usr", "/bin", "/sbin", "/etc", "/boot"]
+    if any(critical in path_str for critical in critical_paths):
+        return False
+    
+    return True
 
 def validate_deletion_path(path: Union[str, Path], 
                           allowed_patterns: List[str]) -> bool:
@@ -169,63 +186,63 @@ def validate_deletion_path(path: Union[str, Path],
         Path("/"),
         Path("C:\\") if IS_WINDOWS else None,
         Path("/usr"),
-        Path("/etc")
+        Path("/etc"),
+        Path("/bin"),
+        Path("/sbin")
     ]
     
     for critical in filter(None, critical_paths):
         try:
             if path == critical or critical in path.parents:
+                logging.error(f"Critical system path detected: {path}")
                 return False
         except (OSError, ValueError):
             # Path comparison failed, reject for safety
+            logging.error(f"Path comparison failed for: {path}")
             return False
     
     # Check against allowed patterns
     path_str = str(path)
-    return any(pattern in path_str for pattern in allowed_patterns)
+    is_allowed = any(pattern in path_str for pattern in allowed_patterns)
+    
+    if not is_allowed:
+        logging.error(f"Path does not match allowed patterns: {path}")
+        logging.error(f"Allowed patterns: {allowed_patterns}")
+    else:
+        logging.info(f"Path validation successful: {path}")
+    
+    return is_allowed
 
 def safe_framework_cleanup():
-    """Safe cleanup of Arduino Framework"""
+    """Secure cleanup of Arduino Framework"""
     
-    # Allowed path patterns for framework deletion
-    allowed_framework_paths = [
-        "framework-arduinoespressif32",
-        "esp32-arduino-libs",
-        ".platformio",
-        "packages"
-    ]
-    
-    # Backup important configuration files
-    config_files = [
-        join(project_dir, "sdkconfig.defaults"),
-        join(project_dir, "platformio.ini")
-    ]
-    
-    for config_file in config_files:
-        if exists(config_file):
-            safe_delete_file(config_file, backup=False)
-    
-    # Safe deletion of framework directories
+    # Secure deletion of framework directories
     if exists(FRAMEWORK_DIR):
-        if validate_deletion_path(FRAMEWORK_DIR, allowed_framework_paths):
-            print("*** Safe framework cleanup ***")
-            if safe_delete_directory(FRAMEWORK_DIR, backup=False):
+        logging.info(f"Attempting to validate framework path: {FRAMEWORK_DIR}")
+        
+        # Use specialized PlatformIO path validation
+        if validate_platformio_path(FRAMEWORK_DIR):
+            print("*** Secure framework cleanup ***")
+            logging.info(f"Framework path validated successfully: {FRAMEWORK_DIR}")
+            
+            if safe_delete_directory(FRAMEWORK_DIR):
+                print("Framework successfully removed")
                 return True
             else:
                 print("Error removing framework")
                 return False
         else:
-            logging.error(f"Unsafe deletion path detected: {FRAMEWORK_DIR}")
+            logging.error(f"PlatformIO path validation failed: {FRAMEWORK_DIR}")
             return False
     return True
 
 def safe_remove_sdkconfig_files():
-    """Safe removal of SDKConfig files"""
+    """Secure removal of SDKConfig files"""
     envs = [section.replace("env:", "") for section in config.sections() if section.startswith("env:")]
     for env_name in envs:
         file_path = join(project_dir, f"sdkconfig.{env_name}")
         if exists(file_path):
-            if safe_delete_file(file_path, backup=True):
+            if safe_delete_file(file_path):
                 logging.info(f"SDKConfig file removed: {file_path}")
             else:
                 logging.error(f"Error removing: {file_path}")
@@ -435,14 +452,14 @@ if "arduino" in current_env_frameworks and "espidf" in current_env_frameworks:
     # Arduino as component is set, switch off Hybrid compile
     flag_custom_sdkconfig = False
 
-# Framework reinstallation if required - with safe deletion
+# Framework reinstallation if required - IMPROVED WITH SECURE DELETION
 if check_reinstall_frwrk():
-    # Safe removal of SDKConfig files
+    # Secure removal of SDKConfig files
     safe_remove_sdkconfig_files()
     
     print("*** Reinstall Arduino framework ***")
     
-    # Safe framework cleanup
+    # Secure framework cleanup
     if safe_framework_cleanup():
         arduino_frmwrk_url = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=", 1)[1][:-1]
         pm.install(arduino_frmwrk_url)
