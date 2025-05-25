@@ -118,7 +118,6 @@ if flag_custom_sdkconfig and has_unicore_flags():
     build_unflags_value = env.GetProjectOption("build_unflags", default={})
     if not build_unflags_value or build_unflags_value == {}:
         env['BUILD_UNFLAGS'] = {}
-    
     build_unflags = " ".join(env['BUILD_UNFLAGS']) + " -mdisable-hardware-atomics -ustart_app_other_cores"
     new_build_unflags = build_unflags.split()
     env.Replace(BUILD_UNFLAGS=new_build_unflags)
@@ -307,13 +306,7 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     if IS_WINDOWS:
         env.AddBuildMiddleware(shorthen_includes)
     
-    # Determine build script
-    pio_build = "platformio-build.py"
-    build_script_path = join(FRAMEWORK_DIR, "tools", pio_build)
-    
-    if not exists(build_script_path):
-        pio_build = "pioarduino-build.py"
-        build_script_path = join(FRAMEWORK_DIR, "tools", pio_build)
-    
+    # Arduino SCons build script
+    build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py")
     SConscript(build_script_path)
 
