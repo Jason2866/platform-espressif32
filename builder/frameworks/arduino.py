@@ -39,6 +39,9 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
+# deactivate Framework-Logging
+logging.disable(sys.maxsize)
+
 # Logging configuration for secure deletion operations
 logging.basicConfig(
     level=logging.INFO,
