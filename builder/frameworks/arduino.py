@@ -284,7 +284,7 @@ if check_reinstall_frwrk():
     
     spec_str = str(platform.get_package_spec("framework-arduinoespressif32"))
     if "uri=" in spec_str:
-        arduino_frmwrk_url = spec_str.split("uri=", 1)[1].rstrip(")")
+        arduino_frmwrk_url = spec_str.split("uri=", 1)[1][:-1]
     else:
         raise ValueError("Unable to extract framework URI from package spec")
     pm.install(arduino_frmwrk_url)
