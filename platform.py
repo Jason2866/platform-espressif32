@@ -37,8 +37,6 @@ DEFAULT_APP_OFFSET = "0x10000"
 # MCUs that support ESP-builtin debug
 ESP_BUILTIN_DEBUG_MCUS = frozenset(["esp32c3", "esp32c5", "esp32c6", "esp32s3", "esp32h2", "esp32p4"])
 
- class Espressif32Platform(PlatformBase):
-
 # MCU configuration
 MCU_TOOLCHAIN_CONFIG = {
     "xtensa": {
