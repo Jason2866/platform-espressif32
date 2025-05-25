@@ -34,6 +34,11 @@ MKLITTLEFS_VERSION_400 = "4.0.0"
 DEFAULT_DEBUG_SPEED = "5000"
 DEFAULT_APP_OFFSET = "0x10000"
 
+# MCUs that support ESP-builtin debug
+ESP_BUILTIN_DEBUG_MCUS = frozenset(["esp32c3", "esp32c5", "esp32c6", "esp32s3", "esp32h2", "esp32p4"])
+
+ class Espressif32Platform(PlatformBase):
+
 # MCU configuration
 MCU_TOOLCHAIN_CONFIG = {
     "xtensa": {
@@ -306,7 +311,7 @@ class Espressif32Platform(PlatformBase):
         """Check if debug tools are needed"""
         return bool(
             variables.get("build_type") or
-            "debug" in "".join(targets) or
+            "debug" in targets or
             variables.get("upload_protocol")
         )
 
@@ -494,7 +499,7 @@ class Espressif32Platform(PlatformBase):
 
         # ESP-builtin for certain MCUs
         mcu = board.get("build.mcu", "")
-        if mcu in ("esp32c3", "esp32c5", "esp32c6", "esp32s3", "esp32h2", "esp32p4"):
+        if mcu in ESP_BUILTIN_DEBUG_MCUS:
             supported_debug_tools.append("esp-builtin")
 
         upload_protocol = board.manifest.get("upload", {}).get("protocol")
