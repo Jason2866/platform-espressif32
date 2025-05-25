@@ -242,7 +242,7 @@ def safe_remove_sdkconfig_files():
     for env_name in envs:
         file_path = join(project_dir, f"sdkconfig.{env_name}")
         if exists(file_path):
-            safe_delete_file(file_path):
+            safe_delete_file(file_path)
 
 # Initialization
 env = DefaultEnvironment()
