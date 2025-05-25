@@ -54,6 +54,8 @@ class PathCache:
     def framework_dir(self):
         if self._framework_dir is None:
             self._framework_dir = self.platform.get_package_dir("framework-arduinoespressif32")
+            if not self._framework_dir or not exists(self._framework_dir):
+                raise RuntimeError("Arduino framework package not found")
         return self._framework_dir
     
     @property 
@@ -113,7 +115,8 @@ def has_unicore_flags():
 
 # Esp32-solo1 libs settings
 if flag_custom_sdkconfig and has_unicore_flags():
-    if len(str(env.GetProjectOption("build_unflags"))) == 2:  # No valid env, needs init
+    build_unflags_value = env.GetProjectOption("build_unflags", default={})
+    if not build_unflags_value or build_unflags_value == {}:
         env['BUILD_UNFLAGS'] = {}
     
     build_unflags = " ".join(env['BUILD_UNFLAGS']) + " -mdisable-hardware-atomics -ustart_app_other_cores"
@@ -280,7 +283,11 @@ if check_reinstall_frwrk():
     print("*** Reinstall Arduino framework ***")
     shutil.rmtree(FRAMEWORK_DIR)
     
-    arduino_frmwrk_url = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=", 1)[1][:-1]
+    spec_str = str(platform.get_package_spec("framework-arduinoespressif32"))
+    if "uri=" in spec_str:
+        arduino_frmwrk_url = spec_str.split("uri=", 1)[1].rstrip(")")
+    else:
+        raise ValueError("Unable to extract framework URI from package spec")
     pm.install(arduino_frmwrk_url)
     
     if flag_custom_sdkconfig:
