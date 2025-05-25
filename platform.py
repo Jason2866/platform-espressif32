@@ -14,15 +14,12 @@
 
 import os
 import contextlib
-import requests
 import json
 import subprocess
 import sys
 import shutil
 import logging
-from functools import lru_cache
 from typing import Optional, Dict, List, Any
-from os.path import join
 
 from platformio.public import PlatformBase, to_unix_path
 from platformio.proc import get_pythonexe_path
@@ -417,10 +414,6 @@ class Espressif32Platform(PlatformBase):
 
         if "downloadfs" in targets:
             self._install_filesystem_tool(filesystem, for_download=True)
-
-    #def _configure_board_specific_tools(self, variables: Dict) -> None:
-        #"""Board-specific tool configuration"""
-        #board = variables.get("board")
 
     def configure_default_packages(self, variables: Dict, targets: List[str]) -> Any:
         """Optimized main configuration method"""
