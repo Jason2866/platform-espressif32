@@ -104,7 +104,7 @@ def safe_delete_file(file_path: Union[str, Path],
         
         # Delete file
         file_path.unlink()
-        logging.info(f"File deleted: {file_path}")
+        #logging.info(f"File deleted: {file_path}")
         return True
         
     except PermissionError:
@@ -126,7 +126,7 @@ def safe_delete_directory(dir_path: Union[str, Path]) -> bool:
             return False
         
         shutil.rmtree(dir_path)
-        logging.info(f"Directory deleted: {dir_path}")
+        #logging.info(f"Directory deleted: {dir_path}")
         return True
         
     except Exception as e:
@@ -208,8 +208,8 @@ def validate_deletion_path(path: Union[str, Path],
     if not is_allowed:
         logging.error(f"Path does not match allowed patterns: {path}")
         logging.error(f"Allowed patterns: {allowed_patterns}")
-    else:
-        logging.info(f"Path validation successful: {path}")
+    #else:
+        #logging.info(f"Path validation successful: {path}")
     
     return is_allowed
 
@@ -218,15 +218,15 @@ def safe_framework_cleanup():
     
     # Secure deletion of framework directories
     if exists(FRAMEWORK_DIR):
-        logging.info(f"Attempting to validate framework path: {FRAMEWORK_DIR}")
+        #logging.info(f"Attempting to validate framework path: {FRAMEWORK_DIR}")
         
         # Use specialized PlatformIO path validation
         if validate_platformio_path(FRAMEWORK_DIR):
-            print("*** Secure framework cleanup ***")
-            logging.info(f"Framework path validated successfully: {FRAMEWORK_DIR}")
+            #print("*** Secure framework cleanup ***")
+            #logging.info(f"Framework path validated successfully: {FRAMEWORK_DIR}")
             
             if safe_delete_directory(FRAMEWORK_DIR):
-                print("Framework successfully removed")
+                #print("Framework successfully removed")
                 return True
             else:
                 print("Error removing framework")
@@ -242,10 +242,7 @@ def safe_remove_sdkconfig_files():
     for env_name in envs:
         file_path = join(project_dir, f"sdkconfig.{env_name}")
         if exists(file_path):
-            if safe_delete_file(file_path):
-                logging.info(f"SDKConfig file removed: {file_path}")
-            else:
-                logging.error(f"Error removing: {file_path}")
+            safe_delete_file(file_path):
 
 # Initialization
 env = DefaultEnvironment()
