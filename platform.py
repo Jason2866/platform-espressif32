@@ -166,13 +166,12 @@ class Espressif32Platform(PlatformBase):
         ]
 
         try:
-            with open(os.devnull, 'w') as devnull:
-                result = subprocess.run(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=SUBPROCESS_TIMEOUT
-                )
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=SUBPROCESS_TIMEOUT
+            )
 
             if result.returncode != 0:
                 logger.error("idf_tools.py installation failed")
@@ -419,9 +418,9 @@ class Espressif32Platform(PlatformBase):
         if "downloadfs" in targets:
             self._install_filesystem_tool(filesystem, for_download=True)
 
-    def _configure_board_specific_tools(self, variables: Dict) -> None:
-        """Board-specific tool configuration"""
-        board = variables.get("board")
+    #def _configure_board_specific_tools(self, variables: Dict) -> None:
+        #"""Board-specific tool configuration"""
+        #board = variables.get("board")
 
     def configure_default_packages(self, variables: Dict, targets: List[str]) -> Any:
         """Optimized main configuration method"""
@@ -558,10 +557,16 @@ class Espressif32Platform(PlatformBase):
 
     def _get_debug_server_args(self, openocd_interface: str, debug: Dict) -> List[str]:
         """Generate debug server arguments"""
+        if 'openocd_target' in debug:
+            config_type = 'target'
+            config_name = debug.get('openocd_target')
+        else:
+            config_type = 'board'
+            config_name = debug.get('openocd_board')
         return [
             "-s", "$PACKAGE_DIR/share/openocd/scripts",
             "-f", f"interface/{openocd_interface}.cfg",
-            "-f", f"{('target', debug.get('openocd_target')) if 'openocd_target' in debug else ('board', debug.get('openocd_board'))}"
+            "-f", f"{config_type}/{config_name}.cfg"
         ]
 
     def configure_debug_session(self, debug_config):
