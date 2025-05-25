@@ -191,7 +191,8 @@ def safe_framework_cleanup():
     allowed_framework_paths = [
         "framework-arduinoespressif32",
         "esp32-arduino-libs",
-        ".platformio"
+        ".platformio",
+        "packages"
     ]
     
     # Backup important configuration files
