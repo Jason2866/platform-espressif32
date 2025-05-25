@@ -119,6 +119,7 @@ class Espressif32Platform(PlatformBase):
         super().__init__(*args, **kwargs)
         self._packages_dir = None
         self._tools_cache = {}
+        self._mcu_config_cache = {}
 
     @property
     def packages_dir(self) -> str:
@@ -287,6 +288,9 @@ class Espressif32Platform(PlatformBase):
 
     def _get_mcu_config(self, mcu: str) -> Optional[Dict]:
         """MCU configuration with optimized search"""
+        if mcu in self._mcu_config_cache:
+            return self._mcu_config_cache[mcu]
+
         for _, config in MCU_TOOLCHAIN_CONFIG.items():
             if mcu in config["mcus"]:
                 # Dynamically add ULP toolchain
@@ -294,6 +298,7 @@ class Espressif32Platform(PlatformBase):
                 result["ulp_toolchain"] = ["toolchain-esp32ulp"]
                 if mcu != "esp32":
                     result["ulp_toolchain"].append("toolchain-riscv32-esp")
+                self._mcu_config_cache[mcu] = result
                 return result
         return None
 
