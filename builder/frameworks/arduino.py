@@ -39,6 +39,8 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
+IS_WINDOWS = sys.platform.startswith("win")
+
 # deactivate Framework-Logging
 logging.disable(sys.maxsize)
 
@@ -264,7 +266,6 @@ path_cache = PathCache(platform, mcu)
 board_sdkconfig = board.get("espidf.custom_sdkconfig", "")
 entry_custom_sdkconfig = "\n"
 flag_custom_sdkconfig = False
-IS_WINDOWS = sys.platform.startswith("win")
 
 # Custom SDKConfig check
 current_env_section = f"env:{pioenv}"
