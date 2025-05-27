@@ -328,7 +328,6 @@ flag_custom_component_add = False
 # Custom Component remove check
 current_env_section = f"env:{pioenv}"
 if config.has_option(current_env_section, "custom_component_remove"):
-    entry custom_component_remove = env.GetProjectOption("custom_component_remove")
     flag_custom_component_remove = True
 
 # Custom SDKConfig check
