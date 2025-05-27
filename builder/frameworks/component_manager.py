@@ -131,7 +131,7 @@ def backup_pioarduino_build_py():
     
     if os.path.exists(build_py_path):
         shutil.copy2(build_py_path, backup_path)
-        print("*** Created backup of pioarduino-build.py")
+        print(f"*** Created backup of pioarduino-build.py for: {mcu}")
 
 def cleanup_removed_components():
     """Clean up removed components and restore original build file"""
