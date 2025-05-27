@@ -94,7 +94,7 @@ def install_standard_python_deps():
         
         return result
 
-    installed_packages = _get_installed_pip_packages()
+    installed_packages = _get_installed_standard_pip_packages()
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
 
     if packages_to_install:
