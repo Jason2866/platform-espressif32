@@ -56,6 +56,13 @@ if os.environ.get("PYTHONPATH"):
 env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
 
+python_deps = {
+    "wheel": ">=0.35.1",
+    "rich-click": ">=1.8.6",
+    "PyYAML": ">=6.0.2",
+    "esp-idf-size": ">=1.6.1"
+}
+
 # remove maybe existing old map file in project root
 map_file = os.path.join(env.subst("$PROJECT_DIR"), env.subst("$PROGNAME") + ".map")
 if os.path.exists(map_file):
@@ -64,60 +71,30 @@ if os.path.exists(map_file):
 def install_standard_python_deps():
     def _get_installed_standard_pip_packages():
         result = {}
-        packages = {}
-        pip_output = subprocess.check_output(
-            [
-                env.subst("$PYTHONEXE"),
-                "-m",
-                "pip",
-                "list",
-                "--format=json",
-                "--disable-pip-version-check",
-            ]
-        )
         try:
+            pip_output = subprocess.check_output([
+                env.subst("$PYTHONEXE"),
+                "-m", "pip", "list", "--format=json", "--disable-pip-version-check"
+            ])
             packages = json.loads(pip_output)
-        except:
+            for p in packages:
+                result[p["name"]] = pepver_to_semver(p["version"])
+        except Exception:
             print("Warning! Couldn't extract the list of installed Python packages.")
-            return {}
-        for p in packages:
-            result[p["name"]] = pepver_to_semver(p["version"])
-
+        
         return result
 
-    deps = {
-        "wheel": ">=0.35.1",
-        "rich-click": ">=1.8.6",
-        "PyYAML": ">=6.0.2",
-        "esp-idf-size": ">=1.6.1"
-    }
-
-    installed_packages = _get_installed_standard_pip_packages()
-    packages_to_install = []
-    for package, spec in deps.items():
-        if package not in installed_packages:
-            packages_to_install.append(package)
-        else:
-            version_spec = semantic_version.Spec(spec)
-            if not version_spec.match(installed_packages[package]):
-                packages_to_install.append(package)
+    installed_packages = _get_installed_pip_packages()
+    packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
 
     if packages_to_install:
+        packages_str = " ".join(f'"{p}{python_deps[p]}"' for p in packages_to_install)
         env.Execute(
             env.VerboseAction(
-                (
-                    '"$PYTHONEXE" -m pip install -U -q -q -q '
-                    + " ".join(
-                        [
-                            '"%s%s"' % (p, deps[p])
-                            for p in packages_to_install
-                        ]
-                    )
-                ),
+                f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
                 "Installing standard Python dependencies",
             )
         )
-    return
 
 install_standard_python_deps()
 
