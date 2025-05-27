@@ -41,6 +41,11 @@ from platformio.package.manager.tool import ToolPackageManager
 
 IS_WINDOWS = sys.platform.startswith("win")
 
+# Include count threshold for path shortening, only valid and needed for Windows
+# ESP32-C6 typically has 200+ includes, ESP32 usually <100
+# Lower the value if strange compile errors occur
+INCLUDE_COUNT_THRESHOLD = 150
+
 # deactivate Framework-Logging
 logging.disable(sys.maxsize)
 
@@ -67,9 +72,6 @@ _PATH_SHORTENING_MESSAGES = {
     'long_path_warning_shown': False
 }
 
-# Include count threshold for path shortening
-# ESP32-C6 typically has 200+ includes, ESP32 usually <100
-INCLUDE_COUNT_THRESHOLD = 120
 
 # Cache class for frequently used paths
 class PathCache:
