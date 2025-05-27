@@ -644,7 +644,7 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     if flag_custom_component_remove:
         from component_manager import HandleCOMPONENTsettings, restore_pioarduino_build_py
         HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_component_remove)           
-        restore_pioarduino_build_py()
+        restore_pioarduino_build_py(source, target, env)
     if IS_WINDOWS:
         # Smart include path optimization based on total path length
         env.AddBuildMiddleware(smart_include_length_shorten)
