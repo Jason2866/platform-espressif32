@@ -166,8 +166,7 @@ def validate_platformio_path(path: Union[str, Path]) -> bool:
     
     # Must not be a critical system path
     critical_paths = ["/usr", "/bin", "/sbin", "/etc", "/boot"]
-    if any(critical in path_str for critical in critical_paths):
-        return False
+    return not any(critical in path_str for critical in critical_paths)
     
     return True
 
@@ -407,7 +406,12 @@ def is_framework_subfolder(potential_subfolder):
         return False
     if splitdrive(FRAMEWORK_SDK_DIR)[0] != splitdrive(potential_subfolder)[0]:
         return False
-    return commonpath([FRAMEWORK_SDK_DIR]) == commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
+    try:
+        common = commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
+        return common == FRAMEWORK_SDK_DIR
+    except ValueError:
+        # Paths are on different drives or incompatible
+        return False
 
 def shorthen_includes(env, node):
     if IS_INTEGRATION_DUMP:
