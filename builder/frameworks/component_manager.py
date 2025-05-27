@@ -181,6 +181,7 @@ def restore_pioarduino_build_py(source, target, env):
         shutil.copy2(backup_path, build_py_path)
         os.remove(backup_path)  # Clean up backup file
         print("*** Restored original pioarduino-build.py from backup")
-    silent_action = env.Action(restore_pioarduino_build_py)
-    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
-    env.AddPostAction("checkprogsize", silent_action)
+
+silent_action = env.Action(restore_pioarduino_build_py)
+silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+env.AddPostAction("checkprogsize", silent_action)
