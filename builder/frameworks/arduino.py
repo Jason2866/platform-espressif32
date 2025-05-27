@@ -44,7 +44,7 @@ IS_WINDOWS = sys.platform.startswith("win")
 # Include path length threshold for path shortening, only valid and needed for Windows
 # Windows has a path length limit of ~260 characters per path, but the total command line
 # length is also limited to ~32000 characters
-INCLUDE_PATH_LENGTH_THRESHOLD = 30000  # Total character count threshold
+INCLUDE_PATH_LENGTH_THRESHOLD = 31500  # Total character count threshold
 
 python_deps = {
     "wheel": ">=0.35.1",
