@@ -46,18 +46,27 @@ IS_WINDOWS = sys.platform.startswith("win")
 # Lower the value if strange compile errors occur
 INCLUDE_COUNT_THRESHOLD = 150
 
-# deactivate Framework-Logging
-logging.disable(sys.maxsize)
+def setup_logging():
+    """Setup logging with optional file output"""
+    handlers = [logging.StreamHandler()]
+    
+    # Only add file handler if writable and not disabled
+    log_file = os.environ.get('ARDUINO_FRAMEWORK_LOG_FILE')
+    if log_file:
+        try:
+            handlers.append(logging.FileHandler(log_file))
+        except (OSError, PermissionError):
+            pass  # Skip file logging if not possible
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=handlers
+    )
 
-# Logging configuration for secure deletion operations
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('framework_operations.log'),
-        logging.StreamHandler()
-    ]
-)
+# Only setup logging if enabled via environment variable
+if os.environ.get('ARDUINO_FRAMEWORK_ENABLE_LOGGING'):
+    setup_logging()
 
 # Constants for better performance
 UNICORE_FLAGS = {
