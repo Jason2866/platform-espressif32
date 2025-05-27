@@ -168,7 +168,7 @@ def remove_cpppath_entries():
     with open(build_py_path, 'w') as f:
         f.write(content)
 
-def restore_pioarduino_build_py():
+def restore_pioarduino_build_py(source, target, env):
     """Restore the original pioarduino-build.py from backup"""
     if not "arduino" in env.subst("$PIOFRAMEWORK"):
         return
