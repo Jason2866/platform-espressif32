@@ -44,7 +44,7 @@ IS_WINDOWS = sys.platform.startswith("win")
 # Include count threshold for path shortening, only valid and needed for Windows
 # ESP32-C6 typically has 200+ includes, ESP32 usually <100
 # Lower the value if strange compile errors occur
-INCLUDE_COUNT_THRESHOLD = 120
+INCLUDE_COUNT_THRESHOLD = 220
 
 python_deps = {
     "wheel": ">=0.35.1",
