@@ -446,7 +446,12 @@ def is_framework_subfolder(potential_subfolder):
         return False
     if splitdrive(FRAMEWORK_SDK_DIR)[0] != splitdrive(potential_subfolder)[0]:
         return False
-    return commonpath([FRAMEWORK_SDK_DIR]) == commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
+    try:
+        common = commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
+        return common == FRAMEWORK_SDK_DIR
+    except ValueError:
+        # Paths are on different drives or incompatible
+        return False
 
 def debug_framework_paths(env, include_count):
     """Debug framework paths to understand the issue (verbose mode only)"""
