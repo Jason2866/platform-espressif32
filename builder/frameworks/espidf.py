@@ -403,9 +403,6 @@ def cleanup_removed_components():
         if os.path.exists(include_path):
             shutil.rmtree(include_path)
             print(f"*** Removed include directory: {component}")
-    
-    # Restore original pioarduino-build.py
-    restore_pioarduino_build_py()
 
 def restore_pioarduino_build_py():
     """Restore the original pioarduino-build.py from backup"""
@@ -2225,6 +2222,8 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
                 print("*** Original Arduino \"idf_component.yml\" restored ***")
             except:
                 print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***")
+            # Restore original pioarduino-build.py
+            restore_pioarduino_build_py()
     silent_action = env.Action(idf_lib_copy)
     silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
     env.AddPostAction("checkprogsize", silent_action)
@@ -2244,6 +2243,8 @@ if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True
                     print("*** pioarduino generated \"idf_component.yml\" removed ***")
                 except:
                     print("*** \"idf_component.yml\" couldnt be removed ***")
+        # Restore original pioarduino-build.py
+        restore_pioarduino_build_py()
     silent_action = env.Action(idf_custom_component)
     silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
     env.AddPostAction("checkprogsize", silent_action)
