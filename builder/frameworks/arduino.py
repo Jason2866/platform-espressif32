@@ -446,12 +446,7 @@ def is_framework_subfolder(potential_subfolder):
         return False
     if splitdrive(FRAMEWORK_SDK_DIR)[0] != splitdrive(potential_subfolder)[0]:
         return False
-    try:
-        common = commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
-        return common == FRAMEWORK_SDK_DIR
-    except ValueError:
-        # Paths are on different drives or incompatible
-        return False
+    return commonpath([FRAMEWORK_SDK_DIR]) == commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
 
 def debug_framework_paths(env, include_count):
     """Debug framework paths to understand the issue (verbose mode only)"""
@@ -477,15 +472,19 @@ def debug_framework_paths(env, include_count):
 
 def apply_include_shortening(env, node, includes):
     """Applies the proven include path shortening technique"""
-    # Convert to unix paths for consistency
-    includes = [fs.to_unix_path(inc) for inc in includes]
+    env_get = env.get
+    to_unix_path = fs.to_unix_path
+    ccflags = env["CCFLAGS"]
+    asflags = env["ASFLAGS"]
+    
+    includes = [to_unix_path(inc) for inc in env_get("CPPPATH", [])]
     shortened_includes = []
     generic_includes = []
     
     for inc in includes:
         if is_framework_subfolder(inc):
             shortened_includes.append(
-                "-iwithprefix/" + fs.to_unix_path(relpath(inc, FRAMEWORK_SDK_DIR))
+                "-iwithprefix/" + to_unix_path(relpath(inc, FRAMEWORK_SDK_DIR))
             )
         else:
             generic_includes.append(inc)
@@ -507,8 +506,8 @@ def apply_include_shortening(env, node, includes):
     return env.Object(
         node,
         CPPPATH=generic_includes,
-        CCFLAGS=env["CCFLAGS"] + common_flags,
-        ASFLAGS=env["ASFLAGS"] + common_flags,
+        CCFLAGS=ccflags + common_flags,
+        ASFLAGS=asflags + common_flags,
     )
 
 def smart_include_count_shorten(env, node):
