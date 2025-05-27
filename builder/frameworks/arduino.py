@@ -641,8 +641,12 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and 
     arduino_lib_compile_flag in ("Inactive", "True")):
     
-    from component_manager import HandleCOMPONENTsettings, restore_pioarduino_build_py
-    HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_component_remove)
+    if flag_custom_component_remove:
+        from component_manager import HandleCOMPONENTsettings, restore_pioarduino_build_py
+        HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_component_remove)           
+        silent_action = env.Action(restore_pioarduino_build_py())
+        silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+        env.AddPostAction("checkprogsize", silent_action)
     if IS_WINDOWS:
         # Smart include path optimization based on total path length
         env.AddBuildMiddleware(smart_include_length_shorten)
