@@ -68,6 +68,16 @@ map_file = os.path.join(env.subst("$PROJECT_DIR"), env.subst("$PROGNAME") + ".ma
 if os.path.exists(map_file):
     os.remove(map_file)
 
+def get_packages_to_install(deps, installed_packages):
+    """Generator for packages to install"""
+    for package, spec in deps.items():
+        if package not in installed_packages:
+            yield package
+        else:
+            version_spec = semantic_version.Spec(spec)
+            if not version_spec.match(installed_packages[package]):
+                yield package
+
 def install_standard_python_deps():
     def _get_installed_standard_pip_packages():
         result = {}
