@@ -82,6 +82,93 @@ class PathCache:
             )
         return self._sdk_dir
 
+# Command Line Optimizer for Windows
+class CommandLineOptimizer:
+    def __init__(self):
+        self._analysis_cache = {}
+        self.long_path_checked = False
+    
+    def estimate_command_length(self, env):
+        """Estimates the resulting command line length"""
+        includes = env.get("CPPPATH", [])
+        
+        # Base command (gcc + flags + filename)
+        base_cmd_length = 300  # Estimated length for compiler + standard flags + paths
+        
+        # Include paths (-I"path") - the main problem
+        include_length = sum(len(f'-I"{inc}"') + 1 for inc in includes)
+        
+        # Additional flags
+        ccflags_length = len(" ".join(str(flag) for flag in env.get("CCFLAGS", [])))
+        
+        # Defines (-DNAME=VALUE)
+        defines = env.get("CPPDEFINES", [])
+        cppdefines_length = 0
+        for define in defines:
+            if isinstance(define, tuple):
+                cppdefines_length += len(f'-D{define[0]}={define[1]}') + 1
+            else:
+                cppdefines_length += len(f'-D{define}') + 1
+        
+        total_length = (base_cmd_length + include_length + 
+                       ccflags_length + cppdefines_length)
+        
+        return total_length, len(includes)
+    
+    def needs_shortening(self, env):
+        """Decides if include path shortening is necessary"""
+        if not IS_WINDOWS:
+            return False
+        
+        # One-time long path warning
+        if not self.long_path_checked:
+            self._check_and_warn_long_path_support()
+            self.long_path_checked = True
+        
+        includes = env.get("CPPPATH", [])
+        cache_key = hash(tuple(includes))
+        
+        if cache_key in self._analysis_cache:
+            return self._analysis_cache[cache_key]
+        
+        cmd_length, include_count = self.estimate_command_length(env)
+        
+        # Windows cmd.exe limit is ~8191 characters
+        # Safety buffer of 2000 characters
+        CMD_LIMIT = 6000
+        
+        needs_opt = cmd_length > CMD_LIMIT
+        
+        if needs_opt:
+            print(f"*** Command line too long ({cmd_length} chars) - shortening include paths ***")
+        
+        self._analysis_cache[cache_key] = needs_opt
+        return needs_opt
+    
+    def _check_and_warn_long_path_support(self):
+        """Checks long path support and issues warning"""
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SYSTEM\CurrentControlSet\Control\FileSystem"
+            )
+            value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+            winreg.CloseKey(key)
+            
+            if value != 1:
+                print("*** WARNING: Windows Long Path Support is disabled ***")
+                print("*** Enable it for better performance: ***")
+                print("*** 1. Run as Administrator: gpedit.msc ***")
+                print("*** 2. Navigate to: Computer Configuration > Administrative Templates > System > Filesystem ***")
+                print("*** 3. Enable 'Enable Win32 long paths' ***")
+                print("*** OR run PowerShell as Admin: ***")
+                print("*** New-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name 'LongPathsEnabled' -Value 1 -PropertyType DWORD -Force ***")
+                print("*** Restart required after enabling ***")
+        except Exception:
+            print("*** WARNING: Could not check Long Path Support status ***")
+            print("*** Consider enabling Windows Long Path Support for better performance ***")
+
 # Secure deletion functions
 def safe_delete_file(file_path: Union[str, Path], 
                     force: bool = False) -> bool:
@@ -413,11 +500,19 @@ def is_framework_subfolder(potential_subfolder):
         # Paths are on different drives or incompatible
         return False
 
-def shorthen_includes(env, node):
+def smart_shorten_includes(env, node):
+    """Intelligent include path shortening only for command line problems"""
     if IS_INTEGRATION_DUMP:
         # Don't shorten include paths for IDE integrations
         return node
 
+    optimizer = CommandLineOptimizer()
+    
+    if not optimizer.needs_shortening(env):
+        # No shortening needed - normal compilation
+        return env.Object(node)
+    
+    # Command line too long - shorten include paths
     # Local references for better performance
     env_get = env.get
     to_unix_path = fs.to_unix_path
@@ -435,6 +530,12 @@ def shorthen_includes(env, node):
             )
         else:
             generic_includes.append(inc)
+
+    # Only shorten if there are actually framework paths
+    if not shortened_includes:
+        print("*** Warning: Command line too long but no framework paths to shorten ***")
+        print("*** Consider reducing number of include directories ***")
+        return env.Object(node)
 
     common_flags = ["-iprefix", FRAMEWORK_SDK_DIR] + shortened_includes
     
@@ -487,7 +588,7 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     arduino_lib_compile_flag in ("Inactive", "True")):
     
     if IS_WINDOWS:
-        env.AddBuildMiddleware(shorthen_includes)
+        env.AddBuildMiddleware(smart_shorten_includes)
     
     build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py") 
     SConscript(build_script_path)
