@@ -30,6 +30,7 @@ import sys
 import shutil
 import hashlib
 import logging
+from contextlib import suppress
 from os.path import join, exists, isabs, splitdrive, commonpath, relpath
 from pathlib import Path
 from typing import Union, List
@@ -60,10 +61,8 @@ def setup_logging():
     # Only add file handler if writable and not disabled
     log_file = os.environ.get('ARDUINO_FRAMEWORK_LOG_FILE')
     if log_file:
-        try:
+        with suppress(OSError, PermissionError):
             handlers.append(logging.FileHandler(log_file))
-        except (OSError, PermissionError):
-            pass  # Skip file logging if not possible
     
     logging.basicConfig(
         level=logging.INFO,
