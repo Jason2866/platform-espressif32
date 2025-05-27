@@ -342,8 +342,9 @@ def HandleCOMPONENTsettings(env):
                 if entry in idf_component_json["dependencies"]:
                     print("*** Removing component:",entry)
                     del idf_component_json["dependencies"][entry]
-                    # Track removed component for include cleanup
-                    removed_components.add(entry)
+                    # Track removed component for include cleanup (convert to filesystem format)
+                    filesystem_name = convert_component_name_to_filesystem(entry)
+                    removed_components.add(filesystem_name)
 
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
@@ -373,11 +374,18 @@ def HandleCOMPONENTsettings(env):
         return
     return
 
+def convert_component_name_to_filesystem(component_name):
+    """Convert component name from registry format to filesystem format"""
+    # Convert "espressif/esp32-camera" to "espressif__esp32-camera"
+    # Replace "/" with "__"
+    filesystem_name = component_name.replace("/", "__")
+    return filesystem_name
+
 def backup_pioarduino_build_py():
     """Create backup of the original pioarduino-build.py"""
     import shutil
-    arduino_libs_mcu = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu)
     
+    arduino_libs_mcu = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu)
     build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
     backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
     
