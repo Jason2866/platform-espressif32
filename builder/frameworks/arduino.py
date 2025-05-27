@@ -40,6 +40,8 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
+from component_manager import HandleCOMPONENTsettings
+
 IS_WINDOWS = sys.platform.startswith("win")
 
 # Include path length threshold for path shortening, only valid and needed for Windows
@@ -320,6 +322,14 @@ path_cache = PathCache(platform, mcu)
 board_sdkconfig = board.get("espidf.custom_sdkconfig", "")
 entry_custom_sdkconfig = "\n"
 flag_custom_sdkconfig = False
+flag_custom_component_remove = False
+flag_custom_component_add = False
+
+# Custom Component remove check
+current_env_section = f"env:{pioenv}"
+if config.has_option(current_env_section, "custom_component_remove"):
+    entry custom_component_remove = env.GetProjectOption("custom_component_remove")
+    flag_custom_component_remove = True
 
 # Custom SDKConfig check
 current_env_section = f"env:{pioenv}"
@@ -633,6 +643,7 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and 
     arduino_lib_compile_flag in ("Inactive", "True")):
     
+    HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_component_remove)
     if IS_WINDOWS:
         # Smart include path optimization based on total path length
         env.AddBuildMiddleware(smart_include_length_shorten)
