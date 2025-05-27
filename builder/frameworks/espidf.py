@@ -290,10 +290,17 @@ def HandleArduinoIDFsettings(env):
         return
 
 def HandleCOMPONENTsettings(env):
+    global removed_components
+    
     if flag_custom_component_add == True or flag_custom_component_remove == True: # todo remove duplicated
         import yaml
         from yaml import SafeLoader
         print("*** \"custom_component\" is used to (de)select managed idf components ***")
+        
+        # Create backup of pioarduino-build.py on first component removal
+        if flag_custom_component_remove == True and not removed_components:
+            backup_pioarduino_build_py()
+        
         if flag_custom_component_remove == True:
             idf_custom_component_remove = env.GetProjectOption("custom_component_remove").splitlines()
         else:
@@ -335,6 +342,8 @@ def HandleCOMPONENTsettings(env):
                 if entry in idf_component_json["dependencies"]:
                     print("*** Removing component:",entry)
                     del idf_component_json["dependencies"][entry]
+                    # Track removed component for include cleanup
+                    removed_components.add(entry)
 
         if idf_custom_component_add != "":
             for entry in idf_custom_component_add:
@@ -354,10 +363,52 @@ def HandleCOMPONENTsettings(env):
         idf_component_yml_file = open(yml_file_dir,"w")
         yaml.dump(idf_component_json, idf_component_yml_file)
         idf_component_yml_file.close()
+        
+        # Clean up removed components if any were removed
+        if removed_components:
+            cleanup_removed_components()
+        
         # print("JSON from modified idf_component.yml:")
         # print(json.dumps(idf_component_json))
         return
     return
+
+def backup_pioarduino_build_py():
+    """Create backup of the original pioarduino-build.py"""
+    import shutil
+    arduino_libs_mcu = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu)
+    
+    build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
+    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
+    
+    if os.path.exists(build_py_path):
+        shutil.copy2(build_py_path, backup_path)
+        print("*** Created backup of pioarduino-build.py")
+
+def cleanup_removed_components():
+    """Clean up removed components and restore original build file"""
+    
+    for component in removed_components:
+        # Remove include directories only
+        include_path = os.path.join(arduino_libs_mcu, "include", component)
+        if os.path.exists(include_path):
+            shutil.rmtree(include_path)
+            print(f"*** Removed include directory: {component}")
+    
+    # Restore original pioarduino-build.py
+    restore_pioarduino_build_py()
+
+def restore_pioarduino_build_py():
+    """Restore the original pioarduino-build.py from backup"""
+    import shutil
+    
+    build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
+    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
+    
+    if os.path.exists(backup_path):
+        shutil.copy2(backup_path, build_py_path)
+        os.remove(backup_path)  # Clean up backup file
+        print("*** Restored original pioarduino-build.py from backup")
 
 if flag_custom_component_add == True or flag_custom_component_remove == True:
     HandleCOMPONENTsettings(env)
