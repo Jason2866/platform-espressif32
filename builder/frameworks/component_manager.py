@@ -16,6 +16,7 @@ from SCons.Script import (
 from platformio.project.config import ProjectConfig
 
 env = DefaultEnvironment()
+platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32").lower()
