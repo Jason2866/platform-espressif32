@@ -186,10 +186,14 @@ class ComponentManager:
         
         # Remove CPPPATH entries for each removed component
         for component in self.removed_components:
-            pattern = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
-            content = re.sub(pattern, '', content)
+            escaped_component = re.escape(component_name)
+            patterns = [
+                rf'.*join\([^,]*,\s*"include",\s*"{escaped_component}"[^)]*\),?\n',
+                rf'.*join\([^,]*,\s*"include",\s*"espressif__{escaped_component}"[^)]*\),?\n'
+            ]
+            content = re.sub(patterns, '', content)
             print(f"*** Removed CPPPATH entry for: {component}")
-        
+
         with open(build_py_path, 'w') as f:
             f.write(content)
     
