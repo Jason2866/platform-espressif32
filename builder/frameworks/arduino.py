@@ -41,10 +41,10 @@ from platformio.package.manager.tool import ToolPackageManager
 
 IS_WINDOWS = sys.platform.startswith("win")
 
-# Include count threshold for path shortening, only valid and needed for Windows
-# ESP32-C6 typically has 200+ includes, ESP32 usually <100
-# Lower the value if strange compile errors occur
-INCLUDE_COUNT_THRESHOLD = 220
+# Include path length threshold for path shortening, only valid and needed for Windows
+# Windows has a path length limit of ~260 characters per path, but the total command line
+# length is also limited. A typical ESP32-C6 build can exceed 8000+ characters total.
+INCLUDE_PATH_LENGTH_THRESHOLD = 6000  # Total character count threshold
 
 python_deps = {
     "wheel": ">=0.35.1",
@@ -451,6 +451,7 @@ FRAMEWORK_SDK_DIR = path_cache.sdk_dir
 IS_INTEGRATION_DUMP = env.IsIntegrationDump()
 
 def is_framework_subfolder(potential_subfolder):
+    """Check if a path is a subfolder of the framework SDK directory"""
     # carefully check before change this function
     if not isabs(potential_subfolder):
         return False
@@ -458,7 +459,30 @@ def is_framework_subfolder(potential_subfolder):
         return False
     return commonpath([FRAMEWORK_SDK_DIR]) == commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
 
-def debug_framework_paths(env, include_count):
+def calculate_include_path_length(includes):
+    """Calculate total character count of all include paths"""
+    return sum(len(str(inc)) for inc in includes)
+
+def analyze_path_distribution(includes):
+    """Analyze the distribution of include path lengths for optimization insights"""
+    if not includes:
+        return {}
+    
+    lengths = [len(str(inc)) for inc in includes]
+    framework_lengths = [len(str(inc)) for inc in includes if is_framework_subfolder(inc)]
+    
+    return {
+        'total_paths': len(includes),
+        'total_length': sum(lengths),
+        'average_length': sum(lengths) / len(lengths),
+        'max_length': max(lengths),
+        'min_length': min(lengths),
+        'framework_paths': len(framework_lengths),
+        'framework_total_length': sum(framework_lengths),
+        'framework_avg_length': sum(framework_lengths) / len(framework_lengths) if framework_lengths else 0
+    }
+
+def debug_framework_paths(env, include_count, total_length):
     """Debug framework paths to understand the issue (verbose mode only)"""
     if not env.get("VERBOSE"):
         return
@@ -468,19 +492,27 @@ def debug_framework_paths(env, include_count):
     print(f"*** FRAMEWORK_DIR: {FRAMEWORK_DIR} ***")
     print(f"*** FRAMEWORK_SDK_DIR: {FRAMEWORK_SDK_DIR} ***")
     print(f"*** SDK exists: {exists(FRAMEWORK_SDK_DIR)} ***")
-    print(f"*** Include count: {include_count} (threshold: {INCLUDE_COUNT_THRESHOLD}) ***")
+    print(f"*** Include count: {include_count} ***")
+    print(f"*** Total path length: {total_length} (threshold: {INCLUDE_PATH_LENGTH_THRESHOLD}) ***")
     
     includes = env.get("CPPPATH", [])
     framework_count = 0
-    for i, inc in enumerate(includes[:10]):  # Show first 10
+    longest_paths = sorted(includes, key=len, reverse=True)[:5]
+    
+    print("*** Longest include paths: ***")
+    for i, inc in enumerate(longest_paths):
         is_fw = is_framework_subfolder(inc)
         if is_fw:
             framework_count += 1
-        print(f"***   {i+1}: {inc} -> Framework: {is_fw} ***")
+        print(f"***   {i+1}: {inc} (length: {len(str(inc))}) -> Framework: {is_fw} ***")
     
     print(f"*** Framework includes found: {framework_count}/{len(includes)} ***")
+    
+    # Show path distribution analysis
+    analysis = analyze_path_distribution(includes)
+    print(f"*** Path Analysis: Avg={analysis.get('average_length', 0):.1f}, Max={analysis.get('max_length', 0)}, Framework Avg={analysis.get('framework_avg_length', 0):.1f} ***")
 
-def apply_include_shortening(env, node, includes):
+def apply_include_shortening(env, node, includes, total_length):
     """Applies include path shortening technique"""
     env_get = env.get
     to_unix_path = fs.to_unix_path
@@ -491,21 +523,34 @@ def apply_include_shortening(env, node, includes):
     shortened_includes = []
     generic_includes = []
     
+    original_length = total_length
+    saved_chars = 0
+    
     for inc in includes:
         if is_framework_subfolder(inc):
-            shortened_includes.append(
-                "-iwithprefix/" + to_unix_path(relpath(inc, FRAMEWORK_SDK_DIR))
-            )
+            relative_path = to_unix_path(relpath(inc, FRAMEWORK_SDK_DIR))
+            shortened_path = "-iwithprefix/" + relative_path
+            shortened_includes.append(shortened_path)
+            
+            # Calculate character savings
+            # Original: full path in -I flag
+            # New: -iprefix + shortened relative path
+            original_chars = len(f"-I{inc}")
+            new_chars = len(shortened_path)
+            saved_chars += max(0, original_chars - new_chars)
         else:
             generic_includes.append(inc)
 
     # Show result message only once
     if not _PATH_SHORTENING_MESSAGES['shortening_applied']:
         if shortened_includes:
+            new_total_length = original_length - saved_chars + len(f"-iprefix{FRAMEWORK_SDK_DIR}")
             print(f"*** Applied include path shortening for {len(shortened_includes)} framework paths ***")
+            print(f"*** Path length reduced from {original_length} to ~{new_total_length} characters ***")
+            print(f"*** Estimated savings: {saved_chars} characters ***")
         else:
             if not _PATH_SHORTENING_MESSAGES['no_framework_paths_warning']:
-                print("*** Warning: Include count high but no framework paths found for shortening ***")
+                print("*** Warning: Path length high but no framework paths found for shortening ***")
                 print("*** This may indicate an architecture-specific issue ***")
                 print("*** Run with -v (verbose) for detailed path analysis ***")
                 _PATH_SHORTENING_MESSAGES['no_framework_paths_warning'] = True
@@ -520,8 +565,8 @@ def apply_include_shortening(env, node, includes):
         ASFLAGS=asflags + common_flags,
     )
 
-def smart_include_count_shorten(env, node):
-    """Include path shortening based on include count threshold"""
+def smart_include_length_shorten(env, node):
+    """Include path shortening based on total path length threshold"""
     if IS_INTEGRATION_DUMP:
         # Don't shorten include paths for IDE integrations
         return node
@@ -534,19 +579,19 @@ def smart_include_count_shorten(env, node):
     
     includes = env.get("CPPPATH", [])
     include_count = len(includes)
-    print("includes:", includes)
-    print("len includes:", include_count)
-
-    # Debug output in verbose mode
-    debug_framework_paths(env, include_count)
+    total_path_length = calculate_include_path_length(includes)
     
-    # Apply shortening only if include count exceeds threshold
-    # ESP32-C6 typically has 200+ includes, ESP32 usually <100
-    if include_count <= INCLUDE_COUNT_THRESHOLD:
+    # Debug output in verbose mode
+    debug_framework_paths(env, include_count, total_path_length)
+    
+    # Apply shortening only if total path length exceeds threshold
+    # This is more accurate than just counting includes, as it considers
+    # the actual command line length impact
+    if total_path_length <= INCLUDE_PATH_LENGTH_THRESHOLD:
         return env.Object(node)  # Normal compilation
     
     # Apply include path shortening
-    return apply_include_shortening(env, node, includes)
+    return apply_include_shortening(env, node, includes, total_path_length)
 
 def get_frameworks_in_current_env():
     """Determines the frameworks of the current environment"""
@@ -590,8 +635,8 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     arduino_lib_compile_flag in ("Inactive", "True")):
     
     if IS_WINDOWS:
-        # Smart include path optimization based on include count
-        env.AddBuildMiddleware(smart_include_count_shorten)
+        # Smart include path optimization based on total path length
+        env.AddBuildMiddleware(smart_include_length_shorten)
     
     build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py") 
     SConscript(build_script_path)
