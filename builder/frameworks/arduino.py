@@ -46,6 +46,13 @@ IS_WINDOWS = sys.platform.startswith("win")
 # Lower the value if strange compile errors occur
 INCLUDE_COUNT_THRESHOLD = 150
 
+python_deps = {
+    "wheel": ">=0.35.1",
+    "rich-click": ">=1.8.6",
+    "zopfli": ">=0.2.2",
+    "esp-idf-size": ">=1.6.1"
+}
+
 def setup_logging():
     """Setup logging with optional file output"""
     handlers = [logging.StreamHandler()]
@@ -380,15 +387,8 @@ def install_python_deps():
         
         return result
 
-    deps = {
-        "wheel": ">=0.35.1",
-        "rich-click": ">=1.8.6",
-        "zopfli": ">=0.2.2",
-        "esp-idf-size": ">=1.6.1"
-    }
-
     installed_packages = _get_installed_pip_packages()
-    packages_to_install = list(get_packages_to_install(deps, installed_packages))
+    packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
 
     if packages_to_install:
         packages_str = " ".join(f'"{p}{deps[p]}"' for p in packages_to_install)
