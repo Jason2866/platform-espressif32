@@ -127,7 +127,7 @@ def backup_pioarduino_build_py():
     import shutil
     
     build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
-    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
+    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py."+mcu)
     
     if os.path.exists(build_py_path):
         shutil.copy2(build_py_path, backup_path)
@@ -175,9 +175,9 @@ def restore_pioarduino_build_py(source, target, env):
     import shutil
     
     build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
-    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
+    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py."+mcu)
     
     if os.path.exists(backup_path):
         shutil.copy2(backup_path, build_py_path)
         os.remove(backup_path)  # Clean up backup file
-        print("*** Restored original pioarduino-build.py from backup")
+        print(f"*** Restored original pioarduino-build.py for: {mcu}")
