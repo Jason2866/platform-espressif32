@@ -469,7 +469,7 @@ def debug_framework_paths(env, include_count):
     if not env.get("VERBOSE"):
         return
         
-    print(f"*** Debug Framework Paths ***")
+    print("*** Debug Framework Paths ***")
     print(f"*** MCU: {mcu} ***")
     print(f"*** FRAMEWORK_DIR: {FRAMEWORK_DIR} ***")
     print(f"*** FRAMEWORK_SDK_DIR: {FRAMEWORK_SDK_DIR} ***")
