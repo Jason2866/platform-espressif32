@@ -225,8 +225,6 @@ def validate_platformio_path(path: Union[str, Path]) -> bool:
     # Must not be a critical system path
     critical_paths = ["/usr", "/bin", "/sbin", "/etc", "/boot"]
     return not any(critical in path_str for critical in critical_paths)
-    
-    return True
 
 def validate_deletion_path(path: Union[str, Path], 
                           allowed_patterns: List[str]) -> bool:
@@ -453,16 +451,12 @@ FRAMEWORK_SDK_DIR = path_cache.sdk_dir
 IS_INTEGRATION_DUMP = env.IsIntegrationDump()
 
 def is_framework_subfolder(potential_subfolder):
+    # carefully check before change this function
     if not isabs(potential_subfolder):
         return False
     if splitdrive(FRAMEWORK_SDK_DIR)[0] != splitdrive(potential_subfolder)[0]:
         return False
-    try:
-        common = commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
-        return common == FRAMEWORK_SDK_DIR
-    except ValueError:
-        # Paths are on different drives or incompatible
-        return False
+    return commonpath([FRAMEWORK_SDK_DIR]) == commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
 
 def debug_framework_paths(env, include_count):
     """Debug framework paths to understand the issue (verbose mode only)"""
@@ -487,7 +481,7 @@ def debug_framework_paths(env, include_count):
     print(f"*** Framework includes found: {framework_count}/{len(includes)} ***")
 
 def apply_include_shortening(env, node, includes):
-    """Applies the proven include path shortening technique"""
+    """Applies include path shortening technique"""
     env_get = env.get
     to_unix_path = fs.to_unix_path
     ccflags = env["CCFLAGS"]
