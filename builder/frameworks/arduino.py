@@ -489,13 +489,5 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     if IS_WINDOWS:
         env.AddBuildMiddleware(shorthen_includes)
     
-    # Determine build script
-    pio_build = "platformio-build.py"
-    build_script_path = join(FRAMEWORK_DIR, "tools", pio_build)
-    
-    if not exists(build_script_path):
-        pio_build = "pioarduino-build.py"
-        build_script_path = join(FRAMEWORK_DIR, "tools", pio_build)
-    
+    build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py") 
     SConscript(build_script_path)
-
