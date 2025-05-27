@@ -391,7 +391,7 @@ def install_python_deps():
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
 
     if packages_to_install:
-        packages_str = " ".join(f'"{p}{deps[p]}"' for p in packages_to_install)
+        packages_str = " ".join(f'"{p}{python_deps[p]}"' for p in packages_to_install)
         env.Execute(
             env.VerboseAction(
                 f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
