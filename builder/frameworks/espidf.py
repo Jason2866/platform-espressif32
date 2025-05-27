@@ -167,6 +167,7 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
         ARDUINO_FRAMEWORK_DIR = new_path
     assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
 
+arduino_libs_mcu = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu)
 BUILD_DIR = env.subst("$BUILD_DIR")
 PROJECT_DIR = env.subst("$PROJECT_DIR")
 PROJECT_SRC_DIR = env.subst("$PROJECT_SRC_DIR")
@@ -386,7 +387,6 @@ def backup_pioarduino_build_py():
     """Create backup of the original pioarduino-build.py"""
     import shutil
     
-    arduino_libs_mcu = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu)
     build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
     backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
     
