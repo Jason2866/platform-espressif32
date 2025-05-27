@@ -53,6 +53,7 @@ python_deps = {
     "wheel": ">=0.35.1",
     "rich-click": ">=1.8.6",
     "zopfli": ">=0.2.2",
+    "PyYAML": ">=6.0.2",
     "esp-idf-size": ">=1.6.1"
 }
 
