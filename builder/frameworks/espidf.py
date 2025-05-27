@@ -385,6 +385,8 @@ def convert_component_name_to_filesystem(component_name):
 
 def backup_pioarduino_build_py():
     """Create backup of the original pioarduino-build.py"""
+    if not "arduino" in env.subst("$PIOFRAMEWORK"):
+        return
     import shutil
     
     build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
@@ -406,6 +408,8 @@ def cleanup_removed_components():
 
 def restore_pioarduino_build_py():
     """Restore the original pioarduino-build.py from backup"""
+    if not "arduino" in env.subst("$PIOFRAMEWORK"):
+        return
     import shutil
     
     build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
