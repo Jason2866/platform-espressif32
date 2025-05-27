@@ -534,7 +534,9 @@ def smart_include_count_shorten(env, node):
     
     includes = env.get("CPPPATH", [])
     include_count = len(includes)
-    
+    print("includes:", includes)
+    print("len includes:", include_count)
+
     # Debug output in verbose mode
     debug_framework_paths(env, include_count)
     
