@@ -40,8 +40,6 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
-from component_manager import HandleCOMPONENTsettings
-
 IS_WINDOWS = sys.platform.startswith("win")
 
 # Include path length threshold for path shortening, only valid and needed for Windows
@@ -643,6 +641,7 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and 
     arduino_lib_compile_flag in ("Inactive", "True")):
     
+    from component_manager import HandleCOMPONENTsettings
     HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_component_remove)
     if IS_WINDOWS:
         # Smart include path optimization based on total path length
