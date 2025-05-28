@@ -292,19 +292,18 @@ def HandleArduinoIDFsettings(env):
         return
 
 def HandleCOMPONENTsettings(env):
+    if "arduino" not in env.subst("$PIOFRAMEWORK"):
+        return
     from component_manager import ComponentManager
     
-    # Erstelle ComponentManager Instanz
     component_manager = ComponentManager(env)
     
-    # Prüfe ob custom_component Flags gesetzt sind
     flag_custom_component_add = env.GetProjectOption("custom_component_add", None) is not None
     flag_custom_component_remove = env.GetProjectOption("custom_component_remove", None) is not None
     
     if flag_custom_component_add or flag_custom_component_remove:
         print("*** \"custom_component\" is used to (de)select managed idf components ***")
         
-        # Verwende die ComponentManager Methode
         component_manager.handle_component_settings(
             add_components=flag_custom_component_add,
             remove_components=flag_custom_component_remove
