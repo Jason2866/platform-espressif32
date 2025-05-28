@@ -313,77 +313,7 @@ def HandleCOMPONENTsettings(env):
         return
     return
 
-def convert_component_name_to_filesystem(component_name):
-    """Convert component name from registry format to filesystem format"""
-    # Convert "espressif/esp32-camera" to "espressif__esp32-camera"
-    # Replace "/" with "__"
-    filesystem_name = component_name.replace("/", "__")
-    return filesystem_name
-
-def backup_pioarduino_build_py():
-    """Create backup of the original pioarduino-build.py"""
-    if not "arduino" in env.subst("$PIOFRAMEWORK"):
-        return
-    import shutil
-    
-    build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
-    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
-    
-    if os.path.exists(build_py_path):
-        shutil.copy2(build_py_path, backup_path)
-        print("*** Created backup of pioarduino-build.py")
-
-def cleanup_removed_components():
-    """Clean up removed components and restore original build file"""
-    
-    for component in removed_components:
-        # Remove include directories only
-        include_path = os.path.join(arduino_libs_mcu, "include", component)
-        if os.path.exists(include_path):
-            shutil.rmtree(include_path)
-            print(f"*** Removed include directory: {component}")
-    
-    # Remove CPPPATH entries from pioarduino-build.py
-    remove_cpppath_entries()
-
-def remove_cpppath_entries():
-    """Remove CPPPATH entries for removed components from pioarduino-build.py"""
-    import re
-    
-    build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
-    
-    if not os.path.exists(build_py_path):
-        return
-    
-    with open(build_py_path, 'r') as f:
-        content = f.read()
-    
-    # Remove CPPPATH entries for each removed component
-    for component in removed_components:
-        # Pattern to match lines like: join(PIO_SDK, "include", "espressif__esp32-camera"),
-        pattern = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
-        content = re.sub(pattern, '', content)
-        print(f"*** Removed CPPPATH entry for: {component}")
-    
-    with open(build_py_path, 'w') as f:
-        f.write(content)
-
-def restore_pioarduino_build_py():
-    """Restore the original pioarduino-build.py from backup"""
-    if not "arduino" in env.subst("$PIOFRAMEWORK"):
-        return
-    import shutil
-    
-    build_py_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py")
-    backup_path = os.path.join(arduino_libs_mcu, "pioarduino-build.py.backup")
-    
-    if os.path.exists(backup_path):
-        shutil.copy2(backup_path, build_py_path)
-        os.remove(backup_path)  # Clean up backup file
-        print("*** Restored original pioarduino-build.py from backup")
-
-if flag_custom_component_add == True or flag_custom_component_remove == True:
-    HandleCOMPONENTsettings(env)
+HandleCOMPONENTsettings(env)
 
 if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK"):
     HandleArduinoIDFsettings(env)
