@@ -2219,11 +2219,12 @@ if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True
                     os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
                     print("*** pioarduino generated \"idf_component.yml\" removed ***")
                 except:
-                    print("*** \"idf_component.yml\" couldnt be removed ***")
-        # Restore original pioarduino-build.py
-        from component_manager import ComponentManager
-        component_manager = ComponentManager(env)
-        component_manager.restore_pioarduino_build_py()
+                    print("*** no custom \"idf_component.yml\" found for removing ***")
+        if "arduino" in env.subst("$PIOFRAMEWORK"):
+            # Restore original pioarduino-build.py, only used with Arduino
+            from component_manager import ComponentManager
+            component_manager = ComponentManager(env)
+            component_manager.restore_pioarduino_build_py()
     silent_action = env.Action(idf_custom_component)
     silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
     env.AddPostAction("checkprogsize", silent_action)
