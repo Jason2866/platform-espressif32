@@ -55,6 +55,8 @@ class ComponentManager:
         # Clean up removed components
         if self.removed_components:
             self._cleanup_removed_components()
+
+        self.handle_lib_ignore()
     
     def handle_lib_ignore(self) -> None:
         """Handle lib_ignore entries from platformio.ini and remove corresponding includes."""
