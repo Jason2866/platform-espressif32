@@ -29,8 +29,6 @@ class ComponentManager:
         if not (add_components or remove_components):
             return
         
-        print("*** \"custom_component\" is used to (de)select managed idf components ***")
-        
         # Create backup before first component removal
         if remove_components and not self.removed_components:
             self._backup_pioarduino_build_py()
