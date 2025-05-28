@@ -131,6 +131,8 @@ class ComponentManager:
             'bluetooth': 'bt',
             'ble': 'bt',
             'bt': 'bt',
+            'nimble': 'bt',
+            'bluedroid': 'bt',
             'ethernet': 'esp_eth',
             'websocket': 'esp_websocket_client',
             'http': 'esp_http_client',
