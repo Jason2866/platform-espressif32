@@ -37,12 +37,18 @@ class ComponentManager:
         component_data = self._load_component_yml(component_yml_path)
         
         if remove_components:
-            components_to_remove = self.env.GetProjectOption("custom_component_remove").splitlines()
-            self._remove_components(component_data, components_to_remove)
+            try:
+                components_to_remove = self.env.GetProjectOption("custom_component_remove").splitlines()
+                self._remove_components(component_data, components_to_remove)
+            else:
+                pass
         
         if add_components:
-            components_to_add = self.env.GetProjectOption("custom_component_add").splitlines()
-            self._add_components(component_data, components_to_add)
+            try:
+                components_to_add = self.env.GetProjectOption("custom_component_add").splitlines()
+                self._add_components(component_data, components_to_add)
+            try:
+                pass
         
         self._save_component_yml(component_yml_path, component_data)
         
