@@ -316,6 +316,7 @@ mcu = board.get("build.mcu", "esp32")
 pioenv = env["PIOENV"]
 project_dir = env.subst("$PROJECT_DIR")
 path_cache = PathCache(platform, mcu)
+current_env_section = f"env:{pioenv}"
 
 # Board configuration
 board_sdkconfig = board.get("espidf.custom_sdkconfig", "")
@@ -324,13 +325,15 @@ flag_custom_sdkconfig = False
 flag_custom_component_remove = False
 flag_custom_component_add = False
 
+# pio lib_ignore check
+if config.has_option(current_env_section, "lib_ignore"):
+    flag_lib_ignore = True
+
 # Custom Component remove check
-current_env_section = f"env:{pioenv}"
 if config.has_option(current_env_section, "custom_component_remove"):
     flag_custom_component_remove = True
 
 # Custom SDKConfig check
-current_env_section = f"env:{pioenv}"
 if config.has_option(current_env_section, "custom_sdkconfig"):
     entry_custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
     flag_custom_sdkconfig = True
@@ -641,14 +644,13 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and 
     arduino_lib_compile_flag in ("Inactive", "True")):
     
-    if flag_custom_component_remove:
+    if flag_custom_component_remove or flag_lib_ignore:
         from component_manager import ComponentManager
         component_manager = ComponentManager(env)
-        result = component_manager.handle_component_settings(
+        component_manager.handle_component_settings(
             add_components=flag_custom_component_add,
             remove_components=flag_custom_component_remove
         )
-        print("ComponentManager", result)
         silent_action = env.Action(component_manager.restore_pioarduino_build_py)
         silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
         env.AddPostAction("checkprogsize", silent_action)
