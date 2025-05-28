@@ -191,186 +191,105 @@ if "espidf.custom_sdkconfig" in board:
     flag_custom_sdkonfig = True
 
 def HandleArduinoIDFsettings(env):
-    """Handle Arduino IDF settings and generate sdkconfig.defaults file."""
-    
     def get_MD5_hash(phrase):
-        """Generate MD5 hash for given phrase."""
         import hashlib
-        return hashlib.md5(phrase.encode('utf-8')).hexdigest()[:16]
+        return hashlib.md5((phrase).encode('utf-8')).hexdigest()[:16]
 
-    def download_remote_config(url):
-        """Download configuration from remote URL."""
-        try:
-            response = requests.get(url.split(" ")[0])
-            if response.ok:
-                return response.content.decode('utf-8')
-            else:
-                print(f"Failed to download: {url}")
-                return ""
-        except Exception as e:
-            print(f"Error downloading {url}: {e}")
+    def custom_sdkconfig_file(string):
+        if not config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
             return ""
-
-    def read_local_config(file_path):
-        """Read configuration from local file."""
-        full_path = join(PROJECT_DIR, file_path.lstrip("file://").split(os.path.sep)[-1])
-        try:
-            if os.path.exists(full_path):
-                with open(full_path, 'r') as file:
-                    return file.read()
-            else:
-                print(f"File not found: {full_path}")
-                return ""
-        except Exception as e:
-            print(f"Error reading file {full_path}: {e}")
-            return ""
-
-    def get_custom_sdkconfig_content():
-        """Get custom sdkconfig content from file or URL."""
-        if not config.has_option("env:" + env["PIOENV"], "custom_sdkconfig"):
-            return ""
-        
-        sdkconfig_entries = env.GetProjectOption("custom_sdkconfig").splitlines()
-        for entry in sdkconfig_entries:
-            if "http" in entry and "://" in entry:
-                return download_remote_config(entry)
-            elif "file://" in entry:
-                return read_local_config(entry)
+        sdkconfig_entrys = env.GetProjectOption("custom_sdkconfig").splitlines()
+        for file in sdkconfig_entrys:
+            if "http" in file and "://" in file:
+                response = requests.get(file.split(" ")[0])
+                if response.ok:
+                    target = str(response.content.decode('utf-8'))
+                else:
+                    print("Failed to download:", file)
+                    return ""
+                return target
+            if "file://" in file:
+                file_path = join(PROJECT_DIR,file.lstrip("file://").split(os.path.sep)[-1])
+                if os.path.exists(file_path):
+                    with open(file_path, 'r') as file:
+                        target = file.read()
+                else:
+                    print("File not found:", file_path)
+                    return ""
+                return target
         return ""
 
-    def get_flash_frequency_config():
-        """Generate flash frequency configuration flags."""
-        if flash_frequency == "80m":
-            return ""
-        
-        config_lines = [
-            "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set",
-            f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_frequency.upper()}=y",
-            f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_frequency}\""
-        ]
-        return "\n".join(config_lines) + "\n"
 
-    def get_flash_mode_config():
-        """Generate flash mode configuration flags."""
-        config_lines = []
+    custom_sdk_config_flags = ""
+    board_idf_config_flags = ""
+    sdkconfig_file_flags = ""
+    custom_sdkconfig_file_str = ""
+
+    if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
+        flag_custom_sdkonfig = True
+        custom_sdk_config_flags = (env.GetProjectOption("custom_sdkconfig").rstrip("\n")) + "\n"
+        custom_sdkconfig_file_str = custom_sdkconfig_file(sdkconfig_file_flags)
+
+    if "espidf.custom_sdkconfig" in board:
+        board_idf_config_flags = ('\n'.join([element for element in board.get("espidf.custom_sdkconfig", "")])).rstrip("\n") + "\n"
+        flag_custom_sdkonfig = True
+
+    if flag_custom_sdkonfig == True: # TDOO duplicated
+        print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
+        idf_config_flags = custom_sdk_config_flags
+        if custom_sdkconfig_file_str != "":
+            sdkconfig_file_flags = custom_sdkconfig_file_str + "\n"
+            idf_config_flags = sdkconfig_file_flags + idf_config_flags
+        idf_config_flags = board_idf_config_flags + idf_config_flags
+        if flash_frequency != "80m":
+            idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
+            esptool_flashfreq_y = "CONFIG_ESPTOOLPY_FLASHFREQ_%s=y\n" % flash_frequency.upper()
+            esptool_flashfreq_M = "CONFIG_ESPTOOLPY_FLASHFREQ=\"%s\"\n" % flash_frequency
+            idf_config_flags = idf_config_flags + esptool_flashfreq_y + esptool_flashfreq_M
         if flash_mode != "qio":
-            config_lines.append("# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set")
-        
-        flash_mode_config = f"CONFIG_ESPTOOLPY_FLASHMODE_{flash_mode.upper()}=y"
-        config_lines.append(flash_mode_config)
-        return "\n".join(config_lines) + "\n"
+            idf_config_flags = idf_config_flags + "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
+        esptool_flashmode = "CONFIG_ESPTOOLPY_FLASHMODE_%s=y\n" % flash_mode.upper()
+        if esptool_flashmode not in idf_config_flags:
+            idf_config_flags = idf_config_flags + esptool_flashmode
+        if mcu in ("esp32") and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
+            idf_config_flags = idf_config_flags + "# CONFIG_SPIRAM is not set\n"
 
-    def get_mcu_specific_config(idf_config_flags):
-        """Generate MCU-specific configuration flags."""
-        if mcu == "esp32" and "CONFIG_FREERTOS_UNICORE=y" in idf_config_flags:
-            return "# CONFIG_SPIRAM is not set\n"
-        return ""
+        idf_config_flags = idf_config_flags.splitlines()
+        sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu,"sdkconfig")
 
-    def extract_flag_name(line):
-        """Extract flag name from configuration line."""
-        line = line.strip()
-        if line.startswith("#") and "is not set" in line:
-            parts = line.split(" ")
-            return parts[1] if len(parts) > 1 else None
-        elif not line.startswith("#") and "=" in line:
-            return line.split("=")[0]
-        return None
+        def get_flag(line):
+            if line.startswith("#") and "is not set" in line:
+                return line.split(" ")[1]
+            elif not line.startswith("#") and len(line.split("=")) > 1:
+                return line.split("=")[0]
+            else:
+                return None
 
-    def build_idf_config_flags():
-        """Build complete IDF configuration flags string."""
-        config_parts = []
-        
-        # Add board-specific config
-        if "espidf.custom_sdkconfig" in board:
-            board_config = board.get("espidf.custom_sdkconfig", "")
-            if board_config:
-                config_parts.append('\n'.join(board_config).rstrip("\n"))
-        
-        # Add custom sdkconfig file content
-        custom_file_content = get_custom_sdkconfig_content()
-        if custom_file_content:
-            config_parts.append(custom_file_content.rstrip("\n"))
-        
-        # Add custom sdkconfig from project options
-        if config.has_option("env:" + env["PIOENV"], "custom_sdkconfig"):
-            custom_config = env.GetProjectOption("custom_sdkconfig").rstrip("\n")
-            if custom_config:
-                config_parts.append(custom_config)
-        
-        base_config = "\n".join(config_parts)
-        if not base_config:
-            return ""
-        
-        # Add hardware-specific configurations
-        base_config += "\n" + get_flash_frequency_config()
-        base_config += get_flash_mode_config()
-        base_config += get_mcu_specific_config(base_config)
-        
-        return base_config
-
-    def write_sdkconfig_defaults(idf_config_flags):
-        """Write the final sdkconfig.defaults file."""
-        idf_config_lines = [line.strip() for line in idf_config_flags.splitlines() if line.strip()]
-        sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR, "tools", "esp32-arduino-libs", mcu, "sdkconfig")
-        sdkconfig_dst = join(PROJECT_DIR, "sdkconfig.defaults")
-        
-        # Generate hash for tracking changes
-        config_hash = get_MD5_hash(''.join(idf_config_lines) + mcu)
-        
-        try:
-            with open(sdkconfig_src, 'r') as src, open(sdkconfig_dst, 'w') as dst:
-                dst.write(f"# TASMOTA__{config_hash}\n")
-                
-                # Process each line from source
-                for line in src:
-                    line = line.rstrip('\n')
-                    flag = extract_flag_name(line)
-                    
-                    if flag is None:
-                        dst.write(line + "\n")
-                        continue
-                    
-                    # Check if we have a replacement for this flag
-                    replacement_found = False
-                    for i, config_line in enumerate(idf_config_lines):
-                        config_flag = extract_flag_name(config_line.replace("'", ""))
-                        if flag == config_flag:
-                            clean_config = config_line.replace("'", "")
-                            dst.write(clean_config + "\n")
-                            print(f"Replace: {line} with: {clean_config}")
-                            idf_config_lines.pop(i)
-                            replacement_found = True
-                            break
-                    
-                    if not replacement_found:
-                        dst.write(line + "\n")
-                
-                # Add any remaining new flags
-                for config_line in idf_config_lines:
-                    clean_config = config_line.replace("'", "")
-                    print(f"Add: {clean_config}")
-                    dst.write(clean_config + "\n")
-                    
-        except Exception as e:
-            print(f"Error writing sdkconfig.defaults: {e}")
-            return False
-        
-        return True
-
-    # Main logic
-    has_custom_config = (
-        config.has_option("env:" + env["PIOENV"], "custom_sdkconfig") or
-        "espidf.custom_sdkconfig" in board
-    )
-    
-    if not has_custom_config:
+        with open(sdkconfig_src) as src:
+            sdkconfig_dst = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
+            dst = open(sdkconfig_dst,"w")
+            dst.write("# TASMOTA__"+ get_MD5_hash(''.join(custom_sdk_config_flags).strip() + mcu) +"\n")
+            while line := src.readline():
+                flag = get_flag(line)
+                if flag is None:
+                    dst.write(line)
+                else:
+                    no_match = True
+                    for item in idf_config_flags:
+                        if flag == get_flag(item.replace("\'", "")):
+                            dst.write(item.replace("\'", "")+"\n")
+                            no_match = False
+                            print("Replace:",line,"with:",item.replace("\'", ""))
+                            idf_config_flags.remove(item)
+                    if no_match:
+                        dst.write(line)
+            for item in idf_config_flags: # are there new flags?
+                print("Add:",item.replace("\'", ""))
+                dst.write(item.replace("\'", "")+"\n")
+            dst.close()
         return
-    
-    print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
-    
-    idf_config_flags = build_idf_config_flags()
-    if idf_config_flags:
-        write_sdkconfig_defaults(idf_config_flags)
+    else:
+        return
 
 
 def HandleCOMPONENTsettings(env):
