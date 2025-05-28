@@ -112,7 +112,7 @@ class ComponentManager:
         """Get all Arduino core libraries and their corresponding include paths."""
         libraries_mapping = {}
         
-        # Pfad zu den Arduino Core Libraries
+        # Path to Arduino Core Libraries
         arduino_libs_dir = join(self.arduino_framework_dir, "libraries")
         
         if not os.path.exists(arduino_libs_dir):
@@ -128,7 +128,7 @@ class ComponentManager:
                 if lib_name:
                     include_path = self._map_library_to_include_path(lib_name, entry)
                     libraries_mapping[lib_name.lower()] = include_path
-                    libraries_mapping[entry.lower()] = include_path  # Auch Verzeichnisname als Key
+                    libraries_mapping[entry.lower()] = include_path  # Also use directory name as key
                     print(f"*** Found library: {lib_name} ({entry}) -> {include_path}")
         
         return libraries_mapping
@@ -155,9 +155,9 @@ class ComponentManager:
         lib_name_lower = lib_name.lower().replace(' ', '').replace('-', '_')
         dir_name_lower = dir_name.lower()
         
-        # Erweiterte Mapping-Liste mit Arduino Core Libraries
+        # Extended mapping list with Arduino Core Libraries
         extended_mapping = {
-            # Bestehende Mappings
+            # Existing mappings
             'wifi': 'esp_wifi',
             'bluetooth': 'bt',
             'bluetoothserial': 'bt',
@@ -180,7 +180,7 @@ class ComponentManager:
             'mbedtls': 'mbedtls',
             'openssl': 'openssl',
             
-            # Arduino Core spezifische Mappings
+            # Arduino Core specific mappings
             'esp32blearduino': 'bt',
             'esp32_ble_arduino': 'bt',
             'esp32': 'esp32',
@@ -248,30 +248,30 @@ class ComponentManager:
             'messagebuffer': 'freertos'
         }
         
-        # Prüfe zuerst das erweiterte Mapping
+        # Check extended mapping first
         if lib_name_lower in extended_mapping:
             return extended_mapping[lib_name_lower]
         
-        # Prüfe Verzeichnisname
+        # Check directory name
         if dir_name_lower in extended_mapping:
             return extended_mapping[dir_name_lower]
         
-        # Fallback: Verwende Verzeichnisname als Include-Pfad
+        # Fallback: Use directory name as include path
         return dir_name_lower
     
     def _convert_lib_name_to_include(self, lib_name: str) -> str:
         """Convert library name to potential include directory name."""
-        # Lade Arduino Core Libraries beim ersten Aufruf
+        # Load Arduino Core Libraries on first call
         if not hasattr(self, '_arduino_libraries_cache'):
             self._arduino_libraries_cache = self._get_arduino_core_libraries()
         
         lib_name_lower = lib_name.lower()
         
-        # Prüfe zuerst die Arduino Core Libraries
+        # Check Arduino Core Libraries first
         if lib_name_lower in self._arduino_libraries_cache:
             return self._arduino_libraries_cache[lib_name_lower]
         
-        # Fallback auf die ursprüngliche Logik
+        # Fallback to original logic
         # Remove common prefixes and suffixes
         cleaned_name = lib_name_lower
         
@@ -287,7 +287,7 @@ class ComponentManager:
             if cleaned_name.endswith(suffix):
                 cleaned_name = cleaned_name[:-len(suffix)]
         
-        # Prüfe nochmal mit bereinigtem Namen
+        # Check again with cleaned name
         if cleaned_name in self._arduino_libraries_cache:
             return self._arduino_libraries_cache[cleaned_name]
         
@@ -310,15 +310,15 @@ class ComponentManager:
         for lib_name in self.ignored_libs:
             # Multiple patterns to catch different include formats
             patterns = [
-                # Pattern für: join(..., "include", "lib_name", ...)
+                # Pattern for: join(..., "include", "lib_name", ...)
                 rf'.*join\([^,]*,\s*"include",\s*"{re.escape(lib_name)}"[^)]*\),?\n',
-                # Pattern für direkte String-Matches
+                # Pattern for direct string matches
                 rf'.*"include/{re.escape(lib_name)}"[^,\n]*,?\n',
-                # Pattern für Listen-Einträge mit include/lib_name
+                # Pattern for list entries with include/lib_name
                 rf'.*"[^"]*include[^"]*{re.escape(lib_name)}[^"]*"[^,\n]*,?\n',
-                # Pattern für absolute Pfade
+                # Pattern for absolute paths
                 rf'.*"[^"]*/{re.escape(lib_name)}/include[^"]*"[^,\n]*,?\n',
-                # Pattern für Pfade die lib_name enthalten
+                # Pattern for paths containing lib_name
                 rf'.*"[^"]*{re.escape(lib_name)}[^"]*include[^"]*"[^,\n]*,?\n'
             ]
             
@@ -466,19 +466,19 @@ class ComponentManager:
         
         # Remove CPPPATH entries for each removed component
         for component in self.removed_components:
-            # Pattern für: join(..., "include", "component_name", ...)
+            # Pattern for: join(..., "include", "component_name", ...)
             pattern1 = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
             content = re.sub(pattern1, '', content)
             
-            # Pattern für: join(..., "include", "bt") oder ähnliche feste Strings
+            # Pattern for: join(..., "include", "bt") or similar fixed strings
             pattern2 = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
             content = re.sub(pattern2, '', content)
             
-            # Zusätzliches Pattern für direkte String-Matches ohne join()
+            # Additional pattern for direct string matches without join()
             pattern3 = rf'.*"include/{re.escape(component)}"[^,\n]*,?\n'
             content = re.sub(pattern3, '', content)
             
-            # Pattern für Listen-Einträge mit include/component
+            # Pattern for list entries with include/component
             pattern4 = rf'.*"[^"]*include[^"]*{re.escape(component)}[^"]*"[^,\n]*,?\n'
             content = re.sub(pattern4, '', content)
             
