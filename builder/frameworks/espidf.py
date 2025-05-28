@@ -366,8 +366,13 @@ def HandleCOMPONENTsettings(env):
     component_manager = ComponentManager(env)
 
     if flag_custom_component_add or flag_custom_component_remove:
-        print("*** \"custom_component\" is used to (de)select managed idf components ***")
-        
+        actions = [action for flag, action in [
+            (flag_custom_component_add, "select"),
+            (flag_custom_component_remove, "deselect")
+        ] if flag]
+        action_text = " and ".join(actions)
+        print(f"*** \"custom_component\" is used to {action_text} managed idf components ***")
+
         component_manager.handle_component_settings(
             add_components=flag_custom_component_add,
             remove_components=flag_custom_component_remove
