@@ -214,9 +214,6 @@ def HandleArduinoIDFsettings(env):
                     response = requests.get(file_entry.split(" ")[0])
                     if response.ok:
                         return response.content.decode('utf-8')
-                    else:
-                        print("Failed to download:", file_entry)
-                        return ""
                 except Exception as e:
                     print(f"Error downloading {file_entry}: {e}")
                     return ""
@@ -232,7 +229,7 @@ def HandleArduinoIDFsettings(env):
                         print(f"Error reading file {file_path}: {e}")
                         return ""
                 else:
-                    print("File not found:", file_path)
+                    print("File not found, check path:", file_path)
                     return ""
         
         return ""
