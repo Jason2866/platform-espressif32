@@ -1,20 +1,11 @@
 # component_manager.py
 import os
 import shutil
-import json
 import re
 import yaml
 from yaml import SafeLoader
 from os.path import join
 from typing import Set, Optional, Dict, Any, List
-
-from SCons.Script import (
-    ARGUMENTS,
-    COMMAND_LINE_TARGETS,
-    DefaultEnvironment,
-)
-
-from platformio.project.config import ProjectConfig
 
 
 class ComponentManager:
@@ -470,17 +461,13 @@ class ComponentManager:
             pattern1 = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
             content = re.sub(pattern1, '', content)
             
-            # Pattern for: join(..., "include", "bt") or similar fixed strings
-            pattern2 = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
+            # Additional pattern for direct string matches without join()
+            pattern2 = rf'.*"include/{re.escape(component)}"[^,\n]*,?\n'
             content = re.sub(pattern2, '', content)
             
-            # Additional pattern for direct string matches without join()
-            pattern3 = rf'.*"include/{re.escape(component)}"[^,\n]*,?\n'
-            content = re.sub(pattern3, '', content)
-            
             # Pattern for list entries with include/component
-            pattern4 = rf'.*"[^"]*include[^"]*{re.escape(component)}[^"]*"[^,\n]*,?\n'
-            content = re.sub(pattern4, '', content)
+            pattern3 = rf'.*"[^"]*include[^"]*{re.escape(component)}[^"]*"[^,\n]*,?\n'
+            content = re.sub(pattern3, '', content)
             
             print(f"*** Removed CPPPATH entry for: {component}")
         
