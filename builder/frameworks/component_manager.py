@@ -489,8 +489,6 @@ class ComponentManager:
     
     def restore_pioarduino_build_py(self, source=None, target=None, env=None) -> None:
         """Restore the original pioarduino-build.py from backup."""
-        if "arduino" not in self.env.subst("$PIOFRAMEWORK"):
-            return
         
         build_py_path = join(self.arduino_libs_mcu, "pioarduino-build.py")
         backup_path = join(self.arduino_libs_mcu, f"pioarduino-build.py.{self.mcu}")
