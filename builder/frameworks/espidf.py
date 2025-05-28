@@ -2118,7 +2118,9 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
             except:
                 print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***")
             # Restore original pioarduino-build.py
-            restore_pioarduino_build_py()
+            from component_manager import ComponentManager
+            component_manager = ComponentManager(env)
+            component_manager.restore_pioarduino_build_py()
     silent_action = env.Action(idf_lib_copy)
     silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
     env.AddPostAction("checkprogsize", silent_action)
@@ -2139,7 +2141,9 @@ if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True
                 except:
                     print("*** \"idf_component.yml\" couldnt be removed ***")
         # Restore original pioarduino-build.py
-        restore_pioarduino_build_py()
+        from component_manager import ComponentManager
+        component_manager = ComponentManager(env)
+        component_manager.restore_pioarduino_build_py()
     silent_action = env.Action(idf_custom_component)
     silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
     env.AddPostAction("checkprogsize", silent_action)
