@@ -311,9 +311,6 @@ platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
 
-# Initialize ComponentManager
-component_manager = ComponentManager(env)
-
 # Cached values
 mcu = board.get("build.mcu", "esp32")
 pioenv = env["PIOENV"]
@@ -646,6 +643,7 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     
     if flag_custom_component_remove:
         from component_manager import ComponentManager
+        component_manager = ComponentManager(env)
         component_manager.handle_component_settings(
             add_components=flag_custom_component_add,
             remove_components=flag_custom_component_remove
