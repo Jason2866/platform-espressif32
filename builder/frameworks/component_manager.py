@@ -175,27 +175,38 @@ class ComponentManager:
             print(f"*** Removed include directory: {component}")
     
     def _remove_cpppath_entries(self) -> None:
-        """Remove CPPPATH entries for removed components from pioarduino-build.py."""
-        build_py_path = join(self.arduino_libs_mcu, "pioarduino-build.py")
+    """Remove CPPPATH entries for removed components from pioarduino-build.py."""
+    build_py_path = join(self.arduino_libs_mcu, "pioarduino-build.py")
+    
+    if not os.path.exists(build_py_path):
+        return
+    
+    with open(build_py_path, 'r') as f:
+        content = f.read()
+    
+    # Remove CPPPATH entries for each removed component
+    for component in self.removed_components:
+        # Pattern für: join(..., "include", "component_name", ...)
+        pattern1 = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
+        content = re.sub(pattern1, '', content)
         
-        if not os.path.exists(build_py_path):
-            return
+        # Pattern für: join(..., "include", "bt") oder ähnliche feste Strings
+        pattern2 = rf'.*join\([^,]*,\s*"include",\s*"{re.escape(component)}"[^)]*\),?\n'
+        content = re.sub(pattern2, '', content)
         
-        with open(build_py_path, 'r') as f:
-            content = f.read()
+        # Zusätzliches Pattern für direkte String-Matches ohne join()
+        pattern3 = rf'.*"include/{re.escape(component)}"[^,\n]*,?\n'
+        content = re.sub(pattern3, '', content)
         
-        # Remove CPPPATH entries for each removed component
-        for component in self.removed_components:
-            escaped_component = re.escape(component)
-            patterns = [
-                rf'.*join\([^,]*,\s*"include",\s*"{escaped_component}"[^)]*\),?\n',
-                rf'.*join\([^,]*,\s*"include",\s*"espressif__{escaped_component}"[^)]*\),?\n'
-            ]
-            content = re.sub(patterns, '', content)
-            print(f"*** Removed CPPPATH entry for: {component}")
+        # Pattern für Listen-Einträge mit include/component
+        pattern4 = rf'.*"[^"]*include[^"]*{re.escape(component)}[^"]*"[^,\n]*,?\n'
+        content = re.sub(pattern4, '', content)
+        
+        print(f"*** Removed CPPPATH entry for: {component}")
+    
+    with open(build_py_path, 'w') as f:
+        f.write(content)
 
-        with open(build_py_path, 'w') as f:
-            f.write(content)
     
     def restore_pioarduino_build_py(self, source=None, target=None, env=None) -> None:
         """Restore the original pioarduino-build.py from backup."""
