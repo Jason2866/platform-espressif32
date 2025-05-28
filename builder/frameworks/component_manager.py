@@ -47,7 +47,7 @@ class ComponentManager:
             try:
                 components_to_add = self.env.GetProjectOption("custom_component_add").splitlines()
                 self._add_components(component_data, components_to_add)
-            try:
+            else:
                 pass
         
         self._save_component_yml(component_yml_path, component_data)
