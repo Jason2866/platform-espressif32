@@ -40,9 +40,6 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
-# Import ComponentManager
-from component_manager import ComponentManager
-
 IS_WINDOWS = sys.platform.startswith("win")
 
 # Include path length threshold for path shortening, only valid and needed for Windows
@@ -648,6 +645,7 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     arduino_lib_compile_flag in ("Inactive", "True")):
     
     if flag_custom_component_remove:
+        from component_manager import ComponentManager
         component_manager.handle_component_settings(
             add_components=flag_custom_component_add,
             remove_components=flag_custom_component_remove
