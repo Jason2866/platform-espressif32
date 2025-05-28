@@ -644,10 +644,11 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     if flag_custom_component_remove:
         from component_manager import ComponentManager
         component_manager = ComponentManager(env)
-        component_manager.handle_component_settings(
+        result = component_manager.handle_component_settings(
             add_components=flag_custom_component_add,
             remove_components=flag_custom_component_remove
         )
+        print("ComponentManager", result)
         silent_action = env.Action(component_manager.restore_pioarduino_build_py)
         silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
         env.AddPostAction("checkprogsize", silent_action)
