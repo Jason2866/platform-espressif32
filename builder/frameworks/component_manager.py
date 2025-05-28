@@ -242,7 +242,7 @@ class ComponentManager:
             'webserver': 'esp_http_server',
             'asyncwebserver': 'esp_http_server',
             'dnsserver': 'lwip',
-            'netbios': 'lwip',
+            'netbios': 'netbios',
             'simpletime': 'lwip',
             'fs': 'vfs',
             'sd': 'fatfs',
