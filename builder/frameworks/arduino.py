@@ -324,6 +324,7 @@ entry_custom_sdkconfig = "\n"
 flag_custom_sdkconfig = False
 flag_custom_component_remove = False
 flag_custom_component_add = False
+flag_lib_ignore = False
 
 # pio lib_ignore check
 if config.has_option(current_env_section, "lib_ignore"):
