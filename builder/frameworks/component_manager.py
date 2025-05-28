@@ -184,7 +184,7 @@ class ComponentManager:
         
         # Extended mapping list with Arduino Core Libraries
         extended_mapping = {
-            # Bluetooth and wireless mappings
+            # Core ESP32 mappings
             'wifi': 'esp_wifi',
             'bluetooth': 'bt',
             'bluetoothserial': 'bt',
@@ -195,35 +195,14 @@ class ComponentManager:
             'http': 'esp_http_client',
             'https': 'esp_https_ota',
             'ota': 'esp_https_ota',
-            
-            # File system mappings
             'spiffs': 'spiffs',
             'fatfs': 'fatfs',
             'nvs': 'nvs_flash',
-            'littlefs': 'esp_littlefs',
-            'ffat': 'fatfs',
-            'fs': 'vfs',
-            'sd': 'fatfs',
-            'sd_mmc': 'fatfs',
-            
-            # Network and connectivity
             'mesh': 'esp_wifi_mesh',
             'smartconfig': 'esp_smartconfig',
             'mdns': 'mdns',
             'coap': 'coap',
             'mqtt': 'mqtt',
-            'espnow': 'esp_now',
-            'esp_now': 'esp_now',
-            'esptouch': 'esp_smartconfig',
-            'ping': 'lwip',
-            'netif': 'lwip',
-            'tcpip': 'lwip',
-            'lwip': 'lwip',
-            'dnsserver': 'lwip',
-            'netbios': 'lwip',
-            'simpletime': 'lwip',
-            
-            # Security and encryption
             'json': 'cjson',
             'mbedtls': 'mbedtls',
             'openssl': 'openssl',
@@ -232,8 +211,6 @@ class ComponentManager:
             'esp32blearduino': 'bt',
             'esp32_ble_arduino': 'bt',
             'esp32': 'esp32',
-            
-            # Hardware peripherals
             'wire': 'driver',
             'spi': 'driver',
             'i2c': 'driver',
@@ -248,21 +225,12 @@ class ComponentManager:
             'hall': 'driver',
             'rtc': 'driver',
             'timer': 'esp_timer',
-            
-            # Storage and preferences
             'preferences': 'nvs_flash',
             'eeprom': 'nvs_flash',
             'update': 'esp_https_ota',
             'httpupdate': 'esp_https_ota',
-            
-            # HTTP and web server
             'httpclient': 'esp_http_client',
             'httpsclient': 'esp_https_ota',
-            'esp32webserver': 'esp_http_server',
-            'webserver': 'esp_http_server',
-            'asyncwebserver': 'esp_http_server',
-            
-            # WiFi specific
             'wifimanager': 'esp_wifi',
             'wificlientsecure': 'esp_wifi',
             'wifiserver': 'esp_wifi',
@@ -270,19 +238,32 @@ class ComponentManager:
             'wificlient': 'esp_wifi',
             'wifiap': 'esp_wifi',
             'wifimulti': 'esp_wifi',
-            
-            # Camera and multimedia
+            'esp32webserver': 'esp_http_server',
+            'webserver': 'esp_http_server',
+            'asyncwebserver': 'esp_http_server',
+            'dnsserver': 'lwip',
+            'netbios': 'lwip',
+            'simpletime': 'lwip',
+            'fs': 'vfs',
+            'sd': 'fatfs',
+            'sd_mmc': 'fatfs',
+            'littlefs': 'esp_littlefs',
+            'ffat': 'fatfs',
             'camera': 'esp32_camera',
             'esp_camera': 'esp32_camera',
             'arducam': 'esp32_camera',
-            
-            # IoT and cloud services
             'rainmaker': 'esp_rainmaker',
             'esp_rainmaker': 'esp_rainmaker',
             'provisioning': 'wifi_provisioning',
             'wifiprovisioning': 'wifi_provisioning',
-            
-            # RTOS and system
+            'espnow': 'esp_now',
+            'esp_now': 'esp_now',
+            'esptouch': 'esp_smartconfig',
+            'smartconfig': 'esp_smartconfig',
+            'ping': 'lwip',
+            'netif': 'lwip',
+            'tcpip': 'lwip',
+            'lwip': 'lwip',
             'freertos': 'freertos',
             'rtos': 'freertos',
             'task': 'freertos',
@@ -352,6 +333,18 @@ class ComponentManager:
         if cleaned_name in self._arduino_libraries_cache:
             result = self._arduino_libraries_cache[cleaned_name]
             print(f"*** Found cleaned name in cache: '{cleaned_name}' -> '{result}'")
+            return result
+        
+        # Direct mapping for common cases not in Arduino libraries
+        direct_mapping = {
+            'ble': 'bt',
+            'bluetooth': 'bt',
+            'bluetoothserial': 'bt'
+        }
+        
+        if cleaned_name in direct_mapping:
+            result = direct_mapping[cleaned_name]
+            print(f"*** Found in direct mapping: '{cleaned_name}' -> '{result}'")
             return result
         
         print(f"*** Final conversion result: '{lib_name}' -> '{cleaned_name}'")
