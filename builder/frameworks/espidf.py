@@ -292,87 +292,24 @@ def HandleArduinoIDFsettings(env):
         return
 
 def HandleCOMPONENTsettings(env):
-    global removed_components
+    from component_manager import ComponentManager
     
-    if flag_custom_component_add == True or flag_custom_component_remove == True: # todo remove duplicated
-        import yaml
-        from yaml import SafeLoader
+    # Erstelle ComponentManager Instanz
+    component_manager = ComponentManager(env)
+    
+    # Prüfe ob custom_component Flags gesetzt sind
+    flag_custom_component_add = env.GetProjectOption("custom_component_add", None) is not None
+    flag_custom_component_remove = env.GetProjectOption("custom_component_remove", None) is not None
+    
+    if flag_custom_component_add or flag_custom_component_remove:
         print("*** \"custom_component\" is used to (de)select managed idf components ***")
         
-        # Create backup of pioarduino-build.py on first component removal
-        if flag_custom_component_remove == True and not removed_components:
-            backup_pioarduino_build_py()
+        # Verwende die ComponentManager Methode
+        component_manager.handle_component_settings(
+            add_components=flag_custom_component_add,
+            remove_components=flag_custom_component_remove
+        )
         
-        if flag_custom_component_remove == True:
-            idf_custom_component_remove = env.GetProjectOption("custom_component_remove").splitlines()
-        else:
-            idf_custom_component_remove = ""
-        if flag_custom_component_add == True:
-            idf_custom_component_add = env.GetProjectOption("custom_component_add").splitlines()
-        else:
-            idf_custom_component_add = ""
-
-        # search "idf_component.yml" file
-        try: # 1.st in Arduino framework
-            idf_component_yml_src = os.path.join(ARDUINO_FRAMEWORK_DIR, "idf_component.yml")
-            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"))
-            yml_file_dir = idf_component_yml_src
-        except: # 2.nd Project source
-            try:
-                idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
-                shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml"),join(PROJECT_SRC_DIR,"idf_component.yml.orig"))
-                yml_file_dir = idf_component_yml_src
-            except: # no idf_component.yml in Project source -> create
-                idf_component_yml_src = os.path.join(PROJECT_SRC_DIR, "idf_component.yml")
-                yml_file_dir = idf_component_yml_src
-                idf_component_yml_str = """
-                    dependencies:
-                      idf: \">=5.1\"
-                """
-                idf_component_yml = yaml.safe_load(idf_component_yml_str)
-                with open(idf_component_yml_src, 'w',) as f :
-                    yaml.dump(idf_component_yml,f) 
-
-        yaml_file=open(idf_component_yml_src,"r")
-        idf_component=yaml.load(yaml_file, Loader=SafeLoader)
-        idf_component_str=json.dumps(idf_component)      # convert to json string
-        idf_component_json=json.loads(idf_component_str) # convert string to json dict
-
-        if idf_custom_component_remove != "":
-            for entry in idf_custom_component_remove:
-                # checking if the entry exists before removing
-                if entry in idf_component_json["dependencies"]:
-                    print("*** Removing component:",entry)
-                    del idf_component_json["dependencies"][entry]
-                    # Track removed component for include cleanup (convert to filesystem format)
-                    filesystem_name = convert_component_name_to_filesystem(entry)
-                    removed_components.add(filesystem_name)
-
-        if idf_custom_component_add != "":
-            for entry in idf_custom_component_add:
-                if len(str(entry)) > 4: # too short or empty entry
-                    # add new entrys to json
-                    if "@" in entry:
-                        idf_comp_entry = str(entry.split("@")[0]).replace(" ", "")
-                        idf_comp_vers = str(entry.split("@")[1]).replace(" ", "")
-                    else:
-                        idf_comp_entry = str(entry).replace(" ", "")
-                        idf_comp_vers = "*"
-                    if idf_comp_entry not in idf_component_json["dependencies"]:
-                        print("*** Adding component:", idf_comp_entry, idf_comp_vers)
-                        new_entry = {idf_comp_entry: {"version": idf_comp_vers}}
-                        idf_component_json["dependencies"].update(new_entry)
-
-        idf_component_yml_file = open(yml_file_dir,"w")
-        yaml.dump(idf_component_json, idf_component_yml_file)
-        idf_component_yml_file.close()
-        
-        # Clean up removed components if any were removed
-        if removed_components:
-            cleanup_removed_components()
-        
-        # print("JSON from modified idf_component.yml:")
-        # print(json.dumps(idf_component_json))
         return
     return
 
