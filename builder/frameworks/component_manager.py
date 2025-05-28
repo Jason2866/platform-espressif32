@@ -108,31 +108,61 @@ class ComponentManager:
             print(f"*** Warning: Could not read lib_ignore entries: {e}")
             return []
     
-    def _convert_lib_name_to_include(self, lib_name: str) -> str:
-        """Convert library name to potential include directory name."""
-        # Remove common prefixes and suffixes
-        lib_name = lib_name.lower()
+    def _get_arduino_core_libraries(self) -> Dict[str, str]:
+        """Get all Arduino core libraries and their corresponding include paths."""
+        libraries_mapping = {}
         
-        # Remove common prefixes
-        prefixes_to_remove = ['lib', 'arduino-', 'esp32-', 'esp-']
-        for prefix in prefixes_to_remove:
-            if lib_name.startswith(prefix):
-                lib_name = lib_name[len(prefix):]
+        # Pfad zu den Arduino Core Libraries
+        arduino_libs_dir = join(self.arduino_framework_dir, "libraries")
         
-        # Remove common suffixes
-        suffixes_to_remove = ['-lib', '-library', '.h']
-        for suffix in suffixes_to_remove:
-            if lib_name.endswith(suffix):
-                lib_name = lib_name[:-len(suffix)]
+        if not os.path.exists(arduino_libs_dir):
+            print(f"*** Warning: Arduino libraries directory not found: {arduino_libs_dir}")
+            return libraries_mapping
         
-        # Convert common library names to their include directory equivalents
-        lib_mapping = {
+        print(f"*** Scanning Arduino core libraries in: {arduino_libs_dir}")
+        
+        for entry in os.listdir(arduino_libs_dir):
+            lib_path = join(arduino_libs_dir, entry)
+            if os.path.isdir(lib_path):
+                lib_name = self._get_library_name_from_properties(lib_path)
+                if lib_name:
+                    include_path = self._map_library_to_include_path(lib_name, entry)
+                    libraries_mapping[lib_name.lower()] = include_path
+                    libraries_mapping[entry.lower()] = include_path  # Auch Verzeichnisname als Key
+                    print(f"*** Found library: {lib_name} ({entry}) -> {include_path}")
+        
+        return libraries_mapping
+    
+    def _get_library_name_from_properties(self, lib_dir: str) -> Optional[str]:
+        """Extract library name from library.properties file."""
+        prop_path = join(lib_dir, "library.properties")
+        if not os.path.isfile(prop_path):
+            return None
+        
+        try:
+            with open(prop_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('name='):
+                        return line.split('=', 1)[1].strip()
+        except Exception as e:
+            print(f"*** Warning: Could not read {prop_path}: {e}")
+        
+        return None
+    
+    def _map_library_to_include_path(self, lib_name: str, dir_name: str) -> str:
+        """Map library name to corresponding include path."""
+        lib_name_lower = lib_name.lower().replace(' ', '').replace('-', '_')
+        dir_name_lower = dir_name.lower()
+        
+        # Erweiterte Mapping-Liste mit Arduino Core Libraries
+        extended_mapping = {
+            # Bestehende Mappings
             'wifi': 'esp_wifi',
             'bluetooth': 'bt',
+            'bluetoothserial': 'bt',
             'ble': 'bt',
             'bt': 'bt',
-            'nimble': 'bt',
-            'bluedroid': 'bt',
             'ethernet': 'esp_eth',
             'websocket': 'esp_websocket_client',
             'http': 'esp_http_client',
@@ -148,10 +178,120 @@ class ComponentManager:
             'mqtt': 'mqtt',
             'json': 'cjson',
             'mbedtls': 'mbedtls',
-            'openssl': 'openssl'
+            'openssl': 'openssl',
+            
+            # Arduino Core spezifische Mappings
+            'esp32blearduino': 'bt',
+            'esp32_ble_arduino': 'bt',
+            'esp32': 'esp32',
+            'wire': 'driver',
+            'spi': 'driver',
+            'i2c': 'driver',
+            'uart': 'driver',
+            'serial': 'driver',
+            'analogwrite': 'driver',
+            'ledc': 'driver',
+            'pwm': 'driver',
+            'dac': 'driver',
+            'adc': 'driver',
+            'touch': 'driver',
+            'hall': 'driver',
+            'rtc': 'driver',
+            'timer': 'esp_timer',
+            'preferences': 'nvs_flash',
+            'eeprom': 'nvs_flash',
+            'update': 'esp_https_ota',
+            'httpupdate': 'esp_https_ota',
+            'httpclient': 'esp_http_client',
+            'httpsclient': 'esp_https_ota',
+            'wifimanager': 'esp_wifi',
+            'wificlientsecure': 'esp_wifi',
+            'wifiserver': 'esp_wifi',
+            'wifiudp': 'esp_wifi',
+            'wificlient': 'esp_wifi',
+            'wifiap': 'esp_wifi',
+            'wifimulti': 'esp_wifi',
+            'esp32webserver': 'esp_http_server',
+            'webserver': 'esp_http_server',
+            'asyncwebserver': 'esp_http_server',
+            'dnsserver': 'lwip',
+            'netbios': 'lwip',
+            'simpletime': 'lwip',
+            'fs': 'vfs',
+            'sd': 'fatfs',
+            'sd_mmc': 'fatfs',
+            'littlefs': 'esp_littlefs',
+            'ffat': 'fatfs',
+            'camera': 'esp32_camera',
+            'esp_camera': 'esp32_camera',
+            'arducam': 'esp32_camera',
+            'rainmaker': 'esp_rainmaker',
+            'esp_rainmaker': 'esp_rainmaker',
+            'provisioning': 'wifi_provisioning',
+            'wifiprovisioning': 'wifi_provisioning',
+            'espnow': 'esp_now',
+            'esp_now': 'esp_now',
+            'esptouch': 'esp_smartconfig',
+            'smartconfig': 'esp_smartconfig',
+            'ping': 'lwip',
+            'netif': 'lwip',
+            'tcpip': 'lwip',
+            'lwip': 'lwip',
+            'freertos': 'freertos',
+            'rtos': 'freertos',
+            'task': 'freertos',
+            'queue': 'freertos',
+            'semaphore': 'freertos',
+            'mutex': 'freertos',
+            'eventgroup': 'freertos',
+            'streambuffer': 'freertos',
+            'messagebuffer': 'freertos'
         }
         
-        return lib_mapping.get(lib_name, lib_name)
+        # Prüfe zuerst das erweiterte Mapping
+        if lib_name_lower in extended_mapping:
+            return extended_mapping[lib_name_lower]
+        
+        # Prüfe Verzeichnisname
+        if dir_name_lower in extended_mapping:
+            return extended_mapping[dir_name_lower]
+        
+        # Fallback: Verwende Verzeichnisname als Include-Pfad
+        return dir_name_lower
+    
+    def _convert_lib_name_to_include(self, lib_name: str) -> str:
+        """Convert library name to potential include directory name."""
+        # Lade Arduino Core Libraries beim ersten Aufruf
+        if not hasattr(self, '_arduino_libraries_cache'):
+            self._arduino_libraries_cache = self._get_arduino_core_libraries()
+        
+        lib_name_lower = lib_name.lower()
+        
+        # Prüfe zuerst die Arduino Core Libraries
+        if lib_name_lower in self._arduino_libraries_cache:
+            return self._arduino_libraries_cache[lib_name_lower]
+        
+        # Fallback auf die ursprüngliche Logik
+        # Remove common prefixes and suffixes
+        cleaned_name = lib_name_lower
+        
+        # Remove common prefixes
+        prefixes_to_remove = ['lib', 'arduino-', 'esp32-', 'esp-']
+        for prefix in prefixes_to_remove:
+            if cleaned_name.startswith(prefix):
+                cleaned_name = cleaned_name[len(prefix):]
+        
+        # Remove common suffixes
+        suffixes_to_remove = ['-lib', '-library', '.h']
+        for suffix in suffixes_to_remove:
+            if cleaned_name.endswith(suffix):
+                cleaned_name = cleaned_name[:-len(suffix)]
+        
+        # Prüfe nochmal mit bereinigtem Namen
+        if cleaned_name in self._arduino_libraries_cache:
+            return self._arduino_libraries_cache[cleaned_name]
+        
+        return cleaned_name
     
     def _remove_ignored_lib_includes(self) -> None:
         """Remove include entries for ignored libraries from pioarduino-build.py."""
