@@ -292,10 +292,7 @@ def HandleArduinoIDFsettings(env):
         return
 
 def HandleCOMPONENTsettings(env):
-    if "arduino" not in env.subst("$PIOFRAMEWORK"):
-        return
     from component_manager import ComponentManager
-    
     component_manager = ComponentManager(env)
     
     flag_custom_component_add = env.GetProjectOption("custom_component_add", None) is not None
@@ -312,7 +309,8 @@ def HandleCOMPONENTsettings(env):
         return
     return
 
-HandleCOMPONENTsettings(env)
+if "arduino" in env.subst("$PIOFRAMEWORK"):
+    HandleCOMPONENTsettings(env)
 
 if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK"):
     HandleArduinoIDFsettings(env)
