@@ -69,7 +69,10 @@ class ComponentManager:
         
         if lib_ignore_entries:
             self.ignored_libs.update(lib_ignore_entries)
+            print(f"*** Processing {len(self.ignored_libs)} ignored libraries: {list(self.ignored_libs)}")
             self._remove_ignored_lib_includes()
+        else:
+            print("*** No lib_ignore entries found in platformio.ini")
     
     def _get_lib_ignore_entries(self) -> List[str]:
         """Get lib_ignore entries from platformio.ini configuration."""
@@ -97,6 +100,7 @@ class ComponentManager:
                     cleaned_entries.append(include_name)
                     print(f"*** Found lib_ignore entry: {entry} -> {include_name}")
             
+            print(f"*** Total lib_ignore entries processed: {len(cleaned_entries)}")
             return cleaned_entries
             
         except Exception as e:
@@ -126,6 +130,7 @@ class ComponentManager:
                     libraries_mapping[entry.lower()] = include_path  # Also use directory name as key
                     print(f"*** Found library: {lib_name} ({entry}) -> {include_path}")
         
+        print(f"*** Total Arduino libraries found: {len(libraries_mapping)}")
         return libraries_mapping
     
     def _get_library_name_from_properties(self, lib_dir: str) -> Optional[str]:
@@ -245,26 +250,32 @@ class ComponentManager:
         
         # Check extended mapping first
         if lib_name_lower in extended_mapping:
+            print(f"*** Mapped library '{lib_name}' to include path: {extended_mapping[lib_name_lower]}")
             return extended_mapping[lib_name_lower]
         
         # Check directory name
         if dir_name_lower in extended_mapping:
+            print(f"*** Mapped directory '{dir_name}' to include path: {extended_mapping[dir_name_lower]}")
             return extended_mapping[dir_name_lower]
         
         # Fallback: Use directory name as include path
+        print(f"*** Using fallback mapping for '{lib_name}' -> {dir_name_lower}")
         return dir_name_lower
     
     def _convert_lib_name_to_include(self, lib_name: str) -> str:
         """Convert library name to potential include directory name."""
         # Load Arduino Core Libraries on first call
         if not hasattr(self, '_arduino_libraries_cache'):
+            print("*** Loading Arduino Core Libraries cache...")
             self._arduino_libraries_cache = self._get_arduino_core_libraries()
         
         lib_name_lower = lib_name.lower()
         
         # Check Arduino Core Libraries first
         if lib_name_lower in self._arduino_libraries_cache:
-            return self._arduino_libraries_cache[lib_name_lower]
+            result = self._arduino_libraries_cache[lib_name_lower]
+            print(f"*** Found '{lib_name}' in Arduino Core Libraries -> {result}")
+            return result
         
         # Fallback to original logic
         # Remove common prefixes and suffixes
@@ -275,17 +286,22 @@ class ComponentManager:
         for prefix in prefixes_to_remove:
             if cleaned_name.startswith(prefix):
                 cleaned_name = cleaned_name[len(prefix):]
+                print(f"*** Removed prefix '{prefix}' from '{lib_name}' -> {cleaned_name}")
         
         # Remove common suffixes
         suffixes_to_remove = ['-lib', '-library', '.h']
         for suffix in suffixes_to_remove:
             if cleaned_name.endswith(suffix):
                 cleaned_name = cleaned_name[:-len(suffix)]
+                print(f"*** Removed suffix '{suffix}' from library name -> {cleaned_name}")
         
         # Check again with cleaned name
         if cleaned_name in self._arduino_libraries_cache:
-            return self._arduino_libraries_cache[cleaned_name]
+            result = self._arduino_libraries_cache[cleaned_name]
+            print(f"*** Found cleaned name '{cleaned_name}' in cache -> {result}")
+            return result
         
+        print(f"*** Using cleaned name as fallback: '{lib_name}' -> {cleaned_name}")
         return cleaned_name
     
     def _remove_ignored_lib_includes(self) -> None:
@@ -296,13 +312,21 @@ class ComponentManager:
             print(f"*** Warning: pioarduino-build.py not found at {build_py_path}")
             return
         
+        print(f"*** Reading pioarduino-build.py from: {build_py_path}")
+        
         with open(build_py_path, 'r') as f:
             content = f.read()
         
         original_content = content
+        original_lines = len(original_content.splitlines())
+        print(f"*** Original file has {original_lines} lines")
+        
+        total_removed_entries = 0
         
         # Remove CPPPATH entries for each ignored library
         for lib_name in self.ignored_libs:
+            print(f"*** Processing ignored library: {lib_name}")
+            
             # Multiple patterns to catch different include formats
             patterns = [
                 # Pattern for: join(..., "include", "lib_name", ...)
@@ -314,26 +338,79 @@ class ComponentManager:
                 # Pattern for absolute paths
                 rf'.*"[^"]*/{re.escape(lib_name)}/include[^"]*"[^,\n]*,?\n',
                 # Pattern for paths containing lib_name
-                rf'.*"[^"]*{re.escape(lib_name)}[^"]*include[^"]*"[^,\n]*,?\n'
+                rf'.*"[^"]*{re.escape(lib_name)}[^"]*include[^"]*"[^,\n]*,?\n',
+                # Additional robust patterns
+                rf'.*join\([^)]*"include"[^)]*"{re.escape(lib_name)}"[^)]*\),?\n',
+                rf'.*"{re.escape(lib_name)}/include"[^,\n]*,?\n',
+                rf'\s*"[^"]*/{re.escape(lib_name)}/[^"]*",?\n'
             ]
             
-            for pattern in patterns:
+            removed_count = 0
+            for i, pattern in enumerate(patterns):
                 matches = re.findall(pattern, content)
                 if matches:
+                    print(f"*** Pattern {i+1} found {len(matches)} matches for '{lib_name}':")
+                    for match in matches:
+                        print(f"***   - {match.strip()}")
                     content = re.sub(pattern, '', content)
-                    print(f"*** Removed include entries for ignored library: {lib_name} ({len(matches)} entries)")
+                    removed_count += len(matches)
+            
+            if removed_count > 0:
+                print(f"*** Removed {removed_count} include entries for: {lib_name}")
+                total_removed_entries += removed_count
+            else:
+                print(f"*** No include entries found for: {lib_name}")
         
         # Clean up empty lines and trailing commas
         content = re.sub(r'\n\s*\n', '\n', content)  # Remove multiple empty lines
         content = re.sub(r',\s*\n\s*\]', '\n]', content)  # Fix trailing commas before closing brackets
         
-        # Only write if content changed
-        if content != original_content:
-            with open(build_py_path, 'w') as f:
-                f.write(content)
-            print(f"*** Updated pioarduino-build.py to remove {len(self.ignored_libs)} ignored library includes")
+        new_lines = len(content.splitlines())
+        removed_lines = original_lines - new_lines
+        
+        print(f"*** File statistics:")
+        print(f"***   Original lines: {original_lines}")
+        print(f"***   New lines: {new_lines}")
+        print(f"***   Removed lines: {removed_lines}")
+        print(f"***   Total removed entries: {total_removed_entries}")
+        
+        # Validate changes
+        if self._validate_changes(original_content, content):
+            # Only write if content changed
+            if content != original_content:
+                with open(build_py_path, 'w') as f:
+                    f.write(content)
+                print(f"*** Successfully updated pioarduino-build.py")
+                print(f"*** Removed {total_removed_entries} include entries for {len(self.ignored_libs)} ignored libraries")
+            else:
+                print("*** No changes needed - file content unchanged")
         else:
-            print("*** No matching include entries found for ignored libraries")
+            print("*** Warning: Changes validation failed - file not modified")
+    
+    def _validate_changes(self, original_content: str, new_content: str) -> bool:
+        """Validate that the changes are reasonable."""
+        original_lines = len(original_content.splitlines())
+        new_lines = len(new_content.splitlines())
+        removed_lines = original_lines - new_lines
+        
+        if original_lines == 0:
+            print("*** Validation: Original file is empty")
+            return False
+        
+        removal_percentage = (removed_lines / original_lines) * 100
+        
+        print(f"*** Validation: Removed {removed_lines} lines ({removal_percentage:.1f}%)")
+        
+        if removed_lines > original_lines * 0.5:  # Mehr als 50% entfernt
+            print(f"*** Validation failed: Too many lines removed ({removal_percentage:.1f}%)")
+            return False
+        
+        if removed_lines < 0:
+            print("*** Validation failed: Negative line count (content grew)")
+            return False
+        
+        print("*** Validation passed")
+        return True
     
     def _get_or_create_component_yml(self) -> str:
         """Get path to idf_component.yml, creating it if necessary."""
@@ -358,6 +435,7 @@ class ComponentManager:
         backup_path = f"{file_path}.orig"
         if not os.path.exists(backup_path):
             shutil.copy(file_path, backup_path)
+            print(f"*** Created backup: {backup_path}")
     
     def _create_default_component_yml(self, file_path: str) -> None:
         """Create a default idf_component.yml file."""
@@ -369,6 +447,7 @@ class ComponentManager:
         
         with open(file_path, 'w') as f:
             yaml.dump(default_content, f)
+        print(f"*** Created default component.yml: {file_path}")
     
     def _load_component_yml(self, file_path: str) -> Dict[str, Any]:
         """Load and parse idf_component.yml file."""
@@ -426,17 +505,27 @@ class ComponentManager:
     def _backup_pioarduino_build_py(self) -> None:
         """Create backup of the original pioarduino-build.py."""
         if "arduino" not in self.env.subst("$PIOFRAMEWORK"):
+            print("*** Skipping backup: Not using Arduino framework")
             return
         
         build_py_path = join(self.arduino_libs_mcu, "pioarduino-build.py")
         backup_path = join(self.arduino_libs_mcu, f"pioarduino-build.py.{self.mcu}")
         
-        if os.path.exists(build_py_path) and not os.path.exists(backup_path):
+        if not os.path.exists(build_py_path):
+            print(f"*** Warning: pioarduino-build.py not found at {build_py_path}")
+            return
+        
+        if not os.path.exists(backup_path):
             shutil.copy2(build_py_path, backup_path)
             print(f"*** Created backup of pioarduino-build.py for: {self.mcu}")
+            print(f"*** Backup location: {backup_path}")
+        else:
+            print(f"*** Backup already exists: {backup_path}")
     
     def _cleanup_removed_components(self) -> None:
         """Clean up removed components and restore original build file."""
+        print(f"*** Cleaning up {len(self.removed_components)} removed components")
+        
         for component in self.removed_components:
             self._remove_include_directory(component)
         
@@ -448,16 +537,21 @@ class ComponentManager:
         if os.path.exists(include_path):
             shutil.rmtree(include_path)
             print(f"*** Removed include directory: {component}")
+        else:
+            print(f"*** Include directory not found: {component}")
     
     def _remove_cpppath_entries(self) -> None:
         """Remove CPPPATH entries for removed components from pioarduino-build.py."""
         build_py_path = join(self.arduino_libs_mcu, "pioarduino-build.py")
         
         if not os.path.exists(build_py_path):
+            print(f"*** Warning: pioarduino-build.py not found for cleanup")
             return
         
         with open(build_py_path, 'r') as f:
             content = f.read()
+        
+        original_content = content
         
         # Remove CPPPATH entries for each removed component
         for component in self.removed_components:
@@ -475,8 +569,10 @@ class ComponentManager:
             
             print(f"*** Removed CPPPATH entry for: {component}")
         
-        with open(build_py_path, 'w') as f:
-            f.write(content)
+        if content != original_content:
+            with open(build_py_path, 'w') as f:
+                f.write(content)
+            print("*** Updated pioarduino-build.py after component cleanup")
     
     def restore_pioarduino_build_py(self, source=None, target=None, env=None) -> None:
         """Restore the original pioarduino-build.py from backup."""
@@ -488,3 +584,6 @@ class ComponentManager:
             shutil.copy2(backup_path, build_py_path)
             os.remove(backup_path)
             print(f"*** Restored original pioarduino-build.py for: {self.mcu}")
+            print(f"*** Removed backup file: {backup_path}")
+        else:
+            print(f"*** No backup found to restore: {backup_path}")
