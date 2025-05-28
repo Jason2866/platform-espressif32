@@ -6,7 +6,7 @@ import re
 import yaml
 from yaml import SafeLoader
 from os.path import join
-from typing import Set, Optional, Dict, Any
+from typing import Set, Optional, Dict, Any, List
 
 from SCons.Script import (
     ARGUMENTS,
@@ -28,6 +28,7 @@ class ComponentManager:
         self.mcu = self.board.get("build.mcu", "esp32").lower()
         self.project_src_dir = env.subst("$PROJECT_SRC_DIR")
         self.removed_components: Set[str] = set()
+        self.ignored_libs: Set[str] = set()
         
         self.arduino_framework_dir = self.platform.get_package_dir("framework-arduinoespressif32")
         self.arduino_libs_mcu = join(self.arduino_framework_dir, "tools", "esp32-arduino-libs", self.mcu)
@@ -59,6 +60,143 @@ class ComponentManager:
         # Clean up removed components
         if self.removed_components:
             self._cleanup_removed_components()
+    
+    def handle_lib_ignore(self) -> None:
+        """Handle lib_ignore entries from platformio.ini and remove corresponding includes."""
+        print("*** Processing lib_ignore entries from platformio.ini ***")
+        
+        # Create backup before processing lib_ignore
+        if not self.ignored_libs:
+            self._backup_pioarduino_build_py()
+        
+        # Get lib_ignore entries from platformio.ini
+        lib_ignore_entries = self._get_lib_ignore_entries()
+        
+        if lib_ignore_entries:
+            self.ignored_libs.update(lib_ignore_entries)
+            self._remove_ignored_lib_includes()
+    
+    def _get_lib_ignore_entries(self) -> List[str]:
+        """Get lib_ignore entries from platformio.ini configuration."""
+        try:
+            # Try to get lib_ignore from current environment
+            lib_ignore = self.env.GetProjectOption("lib_ignore", [])
+            if isinstance(lib_ignore, str):
+                lib_ignore = [lib_ignore]
+            
+            # Also check global lib_ignore
+            if hasattr(self.config, 'get'):
+                global_lib_ignore = self.config.get("platformio", "lib_ignore", fallback="")
+                if global_lib_ignore:
+                    if isinstance(global_lib_ignore, str):
+                        global_lib_ignore = global_lib_ignore.split()
+                    lib_ignore.extend(global_lib_ignore)
+            
+            # Clean and normalize entries
+            cleaned_entries = []
+            for entry in lib_ignore:
+                entry = entry.strip()
+                if entry:
+                    # Convert library names to potential include directory names
+                    include_name = self._convert_lib_name_to_include(entry)
+                    cleaned_entries.append(include_name)
+                    print(f"*** Found lib_ignore entry: {entry} -> {include_name}")
+            
+            return cleaned_entries
+            
+        except Exception as e:
+            print(f"*** Warning: Could not read lib_ignore entries: {e}")
+            return []
+    
+    def _convert_lib_name_to_include(self, lib_name: str) -> str:
+        """Convert library name to potential include directory name."""
+        # Remove common prefixes and suffixes
+        lib_name = lib_name.lower()
+        
+        # Remove common prefixes
+        prefixes_to_remove = ['lib', 'arduino-', 'esp32-', 'esp-']
+        for prefix in prefixes_to_remove:
+            if lib_name.startswith(prefix):
+                lib_name = lib_name[len(prefix):]
+        
+        # Remove common suffixes
+        suffixes_to_remove = ['-lib', '-library', '.h']
+        for suffix in suffixes_to_remove:
+            if lib_name.endswith(suffix):
+                lib_name = lib_name[:-len(suffix)]
+        
+        # Convert common library names to their include directory equivalents
+        lib_mapping = {
+            'wifi': 'esp_wifi',
+            'bluetooth': 'bt',
+            'ble': 'bt',
+            'bt': 'bt',
+            'ethernet': 'esp_eth',
+            'websocket': 'esp_websocket_client',
+            'http': 'esp_http_client',
+            'https': 'esp_https_ota',
+            'ota': 'esp_https_ota',
+            'spiffs': 'spiffs',
+            'fatfs': 'fatfs',
+            'nvs': 'nvs_flash',
+            'mesh': 'esp_wifi_mesh',
+            'smartconfig': 'esp_smartconfig',
+            'mdns': 'mdns',
+            'coap': 'coap',
+            'mqtt': 'mqtt',
+            'json': 'cjson',
+            'mbedtls': 'mbedtls',
+            'openssl': 'openssl'
+        }
+        
+        return lib_mapping.get(lib_name, lib_name)
+    
+    def _remove_ignored_lib_includes(self) -> None:
+        """Remove include entries for ignored libraries from pioarduino-build.py."""
+        build_py_path = join(self.arduino_libs_mcu, "pioarduino-build.py")
+        
+        if not os.path.exists(build_py_path):
+            print(f"*** Warning: pioarduino-build.py not found at {build_py_path}")
+            return
+        
+        with open(build_py_path, 'r') as f:
+            content = f.read()
+        
+        original_content = content
+        
+        # Remove CPPPATH entries for each ignored library
+        for lib_name in self.ignored_libs:
+            # Multiple patterns to catch different include formats
+            patterns = [
+                # Pattern für: join(..., "include", "lib_name", ...)
+                rf'.*join\([^,]*,\s*"include",\s*"{re.escape(lib_name)}"[^)]*\),?\n',
+                # Pattern für direkte String-Matches
+                rf'.*"include/{re.escape(lib_name)}"[^,\n]*,?\n',
+                # Pattern für Listen-Einträge mit include/lib_name
+                rf'.*"[^"]*include[^"]*{re.escape(lib_name)}[^"]*"[^,\n]*,?\n',
+                # Pattern für absolute Pfade
+                rf'.*"[^"]*/{re.escape(lib_name)}/include[^"]*"[^,\n]*,?\n',
+                # Pattern für Pfade die lib_name enthalten
+                rf'.*"[^"]*{re.escape(lib_name)}[^"]*include[^"]*"[^,\n]*,?\n'
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, content)
+                if matches:
+                    content = re.sub(pattern, '', content)
+                    print(f"*** Removed include entries for ignored library: {lib_name} ({len(matches)} entries)")
+        
+        # Clean up empty lines and trailing commas
+        content = re.sub(r'\n\s*\n', '\n', content)  # Remove multiple empty lines
+        content = re.sub(r',\s*\n\s*\]', '\n]', content)  # Fix trailing commas before closing brackets
+        
+        # Only write if content changed
+        if content != original_content:
+            with open(build_py_path, 'w') as f:
+                f.write(content)
+            print(f"*** Updated pioarduino-build.py to remove {len(self.ignored_libs)} ignored library includes")
+        else:
+            print("*** No matching include entries found for ignored libraries")
     
     def _get_or_create_component_yml(self) -> str:
         """Get path to idf_component.yml, creating it if necessary."""
@@ -232,9 +370,14 @@ def HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_componen
         remove_components=flag_custom_component_remove
     )
 
+def HandleLIBIGNORE(env):
+    """Handle lib_ignore entries from platformio.ini."""
+    _component_manager.handle_lib_ignore()
+
 def restore_pioarduino_build_py(source, target, env):
     """Legacy wrapper function for backward compatibility."""
     _component_manager.restore_pioarduino_build_py(source, target, env)
 
 # Export global variables for backward compatibility
 removed_components = _component_manager.removed_components
+ignored_libs = _component_manager.ignored_libs
