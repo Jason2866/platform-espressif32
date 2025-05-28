@@ -40,6 +40,9 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
+# Import ComponentManager
+from component_manager import ComponentManager
+
 IS_WINDOWS = sys.platform.startswith("win")
 
 # Include path length threshold for path shortening, only valid and needed for Windows
@@ -310,6 +313,9 @@ pm = ToolPackageManager()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
+
+# Initialize ComponentManager
+component_manager = ComponentManager(env)
 
 # Cached values
 mcu = board.get("build.mcu", "esp32")
@@ -642,9 +648,11 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     arduino_lib_compile_flag in ("Inactive", "True")):
     
     if flag_custom_component_remove:
-        from component_manager import HandleCOMPONENTsettings, restore_pioarduino_build_py
-        HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_component_remove)
-        silent_action = env.Action(restore_pioarduino_build_py)
+        component_manager.handle_component_settings(
+            add_components=flag_custom_component_add,
+            remove_components=flag_custom_component_remove
+        )
+        silent_action = env.Action(component_manager.restore_pioarduino_build_py)
         silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
         env.AddPostAction("checkprogsize", silent_action)
 
