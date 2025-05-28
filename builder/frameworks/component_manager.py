@@ -111,7 +111,7 @@ class ComponentManager:
             
             return filtered_entries
             
-        except Exception as e:
+        except Exception:
             return []
     
     def _get_arduino_core_libraries(self) -> Dict[str, str]:
@@ -348,10 +348,7 @@ class ComponentManager:
         removed_lines = original_lines - new_lines
         
         # Don't allow removing more than 50% of the file or negative changes
-        if removed_lines > original_lines * 0.5 or removed_lines < 0:
-            return False
-        
-        return True
+        return not (removed_lines > original_lines * 0.5 or removed_lines < 0)
     
     def _get_or_create_component_yml(self) -> str:
         """Get path to idf_component.yml, creating it if necessary."""
