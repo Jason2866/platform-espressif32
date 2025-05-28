@@ -499,27 +499,3 @@ class ComponentManager:
             shutil.copy2(backup_path, build_py_path)
             os.remove(backup_path)
             print(f"*** Restored original pioarduino-build.py for: {self.mcu}")
-
-
-# Legacy function wrappers for backward compatibility
-env = DefaultEnvironment()
-_component_manager = ComponentManager(env)
-
-def HandleCOMPONENTsettings(env, flag_custom_component_add, flag_custom_component_remove):
-    """Legacy wrapper function for backward compatibility."""
-    _component_manager.handle_component_settings(
-        add_components=flag_custom_component_add,
-        remove_components=flag_custom_component_remove
-    )
-
-def HandleLIBIGNORE(env):
-    """Handle lib_ignore entries from platformio.ini."""
-    _component_manager.handle_lib_ignore()
-
-def restore_pioarduino_build_py(source, target, env):
-    """Legacy wrapper function for backward compatibility."""
-    _component_manager.restore_pioarduino_build_py(source, target, env)
-
-# Export global variables for backward compatibility
-removed_components = _component_manager.removed_components
-ignored_libs = _component_manager.ignored_libs
