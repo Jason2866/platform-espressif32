@@ -364,10 +364,7 @@ def HandleArduinoIDFsettings(env):
 def HandleCOMPONENTsettings(env):
     from component_manager import ComponentManager
     component_manager = ComponentManager(env)
-    
-    flag_custom_component_add = env.GetProjectOption("custom_component_add", None) is not None
-    flag_custom_component_remove = env.GetProjectOption("custom_component_remove", None) is not None
-    
+
     if flag_custom_component_add or flag_custom_component_remove:
         print("*** \"custom_component\" is used to (de)select managed idf components ***")
         
@@ -375,7 +372,6 @@ def HandleCOMPONENTsettings(env):
             add_components=flag_custom_component_add,
             remove_components=flag_custom_component_remove
         )
-        
         return
     return
 
