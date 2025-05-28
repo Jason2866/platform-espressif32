@@ -646,11 +646,12 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     arduino_lib_compile_flag in ("Inactive", "True")):
     
     if flag_custom_component_remove or flag_lib_ignore:
+        flag_remove = True
         from component_manager import ComponentManager
         component_manager = ComponentManager(env)
         component_manager.handle_component_settings(
             add_components=flag_custom_component_add,
-            remove_components=flag_custom_component_remove
+            remove_components=flag_remove
         )
         silent_action = env.Action(component_manager.restore_pioarduino_build_py)
         silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
