@@ -116,113 +116,50 @@ class ComponentManager:
         except Exception:
             return []
     
-    def _analyze_project_dependencies(self) -> Set[str]:
-        """Analyze project files to detect actually used components/libraries."""
-        used_components = set()
-        
+    def _has_bt_ble_dependencies(self) -> bool:
+        """Check if lib_deps contains any BT/BLE related dependencies."""
         try:
-            # Analyze project source files
-            src_dir = self.env.subst("$PROJECT_SRC_DIR")
-            if os.path.exists(src_dir):
-                for root, dirs, files in os.walk(src_dir):
-                    for file in files:
-                        if file.endswith(('.cpp', '.c', '.h', '.hpp', '.ino')):
-                            file_path = os.path.join(root, file)
-                            used_components.update(self._extract_components_from_file(file_path))
-            
-            # Analyze lib_deps for explicit dependencies (if present)
+            # Get lib_deps from current environment
             lib_deps = self.env.GetProjectOption("lib_deps", [])
+            
             if isinstance(lib_deps, str):
                 lib_deps = [lib_deps]
+            elif lib_deps is None:
+                lib_deps = []
             
-            for dep in lib_deps:
-                used_components.update(self._extract_components_from_lib_dep(str(dep)))
-                
+            # Convert to string and check for BT/BLE keywords
+            lib_deps_str = ' '.join(str(dep) for dep in lib_deps).upper()
+            
+            bt_ble_keywords = ['BLE', 'BT', 'NIMBLE', 'BLUETOOTH']
+            
+            for keyword in bt_ble_keywords:
+                if keyword in lib_deps_str:
+                    return True
+            
+            return False
+            
         except Exception:
-            pass
-        
-        return used_components
+            return False
     
-    def _extract_components_from_file(self, file_path: str) -> Set[str]:
-        """Extract component usage from a single file by analyzing includes and function calls."""
-        components = set()
+    def _is_bt_related_library(self, lib_name: str) -> bool:
+        """Check if a library name is related to Bluetooth/BLE functionality."""
+        lib_name_upper = lib_name.upper()
         
-        # Component detection patterns - maps component names to code patterns
-        component_patterns = {
-            'bt': ['bluetooth', 'ble', 'nimble', 'bt_', 'esp_bt', 'esp_ble'],
-            'esp_wifi': ['wifi', 'esp_wifi', 'tcpip_adapter'],
-            'esp_dsp': ['dsps_', 'esp_dsp', 'fft2r', 'dsps_fft2r'],  # Enhanced DSP detection
-            'esp_http_client': ['esp_http_client', 'http_client'],
-            'esp_https_ota': ['esp_https_ota', 'esp_ota'],
-            'mdns': ['mdns', 'esp_mdns'],
-            'mqtt': ['mqtt', 'esp_mqtt'],
-            'spiffs': ['spiffs', 'esp_spiffs'],
-            'fatfs': ['fatfs', 'ff.h'],
-            'nvs_flash': ['nvs', 'nvs_flash'],
-            'esp_timer': ['esp_timer', 'timer_'],
-            'driver': ['gpio_', 'uart_', 'spi_', 'i2c_', 'adc_', 'dac_'],
-            'esp_camera': ['esp_camera', 'camera.h'],
-            'esp_now': ['esp_now', 'espnow'],
-            'esp_smartconfig': ['smartconfig', 'esp_smartconfig'],
-            'esp_eth': ['esp_eth', 'ethernet'],
-            'esp_websocket_client': ['websocket', 'esp_websocket'],
-            'cjson': ['cjson', 'json'],
-            'mbedtls': ['mbedtls', 'ssl'],
-            'openssl': ['openssl']
-        }
+        bt_related_names = [
+            'BT',
+            'BLE', 
+            'BLUETOOTH',
+            'NIMBLE',
+            'ESP32_BLE',
+            'ESP32BLE',
+            'BLUETOOTHSERIAL',
+            'BLE_ARDUINO',
+            'ESP_BLE',
+            'ESP_BT'
+        ]
         
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read().lower()
-                
-                for component, patterns in component_patterns.items():
-                    if any(pattern in content for pattern in patterns):
-                        components.add(component)
-                        
-        except Exception:
-            pass
-        
-        return components
-    
-    def _extract_components_from_lib_dep(self, lib_dep: str) -> Set[str]:
-        """Extract components from lib_deps entry by mapping library names to ESP-IDF components."""
-        components = set()
-        lib_dep_upper = lib_dep.upper()
-        
-        # Map lib_deps entries to ESP-IDF components
-        lib_dep_mapping = {
-            'bt': ['BLE', 'BT', 'BLUETOOTH', 'NIMBLE'],
-            'esp_wifi': ['WIFI', 'ASYNCTCP', 'ESPASYNCWEBSERVER'],
-            'esp_dsp': ['DSP', 'FFT', 'JPEG'],
-            'esp_http_client': ['HTTP', 'HTTPCLIENT'],
-            'mqtt': ['MQTT', 'PUBSUB'],
-            'esp_camera': ['CAMERA', 'ESP32CAM'],
-            'esp_now': ['ESPNOW', 'ESP_NOW'],
-            'mdns': ['MDNS'],
-            'esp_eth': ['ETHERNET']
-        }
-        
-        for component, keywords in lib_dep_mapping.items():
-            if any(keyword in lib_dep_upper for keyword in keywords):
-                components.add(component)
-        
-        return components
-    
-    def _is_component_used_in_project(self, lib_name: str) -> bool:
-        """Check if a component/library is actually used in the project."""
-        # Cache project analysis for performance
-        if not hasattr(self, '_project_components_cache'):
-            self._project_components_cache = self._analyze_project_dependencies()
-        
-        lib_name_lower = lib_name.lower()
-        
-        # Direct match
-        if lib_name_lower in self._project_components_cache:
-            return True
-        
-        # Partial match for related components
-        for used_component in self._project_components_cache:
-            if lib_name_lower in used_component or used_component in lib_name_lower:
+        for bt_name in bt_related_names:
+            if bt_name in lib_name_upper:
                 return True
         
         return False
@@ -415,6 +352,9 @@ class ComponentManager:
         if not os.path.exists(build_py_path):
             return
         
+        # Check if BT/BLE dependencies exist in lib_deps
+        bt_ble_protected = self._has_bt_ble_dependencies()
+        
         try:
             with open(build_py_path, 'r') as f:
                 content = f.read()
@@ -424,9 +364,14 @@ class ComponentManager:
             
             # Remove CPPPATH entries for each ignored library
             for lib_name in self.ignored_libs:
-                # Universal protection: Skip if component is actually used in project
-                if self._is_component_used_in_project(lib_name):
-                    print(f"Skipping removal of library '{lib_name}' - detected as used in project")
+                # Skip BT-related libraries if BT/BLE dependencies are present
+                if bt_ble_protected and self._is_bt_related_library(lib_name):
+                    print(f"Skipping removal of BT-related library '{lib_name}' due to BT/BLE dependency in lib_deps")
+                    continue
+                
+                # Hard protection for DSP components
+                if lib_name.lower() in ['dsp', 'esp_dsp', 'dsps', 'fft2r', 'dsps_fft2r']:
+                    print(f"Hard-protected DSP component '{lib_name}' from removal")
                     continue
                     
                 # Multiple patterns to catch different include formats
