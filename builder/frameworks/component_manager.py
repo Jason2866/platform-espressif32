@@ -296,14 +296,65 @@ class ComponentManager:
             return direct_mapping[cleaned_name]
         
         return cleaned_name
+
+    def _has_bt_ble_dependencies(self) -> bool:
+        """Check if lib_deps contains any BT/BLE related dependencies."""
+        try:
+            # Get lib_deps from current environment
+            lib_deps = self.env.GetProjectOption("lib_deps", [])
+            
+            if isinstance(lib_deps, str):
+                lib_deps = [lib_deps]
+            elif lib_deps is None:
+                lib_deps = []
+            
+            # Convert to string and check for BT/BLE keywords
+            lib_deps_str = ' '.join(str(dep) for dep in lib_deps).upper()
+            
+            bt_ble_keywords = ['BLE', 'BT', 'NIMBLE', 'BLUETOOTH']
+            
+            for keyword in bt_ble_keywords:
+                if keyword in lib_deps_str:
+                    return True
+            
+            return False
+            
+        except Exception:
+            return False
     
+    def _is_bt_related_library(self, lib_name: str) -> bool:
+        """Check if a library name is related to Bluetooth/BLE functionality."""
+        lib_name_upper = lib_name.upper()
+        
+        bt_related_names = [
+            'BT',
+            'BLE', 
+            'BLUETOOTH',
+            'NIMBLE',
+            'ESP32_BLE',
+            'ESP32BLE',
+            'BLUETOOTHSERIAL',
+            'BLE_ARDUINO',
+            'ESP_BLE',
+            'ESP_BT'
+        ]
+        
+        for bt_name in bt_related_names:
+            if bt_name in lib_name_upper:
+                return True
+        
+        return False
+
     def _remove_ignored_lib_includes(self) -> None:
         """Remove include entries for ignored libraries from pioarduino-build.py."""
         build_py_path = join(self.arduino_libs_mcu, "pioarduino-build.py")
         
         if not os.path.exists(build_py_path):
             return
-        
+
+        # Check if BT/BLE dependencies exist in lib_deps
+        bt_ble_protected = self._has_bt_ble_dependencies()
+
         try:
             with open(build_py_path, 'r') as f:
                 content = f.read()
