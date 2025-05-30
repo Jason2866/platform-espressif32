@@ -30,6 +30,7 @@ import sys
 import shutil
 import hashlib
 import logging
+import threading
 from contextlib import suppress
 from os.path import join, exists, isabs, splitdrive, commonpath, relpath
 from pathlib import Path
@@ -42,16 +43,11 @@ from platformio.package.manager.tool import ToolPackageManager
 
 IS_WINDOWS = sys.platform.startswith("win")
 
-# Include path length threshold for path shortening, only valid and needed for Windows
-# Windows has a path length limit of ~260 characters per path, but the total command line
-# length is also limited to ~32000 characters
-INCLUDE_PATH_LENGTH_THRESHOLD = 31500  # Total character count threshold
-
 python_deps = {
     "wheel": ">=0.35.1",
     "rich-click": ">=1.8.6",
-    "zopfli": ">=0.2.2",
     "PyYAML": ">=6.0.2",
+    "zopfli": ">=0.2.2",
     "esp-idf-size": ">=1.6.1"
 }
 
@@ -81,13 +77,227 @@ UNICORE_FLAGS = {
     "CONFIG_FREERTOS_UNICORE=y"
 }
 
-# Global flags to prevent message spam
+# Thread-safe global flags to prevent message spam
+_PATH_SHORTENING_LOCK = threading.Lock()
 _PATH_SHORTENING_MESSAGES = {
     'shortening_applied': False,
     'no_framework_paths_warning': False,
     'long_path_warning_shown': False
 }
 
+def get_platform_default_threshold(mcu):
+    """
+    Platform-specific bleeding edge default values for INCLUDE_PATH_LENGTH_THRESHOLD
+    These values push the limits for maximum performance and minimal path shortening
+    
+    Args:
+        mcu: MCU type (esp32, esp32s2, esp32s3, etc.)
+    
+    Returns:
+        int: Platform-specific bleeding edge default threshold
+    """
+    # Bleeding edge values - pushing Windows command line limits
+    # Windows CMD has ~32768 character limit, we use aggressive values close to this
+    platform_defaults = {
+        "esp32": 45000,      # Standard ESP32
+        "esp32s2": 43000,    # ESP32-S2
+        "esp32s3": 48000,    # ESP32-S3
+        "esp32c3": 41000,    # ESP32-C3
+        "esp32c2": 38000,    # ESP32-C2
+        "esp32c6": 44000,    # ESP32-C6
+        "esp32h2": 40000,    # ESP32-H2
+        "esp32p4": 50000,    # ESP32-P4
+    }
+    
+    default_value = platform_defaults.get(mcu, 45000)  # Aggressive fallback
+    
+    # Debug output only in verbose mode
+    if logging.getLogger().isEnabledFor(logging.DEBUG):
+        logging.debug(f"Bleeding edge platform default threshold for {mcu}: {default_value}")
+    
+    return default_value
+
+def validate_threshold(threshold, mcu):
+    """
+    Validates threshold value with bleeding edge limits
+    Uses aggressive boundaries for maximum performance
+    
+    Args:
+        threshold: Threshold value to validate
+        mcu: MCU type for context-specific validation
+    
+    Returns:
+        int: Validated threshold value
+    """
+    # Bleeding edge absolute limits - pushing boundaries
+    min_threshold = 15000   # Minimum reasonable value for complex projects
+    max_threshold = 65000   # Maximum aggressive value (beyond Windows CMD limit for testing)
+    
+    # MCU-specific bleeding edge adjustments - all values are aggressive
+    mcu_adjustments = {
+        "esp32c2": {"min": 30000, "max": 40000},
+        "esp32c3": {"min": 30000, "max": 45000},
+        "esp32": {"min": 30000, "max": 50000},
+        "esp32s2": {"min": 30000, "max": 50000},
+        "esp32s3": {"min": 30000, "max": 50000},
+        "esp32p4": {"min": 30000, "max": 55000},
+        "esp32c6": {"min": 30000, "max": 50000},
+        "esp32h2": {"min": 30000, "max": 40000},
+    }
+    
+    # Apply MCU-specific bleeding edge limits
+    if mcu in mcu_adjustments:
+        min_threshold = max(min_threshold, mcu_adjustments[mcu]["min"])
+        max_threshold = min(max_threshold, mcu_adjustments[mcu]["max"])
+    
+    original_threshold = threshold
+    
+    if threshold < min_threshold:
+        print(f"*** Warning: Include path threshold {threshold} too conservative for {mcu}, using bleeding edge minimum {min_threshold} ***")
+        threshold = min_threshold
+    elif threshold > max_threshold:
+        print(f"*** Warning: Include path threshold {threshold} exceeds bleeding edge maximum for {mcu}, using {max_threshold} ***")
+        threshold = max_threshold
+    
+    # Warning for conservative values (opposite of original - warn if too low)
+    platform_default = get_platform_default_threshold(mcu)
+    if threshold < platform_default * 0.7:  # More than 30% below bleeding edge default
+        print(f"*** Info: Include path threshold {threshold} is conservative compared to bleeding edge default {platform_default} for {mcu} ***")
+        print(f"*** Consider using higher values for maximum performance ***")
+    
+    if original_threshold != threshold:
+        logging.warning(f"Threshold adjusted from {original_threshold} to bleeding edge value {threshold} for {mcu}")
+    
+    return threshold
+
+def get_include_path_threshold(env, config, current_env_section):
+    """
+    Determines Windows INCLUDE_PATH_LENGTH_THRESHOLD from various sources
+    with priority order and bleeding edge validation
+    
+    Priority order:
+    1. Environment variable PLATFORMIO_INCLUDE_PATH_THRESHOLD
+    2. Environment-specific setting in platformio.ini
+    3. Global setting in [env] section
+    4. Setting in [platformio] section
+    5. MCU-specific bleeding edge default value
+    
+    Args:
+        env: PlatformIO Environment
+        config: Project Configuration
+        current_env_section: Current environment section
+    
+    Returns:
+        int: Validated bleeding edge threshold value
+    """
+    mcu = env.BoardConfig().get("build.mcu", "esp32")
+    default_threshold = get_platform_default_threshold(mcu)
+    setting_name = "custom_include_path_length_threshold"
+    
+    try:
+        # 1. Check environment variable (highest priority)
+        env_var = os.environ.get("PLATFORMIO_INCLUDE_PATH_THRESHOLD")
+        if env_var:
+            try:
+                threshold = int(env_var)
+                threshold = validate_threshold(threshold, mcu)
+                print(f"*** Using environment variable bleeding edge include path threshold: {threshold} (MCU: {mcu}) ***")
+                return threshold
+            except ValueError:
+                print(f"*** Warning: Invalid environment variable PLATFORMIO_INCLUDE_PATH_THRESHOLD='{env_var}', ignoring ***")
+        
+        # 2. Check environment-specific setting
+        if config.has_option(current_env_section, setting_name):
+            threshold = config.getint(current_env_section, setting_name)
+            threshold = validate_threshold(threshold, mcu)
+            print(f"*** Using environment-specific bleeding edge include path threshold: {threshold} (MCU: {mcu}) ***")
+            return threshold
+        
+        # 3. Check global setting in [env] section
+        if config.has_option("env", setting_name):
+            threshold = config.getint("env", setting_name)
+            threshold = validate_threshold(threshold, mcu)
+            print(f"*** Using global [env] bleeding edge include path threshold: {threshold} (MCU: {mcu}) ***")
+            return threshold
+        
+        # 4. Check setting in [platformio] section
+        if config.has_option("platformio", setting_name):
+            threshold = config.getint("platformio", setting_name)
+            threshold = validate_threshold(threshold, mcu)
+            print(f"*** Using [platformio] section bleeding edge include path threshold: {threshold} (MCU: {mcu}) ***")
+            return threshold
+        
+        # 5. Use MCU-specific bleeding edge default value
+        threshold = validate_threshold(default_threshold, mcu)
+        if env.get("VERBOSE"):
+            print(f"*** Using platform-specific bleeding edge default include path threshold: {threshold} (MCU: {mcu}) ***")
+        
+        return threshold
+        
+    except (ValueError, TypeError) as e:
+        print(f"*** Warning: Invalid include path threshold value, using bleeding edge platform default {default_threshold} for {mcu}: {e} ***")
+        return validate_threshold(default_threshold, mcu)
+
+def get_threshold_info(env, config, current_env_section):
+    """
+    Helper function for debug information about bleeding edge threshold configuration
+    
+    Args:
+        env: PlatformIO Environment
+        config: Project Configuration  
+        current_env_section: Current environment section
+    
+    Returns:
+        dict: Information about threshold configuration
+    """
+    mcu = env.BoardConfig().get("build.mcu", "esp32")
+    setting_name = "custom_include_path_length_threshold"
+    
+    info = {
+        "mcu": mcu,
+        "platform_default": get_platform_default_threshold(mcu),
+        "env_variable": os.environ.get("PLATFORMIO_INCLUDE_PATH_THRESHOLD"),
+        "env_specific": None,
+        "global_env": None,
+        "platformio_section": None,
+        "final_threshold": None,
+        "source": "bleeding_edge_platform_default",
+        "is_bleeding_edge": True
+    }
+    
+    # Collect all possible sources
+    if config.has_option(current_env_section, setting_name):
+        try:
+            info["env_specific"] = config.getint(current_env_section, setting_name)
+        except ValueError:
+            pass
+    
+    if config.has_option("env", setting_name):
+        try:
+            info["global_env"] = config.getint("env", setting_name)
+        except ValueError:
+            pass
+    
+    if config.has_option("platformio", setting_name):
+        try:
+            info["platformio_section"] = config.getint("platformio", setting_name)
+        except ValueError:
+            pass
+    
+    # Determine final threshold and source
+    info["final_threshold"] = get_include_path_threshold(env, config, current_env_section)
+    
+    # Determine source
+    if info["env_variable"]:
+        info["source"] = "environment_variable"
+    elif info["env_specific"] is not None:
+        info["source"] = "env_specific"
+    elif info["global_env"] is not None:
+        info["source"] = "global_env"
+    elif info["platformio_section"] is not None:
+        info["source"] = "platformio_section"
+    
+    return info
 
 # Cache class for frequently used paths
 class PathCache:
@@ -102,7 +312,7 @@ class PathCache:
         if self._framework_dir is None:
             self._framework_dir = self.platform.get_package_dir("framework-arduinoespressif32")
         return self._framework_dir
-    
+
     @property 
     def sdk_dir(self):
         if self._sdk_dir is None:
@@ -113,32 +323,33 @@ class PathCache:
 
 def check_and_warn_long_path_support():
     """Checks Windows long path support and issues warning if disabled"""
-    if not IS_WINDOWS or _PATH_SHORTENING_MESSAGES['long_path_warning_shown']:
-        return
+    with _PATH_SHORTENING_LOCK:  # Thread-safe access
+        if not IS_WINDOWS or _PATH_SHORTENING_MESSAGES['long_path_warning_shown']:
+            return
+            
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SYSTEM\CurrentControlSet\Control\FileSystem"
+            )
+            value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+            winreg.CloseKey(key)
+            
+            if value != 1:
+                print("*** WARNING: Windows Long Path Support is disabled ***")
+                print("*** Enable it for better performance: ***")
+                print("*** 1. Run as Administrator: gpedit.msc ***")
+                print("*** 2. Navigate to: Computer Configuration > Administrative Templates > System > Filesystem ***")
+                print("*** 3. Enable 'Enable Win32 long paths' ***")
+                print("*** OR run PowerShell as Admin: ***")
+                print("*** New-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name 'LongPathsEnabled' -Value 1 -PropertyType DWORD -Force ***")
+                print("*** Restart required after enabling ***")
+        except Exception:
+            print("*** WARNING: Could not check Long Path Support status ***")
+            print("*** Consider enabling Windows Long Path Support for better performance ***")
         
-    try:
-        import winreg
-        key = winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SYSTEM\CurrentControlSet\Control\FileSystem"
-        )
-        value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
-        winreg.CloseKey(key)
-        
-        if value != 1:
-            print("*** WARNING: Windows Long Path Support is disabled ***")
-            print("*** Enable it for better performance: ***")
-            print("*** 1. Run as Administrator: gpedit.msc ***")
-            print("*** 2. Navigate to: Computer Configuration > Administrative Templates > System > Filesystem ***")
-            print("*** 3. Enable 'Enable Win32 long paths' ***")
-            print("*** OR run PowerShell as Admin: ***")
-            print("*** New-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name 'LongPathsEnabled' -Value 1 -PropertyType DWORD -Force ***")
-            print("*** Restart required after enabling ***")
-    except Exception:
-        print("*** WARNING: Could not check Long Path Support status ***")
-        print("*** Consider enabling Windows Long Path Support for better performance ***")
-    
-    _PATH_SHORTENING_MESSAGES['long_path_warning_shown'] = True
+        _PATH_SHORTENING_MESSAGES['long_path_warning_shown'] = True
 
 # Secure deletion functions
 def safe_delete_file(file_path: Union[str, Path], 
@@ -198,33 +409,35 @@ def safe_delete_directory(dir_path: Union[str, Path]) -> bool:
 
 def validate_platformio_path(path: Union[str, Path]) -> bool:
     """
-    Special validation for PlatformIO package paths
+    Enhanced validation for PlatformIO package paths
     """
-    path = Path(path).resolve()
-    path_str = str(path)
-    
-    # Must be within .platformio directory structure
-    if ".platformio" not in path_str:
-        return False
-    
-    # Must be a packages directory
-    if "packages" not in path_str:
-        return False
+    try:
+        path = Path(path).resolve()
+        path_str = str(path)
         
-    # Must be framework-related
-    framework_indicators = [
-        "framework-arduinoespressif32",
-        "esp32-arduino-libs",
-        ".platformio/packages",
-        "packages/framework-arduinoespressif32"
-    ]
-    
-    if not any(indicator in path_str for indicator in framework_indicators):
+        # Must be within .platformio directory structure
+        if ".platformio" not in path_str:
+            return False
+        
+        # Must be a packages directory
+        if "packages" not in path_str:
+            return False
+            
+        # Must be framework-related
+        framework_indicators = [
+            "framework-arduinoespressif32"
+        ]
+        
+        if not any(indicator in path_str for indicator in framework_indicators):
+            return False
+        
+        # Must not be a critical system path
+        critical_paths = ["/usr", "/bin", "/sbin", "/etc", "/boot", "C:\\Windows", "C:\\Program Files"]
+        return not any(critical in path_str for critical in critical_paths)
+        
+    except Exception as e:
+        logging.error(f"Path validation error: {e}")
         return False
-    
-    # Must not be a critical system path
-    critical_paths = ["/usr", "/bin", "/sbin", "/etc", "/boot"]
-    return not any(critical in path_str for critical in critical_paths)
 
 def validate_deletion_path(path: Union[str, Path], 
                           allowed_patterns: List[str]) -> bool:
@@ -274,27 +487,27 @@ def validate_deletion_path(path: Union[str, Path],
     return is_allowed
 
 def safe_framework_cleanup():
-    """Secure cleanup of Arduino Framework"""
+    """Secure cleanup of Arduino Framework with enhanced error handling"""
+    success = True
     
-    # Secure deletion of framework directories
+    # Framework directory cleanup
     if exists(FRAMEWORK_DIR):
         logging.info(f"Attempting to validate framework path: {FRAMEWORK_DIR}")
         
-        # Use specialized PlatformIO path validation
         if validate_platformio_path(FRAMEWORK_DIR):
-            #print("*** Secure framework cleanup ***")
             logging.info(f"Framework path validated successfully: {FRAMEWORK_DIR}")
             
             if safe_delete_directory(FRAMEWORK_DIR):
                 #print("Framework successfully removed")
-                return True
+                success = True
             else:
                 print("Error removing framework")
-                return False
+                success = False
         else:
             logging.error(f"PlatformIO path validation failed: {FRAMEWORK_DIR}")
-            return False
-    return True
+            success = False
+
+    return success
 
 def safe_remove_sdkconfig_files():
     """Secure removal of SDKConfig files"""
@@ -470,9 +683,17 @@ def is_framework_subfolder(potential_subfolder):
         return False
     return commonpath([FRAMEWORK_SDK_DIR]) == commonpath([FRAMEWORK_SDK_DIR, potential_subfolder])
 
+# Performance optimization with caching
 def calculate_include_path_length(includes):
-    """Calculate total character count of all include paths"""
-    return sum(len(str(inc)) for inc in includes)
+    """Calculate total character count of all include paths with caching"""
+    if not hasattr(calculate_include_path_length, '_cache'):
+        calculate_include_path_length._cache = {}
+    
+    cache_key = tuple(includes)
+    if cache_key not in calculate_include_path_length._cache:
+        calculate_include_path_length._cache[cache_key] = sum(len(str(inc)) for inc in includes)
+    
+    return calculate_include_path_length._cache[cache_key]
 
 def analyze_path_distribution(includes):
     """Analyze the distribution of include path lengths for optimization insights"""
@@ -504,7 +725,7 @@ def debug_framework_paths(env, include_count, total_length):
     print(f"*** FRAMEWORK_SDK_DIR: {FRAMEWORK_SDK_DIR} ***")
     print(f"*** SDK exists: {exists(FRAMEWORK_SDK_DIR)} ***")
     print(f"*** Include count: {include_count} ***")
-    print(f"*** Total path length: {total_length} (threshold: {INCLUDE_PATH_LENGTH_THRESHOLD}) ***")
+    print(f"*** Total path length: {total_length} ***")
     
     includes = env.get("CPPPATH", [])
     framework_count = 0
@@ -552,20 +773,21 @@ def apply_include_shortening(env, node, includes, total_length):
         else:
             generic_includes.append(inc)
 
-    # Show result message only once
-    if not _PATH_SHORTENING_MESSAGES['shortening_applied']:
-        if shortened_includes:
-            new_total_length = original_length - saved_chars + len(f"-iprefix{FRAMEWORK_SDK_DIR}")
-            print(f"*** Applied include path shortening for {len(shortened_includes)} framework paths ***")
-            print(f"*** Path length reduced from {original_length} to ~{new_total_length} characters ***")
-            print(f"*** Estimated savings: {saved_chars} characters ***")
-        else:
-            if not _PATH_SHORTENING_MESSAGES['no_framework_paths_warning']:
-                print("*** Warning: Path length high but no framework paths found for shortening ***")
-                print("*** This may indicate an architecture-specific issue ***")
-                print("*** Run with -v (verbose) for detailed path analysis ***")
-                _PATH_SHORTENING_MESSAGES['no_framework_paths_warning'] = True
-        _PATH_SHORTENING_MESSAGES['shortening_applied'] = True
+    # Show result message only once with thread safety
+    with _PATH_SHORTENING_LOCK:
+        if not _PATH_SHORTENING_MESSAGES['shortening_applied']:
+            if shortened_includes:
+                new_total_length = original_length - saved_chars + len(f"-iprefix{FRAMEWORK_SDK_DIR}")
+                print(f"*** Applied include path shortening for {len(shortened_includes)} framework paths ***")
+                print(f"*** Path length reduced from {original_length} to ~{new_total_length} characters ***")
+                print(f"*** Estimated savings: {saved_chars} characters ***")
+            else:
+                if not _PATH_SHORTENING_MESSAGES['no_framework_paths_warning']:
+                    print("*** Warning: Path length high but no framework paths found for shortening ***")
+                    print("*** This may indicate an architecture-specific issue ***")
+                    print("*** Run with -v (verbose) for detailed path analysis ***")
+                    _PATH_SHORTENING_MESSAGES['no_framework_paths_warning'] = True
+            _PATH_SHORTENING_MESSAGES['shortening_applied'] = True
 
     common_flags = ["-iprefix", FRAMEWORK_SDK_DIR] + shortened_includes
     
@@ -577,31 +799,50 @@ def apply_include_shortening(env, node, includes, total_length):
     )
 
 def smart_include_length_shorten(env, node):
-    """Include path shortening based on total path length threshold"""
+    """
+    Include path shortening based on bleeding edge configurable threshold with enhanced MCU support
+    Uses aggressive thresholds for maximum performance
+    """
     if IS_INTEGRATION_DUMP:
-        # Don't shorten include paths for IDE integrations
         return node
         
     if not IS_WINDOWS:
         return env.Object(node)
     
-    # Check long path support once
+    # Get dynamically configurable bleeding edge threshold
+    include_path_threshold = get_include_path_threshold(env, config, current_env_section)
+    
     check_and_warn_long_path_support()
     
     includes = env.get("CPPPATH", [])
     include_count = len(includes)
     total_path_length = calculate_include_path_length(includes)
     
-    # Debug output in verbose mode
-    debug_framework_paths(env, include_count, total_path_length)
+    # Debug information in verbose mode
+    if env.get("VERBOSE"):
+        debug_framework_paths(env, include_count, total_path_length)
+        
+        # Extended debug information about bleeding edge threshold configuration
+        threshold_info = get_threshold_info(env, config, current_env_section)
+        print(f"*** Bleeding Edge Threshold Configuration Debug ***")
+        print(f"***   MCU: {threshold_info['mcu']} ***")
+        print(f"***   Bleeding Edge Platform Default: {threshold_info['platform_default']} ***")
+        print(f"***   Final Bleeding Edge Threshold: {threshold_info['final_threshold']} ***")
+        print(f"***   Source: {threshold_info['source']} ***")
+        print(f"***   Performance Mode: Maximum Aggressive ***")
+        if threshold_info['env_variable']:
+            print(f"***   Env Variable: {threshold_info['env_variable']} ***")
+        if threshold_info['env_specific']:
+            print(f"***   Env Specific: {threshold_info['env_specific']} ***")
+        if threshold_info['global_env']:
+            print(f"***   Global Env: {threshold_info['global_env']} ***")
+        if threshold_info['platformio_section']:
+            print(f"***   PlatformIO Section: {threshold_info['platformio_section']} ***")
     
-    # Apply shortening only if total path length exceeds threshold
-    # This is more accurate than just counting includes, as it considers
-    # the actual command line length impact
-    if total_path_length <= INCLUDE_PATH_LENGTH_THRESHOLD:
-        return env.Object(node)  # Normal compilation
+    # Use the configurable and validated bleeding edge threshold
+    if total_path_length <= include_path_threshold:
+        return env.Object(node)
     
-    # Apply include path shortening
     return apply_include_shortening(env, node, includes, total_path_length)
 
 def get_frameworks_in_current_env():
@@ -616,14 +857,14 @@ if "arduino" in current_env_frameworks and "espidf" in current_env_frameworks:
     # Arduino as component is set, switch off Hybrid compile
     flag_custom_sdkconfig = False
 
-# Framework reinstallation if required - IMPROVED WITH SECURE DELETION
+# Framework reinstallation if required - Enhanced with secure deletion and error handling
 if check_reinstall_frwrk():
     # Secure removal of SDKConfig files
     safe_remove_sdkconfig_files()
     
     print("*** Reinstall Arduino framework ***")
     
-    # Secure framework cleanup
+    # Secure framework cleanup with enhanced error handling
     if safe_framework_cleanup():
         arduino_frmwrk_url = str(platform.get_package_spec("framework-arduinoespressif32")).split("uri=", 1)[1][:-1]
         pm.install(arduino_frmwrk_url)
@@ -644,21 +885,16 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 
 if ("arduino" in pioframework and "espidf" not in pioframework and 
     arduino_lib_compile_flag in ("Inactive", "True")):
-    
-    if flag_custom_component_remove or flag_lib_ignore:
-        flag_remove = True
-        from component_manager import ComponentManager
-        component_manager = ComponentManager(env)
-        component_manager.handle_component_settings(
-            add_components=flag_custom_component_add,
-            remove_components=flag_remove
-        )
-        silent_action = env.Action(component_manager.restore_pioarduino_build_py)
-        silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
-        env.AddPostAction("checkprogsize", silent_action)
+    # try to remove not needed include path if an lib_ignore entry exists
+    from component_manager import ComponentManager
+    component_manager = ComponentManager(env)
+    component_manager.handle_component_settings()
+    silent_action = env.Action(component_manager.restore_pioarduino_build_py)
+    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+    env.AddPostAction("checkprogsize", silent_action)
 
     if IS_WINDOWS:
-        # Smart include path optimization based on total path length
+        # Smart include path optimization based on bleeding edge configurable threshold
         env.AddBuildMiddleware(smart_include_length_shorten)
     
     build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py") 
