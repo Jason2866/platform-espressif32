@@ -99,14 +99,14 @@ def get_platform_default_threshold(mcu):
     # Bleeding edge values - pushing Windows command line limits
     # Windows CMD has ~32768 character limit, we use aggressive values close to this
     platform_defaults = {
-        "esp32": 40000,      # Standard ESP32
-        "esp32s2": 40000,    # ESP32-S2
-        "esp32s3": 40000,    # ESP32-S3
-        "esp32c3": 40000,    # ESP32-C3
-        "esp32c2": 38000,    # ESP32-C2
-        "esp32c6": 40000,    # ESP32-C6
-        "esp32h2": 40000,    # ESP32-H2
-        "esp32p4": 40000,    # ESP32-P4
+        "esp32": 35000,      # Standard ESP32
+        "esp32s2": 35000,    # ESP32-S2
+        "esp32s3": 35000,    # ESP32-S3
+        "esp32c3": 33000,    # ESP32-C3
+        "esp32c2": 33000,    # ESP32-C2
+        "esp32c6": 35000,    # ESP32-C6
+        "esp32h2": 35000,    # ESP32-H2
+        "esp32p4": 35000,    # ESP32-P4
     }
     
     default_value = platform_defaults.get(mcu, 45000)  # Aggressive fallback
@@ -135,14 +135,14 @@ def validate_threshold(threshold, mcu):
     
     # MCU-specific bleeding edge adjustments - all values are aggressive
     mcu_adjustments = {
-        "esp32c2": {"min": 30000, "max": 40000},
-        "esp32c3": {"min": 30000, "max": 45000},
-        "esp32": {"min": 30000, "max": 50000},
-        "esp32s2": {"min": 30000, "max": 50000},
-        "esp32s3": {"min": 30000, "max": 50000},
-        "esp32p4": {"min": 30000, "max": 55000},
-        "esp32c6": {"min": 30000, "max": 50000},
-        "esp32h2": {"min": 30000, "max": 40000},
+        "esp32c2": {"min": 25000, "max": 40000},
+        "esp32c3": {"min": 25000, "max": 40000},
+        "esp32": {"min": 25000, "max": 40000},
+        "esp32s2": {"min": 25000, "max": 40000},
+        "esp32s3": {"min": 25000, "max": 40000},
+        "esp32p4": {"min": 25000, "max": 40000},
+        "esp32c6": {"min": 25000, "max": 40000},
+        "esp32h2": {"min": 25000, "max": 40000},
     }
     
     # Apply MCU-specific bleeding edge limits
@@ -552,7 +552,7 @@ if config.has_option(current_env_section, "custom_sdkconfig"):
     entry_custom_sdkconfig = env.GetProjectOption("custom_sdkconfig")
     flag_custom_sdkconfig = True
 
-if len(board_sdkconfig) > 2:
+if board_sdkconfig:
     flag_custom_sdkconfig = True
 
 extra_flags_raw = board.get("build.extra_flags", [])
