@@ -99,14 +99,14 @@ def get_platform_default_threshold(mcu):
     # Bleeding edge values - pushing Windows command line limits
     # Windows CMD has ~32768 character limit, we use aggressive values close to this
     platform_defaults = {
-        "esp32": 45000,      # Standard ESP32
-        "esp32s2": 43000,    # ESP32-S2
-        "esp32s3": 48000,    # ESP32-S3
-        "esp32c3": 41000,    # ESP32-C3
+        "esp32": 40000,      # Standard ESP32
+        "esp32s2": 40000,    # ESP32-S2
+        "esp32s3": 40000,    # ESP32-S3
+        "esp32c3": 40000,    # ESP32-C3
         "esp32c2": 38000,    # ESP32-C2
-        "esp32c6": 44000,    # ESP32-C6
+        "esp32c6": 40000,    # ESP32-C6
         "esp32h2": 40000,    # ESP32-H2
-        "esp32p4": 50000,    # ESP32-P4
+        "esp32p4": 40000,    # ESP32-P4
     }
     
     default_value = platform_defaults.get(mcu, 45000)  # Aggressive fallback
@@ -576,8 +576,9 @@ def has_unicore_flags():
 
 # Esp32-solo1 libs settings
 if flag_custom_sdkconfig and has_unicore_flags():
-    if len(str(env.GetProjectOption("build_unflags"))) == 2:  # No valid env, needs init
-        env['BUILD_UNFLAGS'] = {}
+    build_unflags = env.GetProjectOption("build_unflags")
+    if not build_unflags:  # not existing needs init
+        env['BUILD_UNFLAGS'] = []
     
     build_unflags = " ".join(env['BUILD_UNFLAGS']) + " -mdisable-hardware-atomics -ustart_app_other_cores"
     new_build_unflags = build_unflags.split()
