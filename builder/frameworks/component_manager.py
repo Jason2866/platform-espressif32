@@ -50,7 +50,7 @@ class ComponentManagerConfig:
         # Get Arduino framework installation directory
         self.arduino_framework_dir = self.platform.get_package_dir("framework-arduinoespressif32")
         # Get MCU-specific Arduino libraries directory
-        self.arduino_libs_mcu = join(self.platform.get_package_dir("framework-arduinoespressif32-libs"), self.mcu)
+        self.arduino_libs_mcu = join(self.arduino_framework_dir, "tools", "esp32-arduino-libs", self.mcu)
 
 
 class ComponentLogger:
