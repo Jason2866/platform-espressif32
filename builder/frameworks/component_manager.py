@@ -1056,7 +1056,8 @@ class ComponentManager:
         # Path configurations
         self.project_src_dir = env.subst("$PROJECT_SRC_DIR")
         self.arduino_framework_dir = self.platform.get_package_dir("framework-arduinoespressif32")
-        self.arduino_libs_mcu = join(self.platform.get_package_dir("framework-arduinoespressif32-libs"), self.mcu)
+        #self.arduino_libs_mcu = join(self.platform.get_package_dir("framework-arduinoespressif32-libs"), self.mcu)
+        self.arduino_libs_mcu = join(self.arduino_framework_dir, "tools", "esp32-arduino-libs", self.mcu)
         
         # Component tracking sets
         self.removed_components: Set[str] = set()
