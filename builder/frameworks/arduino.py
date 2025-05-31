@@ -96,20 +96,19 @@ def get_platform_default_threshold(mcu):
     Returns:
         int: Platform-specific bleeding edge default threshold
     """
-    # Bleeding edge values - pushing Windows command line limits
     # Windows CMD has ~32768 character limit, we use aggressive values close to this
     platform_defaults = {
-        "esp32": 35000,      # Standard ESP32
-        "esp32s2": 35000,    # ESP32-S2
-        "esp32s3": 35000,    # ESP32-S3
+        "esp32": 33000,      # Standard ESP32
+        "esp32s2": 33000,    # ESP32-S2
+        "esp32s3": 33000,    # ESP32-S3
         "esp32c3": 33000,    # ESP32-C3
         "esp32c2": 33000,    # ESP32-C2
-        "esp32c6": 32500,    # ESP32-C6
-        "esp32h2": 35000,    # ESP32-H2
-        "esp32p4": 35000,    # ESP32-P4
+        "esp32c6": 32000,    # ESP32-C6
+        "esp32h2": 33000,    # ESP32-H2
+        "esp32p4": 33000,    # ESP32-P4
     }
     
-    default_value = platform_defaults.get(mcu, 45000)  # Aggressive fallback
+    default_value = platform_defaults.get(mcu, 32000)
     
     # Debug output only in verbose mode
     if logging.getLogger().isEnabledFor(logging.DEBUG):
