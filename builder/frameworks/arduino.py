@@ -105,17 +105,17 @@ def get_platform_default_threshold(mcu):
     # Windows CMD has ~32768 character limit, we use aggressive values close
     # to this
     platform_defaults = {
-        "esp32": 31000,      # Standard ESP32
-        "esp32s2": 31000,    # ESP32-S2
-        "esp32s3": 31000,    # ESP32-S3
-        "esp32c3": 31000,    # ESP32-C3
-        "esp32c2": 31000,    # ESP32-C2
-        "esp32c6": 31000,    # ESP32-C6
-        "esp32h2": 31000,    # ESP32-H2
-        "esp32p4": 31000,    # ESP32-P4
+        "esp32": 32000,      # Standard ESP32
+        "esp32s2": 32000,    # ESP32-S2
+        "esp32s3": 32000,    # ESP32-S3
+        "esp32c3": 32000,    # ESP32-C3
+        "esp32c2": 32000,    # ESP32-C2
+        "esp32c6": 31600,    # ESP32-C6
+        "esp32h2": 32000,    # ESP32-H2
+        "esp32p4": 32000,    # ESP32-P4
     }
 
-    default_value = platform_defaults.get(mcu, 31000)
+    default_value = platform_defaults.get(mcu, 31600)
 
     # Debug output only in verbose mode
     if logging.getLogger().isEnabledFor(logging.DEBUG):
@@ -139,9 +139,9 @@ def validate_threshold(threshold, mcu):
         int: Validated threshold value
     """
     # Bleeding edge absolute limits - pushing boundaries
-    min_threshold = 15000   # Minimum reasonable value for complex projects
+    min_threshold = 25000   # Minimum reasonable value for complex projects
     # Maximum aggressive value (beyond Windows CMD limit for testing)
-    max_threshold = 65000
+    max_threshold = 55000
 
     # MCU-specific bleeding edge adjustments - all values are aggressive
     mcu_adjustments = {
