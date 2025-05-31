@@ -617,7 +617,6 @@ else:
 framework_reinstall = False
 
 FRAMEWORK_DIR = path_cache.framework_dir
-FRAMEWORK_LIB_DIR = path_cache.framework_lib_dir
 
 SConscript("_embed_files.py", exports="env")
 
