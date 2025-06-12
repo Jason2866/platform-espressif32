@@ -56,4 +56,4 @@ jobs:
           PYTHONUTF8: '1'
         if: "matrix.example != 'examples/tasmota' || matrix.os != 'windows-latest'"
         run: |
-          pio run -d ${{ matrix.example }}
+          pio run -d ${{ matrix.example }} --disable-auto-clean
