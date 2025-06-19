@@ -270,7 +270,7 @@ env.Replace(
         "--chip", mcu,
         "--port", '"$UPLOAD_PORT"'
     ],
-    ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase_flash',
+    ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase-flash',
 
     MKFSTOOL="mk%s" % filesystem,
 
