@@ -42,6 +42,8 @@ class EsptoolProgressLogger:
                     self.parent = parent_logger
                 
                 def print(self, message="", *args, **kwargs):
+                    # Let esptool handle its own output completely
+                    # No custom progress bar calculation!
                     print(message, *args, **kwargs)
                 
                 def note(self, message):
@@ -54,9 +56,12 @@ class EsptoolProgressLogger:
                     print(f"\n❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
+                    # Let esptool handle stage management
                     pass
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
+                    # Let esptool use its own progress bar
+                    # No custom implementation needed
                     pass
                 
                 def set_verbosity(self, verbosity):
@@ -108,142 +113,48 @@ def setup_esptool_progress_wrapper():
         def wrapper_action(target, source, env):
             print(f"🚀 Starting upload of {source[0]}...")
             
-            # Try to configure progress logger
-            if progress_logger.setup_esptool_logger():
-                print("✅ Progress bar logger activated")
-            else:
-                print("ℹ️  Standard esptool output will be used")
-            
-            # Execute the original command
             import subprocess
             import shlex
+            import os
             
             cmd = env.subst(original_cmd, target=target, source=source)
             
-            # Split command into arguments
             if isinstance(cmd, str):
                 args = shlex.split(cmd)
             else:
                 args = cmd
             
             try:
-                # Execute esptool with progress monitoring
-                process = subprocess.Popen(
-                    args,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    bufsize=1
-                )
+                # Set environment to prevent duplicate output
+                env_vars = os.environ.copy()
+                env_vars['ESPTOOL_QUIET'] = '0'  # Allow progress but not duplicate
                 
-                current_progress = -1  # Track last shown progress
-                total_bytes = 0
-                written_bytes = 0
-                
-                for line in process.stdout:
-                    line = line.strip()
-                    if line:
-                        # Look for esptool progress information
-                        if "Writing at" in line and "(" in line and ")" in line:
-                            try:
-                                # Extract current position and total from esptool output
-                                # Format: "Writing at 0x00001000... (X %)"
-                                import re
-                                match = re.search(r'\((\d+)\s*%\)', line)
-                                if match:
-                                    percent = int(match.group(1))
-                                    if percent != current_progress:
-                                        current_progress = percent
-                                        
-                                        operation = "📤 Writing"
-                                        if "reading" in line.lower():
-                                            operation = "📥 Reading"
-                                        elif "verifying" in line.lower():
-                                            operation = "✅ Verifying"
-                                        
-                                        # Use percentage directly from esptool
-                                        progress_bar = progress_logger.create_progress_bar(
-                                            percent, 100,
-                                            prefix=operation,
-                                            suffix=f"({percent}%)"
-                                        )
-                                        print(f"\r{progress_bar}", end="", flush=True)
-                                        continue
-                            except Exception as e:
-                                pass
+                # Configure esptool logger to prevent duplicates
+                if progress_logger.setup_esptool_logger():
+                    print("✅ Progress bar logger activated")
+                    # Suppress subprocess stdout to prevent duplicate progress
+                    result = subprocess.run(
+                        args,
+                        stdout=subprocess.DEVNULL,  # Suppress standard output
+                        stderr=subprocess.PIPE,     # Capture errors only
+                        env=env_vars,
+                        text=True,
+                        check=False
+                    )
+                    
+                    if result.stderr and result.stderr.strip():
+                        print(f"⚠️  {result.stderr.strip()}")
                         
-                        # Alternative: Look for byte-based progress
-                        elif "bytes" in line.lower() and "/" in line:
-                            try:
-                                # Format: "1234/5678 bytes written"
-                                import re
-                                match = re.search(r'(\d+)/(\d+)\s+bytes', line)
-                                if match:
-                                    current_bytes = int(match.group(1))
-                                    total_bytes = int(match.group(2))
-                                    
-                                    if total_bytes > 0:
-                                        percent = (current_bytes * 100) // total_bytes
-                                        if percent != current_progress:
-                                            current_progress = percent
-                                            
-                                            progress_bar = progress_logger.create_progress_bar(
-                                                current_bytes, total_bytes,
-                                                prefix="📤 Writing",
-                                                suffix=f"({percent}%)"
-                                            )
-                                            print(f"\r{progress_bar}", end="", flush=True)
-                                            continue
-                            except Exception as e:
-                                pass
-                        
-                        # Look for general percentage indicators
-                        elif "%" in line and any(word in line.lower() 
-                                               for word in ["writing", "reading", "verifying"]):
-                            try:
-                                import re
-                                match = re.search(r'(\d+)%', line)
-                                if match:
-                                    percent = int(match.group(1))
-                                    if percent != current_progress:
-                                        current_progress = percent
-                                        operation = "Processing"
-                                        if "writing" in line.lower():
-                                            operation = "📤 Writing"
-                                        elif "reading" in line.lower():
-                                            operation = "📥 Reading"
-                                        elif "verifying" in line.lower():
-                                            operation = "✅ Verifying"
-                                        
-                                        progress_bar = progress_logger.create_progress_bar(
-                                            percent, 100,
-                                            prefix=operation,
-                                            suffix=f"({percent}%)"
-                                        )
-                                        print(f"\r{progress_bar}", end="", flush=True)
-                                        continue
-                            except Exception as e:
-                                pass
-                        
-                        # Show important messages
-                        if any(keyword in line.lower() for keyword in 
-                               ["error", "warning", "connecting", "chip", "detected", 
-                                "hard resetting", "entering bootloader", "stub running"]):
-                            if current_progress >= 0:
-                                print()  # New line after progress bar
-                            print(f"ℹ️  {line}")
-                            current_progress = -1
+                else:
+                    print("ℹ️  Using standard esptool output")
+                    # Use standard output without custom logger
+                    result = subprocess.run(args, env=env_vars, check=False)
                 
-                process.wait()
-                
-                if current_progress >= 0:
-                    print()  # Final new line
-                
-                if process.returncode == 0:
+                if result.returncode == 0:
                     print("✅ Upload completed successfully!")
                 else:
-                    print(f"❌ Upload failed (Exit Code: {process.returncode})")
-                    return process.returncode
+                    print(f"❌ Upload failed (Exit Code: {result.returncode})")
+                    return result.returncode
                     
             except Exception as e:
                 print(f"❌ Upload error: {e}")
