@@ -25,95 +25,184 @@ from SCons.Script import (
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
 
-# Progress Bar Logger for esptool
+# Enhanced Progress Bar Logger for esptool with ANSI line jumping
 class EsptoolProgressLogger:
-    """Progress bar logger implementation for esptool output"""
+    """Enhanced progress bar logger with ANSI escape sequences for line control"""
     
     def __init__(self):
-        self.progress_width = 40
-        self.last_progress = -1
+        self.last_was_progress = False
+        self.progress_line_count = 0
+        self.ansi_supported = self._check_ansi_support()
+        
+        # ANSI escape sequences
+        self.ansi_line_up = "\033[1A" if self.ansi_supported else ""
+        self.ansi_line_clear = "\x1b[2K" if self.ansi_supported else ""
+        self.ansi_clear_eol = "\033[K" if self.ansi_supported else ""
     
-    def create_progress_bar(self, percent, prefix="", suffix=""):
-        """Creates an ASCII progress bar"""
-        filled_length = (percent * self.progress_width) // 100
-        bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
-        return f"{prefix} [{bar}] {percent:3d}%{' ' + suffix if suffix else ''}"
+    def _check_ansi_support(self):
+        """Check if terminal supports ANSI escape sequences"""
+        try:
+            # Check if stdout is a TTY
+            if not (hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()):
+                return False
+            
+            # Check environment variables
+            term = os.getenv("TERM", "").lower()
+            no_color = os.getenv("NO_COLOR", "").strip().lower() in ("1", "true", "yes")
+            
+            if no_color:
+                return False
+            
+            # Common terminals that support ANSI
+            supported_terms = (
+                "xterm", "xterm-256color", "screen", "screen-256color", 
+                "linux", "vt100", "ansi", "cygwin"
+            )
+            
+            # Windows specific handling
+            if sys.platform == "win32":
+                try:
+                    import colorama
+                    colorama.init()
+                    return True
+                except ImportError:
+                    # Windows 10+ has native ANSI support
+                    return sys.version_info >= (3, 6)
+            
+            return term in supported_terms or "color" in term
+            
+        except Exception:
+            return False
     
     def setup_esptool_logger(self):
-        """Configures the custom logger for esptool"""
+        """Configures the custom logger for esptool with ANSI line control"""
         try:
-            from esptool.logger import log, TemplateLogger
+            from esptool.logger import log
             
-            class ProgressBarLogger(TemplateLogger):
+            class ProgressBarLogger:
                 def __init__(self, parent_logger):
                     self.parent = parent_logger
+                    self._stage_active = False
+                    self._newline_count = 0
+                    self._kept_lines = []
+                    self._smart_features = parent_logger.ansi_supported
+                    self._verbosity = None
+                    self._print_anyway = False
                 
-                def print(self, message="", *args, **kwargs):
-                    message_str = str(message)
+                def print(self, *args, **kwargs):
+                    """Enhanced print with progress bar line control"""
+                    message = " ".join(str(arg) for arg in args)
                     
-                    # Suppress esptool's own progress messages and create our own
-                    if ("%" in message_str and 
-                        any(word in message_str.lower() 
-                            for word in ["writing", "reading", "verifying"])):
-                        # Extract percentage and create our own progress bar
-                        try:
-                            import re
-                            match = re.search(r'(\d+)%', message_str)
-                            if match:
-                                percent = int(match.group(1))
-                                if percent != self.parent.last_progress:
-                                    self.parent.last_progress = percent
-                                    
-                                    operation = "📤 Writing"
-                                    if "reading" in message_str.lower():
-                                        operation = "📥 Reading"
-                                    elif "verifying" in message_str.lower():
-                                        operation = "✅ Verifying"
-                                    
-                                    # Create our own single-line progress bar
-                                    progress_bar = self.parent.create_progress_bar(
-                                        percent, prefix=operation
-                                    )
-                                    print(f"\r{progress_bar}", end='', flush=True)
-                                return  # Suppress esptool's original message
-                        except:
-                            pass
+                    # Detect progress messages
+                    is_progress = self._is_progress_message(message)
                     
-                    # Allow other messages through normally
-                    print(message_str, *args, **kwargs)
+                    if is_progress and self._smart_features:
+                        # Progress message with ANSI control
+                        if self.parent.last_was_progress:
+                            # Jump back and clear previous progress line
+                            print(f"{self.parent.ansi_line_up}{self.parent.ansi_line_clear}", 
+                                  end='', flush=True)
+                        
+                        # Print new progress line
+                        print(f"{message}", end='', flush=True, **kwargs)
+                        self.parent.last_was_progress = True
+                        self.parent.progress_line_count += 1
+                        
+                    elif is_progress and not self._smart_features:
+                        # Progress without ANSI - use carriage return
+                        print(f"\r{message}", end='', flush=True, **kwargs)
+                        self.parent.last_was_progress = True
+                        
+                    else:
+                        # Non-progress message
+                        if self.parent.last_was_progress:
+                            # Ensure newline after progress before normal message
+                            print()
+                        
+                        print(message, *args[1:], **kwargs)
+                        self.parent.last_was_progress = False
+                        self.parent.progress_line_count = 0
+                
+                def _is_progress_message(self, message):
+                    """Detect if message is a progress indicator"""
+                    progress_indicators = [
+                        "writing at 0x", "reading at 0x", "verifying at 0x",
+                        "%" in message and any(word in message.lower() 
+                                             for word in ["writing", "reading", "verifying", "erasing"]),
+                        "..." in message and "%" in message,
+                        re.search(r'\d+%', message) is not None
+                    ]
+                    return any(progress_indicators)
                 
                 def note(self, message):
-                    if self.parent.last_progress >= 0:
-                        print()  # New line after progress bar
-                    print(f"📝 {message}")
+                    """Log note with proper line handling"""
+                    if self.parent.last_was_progress:
+                        print()  # New line after progress
+                    print(f"📝 Note: {message}")
+                    self.parent.last_was_progress = False
                 
                 def warning(self, message):
-                    if self.parent.last_progress >= 0:
-                        print()  # New line after progress bar
-                    print(f"⚠️  WARNING: {message}")
+                    """Log warning with proper line handling"""
+                    if self.parent.last_was_progress:
+                        print()  # New line after progress
+                    print(f"⚠️  Warning: {message}")
+                    self.parent.last_was_progress = False
                 
                 def error(self, message):
-                    if self.parent.last_progress >= 0:
-                        print()  # New line after progress bar
-                    print(f"❌ ERROR: {message}", file=sys.stderr)
+                    """Log error with proper line handling"""
+                    if self.parent.last_was_progress:
+                        print()  # New line after progress
+                    print(f"❌ Error: {message}", file=sys.stderr)
+                    self.parent.last_was_progress = False
                 
                 def stage(self, finish=False):
-                    if finish and self.parent.last_progress >= 0:
-                        print()  # New line when stage finishes
-                        self.parent.last_progress = -1
+                    """Handle stage transitions"""
+                    if finish and self.parent.last_was_progress:
+                        print()  # New line when finishing
+                        self.parent.last_was_progress = False
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    # Disable esptool's built-in progress bar
-                    pass
+                    """Enhanced progress bar with ANSI line control"""
+                    filled = int(bar_length * cur_iter // total_iters)
+                    if filled == bar_length:
+                        bar = "=" * bar_length
+                    elif filled == 0:
+                        bar = " " * bar_length
+                    else:
+                        bar = f"{'=' * (filled - 1)}>{' ' * (bar_length - filled)}"
+
+                    percent = f"{100 * (cur_iter / float(total_iters)):.1f}"
+                    
+                    if self._smart_features:
+                        # Use ANSI escape sequences for line control
+                        if cur_iter > 0:
+                            print(f"{self.parent.ansi_line_up}{self.parent.ansi_line_clear}", 
+                                  end="", flush=True)
+                        
+                        progress_line = f"{prefix}[{bar}] {percent:>5}%{suffix}"
+                        print(progress_line, 
+                              end="\n" if cur_iter == total_iters else "", 
+                              flush=True)
+                    else:
+                        # Fallback without ANSI
+                        progress_line = f"\r{self.parent.ansi_clear_eol}{prefix}[{bar}] {percent:>5}%{suffix}"
+                        print(progress_line,
+                              end="\n" if cur_iter == total_iters else "",
+                              flush=True)
                 
                 def set_verbosity(self, verbosity):
-                    pass
+                    """Set verbosity level"""
+                    self._verbosity = verbosity
             
             # Set the custom logger
             log.set_logger(ProgressBarLogger(self))
             return True
             
-        except ImportError:
+        except ImportError as e:
+            print(f"⚠️  Could not import esptool logger: {e}")
+            return False
+        except Exception as e:
+            print(f"⚠️  Error setting up esptool logger: {e}")
             return False
 
 # Global logger instance
@@ -147,18 +236,12 @@ def BeforeUpload(target, source, env):
         env.Replace(UPLOAD_PORT=env.WaitForNewSerialPort(before_ports))
 
 def setup_esptool_progress_wrapper():
-    """Wrapper function for esptool commands with progress bar"""
+    """Enhanced wrapper function for esptool commands with ANSI progress control"""
     
     def create_upload_wrapper(original_cmd):
-        """Creates a wrapper for upload commands"""
+        """Creates an enhanced wrapper for upload commands"""
         def wrapper_action(target, source, env):
             print(f"🚀 Starting upload of {source[0]}...")
-            
-            # Try to configure progress logger
-            if progress_logger.setup_esptool_logger():
-                print("✅ Progress bar logger activated")
-            else:
-                print("ℹ️  Using standard esptool output")
             
             import subprocess
             import shlex
@@ -171,12 +254,28 @@ def setup_esptool_progress_wrapper():
                 args = cmd
             
             try:
-                result = subprocess.run(args, check=False)
+                # Setup enhanced logger with ANSI support
+                logger_setup_success = progress_logger.setup_esptool_logger()
                 
-                if result.returncode == 0:
-                    print("\n✅ Upload completed successfully!")
+                if logger_setup_success:
+                    ansi_status = "✅ ANSI" if progress_logger.ansi_supported else "📝 Basic"
+                    print(f"{ansi_status} Progress bar logger activated")
+                    
+                    # Run with enhanced progress logging
+                    result = subprocess.run(args, check=False)
+                    
+                    # Ensure clean line after progress
+                    if progress_logger.last_was_progress:
+                        print()
+                        
                 else:
-                    print(f"\n❌ Upload failed (Exit Code: {result.returncode})")
+                    print("ℹ️  Using standard esptool output")
+                    result = subprocess.run(args, check=False)
+
+                if result.returncode == 0:
+                    print("✅ Upload completed successfully!")
+                else:
+                    print(f"❌ Upload failed (Exit Code: {result.returncode})")
                     return result.returncode
                     
             except Exception as e:
@@ -189,9 +288,8 @@ def setup_esptool_progress_wrapper():
     
     return create_upload_wrapper
 
-# Create progress wrapper
+# Create enhanced progress wrapper
 upload_wrapper_factory = setup_esptool_progress_wrapper()
-
 def _get_board_memory_type(env):
     """Get board memory type configuration"""
     board_config = env.BoardConfig()
