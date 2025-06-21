@@ -30,14 +30,7 @@ class EsptoolProgressLogger:
     """Progress bar logger implementation for esptool output"""
     
     def __init__(self):
-        self.progress_width = 40
-        self.last_progress = -1
-    
-    def create_progress_bar(self, percent, prefix="", suffix=""):
-        """Creates an ASCII progress bar"""
-        filled_length = (percent * self.progress_width) // 100
-        bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
-        return f"{prefix} [{bar}] {percent:3d}%{' ' + suffix if suffix else ''}"
+        pass
     
     def setup_esptool_logger(self):
         """Configures the custom logger for esptool"""
@@ -48,53 +41,23 @@ class EsptoolProgressLogger:
                 def __init__(self, parent_logger):
                     self.parent = parent_logger
                 
-                def print(self, *args, **kwargs):
-                    # Normal print - let esptool handle its output
-                    print(*args, **kwargs)
+                def print(self, message="", *args, **kwargs):
+                    print(message, *args, **kwargs)
                 
                 def note(self, message):
-                    print(f"📝 {message}")
+                    print(f"\n📝 {message}")
                 
                 def warning(self, message):
-                    print(f"⚠️  WARNING: {message}")
+                    print(f"\n⚠️  WARNING: {message}")
                 
                 def error(self, message):
-                    print(f"❌ ERROR: {message}", file=sys.stderr)
+                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
-                    # Let esptool handle its stage management
                     pass
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    """Override esptool's progress_bar with our own single-line version"""
-                    if total_iters <= 0:
-                        return
-                    
-                    percent = int(100 * cur_iter / total_iters)
-                    
-                    if percent != self.parent.last_progress:
-                        self.parent.last_progress = percent
-                        
-                        # Determine operation based on prefix
-                        operation = "📤 Writing"
-                        if "read" in prefix.lower():
-                            operation = "📥 Reading"
-                        elif "verif" in prefix.lower():
-                            operation = "✅ Verifying"
-                        elif "eras" in prefix.lower():
-                            operation = "🗑️ Erasing"
-                        
-                        # Create our own progress bar
-                        progress_bar = self.parent.create_progress_bar(
-                            percent, prefix=operation, suffix=""
-                        )
-                        
-                        # Single-line output with \r to overwrite
-                        print(f"\r{progress_bar}", end='', flush=True)
-                        
-                        # New line only at 100%
-                        if cur_iter >= total_iters:
-                            print()
+                    pass
                 
                 def set_verbosity(self, verbosity):
                     pass
@@ -104,6 +67,7 @@ class EsptoolProgressLogger:
             return True
             
         except ImportError:
+            # esptool logger not available, use standard output
             return False
 
 # Global logger instance
@@ -144,14 +108,9 @@ def setup_esptool_progress_wrapper():
         def wrapper_action(target, source, env):
             print(f"🚀 Starting upload of {source[0]}...")
             
-            # Configure the progress logger
-            if progress_logger.setup_esptool_logger():
-                print("✅ Progress bar logger activated")
-            else:
-                print("ℹ️  Using standard esptool output")
-            
             import subprocess
             import shlex
+            import os
             
             cmd = env.subst(original_cmd, target=target, source=source)
             
@@ -161,9 +120,18 @@ def setup_esptool_progress_wrapper():
                 args = cmd
             
             try:
-                # Run esptool normally - the logger handles the progress bar
-                result = subprocess.run(args, check=False)
-                
+                if progress_logger.setup_esptool_logger():
+                    print("✅ Progress bar logger activated")
+                    # Suppress subprocess stdout to prevent duplicate progress
+                    result = subprocess.run(
+                        args,
+                        check=False
+                    )
+                else:
+                    print("ℹ️  Using standard esptool output")
+                    # Use standard output without custom logger
+                    result = subprocess.run(args, check=False)
+
                 if result.returncode == 0:
                     print("✅ Upload completed successfully!")
                 else:
@@ -436,12 +404,15 @@ def check_lib_archive_exists():
     """Check if lib_archive option exists in platformio.ini"""
     for section in projectconfig.sections():
         if "lib_archive" in projectconfig.options(section):
+            #print(f"lib_archive in [{section}] found with value: {projectconfig.get(section, 'lib_archive')}")
             return True
+    #print("lib_archive was not found in platformio.ini")
     return False
 
 if not check_lib_archive_exists():
     env_section = "env:" + env["PIOENV"]
     projectconfig.set(env_section, "lib_archive", "False")
+    #print(f"lib_archive is set to False in [{env_section}]")
 
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
