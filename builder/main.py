@@ -37,7 +37,7 @@ class EsptoolProgressLogger:
     def create_progress_bar(self, current, total, prefix="", suffix=""):
         """Creates an ASCII progress bar"""
         if total <= 0:
-            return f"{prefix} [{'█' * self.progress_width}] 100% {suffix}"
+            return f"{prefix} [{'█' * self.progress_width}] 100%{' ' + suffix if suffix else ''}"
         
         # Ensure current doesn't exceed total
         current = min(current, total)
@@ -54,7 +54,7 @@ class EsptoolProgressLogger:
         # Create the bar
         bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
         
-        return f"{prefix} [{bar}] {percent:3d}% {suffix}"
+        return f"{prefix} [{bar}] {percent:3d}%{' ' + suffix if suffix else ''}"
     
     def setup_esptool_logger(self):
         """Configures the custom logger for esptool"""
@@ -68,36 +68,7 @@ class EsptoolProgressLogger:
                     self.stage_active = False
                 
                 def print(self, message="", *args, **kwargs):
-                    # Filter progress-relevant messages
-                    if "%" in str(message) and any(word in str(message).lower() 
-                                                 for word in ["writing", "reading", "verifying"]):
-                        # Extract progress from message
-                        try:
-                            import re
-                            match = re.search(r'(\d+)%', str(message))
-                            if match:
-                                percent = int(match.group(1))
-                                operation = "Processing"
-                                if "writing" in str(message).lower():
-                                    operation = "Writing"
-                                elif "reading" in str(message).lower():
-                                    operation = "Reading"
-                                elif "verifying" in str(message).lower():
-                                    operation = "Verifying"
-
-                                progress_bar = self.parent.create_progress_bar(
-                                    percent, 100, 
-                                    prefix=f"{operation}:",
-                                    suffix=""
-                                )
-                                print(f"\r{progress_bar}", end="", flush=True)
-                                return
-                        except:
-                            pass
-                    
-                    # Normal output for non-progress messages
-                    if not self.stage_active:
-                        print(message, *args, **kwargs)
+                    print(message, *args, **kwargs)
                 
                 def note(self, message):
                     print(f"\n📝 {message}")
@@ -109,28 +80,13 @@ class EsptoolProgressLogger:
                     print(f"\n❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
-                    if finish:
-                        print()  # New line after progress bar
-                        self.stage_active = False
-                    else:
-                        self.stage_active = True
+                    pass
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    """Implements the progress bar functionality with correct calculations"""
+                    """Use esptool's built-in progress bar functionality"""
                     if total_iters <= 0:
                         return
-                    
-                    # Use the parent's progress bar creation method
-                    progress_bar = self.parent.create_progress_bar(
-                        cur_iter, total_iters,
-                        prefix=prefix,
-                        suffix=suffix
-                    )
-                    print(f"\r{progress_bar}", end="", flush=True)
-                    
-                    # New line when complete
-                    if cur_iter >= total_iters:
-                        print()
+                    pass
                 
                 def set_verbosity(self, verbosity):
                     pass
