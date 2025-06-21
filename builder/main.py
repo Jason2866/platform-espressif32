@@ -36,11 +36,22 @@ class EsptoolProgressLogger:
         
     def create_progress_bar(self, current, total, prefix="", suffix=""):
         """Creates an ASCII progress bar"""
-        if total == 0:
+        if total <= 0:
             return f"{prefix} [{'█' * self.progress_width}] 100% {suffix}"
-            
-        percent = int(100 * current / total)
-        filled_length = int(self.progress_width * current / total)
+        
+        # Ensure current doesn't exceed total
+        current = min(current, total)
+        
+        # Calculate percentage (0-100)
+        percent = (current * 100) // total if total > 0 else 100
+        
+        # Calculate filled length based on actual progress
+        filled_length = (current * self.progress_width) // total
+        
+        # Ensure filled_length doesn't exceed progress_width
+        filled_length = min(filled_length, self.progress_width)
+        
+        # Create the bar
         bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
         
         return f"{prefix} [{bar}] {percent:3d}% {suffix}"
@@ -73,11 +84,11 @@ class EsptoolProgressLogger:
                                     operation = "Reading"
                                 elif "verifying" in str(message).lower():
                                     operation = "Verifying"
-                                
+
                                 progress_bar = self.parent.create_progress_bar(
                                     percent, 100, 
                                     prefix=f"{operation}:",
-                                    suffix=f"({percent}%)"
+                                    suffix=""
                                 )
                                 print(f"\r{progress_bar}", end="", flush=True)
                                 return
@@ -105,10 +116,11 @@ class EsptoolProgressLogger:
                         self.stage_active = True
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    """Implements the progress bar functionality"""
-                    if total_iters == 0:
+                    """Implements the progress bar functionality with correct calculations"""
+                    if total_iters <= 0:
                         return
-                        
+                    
+                    # Use the parent's progress bar creation method
                     progress_bar = self.parent.create_progress_bar(
                         cur_iter, total_iters,
                         prefix=prefix,
@@ -116,8 +128,9 @@ class EsptoolProgressLogger:
                     )
                     print(f"\r{progress_bar}", end="", flush=True)
                     
+                    # New line when complete
                     if cur_iter >= total_iters:
-                        print()  # New line at the end
+                        print()
                 
                 def set_verbosity(self, verbosity):
                     pass
