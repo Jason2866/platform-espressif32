@@ -14,6 +14,7 @@
 
 import os
 import re
+import sys
 import locale
 from os.path import isfile, join
 
@@ -24,6 +25,110 @@ from SCons.Script import (
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
 
+class EsptoolProgressLogger:
+    def __init__(self):
+        self.current_operation = ""
+        self.progress_width = 40
+        self.last_progress = -1
+        
+    def create_progress_bar(self, current, total, prefix="", suffix=""):
+        """Erstellt eine ASCII Progress Bar"""
+        if total == 0:
+            return f"{prefix} [{'█' * self.progress_width}] 100% {suffix}"
+            
+        percent = int(100 * current / total)
+        filled_length = int(self.progress_width * current / total)
+        bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
+        
+        return f"{prefix} [{bar}] {percent:3d}% {suffix}"
+    
+    def setup_esptool_logger(self):
+        """Konfiguriert den benutzerdefinierten Logger für esptool"""
+        try:
+            from esptool.logger import log, TemplateLogger
+            
+            class ProgressBarLogger(TemplateLogger):
+                def __init__(self, parent_logger):
+                    self.parent = parent_logger
+                    self.current_stage = ""
+                    self.stage_active = False
+                
+                def print(self, message="", *args, **kwargs):
+                    # Filtere Progress-relevante Nachrichten
+                    if "%" in str(message) and any(word in str(message).lower() 
+                                                 for word in ["writing", "reading", "verifying"]):
+                        # Extrahiere Fortschritt aus der Nachricht
+                        try:
+                            import re
+                            match = re.search(r'(\d+)%', str(message))
+                            if match:
+                                percent = int(match.group(1))
+                                operation = "Processing"
+                                if "writing" in str(message).lower():
+                                    operation = "Writing"
+                                elif "reading" in str(message).lower():
+                                    operation = "Reading"
+                                elif "verifying" in str(message).lower():
+                                    operation = "Verifying"
+                                
+                                progress_bar = self.parent.create_progress_bar(
+                                    percent, 100, 
+                                    prefix=f"{operation}:",
+                                    suffix=f"({percent}%)"
+                                )
+                                print(f"\r{progress_bar}", end="", flush=True)
+                                return
+                        except:
+                            pass
+                    
+                    # Normale Ausgabe für nicht-Progress Nachrichten
+                    if not self.stage_active:
+                        print(message, *args, **kwargs)
+                
+                def note(self, message):
+                    print(f"\n📝 {message}")
+                
+                def warning(self, message):
+                    print(f"\n⚠️  WARNING: {message}")
+                
+                def error(self, message):
+                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
+                
+                def stage(self, finish=False):
+                    if finish:
+                        print()  # Neue Zeile nach Progress Bar
+                        self.stage_active = False
+                    else:
+                        self.stage_active = True
+                
+                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
+                    """Implementiert die Progress Bar Funktionalität"""
+                    if total_iters == 0:
+                        return
+                        
+                    progress_bar = self.parent.create_progress_bar(
+                        cur_iter, total_iters,
+                        prefix=prefix,
+                        suffix=suffix
+                    )
+                    print(f"\r{progress_bar}", end="", flush=True)
+                    
+                    if cur_iter >= total_iters:
+                        print()  # Neue Zeile am Ende
+                
+                def set_verbosity(self, verbosity):
+                    pass
+            
+            # Setze den benutzerdefinierten Logger
+            log.set_logger(ProgressBarLogger(self))
+            return True
+            
+        except ImportError:
+            # esptool Logger nicht verfügbar, verwende Standard-Ausgabe
+            return False
+
+# Globale Logger-Instanz
+progress_logger = EsptoolProgressLogger()
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
@@ -51,6 +156,104 @@ def BeforeUpload(target, source, env):
     if upload_options.get("wait_for_upload_port", False):
         env.Replace(UPLOAD_PORT=env.WaitForNewSerialPort(before_ports))
 
+def setup_esptool_progress_wrapper():
+    """Wrapper-Funktion für esptool-Befehle mit Progress Bar"""
+    
+    def create_upload_wrapper(original_cmd):
+        """Erstellt einen Wrapper für Upload-Befehle"""
+        def wrapper_action(target, source, env):
+            print(f"🚀 Starte Upload von {source[0]}...")
+            
+            # Versuche Progress Logger zu konfigurieren
+            if progress_logger.setup_esptool_logger():
+                print("✅ Progress Bar Logger aktiviert")
+            else:
+                print("ℹ️  Standard esptool Ausgabe wird verwendet")
+            
+            # Führe den ursprünglichen Befehl aus
+            import subprocess
+            import shlex
+            
+            cmd = env.subst(original_cmd, target=target, source=source)
+            
+            # Teile den Befehl in Argumente auf
+            if isinstance(cmd, str):
+                args = shlex.split(cmd)
+            else:
+                args = cmd
+            
+            try:
+                # Führe esptool mit Progress Monitoring aus
+                process = subprocess.Popen(
+                    args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1
+                )
+                
+                current_progress = 0
+                for line in process.stdout:
+                    line = line.strip()
+                    if line:
+                        # Suche nach Progress-Indikatoren
+                        if "%" in line and any(word in line.lower() 
+                                             for word in ["writing", "reading", "verifying"]):
+                            try:
+                                import re
+                                match = re.search(r'(\d+)%', line)
+                                if match:
+                                    percent = int(match.group(1))
+                                    if percent != current_progress:
+                                        current_progress = percent
+                                        operation = "Processing"
+                                        if "writing" in line.lower():
+                                            operation = "📤 Writing"
+                                        elif "reading" in line.lower():
+                                            operation = "📥 Reading"
+                                        elif "verifying" in line.lower():
+                                            operation = "✅ Verifying"
+                                        
+                                        progress_bar = progress_logger.create_progress_bar(
+                                            percent, 100,
+                                            prefix=operation,
+                                            suffix=f"({percent}%)"
+                                        )
+                                        print(f"\r{progress_bar}", end="", flush=True)
+                                        continue
+                            except:
+                                pass
+                        
+                        # Zeige wichtige Nachrichten
+                        if any(keyword in line.lower() for keyword in 
+                               ["error", "warning", "connecting", "chip", "detected"]):
+                            if current_progress > 0:
+                                print()  # Neue Zeile nach Progress Bar
+                            print(f"ℹ️  {line}")
+                            current_progress = 0
+                
+                process.wait()
+                
+                if current_progress > 0:
+                    print()  # Abschließende neue Zeile
+                
+                if process.returncode == 0:
+                    print("✅ Upload erfolgreich abgeschlossen!")
+                else:
+                    print(f"❌ Upload fehlgeschlagen (Exit Code: {process.returncode})")
+                    return process.returncode
+                    
+            except Exception as e:
+                print(f"❌ Fehler beim Upload: {e}")
+                return 1
+                
+            return 0
+        
+        return wrapper_action
+    
+    return create_upload_wrapper
+
+upload_wrapper_factory = setup_esptool_progress_wrapper()
 
 def _get_board_memory_type(env):
     board_config = env.BoardConfig()
@@ -498,7 +701,7 @@ elif upload_protocol == "esptool":
 
     upload_actions = [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
-        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+        env.Action(upload_wrapper_factory("$UPLOADCMD"), "📤 Uploading with Progress Bar")
     ]
 
 elif upload_protocol in debug_tools:
@@ -566,7 +769,7 @@ env.AddPlatformTarget(
     [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
-        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+        env.Action(upload_wrapper_factory("$UPLOADCMD"), "📤 Uploading with Progress Bar")
     ],
     "Erase Flash and Upload",
 )
