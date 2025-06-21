@@ -42,8 +42,6 @@ class EsptoolProgressLogger:
                     self.parent = parent_logger
                 
                 def print(self, message="", *args, **kwargs):
-                    # Let esptool handle its own output completely
-                    # No custom progress bar calculation!
                     print(message, *args, **kwargs)
                 
                 def note(self, message):
@@ -56,12 +54,9 @@ class EsptoolProgressLogger:
                     print(f"\n❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
-                    # Let esptool handle stage management
                     pass
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    # Let esptool use its own progress bar
-                    # No custom implementation needed
                     pass
                 
                 def set_verbosity(self, verbosity):
@@ -125,31 +120,18 @@ def setup_esptool_progress_wrapper():
                 args = cmd
             
             try:
-                # Set environment to prevent duplicate output
-                env_vars = os.environ.copy()
-                env_vars['ESPTOOL_QUIET'] = '0'  # Allow progress but not duplicate
-                
-                # Configure esptool logger to prevent duplicates
                 if progress_logger.setup_esptool_logger():
                     print("✅ Progress bar logger activated")
                     # Suppress subprocess stdout to prevent duplicate progress
                     result = subprocess.run(
                         args,
-                        stdout=subprocess.DEVNULL,  # Suppress standard output
-                        stderr=subprocess.PIPE,     # Capture errors only
-                        env=env_vars,
-                        text=True,
                         check=False
                     )
-                    
-                    if result.stderr and result.stderr.strip():
-                        print(f"⚠️  {result.stderr.strip()}")
-                        
                 else:
                     print("ℹ️  Using standard esptool output")
                     # Use standard output without custom logger
-                    result = subprocess.run(args, env=env_vars, check=False)
-                
+                    result = subprocess.run(args, check=False)
+
                 if result.returncode == 0:
                     print("✅ Upload completed successfully!")
                 else:
