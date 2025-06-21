@@ -34,65 +34,10 @@ class EsptoolProgressLogger:
         self.progress_width = 40
         self.last_progress = -1
         
-    def create_progress_bar(self, current, total, prefix="", suffix=""):
-        """Creates an ASCII progress bar"""
-        if total <= 0:
-            return f"{prefix} [{'█' * self.progress_width}] 100%{' ' + suffix if suffix else ''}"
-        
-        # Ensure current doesn't exceed total
-        current = min(current, total)
-        
-        # Calculate percentage (0-100)
-        percent = (current * 100) // total if total > 0 else 100
-        
-        # Calculate filled length based on actual progress
-        filled_length = (current * self.progress_width) // total
-        
-        # Ensure filled_length doesn't exceed progress_width
-        filled_length = min(filled_length, self.progress_width)
-        
-        # Create the bar
-        bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
-        
-        return f"{prefix} [{bar}] {percent:3d}%{' ' + suffix if suffix else ''}"
-    
     def setup_esptool_logger(self):
         """Configures the custom logger for esptool"""
         try:
-            from esptool.logger import log, TemplateLogger
-            
-            class ProgressBarLogger(TemplateLogger):
-                def __init__(self, parent_logger):
-                    self.parent = parent_logger
-                    self.current_stage = ""
-                    self.stage_active = False
-                
-                def print(self, message="", *args, **kwargs):
-                    print(message, *args, **kwargs)
-                
-                def note(self, message):
-                    print(f"\n📝 {message}")
-                
-                def warning(self, message):
-                    print(f"\n⚠️  WARNING: {message}")
-                
-                def error(self, message):
-                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
-                
-                def stage(self, finish=False):
-                    pass
-                
-                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    """Use esptool's built-in progress bar functionality"""
-                    if total_iters <= 0:
-                        return
-                    pass
-                
-                def set_verbosity(self, verbosity):
-                    pass
-            
-            # Set the custom logger
-            log.set_logger(ProgressBarLogger(self))
+            from esptool.logger import log
             return True
             
         except ImportError:
