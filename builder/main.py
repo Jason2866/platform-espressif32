@@ -30,7 +30,7 @@ class EsptoolProgressLogger:
     """Progress bar logger implementation for esptool output"""
     
     def __init__(self):
-        self.last_line_length = 0
+        self.last_was_progress = False
     
     def setup_esptool_logger(self):
         """Configures the custom logger for esptool"""
@@ -40,59 +40,54 @@ class EsptoolProgressLogger:
             class ProgressBarLogger(TemplateLogger):
                 def __init__(self, parent_logger):
                     self.parent = parent_logger
-                    self.in_progress = False
                 
                 def print(self, message="", *args, **kwargs):
-                    # Check if this is a progress message
                     message_str = str(message)
                     
-                    # Handle progress bar messages specially
-                    if "%" in message_str and any(word in message_str.lower() 
-                                                for word in ["writing", "reading", "verifying"]):
-                        # This is a progress message - use carriage return
-                        self.in_progress = True
-                        # Clear the line first, then print the progress
-                        clear_line = '\r' + ' ' * self.parent.last_line_length + '\r'
-                        print(clear_line, end='', flush=True)
+                    # Check if this is a progress message
+                    is_progress = ("%" in message_str and 
+                                 any(word in message_str.lower() 
+                                     for word in ["writing", "reading", "verifying"]))
+                    
+                    if is_progress:
+                        # Progress message - use \r to overwrite the line
                         print(f"\r{message_str}", end='', flush=True)
-                        self.parent.last_line_length = len(message_str)
-                        return
+                        self.parent.last_was_progress = True
                     else:
-                        # Regular message - ensure we're on a new line if we were showing progress
-                        if self.in_progress:
-                            print()  # New line to end progress bar
-                            self.in_progress = False
-                            self.parent.last_line_length = 0
-                        
-                        # Normal print for non-progress messages
-                        print(message, *args, **kwargs)
+                        # Non-progress message
+                        if self.parent.last_was_progress:
+                            # Add newline after progress bar before normal message
+                            print(f"\n{message_str}", *args, **kwargs)
+                        else:
+                            # Normal message
+                            print(message_str, *args, **kwargs)
+                        self.parent.last_was_progress = False
                 
                 def note(self, message):
-                    if self.in_progress:
-                        print()  # New line before note
-                        self.in_progress = False
+                    if self.parent.last_was_progress:
+                        print()  # New line after progress
                     print(f"📝 {message}")
+                    self.parent.last_was_progress = False
                 
                 def warning(self, message):
-                    if self.in_progress:
-                        print()  # New line before warning
-                        self.in_progress = False
+                    if self.parent.last_was_progress:
+                        print()  # New line after progress
                     print(f"⚠️  WARNING: {message}")
+                    self.parent.last_was_progress = False
                 
                 def error(self, message):
-                    if self.in_progress:
-                        print()  # New line before error
-                        self.in_progress = False
+                    if self.parent.last_was_progress:
+                        print()  # New line after progress
                     print(f"❌ ERROR: {message}", file=sys.stderr)
+                    self.parent.last_was_progress = False
                 
                 def stage(self, finish=False):
-                    if finish and self.in_progress:
-                        print()  # New line when stage finishes
-                        self.in_progress = False
-                        self.parent.last_line_length = 0
+                    if finish and self.parent.last_was_progress:
+                        print()  # New line when finishing
+                        self.parent.last_was_progress = False
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    # Let esptool handle its own progress bar
+                    # This method might not be used by esptool, but implement it anyway
                     pass
                 
                 def set_verbosity(self, verbosity):
@@ -103,9 +98,7 @@ class EsptoolProgressLogger:
             return True
             
         except ImportError:
-            # esptool logger not available, use standard output
             return False
-
 
 # Global logger instance
 progress_logger = EsptoolProgressLogger()
