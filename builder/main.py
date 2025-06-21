@@ -45,7 +45,6 @@ def setup_esptool_progress_wrapper():
                 args = cmd
             
             try:
-                # Run esptool and capture output line by line
                 process = subprocess.Popen(
                     args,
                     stdout=subprocess.PIPE,
@@ -62,18 +61,28 @@ def setup_esptool_progress_wrapper():
                     if not line:
                         continue
                     
-                    # Check for progress patterns
+                    # esptool v5.0.0 Progress Pattern: "====>  "
                     is_progress = False
                     percent = None
                     
-                    # Pattern 1: "Writing at 0x... (50%)"
-                    if "Writing at" in line and "%" in line:
-                        match = re.search(r'\((\d+)%\)', line)
+                    # Pattern 1: esptool v5.0.0 Format "====>  "
+                    if "===>" in line or "====" in line:
+                        # Zähle die Anzahl der "=" Zeichen für Fortschritt
+                        equals_count = line.count('=')
+                        if equals_count > 0:
+                            # Schätze Fortschritt basierend auf Anzahl der "=" Zeichen
+                            # Typisch sind 20-50 "=" für 100%, anpassbar
+                            percent = min((equals_count * 100) // 50, 100)
+                            is_progress = True
+                    
+                    # Pattern 2: Fallback für andere Formate
+                    elif "Writing at" in line and "%" in line:
+                        match = re.search(r'\(\s*(\d+)\s*%\)', line)
                         if match:
                             percent = int(match.group(1))
                             is_progress = True
                     
-                    # Pattern 2: Direct percentage in progress messages
+                    # Pattern 3: Direkte Prozentangaben (falls vorhanden)
                     elif "%" in line and any(word in line.lower() 
                                            for word in ["writing", "reading", "verifying"]):
                         match = re.search(r'(\d+)%', line)
@@ -89,29 +98,36 @@ def setup_esptool_progress_wrapper():
                             operation = "📥 Reading"
                         elif "verifying" in line.lower():
                             operation = "✅ Verifying"
+                        elif "erasing" in line.lower():
+                            operation = "🗑️ Erasing"
                         
-                        # Create single-line progress bar
+                        # Erstelle einzeilige Progress Bar
                         filled_length = (percent * progress_width) // 100
                         bar = '█' * filled_length + '░' * (progress_width - filled_length)
                         progress_bar = f"{operation} [{bar}] {percent:3d}%"
                         
-                        # Use \r to overwrite the line
                         print(f"\r{progress_bar}", end='', flush=True)
                     
                     elif not is_progress:
-                        # Show important non-progress messages
+                        # Zeige wichtige Nachrichten
                         if any(keyword in line.lower() for keyword in 
-                               ["error", "warning", "connecting", "chip", "detected", 
-                                "hard resetting", "entering bootloader"]):
+                               ["chip", "mac", "crystal", "features", "connecting", 
+                                "detected", "stub running", "hard resetting"]):
                             if last_progress >= 0:
-                                print()  # New line after progress
+                                print()  # Neue Zeile nach Progress Bar
                             print(f"ℹ️  {line}")
+                            last_progress = -1
+                        elif any(keyword in line.lower() for keyword in 
+                                ["error", "warning", "failed"]):
+                            if last_progress >= 0:
+                                print()
+                            print(f"⚠️  {line}")
                             last_progress = -1
                 
                 process.wait()
                 
                 if last_progress >= 0:
-                    print()  # Final new line after progress bar
+                    print()  # Abschließende neue Zeile
                 
                 if process.returncode == 0:
                     print("✅ Upload completed successfully!")
@@ -128,6 +144,7 @@ def setup_esptool_progress_wrapper():
         return wrapper_action
     
     return create_upload_wrapper
+
 
 # Create progress wrapper
 upload_wrapper_factory = setup_esptool_progress_wrapper()
