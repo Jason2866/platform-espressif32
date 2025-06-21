@@ -51,7 +51,7 @@ class EsptoolProgressLogger:
                 def print(self, message="", *args, **kwargs):
                     message_str = str(message)
                     
-                    # Suppress esptool's own progress messages completely
+                    # Suppress esptool's own progress messages and create our own
                     if ("%" in message_str and 
                         any(word in message_str.lower() 
                             for word in ["writing", "reading", "verifying"])):
@@ -83,13 +83,19 @@ class EsptoolProgressLogger:
                     print(message_str, *args, **kwargs)
                 
                 def note(self, message):
-                    print(f"\n📝 {message}")
+                    if self.parent.last_progress >= 0:
+                        print()  # New line after progress bar
+                    print(f"📝 {message}")
                 
                 def warning(self, message):
-                    print(f"\n⚠️  WARNING: {message}")
+                    if self.parent.last_progress >= 0:
+                        print()  # New line after progress bar
+                    print(f"⚠️  WARNING: {message}")
                 
                 def error(self, message):
-                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
+                    if self.parent.last_progress >= 0:
+                        print()  # New line after progress bar
+                    print(f"❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
                     if finish and self.parent.last_progress >= 0:
@@ -148,9 +154,14 @@ def setup_esptool_progress_wrapper():
         def wrapper_action(target, source, env):
             print(f"🚀 Starting upload of {source[0]}...")
             
+            # Try to configure progress logger
+            if progress_logger.setup_esptool_logger():
+                print("✅ Progress bar logger activated")
+            else:
+                print("ℹ️  Using standard esptool output")
+            
             import subprocess
             import shlex
-            import os
             
             cmd = env.subst(original_cmd, target=target, source=source)
             
@@ -160,22 +171,12 @@ def setup_esptool_progress_wrapper():
                 args = cmd
             
             try:
-                if progress_logger.setup_esptool_logger():
-                    print("✅ Progress bar logger activated")
-                    # Suppress subprocess stdout to prevent duplicate progress
-                    result = subprocess.run(
-                        args,
-                        check=False
-                    )
-                else:
-                    print("ℹ️  Using standard esptool output")
-                    # Use standard output without custom logger
-                    result = subprocess.run(args, check=False)
-
+                result = subprocess.run(args, check=False)
+                
                 if result.returncode == 0:
-                    print("✅ Upload completed successfully!")
+                    print("\n✅ Upload completed successfully!")
                 else:
-                    print(f"❌ Upload failed (Exit Code: {result.returncode})")
+                    print(f"\n❌ Upload failed (Exit Code: {result.returncode})")
                     return result.returncode
                     
             except Exception as e:
@@ -430,6 +431,7 @@ env.Replace(
     # backward compatibility
     ESP32_FS_IMAGE_NAME=env.get(
         "ESP32_FS_IMAGE_NAME", env.get("ESP32_SPIFFS_IMAGE_NAME", filesystem)
+        "ESP32_
     ),
 
     ESP32_APP_OFFSET=env.get("INTEGRATION_EXTRA_DATA").get("application_offset"),
@@ -751,3 +753,4 @@ env.SConscript("sizedata.py", exports="env")
 #
 
 Default([target_buildprog, target_size])
+
