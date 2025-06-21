@@ -25,129 +25,89 @@ from SCons.Script import (
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
 
-def setup_esptool_progress_wrapper():
-    """Wrapper function for esptool commands with progress bar"""
+# Progress Bar Logger for esptool
+class EsptoolProgressLogger:
+    """Progress bar logger implementation for esptool output"""
     
-    def create_upload_wrapper(original_cmd):
-        """Creates a wrapper for upload commands"""
-        def wrapper_action(target, source, env):
-            print(f"🚀 Starting upload of {source[0]}...")
+    def __init__(self):
+        self.progress_width = 40
+        self.last_progress = -1
+    
+    def create_progress_bar(self, percent, prefix="", suffix=""):
+        """Creates an ASCII progress bar"""
+        filled_length = (percent * self.progress_width) // 100
+        bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
+        return f"{prefix} [{bar}] {percent:3d}%{' ' + suffix if suffix else ''}"
+    
+    def setup_esptool_logger(self):
+        """Configures the custom logger for esptool"""
+        try:
+            from esptool.logger import log, TemplateLogger
             
-            import subprocess
-            import shlex
-            import re
-            
-            cmd = env.subst(original_cmd, target=target, source=source)
-            
-            if isinstance(cmd, str):
-                args = shlex.split(cmd)
-            else:
-                args = cmd
-            
-            try:
-                process = subprocess.Popen(
-                    args,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    bufsize=1
-                )
+            class ProgressBarLogger(TemplateLogger):
+                def __init__(self, parent_logger):
+                    self.parent = parent_logger
                 
-                last_progress = -1
-                progress_width = 40
+                def print(self, *args, **kwargs):
+                    # Normal print - let esptool handle its output
+                    print(*args, **kwargs)
                 
-                for line in process.stdout:
-                    line = line.strip()
-                    if not line:
-                        continue
+                def note(self, message):
+                    print(f"📝 {message}")
+                
+                def warning(self, message):
+                    print(f"⚠️  WARNING: {message}")
+                
+                def error(self, message):
+                    print(f"❌ ERROR: {message}", file=sys.stderr)
+                
+                def stage(self, finish=False):
+                    # Let esptool handle its stage management
+                    pass
+                
+                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
+                    """Override esptool's progress_bar with our own single-line version"""
+                    if total_iters <= 0:
+                        return
                     
-                    # esptool v5.0.0 Progress Pattern: "====>  "
-                    is_progress = False
-                    percent = None
+                    percent = int(100 * cur_iter / total_iters)
                     
-                    # Pattern 1: esptool v5.0.0 Format "====>  "
-                    if "===>" in line or "====" in line:
-                        # Zähle die Anzahl der "=" Zeichen für Fortschritt
-                        equals_count = line.count('=')
-                        if equals_count > 0:
-                            # Schätze Fortschritt basierend auf Anzahl der "=" Zeichen
-                            # Typisch sind 20-50 "=" für 100%, anpassbar
-                            percent = min((equals_count * 100) // 50, 100)
-                            is_progress = True
-                    
-                    # Pattern 2: Fallback für andere Formate
-                    elif "Writing at" in line and "%" in line:
-                        match = re.search(r'\(\s*(\d+)\s*%\)', line)
-                        if match:
-                            percent = int(match.group(1))
-                            is_progress = True
-                    
-                    # Pattern 3: Direkte Prozentangaben (falls vorhanden)
-                    elif "%" in line and any(word in line.lower() 
-                                           for word in ["writing", "reading", "verifying"]):
-                        match = re.search(r'(\d+)%', line)
-                        if match:
-                            percent = int(match.group(1))
-                            is_progress = True
-                    
-                    if is_progress and percent is not None and percent != last_progress:
-                        last_progress = percent
+                    if percent != self.parent.last_progress:
+                        self.parent.last_progress = percent
                         
+                        # Determine operation based on prefix
                         operation = "📤 Writing"
-                        if "reading" in line.lower():
+                        if "read" in prefix.lower():
                             operation = "📥 Reading"
-                        elif "verifying" in line.lower():
+                        elif "verif" in prefix.lower():
                             operation = "✅ Verifying"
-                        elif "erasing" in line.lower():
+                        elif "eras" in prefix.lower():
                             operation = "🗑️ Erasing"
                         
-                        # Erstelle einzeilige Progress Bar
-                        filled_length = (percent * progress_width) // 100
-                        bar = '█' * filled_length + '░' * (progress_width - filled_length)
-                        progress_bar = f"{operation} [{bar}] {percent:3d}%"
+                        # Create our own progress bar
+                        progress_bar = self.parent.create_progress_bar(
+                            percent, prefix=operation, suffix=""
+                        )
                         
+                        # Single-line output with \r to overwrite
                         print(f"\r{progress_bar}", end='', flush=True)
-                    
-                    elif not is_progress:
-                        # Zeige wichtige Nachrichten
-                        if any(keyword in line.lower() for keyword in 
-                               ["chip", "mac", "crystal", "features", "connecting", 
-                                "detected", "stub running", "hard resetting"]):
-                            if last_progress >= 0:
-                                print()  # Neue Zeile nach Progress Bar
-                            print(f"ℹ️  {line}")
-                            last_progress = -1
-                        elif any(keyword in line.lower() for keyword in 
-                                ["error", "warning", "failed"]):
-                            if last_progress >= 0:
-                                print()
-                            print(f"⚠️  {line}")
-                            last_progress = -1
+                        
+                        # New line only at 100%
+                        if cur_iter >= total_iters:
+                            print()
                 
-                process.wait()
-                
-                if last_progress >= 0:
-                    print()  # Abschließende neue Zeile
-                
-                if process.returncode == 0:
-                    print("✅ Upload completed successfully!")
-                else:
-                    print(f"❌ Upload failed (Exit Code: {process.returncode})")
-                    return process.returncode
-                    
-            except Exception as e:
-                print(f"❌ Upload error: {e}")
-                return 1
-                
-            return 0
-        
-        return wrapper_action
-    
-    return create_upload_wrapper
+                def set_verbosity(self, verbosity):
+                    pass
+            
+            # Set the custom logger
+            log.set_logger(ProgressBarLogger(self))
+            return True
+            
+        except ImportError:
+            return False
 
-
-# Create progress wrapper
-upload_wrapper_factory = setup_esptool_progress_wrapper()
+# Global logger instance
+progress_logger = EsptoolProgressLogger()
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
@@ -175,6 +135,53 @@ def BeforeUpload(target, source, env):
 
     if upload_options.get("wait_for_upload_port", False):
         env.Replace(UPLOAD_PORT=env.WaitForNewSerialPort(before_ports))
+
+def setup_esptool_progress_wrapper():
+    """Wrapper function for esptool commands with progress bar"""
+    
+    def create_upload_wrapper(original_cmd):
+        """Creates a wrapper for upload commands"""
+        def wrapper_action(target, source, env):
+            print(f"🚀 Starting upload of {source[0]}...")
+            
+            # Configure the progress logger
+            if progress_logger.setup_esptool_logger():
+                print("✅ Progress bar logger activated")
+            else:
+                print("ℹ️  Using standard esptool output")
+            
+            import subprocess
+            import shlex
+            
+            cmd = env.subst(original_cmd, target=target, source=source)
+            
+            if isinstance(cmd, str):
+                args = shlex.split(cmd)
+            else:
+                args = cmd
+            
+            try:
+                # Run esptool normally - the logger handles the progress bar
+                result = subprocess.run(args, check=False)
+                
+                if result.returncode == 0:
+                    print("✅ Upload completed successfully!")
+                else:
+                    print(f"❌ Upload failed (Exit Code: {result.returncode})")
+                    return result.returncode
+                    
+            except Exception as e:
+                print(f"❌ Upload error: {e}")
+                return 1
+                
+            return 0
+        
+        return wrapper_action
+    
+    return create_upload_wrapper
+
+# Create progress wrapper
+upload_wrapper_factory = setup_esptool_progress_wrapper()
 
 def _get_board_memory_type(env):
     """Get board memory type configuration"""
