@@ -30,7 +30,14 @@ class EsptoolProgressLogger:
     """Progress bar logger implementation for esptool output"""
     
     def __init__(self):
-        self.last_was_progress = False
+        self.progress_width = 40
+        self.last_progress = -1
+    
+    def create_progress_bar(self, percent, prefix="", suffix=""):
+        """Creates an ASCII progress bar"""
+        filled_length = (percent * self.progress_width) // 100
+        bar = '█' * filled_length + '░' * (self.progress_width - filled_length)
+        return f"{prefix} [{bar}] {percent:3d}%{' ' + suffix if suffix else ''}"
     
     def setup_esptool_logger(self):
         """Configures the custom logger for esptool"""
@@ -44,50 +51,53 @@ class EsptoolProgressLogger:
                 def print(self, message="", *args, **kwargs):
                     message_str = str(message)
                     
-                    # Check if this is a progress message
-                    is_progress = ("%" in message_str and 
-                                 any(word in message_str.lower() 
-                                     for word in ["writing", "reading", "verifying"]))
+                    # Suppress esptool's own progress messages completely
+                    if ("%" in message_str and 
+                        any(word in message_str.lower() 
+                            for word in ["writing", "reading", "verifying"])):
+                        # Extract percentage and create our own progress bar
+                        try:
+                            import re
+                            match = re.search(r'(\d+)%', message_str)
+                            if match:
+                                percent = int(match.group(1))
+                                if percent != self.parent.last_progress:
+                                    self.parent.last_progress = percent
+                                    
+                                    operation = "📤 Writing"
+                                    if "reading" in message_str.lower():
+                                        operation = "📥 Reading"
+                                    elif "verifying" in message_str.lower():
+                                        operation = "✅ Verifying"
+                                    
+                                    # Create our own single-line progress bar
+                                    progress_bar = self.parent.create_progress_bar(
+                                        percent, prefix=operation
+                                    )
+                                    print(f"\r{progress_bar}", end='', flush=True)
+                                return  # Suppress esptool's original message
+                        except:
+                            pass
                     
-                    if is_progress:
-                        # Progress message - use \r to overwrite the line
-                        print(f"\r{message_str}", end='', flush=True)
-                        self.parent.last_was_progress = True
-                    else:
-                        # Non-progress message
-                        if self.parent.last_was_progress:
-                            # Add newline after progress bar before normal message
-                            print(f"\n{message_str}", *args, **kwargs)
-                        else:
-                            # Normal message
-                            print(message_str, *args, **kwargs)
-                        self.parent.last_was_progress = False
+                    # Allow other messages through normally
+                    print(message_str, *args, **kwargs)
                 
                 def note(self, message):
-                    if self.parent.last_was_progress:
-                        print()  # New line after progress
-                    print(f"📝 {message}")
-                    self.parent.last_was_progress = False
+                    print(f"\n📝 {message}")
                 
                 def warning(self, message):
-                    if self.parent.last_was_progress:
-                        print()  # New line after progress
-                    print(f"⚠️  WARNING: {message}")
-                    self.parent.last_was_progress = False
+                    print(f"\n⚠️  WARNING: {message}")
                 
                 def error(self, message):
-                    if self.parent.last_was_progress:
-                        print()  # New line after progress
-                    print(f"❌ ERROR: {message}", file=sys.stderr)
-                    self.parent.last_was_progress = False
+                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
-                    if finish and self.parent.last_was_progress:
-                        print()  # New line when finishing
-                        self.parent.last_was_progress = False
+                    if finish and self.parent.last_progress >= 0:
+                        print()  # New line when stage finishes
+                        self.parent.last_progress = -1
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    # This method might not be used by esptool, but implement it anyway
+                    # Disable esptool's built-in progress bar
                     pass
                 
                 def set_verbosity(self, verbosity):
