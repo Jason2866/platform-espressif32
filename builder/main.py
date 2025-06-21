@@ -196,13 +196,70 @@ def setup_esptool_progress_wrapper():
                     bufsize=1
                 )
                 
-                current_progress = 0
+                current_progress = -1  # Track last shown progress
+                total_bytes = 0
+                written_bytes = 0
+                
                 for line in process.stdout:
                     line = line.strip()
                     if line:
-                        # Search for progress indicators
-                        if "%" in line and any(word in line.lower() 
-                                             for word in ["writing", "reading", "verifying"]):
+                        # Look for esptool progress information
+                        if "Writing at" in line and "(" in line and ")" in line:
+                            try:
+                                # Extract current position and total from esptool output
+                                # Format: "Writing at 0x00001000... (X %)"
+                                import re
+                                match = re.search(r'\((\d+)\s*%\)', line)
+                                if match:
+                                    percent = int(match.group(1))
+                                    if percent != current_progress:
+                                        current_progress = percent
+                                        
+                                        operation = "📤 Writing"
+                                        if "reading" in line.lower():
+                                            operation = "📥 Reading"
+                                        elif "verifying" in line.lower():
+                                            operation = "✅ Verifying"
+                                        
+                                        # Use percentage directly from esptool
+                                        progress_bar = progress_logger.create_progress_bar(
+                                            percent, 100,
+                                            prefix=operation,
+                                            suffix=f"({percent}%)"
+                                        )
+                                        print(f"\r{progress_bar}", end="", flush=True)
+                                        continue
+                            except Exception as e:
+                                pass
+                        
+                        # Alternative: Look for byte-based progress
+                        elif "bytes" in line.lower() and "/" in line:
+                            try:
+                                # Format: "1234/5678 bytes written"
+                                import re
+                                match = re.search(r'(\d+)/(\d+)\s+bytes', line)
+                                if match:
+                                    current_bytes = int(match.group(1))
+                                    total_bytes = int(match.group(2))
+                                    
+                                    if total_bytes > 0:
+                                        percent = (current_bytes * 100) // total_bytes
+                                        if percent != current_progress:
+                                            current_progress = percent
+                                            
+                                            progress_bar = progress_logger.create_progress_bar(
+                                                current_bytes, total_bytes,
+                                                prefix="📤 Writing",
+                                                suffix=f"({percent}%)"
+                                            )
+                                            print(f"\r{progress_bar}", end="", flush=True)
+                                            continue
+                            except Exception as e:
+                                pass
+                        
+                        # Look for general percentage indicators
+                        elif "%" in line and any(word in line.lower() 
+                                               for word in ["writing", "reading", "verifying"]):
                             try:
                                 import re
                                 match = re.search(r'(\d+)%', line)
@@ -225,20 +282,21 @@ def setup_esptool_progress_wrapper():
                                         )
                                         print(f"\r{progress_bar}", end="", flush=True)
                                         continue
-                            except:
+                            except Exception as e:
                                 pass
                         
                         # Show important messages
                         if any(keyword in line.lower() for keyword in 
-                               ["error", "warning", "connecting", "chip", "detected"]):
-                            if current_progress > 0:
+                               ["error", "warning", "connecting", "chip", "detected", 
+                                "hard resetting", "entering bootloader", "stub running"]):
+                            if current_progress >= 0:
                                 print()  # New line after progress bar
                             print(f"ℹ️  {line}")
-                            current_progress = 0
+                            current_progress = -1
                 
                 process.wait()
                 
-                if current_progress > 0:
+                if current_progress >= 0:
                     print()  # Final new line
                 
                 if process.returncode == 0:
