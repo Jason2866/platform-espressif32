@@ -25,14 +25,17 @@ from SCons.Script import (
 from platformio.util import get_serial_ports
 from platformio.project.helpers import get_project_dir
 
+# Progress Bar Logger for esptool
 class EsptoolProgressLogger:
+    """Progress bar logger implementation for esptool output"""
+    
     def __init__(self):
         self.current_operation = ""
         self.progress_width = 40
         self.last_progress = -1
         
     def create_progress_bar(self, current, total, prefix="", suffix=""):
-        """Erstellt eine ASCII Progress Bar"""
+        """Creates an ASCII progress bar"""
         if total == 0:
             return f"{prefix} [{'█' * self.progress_width}] 100% {suffix}"
             
@@ -43,7 +46,7 @@ class EsptoolProgressLogger:
         return f"{prefix} [{bar}] {percent:3d}% {suffix}"
     
     def setup_esptool_logger(self):
-        """Konfiguriert den benutzerdefinierten Logger für esptool"""
+        """Configures the custom logger for esptool"""
         try:
             from esptool.logger import log, TemplateLogger
             
@@ -54,10 +57,10 @@ class EsptoolProgressLogger:
                     self.stage_active = False
                 
                 def print(self, message="", *args, **kwargs):
-                    # Filtere Progress-relevante Nachrichten
+                    # Filter progress-relevant messages
                     if "%" in str(message) and any(word in str(message).lower() 
                                                  for word in ["writing", "reading", "verifying"]):
-                        # Extrahiere Fortschritt aus der Nachricht
+                        # Extract progress from message
                         try:
                             import re
                             match = re.search(r'(\d+)%', str(message))
@@ -81,7 +84,7 @@ class EsptoolProgressLogger:
                         except:
                             pass
                     
-                    # Normale Ausgabe für nicht-Progress Nachrichten
+                    # Normal output for non-progress messages
                     if not self.stage_active:
                         print(message, *args, **kwargs)
                 
@@ -96,13 +99,13 @@ class EsptoolProgressLogger:
                 
                 def stage(self, finish=False):
                     if finish:
-                        print()  # Neue Zeile nach Progress Bar
+                        print()  # New line after progress bar
                         self.stage_active = False
                     else:
                         self.stage_active = True
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
-                    """Implementiert die Progress Bar Funktionalität"""
+                    """Implements the progress bar functionality"""
                     if total_iters == 0:
                         return
                         
@@ -114,20 +117,20 @@ class EsptoolProgressLogger:
                     print(f"\r{progress_bar}", end="", flush=True)
                     
                     if cur_iter >= total_iters:
-                        print()  # Neue Zeile am Ende
+                        print()  # New line at the end
                 
                 def set_verbosity(self, verbosity):
                     pass
             
-            # Setze den benutzerdefinierten Logger
+            # Set the custom logger
             log.set_logger(ProgressBarLogger(self))
             return True
             
         except ImportError:
-            # esptool Logger nicht verfügbar, verwende Standard-Ausgabe
+            # esptool logger not available, use standard output
             return False
 
-# Globale Logger-Instanz
+# Global logger instance
 progress_logger = EsptoolProgressLogger()
 
 env = DefaultEnvironment()
@@ -142,6 +145,7 @@ terminal_cp = locale.getpreferredencoding().lower()
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 def BeforeUpload(target, source, env):
+    """Prepare upload environment and detect upload port"""
     upload_options = {}
     if "BOARD" in env:
         upload_options = env.BoardConfig().get("upload", {})
@@ -157,33 +161,33 @@ def BeforeUpload(target, source, env):
         env.Replace(UPLOAD_PORT=env.WaitForNewSerialPort(before_ports))
 
 def setup_esptool_progress_wrapper():
-    """Wrapper-Funktion für esptool-Befehle mit Progress Bar"""
+    """Wrapper function for esptool commands with progress bar"""
     
     def create_upload_wrapper(original_cmd):
-        """Erstellt einen Wrapper für Upload-Befehle"""
+        """Creates a wrapper for upload commands"""
         def wrapper_action(target, source, env):
-            print(f"🚀 Starte Upload von {source[0]}...")
+            print(f"🚀 Starting upload of {source[0]}...")
             
-            # Versuche Progress Logger zu konfigurieren
+            # Try to configure progress logger
             if progress_logger.setup_esptool_logger():
-                print("✅ Progress Bar Logger aktiviert")
+                print("✅ Progress bar logger activated")
             else:
-                print("ℹ️  Standard esptool Ausgabe wird verwendet")
+                print("ℹ️  Standard esptool output will be used")
             
-            # Führe den ursprünglichen Befehl aus
+            # Execute the original command
             import subprocess
             import shlex
             
             cmd = env.subst(original_cmd, target=target, source=source)
             
-            # Teile den Befehl in Argumente auf
+            # Split command into arguments
             if isinstance(cmd, str):
                 args = shlex.split(cmd)
             else:
                 args = cmd
             
             try:
-                # Führe esptool mit Progress Monitoring aus
+                # Execute esptool with progress monitoring
                 process = subprocess.Popen(
                     args,
                     stdout=subprocess.PIPE,
@@ -196,7 +200,7 @@ def setup_esptool_progress_wrapper():
                 for line in process.stdout:
                     line = line.strip()
                     if line:
-                        # Suche nach Progress-Indikatoren
+                        # Search for progress indicators
                         if "%" in line and any(word in line.lower() 
                                              for word in ["writing", "reading", "verifying"]):
                             try:
@@ -224,27 +228,27 @@ def setup_esptool_progress_wrapper():
                             except:
                                 pass
                         
-                        # Zeige wichtige Nachrichten
+                        # Show important messages
                         if any(keyword in line.lower() for keyword in 
                                ["error", "warning", "connecting", "chip", "detected"]):
                             if current_progress > 0:
-                                print()  # Neue Zeile nach Progress Bar
+                                print()  # New line after progress bar
                             print(f"ℹ️  {line}")
                             current_progress = 0
                 
                 process.wait()
                 
                 if current_progress > 0:
-                    print()  # Abschließende neue Zeile
+                    print()  # Final new line
                 
                 if process.returncode == 0:
-                    print("✅ Upload erfolgreich abgeschlossen!")
+                    print("✅ Upload completed successfully!")
                 else:
-                    print(f"❌ Upload fehlgeschlagen (Exit Code: {process.returncode})")
+                    print(f"❌ Upload failed (Exit Code: {process.returncode})")
                     return process.returncode
                     
             except Exception as e:
-                print(f"❌ Fehler beim Upload: {e}")
+                print(f"❌ Upload error: {e}")
                 return 1
                 
             return 0
@@ -253,9 +257,11 @@ def setup_esptool_progress_wrapper():
     
     return create_upload_wrapper
 
+# Create progress wrapper
 upload_wrapper_factory = setup_esptool_progress_wrapper()
 
 def _get_board_memory_type(env):
+    """Get board memory type configuration"""
     board_config = env.BoardConfig()
     default_type = "%s_%s" % (
         board_config.get("build.flash_mode", "dio"),
@@ -272,14 +278,17 @@ def _get_board_memory_type(env):
     )
 
 def _normalize_frequency(frequency):
+    """Normalize frequency value to MHz format"""
     frequency = str(frequency).replace("L", "")
     return str(int(int(frequency) / 1000000)) + "m"
 
 def _get_board_f_flash(env):
+    """Get board flash frequency"""
     frequency = env.subst("$BOARD_F_FLASH")
     return _normalize_frequency(frequency)
 
 def _get_board_f_image(env):
+    """Get board image frequency"""
     board_config = env.BoardConfig()
     if "build.f_image" in board_config:
         return _normalize_frequency(board_config.get("build.f_image"))
@@ -287,6 +296,7 @@ def _get_board_f_image(env):
     return _get_board_f_flash(env)
 
 def _get_board_f_boot(env):
+    """Get board boot frequency"""
     board_config = env.BoardConfig()
     if "build.f_boot" in board_config:
         return _normalize_frequency(board_config.get("build.f_boot"))
@@ -294,6 +304,7 @@ def _get_board_f_boot(env):
     return _get_board_f_flash(env)
 
 def _get_board_flash_mode(env):
+    """Get board flash mode"""
     if _get_board_memory_type(env) in (
         "opi_opi",
         "opi_qspi",
@@ -306,6 +317,7 @@ def _get_board_flash_mode(env):
     return mode
 
 def _get_board_boot_mode(env):
+    """Get board boot mode"""
     memory_type = env.BoardConfig().get("build.arduino.memory_type", "")
     build_boot = env.BoardConfig().get("build.boot", "$BOARD_FLASH_MODE")
     if memory_type in ("opi_opi", "opi_qspi"):
@@ -313,6 +325,7 @@ def _get_board_boot_mode(env):
     return build_boot
 
 def _parse_size(value):
+    """Parse size value from string or integer"""
     if isinstance(value, int):
         return value
     elif value.isdigit():
@@ -325,6 +338,7 @@ def _parse_size(value):
     return value
 
 def _parse_partitions(env):
+    """Parse partition table CSV file"""
     partitions_csv = env.subst("$PARTITIONS_TABLE_CSV")
     if not isfile(partitions_csv):
         sys.stderr.write("Could not find the file %s with partitions "
@@ -334,7 +348,7 @@ def _parse_partitions(env):
 
     result = []
     next_offset = 0
-    app_offset = 0x10000 # default address for firmware
+    app_offset = 0x10000  # default address for firmware
     with open(partitions_csv) as fp:
         for line in fp.readlines():
             line = line.strip()
@@ -365,6 +379,7 @@ def _parse_partitions(env):
     return result
 
 def _update_max_upload_size(env):
+    """Update maximum upload size based on partition table"""
     if not env.get("PARTITIONS_TABLE_CSV"):
         return
     sizes = {
@@ -393,6 +408,7 @@ def _update_max_upload_size(env):
             break
 
 def _to_unix_slashes(path):
+    """Convert Windows path separators to Unix style"""
     return path.replace("\\", "/")
 
 #
@@ -400,6 +416,7 @@ def _to_unix_slashes(path):
 #
 
 def fetch_fs_size(env):
+    """Fetch filesystem size from partition table"""
     fs = None
     for p in _parse_partitions(env):
         if p["type"] == "data" and p["subtype"] in ("spiffs", "fat", "littlefs"):
@@ -423,6 +440,7 @@ def fetch_fs_size(env):
         env["FS_SIZE"] -= 4096
 
 def __fetch_fs_size(target, source, env):
+    """Wrapper function for fetch_fs_size"""
     fetch_fs_size(env)
     return (target, source)
 
@@ -492,6 +510,7 @@ env.Replace(
 # Check if lib_archive is set in platformio.ini and set it to False
 # if not found. This makes weak defs in framework and libs possible.
 def check_lib_archive_exists():
+    """Check if lib_archive option exists in platformio.ini"""
     for section in projectconfig.sections():
         if "lib_archive" in projectconfig.options(section):
             #print(f"lib_archive in [{section}] found with value: {projectconfig.get(section, 'lib_archive')}")
@@ -551,6 +570,7 @@ if not env.get("PIOFRAMEWORK"):
 
 
 def firmware_metrics(target, source, env):
+    """Display firmware size metrics"""
     if terminal_cp != "utf-8":
         print("Firmware metrics can not be shown. Set the terminal codepage to \"utf-8\"")
         return
@@ -589,7 +609,7 @@ if "nobuild" in COMMAND_LINE_TARGETS:
 else:
     target_elf = env.BuildProgram()
     silent_action = env.Action(firmware_metrics)
-    silent_action.strfunction = lambda target, source, env: '' # hack to silence scons command output
+    silent_action.strfunction = lambda target, source, env: ''  # hack to silence scons command output
     env.AddPostAction(target_elf, silent_action)
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         target_firm = env.DataToBin(
@@ -699,6 +719,7 @@ elif upload_protocol == "esptool":
             UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS $SOURCE',
         )
 
+    # Use progress bar wrapper for esptool upload actions
     upload_actions = [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.Action(upload_wrapper_factory("$UPLOADCMD"), "📤 Uploading with Progress Bar")
