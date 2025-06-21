@@ -30,7 +30,7 @@ class EsptoolProgressLogger:
     """Progress bar logger implementation for esptool output"""
     
     def __init__(self):
-        pass
+        self.last_line_length = 0
     
     def setup_esptool_logger(self):
         """Configures the custom logger for esptool"""
@@ -40,23 +40,59 @@ class EsptoolProgressLogger:
             class ProgressBarLogger(TemplateLogger):
                 def __init__(self, parent_logger):
                     self.parent = parent_logger
+                    self.in_progress = False
                 
                 def print(self, message="", *args, **kwargs):
-                    print(message, *args, **kwargs)
+                    # Check if this is a progress message
+                    message_str = str(message)
+                    
+                    # Handle progress bar messages specially
+                    if "%" in message_str and any(word in message_str.lower() 
+                                                for word in ["writing", "reading", "verifying"]):
+                        # This is a progress message - use carriage return
+                        self.in_progress = True
+                        # Clear the line first, then print the progress
+                        clear_line = '\r' + ' ' * self.parent.last_line_length + '\r'
+                        print(clear_line, end='', flush=True)
+                        print(f"\r{message_str}", end='', flush=True)
+                        self.parent.last_line_length = len(message_str)
+                        return
+                    else:
+                        # Regular message - ensure we're on a new line if we were showing progress
+                        if self.in_progress:
+                            print()  # New line to end progress bar
+                            self.in_progress = False
+                            self.parent.last_line_length = 0
+                        
+                        # Normal print for non-progress messages
+                        print(message, *args, **kwargs)
                 
                 def note(self, message):
-                    print(f"\n📝 {message}")
+                    if self.in_progress:
+                        print()  # New line before note
+                        self.in_progress = False
+                    print(f"📝 {message}")
                 
                 def warning(self, message):
-                    print(f"\n⚠️  WARNING: {message}")
+                    if self.in_progress:
+                        print()  # New line before warning
+                        self.in_progress = False
+                    print(f"⚠️  WARNING: {message}")
                 
                 def error(self, message):
-                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
+                    if self.in_progress:
+                        print()  # New line before error
+                        self.in_progress = False
+                    print(f"❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
-                    pass
+                    if finish and self.in_progress:
+                        print()  # New line when stage finishes
+                        self.in_progress = False
+                        self.parent.last_line_length = 0
                 
                 def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
+                    # Let esptool handle its own progress bar
                     pass
                 
                 def set_verbosity(self, verbosity):
@@ -69,6 +105,7 @@ class EsptoolProgressLogger:
         except ImportError:
             # esptool logger not available, use standard output
             return False
+
 
 # Global logger instance
 progress_logger = EsptoolProgressLogger()
