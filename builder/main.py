@@ -15,6 +15,8 @@
 import os
 import re
 import sys
+import subprocess
+import shlex
 import locale
 from os.path import isfile, join
 
@@ -95,7 +97,7 @@ class EsptoolProgressLogger:
                     """
                     pass
                 
-                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=30):
+                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=40):
                     """Handle progress bar display
                     
                     Args:
@@ -186,11 +188,7 @@ def setup_esptool_progress_wrapper():
             Returns:
                 int: Return code (0 for success, non-zero for failure)
             """
-            
-            import subprocess
-            import shlex
-            import sys
-            
+
             cmd = env.subst(original_cmd, target=target, source=source)
             args = shlex.split(cmd) if isinstance(cmd, str) else cmd
             
