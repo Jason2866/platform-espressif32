@@ -186,7 +186,6 @@ def setup_esptool_progress_wrapper():
             Returns:
                 int: Return code (0 for success, non-zero for failure)
             """
-            print(f"🚀 Starting upload of {source[0]}...")
             
             import subprocess
             import shlex
@@ -204,8 +203,6 @@ def setup_esptool_progress_wrapper():
                     bufsize=1
                 )
                 
-                print("📤 Starting upload process...")
-                
                 for line in process.stdout:
                     line_stripped = line.strip()
                     if not line_stripped:
@@ -216,15 +213,14 @@ def setup_esptool_progress_wrapper():
                         ("Writing" in line_stripped or "Reading" in line_stripped or 
                          "Uploading" in line_stripped or "Erasing" in line_stripped)):
                         # This is a progress bar - display it in one line
-                        print(f"📤 {line_stripped}", end='\r')
+                        print(f"{line_stripped}", end='\r')
                         # Move cursor back up after progress bar output
                         sys.stdout.write("\033[F")
                     else:
                         # Normal output - new line
                         if line_stripped:
-                            print(f"📤 {line_stripped[:120]}")
+                            print(f"{line_stripped}")
                 
-                print("\n✅ Upload process completed, waiting for process to finish...")
                 process.wait()
                 
                 if process.returncode == 0:
@@ -804,7 +800,7 @@ elif upload_protocol == "esptool":
     # Use progress bar wrapper for esptool upload actions
     upload_actions = [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
-        env.Action(upload_wrapper_factory("$UPLOADCMD"), "📤 Uploading with Progress Bar")
+        env.VerboseAction(upload_wrapper_factory("$UPLOADCMD"), "🚀 Uploading $SOURCE")
     ]
 
 elif upload_protocol in debug_tools:
@@ -859,8 +855,7 @@ else:
 
 env.AddPlatformTarget("upload", target_firm, upload_actions, "Upload")
 env.AddPlatformTarget("uploadfs", target_firm, upload_actions, "Upload Filesystem Image")
-env.AddPlatformTarget(
-    "uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
+env.AddPlatformTarget("uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
 
 #
 # Target: Erase Flash and Upload
@@ -872,7 +867,7 @@ env.AddPlatformTarget(
     [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
-        env.Action(upload_wrapper_factory("$UPLOADCMD"), "📤 Uploading with Progress Bar")
+        env.VerboseAction(upload_wrapper_factory("$UPLOADCMD"), "🚀 Uploading $SOURCE")
     ],
     "Erase Flash and Upload",
 )
