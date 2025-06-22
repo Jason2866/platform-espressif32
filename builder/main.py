@@ -213,7 +213,6 @@ def setup_esptool_progress_wrapper():
                                   "Uploading" in line_stripped or "Erasing" in line_stripped))
                     
                     if is_progress:
-                        # Find and replace only the progress bar part (between [ ])
                         progress_line = line_stripped
 
                         # Use regex to find progress bar pattern [====> ] and replace characters
