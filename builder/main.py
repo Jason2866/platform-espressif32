@@ -217,13 +217,12 @@ def setup_esptool_progress_wrapper():
                          "Uploading" in line_stripped or "Erasing" in line_stripped)):
                         # This is a progress bar - display it in one line
                         print(f"📤 {line_stripped}", end='\r')
-                        sys.stdout.flush()
+                        # Move cursor back up after progress bar output
+                        sys.stdout.write("\033[F")
                     else:
-                        # Normal output - new line after progress bar
+                        # Normal output - new line
                         if line_stripped:
-                            # Clear the progress bar line if present
-                            print(f"\n📤 {line_stripped[:120]}")
-                            sys.stdout.flush()
+                            print(f"📤 {line_stripped[:120]}")
                 
                 print("\n✅ Upload process completed, waiting for process to finish...")
                 process.wait()
