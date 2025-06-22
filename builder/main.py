@@ -178,20 +178,19 @@ def setup_esptool_progress_wrapper():
             function: Wrapper action function
         """
         def wrapper_action(target, source, env):
-            """Execute upload command with progress bar handling
-            
+            """Execute upload command with custom progress bar handling
+    
             Args:
                 target: SCons target
                 source: SCons source
                 env: SCons environment
-                
+        
             Returns:
                 int: Return code (0 for success, non-zero for failure)
             """
 
             cmd = env.subst(original_cmd, target=target, source=source)
             args = shlex.split(cmd) if isinstance(cmd, str) else cmd
-            
             try:
                 process = subprocess.Popen(
                     args,
@@ -200,38 +199,44 @@ def setup_esptool_progress_wrapper():
                     universal_newlines=True,
                     bufsize=1
                 )
-                
+
                 for line in process.stdout:
                     line_stripped = line.strip()
                     if not line_stripped:
                         continue
-                    
+            
+                    # Entferne "===>" Prefix falls vorhanden
+                    if line_stripped.startswith("=> "):
+                        line_stripped = line_stripped[2:]
+            
                     # Detect esptool progress bar lines
                     if ("%" in line_stripped and 
                         ("Writing" in line_stripped or "Reading" in line_stripped or 
                          "Uploading" in line_stripped or "Erasing" in line_stripped)):
-                        # This is a progress bar - display it in one line
+                        # Custom progress bar mit █ und ░
                         print(f"{line_stripped}", end='\r')
-                        # Move cursor back up after progress bar output
+                        sys.stdout.flush()
                         sys.stdout.write("\033[F")
                     else:
-                        # Normal output - new line
+                        # Normal output
                         if line_stripped:
                             print(f"{line_stripped}")
-                
+                            sys.stdout.flush()
+        
+                print("\n✅ Upload process completed, waiting for process to finish...")
                 process.wait()
-                
+        
                 if process.returncode == 0:
                     print("✅ Upload completed successfully!")
                     return 0
                 else:
                     print(f"❌ Upload failed (Exit Code: {process.returncode})")
                     return process.returncode
-                    
+            
             except Exception as e:
                 print(f"❌ Upload error: {e}")
                 return 1
-        
+
         return wrapper_action
     
     return create_upload_wrapper
