@@ -206,18 +206,15 @@ def setup_esptool_progress_wrapper():
                     line_stripped = line.strip()
                     if not line_stripped:
                         continue
-
-                    # Remove unwanted prefixes
-                    line_clean = re.sub(r'^[=>\s*]+\s*', '', line_stripped)
                     
                     # Detect esptool progress bar lines
-                    is_progress = ("%" in line_clean and 
-                                 ("Writing" in line_clean or "Reading" in line_clean or 
-                                  "Uploading" in line_clean or "Erasing" in line_clean))
+                    is_progress = ("%" in line_stripped and 
+                                 ("Writing" in line_stripped or "Reading" in line_stripped or 
+                                  "Uploading" in line_stripped or "Erasing" in line_stripped))
                     
                     if is_progress:
                         # Find and replace only the progress bar part (between [ ])
-                        progress_line = line_clean
+                        progress_line = line_stripped
 
                         # Use regex to find progress bar pattern [====> ] and replace characters
                         def replace_progress_chars(match):
@@ -237,7 +234,7 @@ def setup_esptool_progress_wrapper():
                         last_was_progress = True
                     else:
                         # Normal output
-                        print(f"{line_clean}")
+                        print(f"{line_stripped}")
                         last_was_progress = False
                 
                 if last_was_progress:
