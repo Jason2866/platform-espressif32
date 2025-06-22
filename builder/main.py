@@ -162,7 +162,7 @@ def BeforeUpload(target, source, env):
         env.Replace(UPLOAD_PORT=env.WaitForNewSerialPort(before_ports))
 
 def setup_esptool_progress_wrapper():
-    """Setup wrapper function for esptool commands with progress bar
+    """Setup wrapper function for esptool commands with custom progress bar
     
     Returns:
         function: Factory function for creating upload wrappers
@@ -200,25 +200,47 @@ def setup_esptool_progress_wrapper():
                     universal_newlines=True,
                     bufsize=1
                 )
+
+                last_was_progress = False
                 
                 for line in process.stdout:
                     line_stripped = line.strip()
                     if not line_stripped:
                         continue
                     
+                    # Remove unwanted prefixes
+                    line_clean = re.sub(r'^[=>\s*]+\s*', '', line_stripped)
+                    
                     # Detect esptool progress bar lines
-                    if ("%" in line_stripped and 
-                        ("Writing" in line_stripped or "Reading" in line_stripped or 
-                         "Uploading" in line_stripped or "Erasing" in line_stripped)):
-                        # This is a progress bar - display it in one line
-                        print(f"{line_stripped}", end='\r')
-                        # Move cursor back up after progress bar output
+                    is_progress = ("%" in line_clean and 
+                                 ("Writing" in line_clean or "Reading" in line_clean or 
+                                  "Uploading" in line_clean or "Erasing" in line_clean or
+                                  "Connecting" in line_clean))
+                    
+                    if is_progress:
+                        # Replace progress bar characters
+                        progress_line = line_clean
+                        # Replace esptool progress characters with custom ones
+                        progress_line = progress_line.replace('=', '█')
+                        progress_line = progress_line.replace('>', '█')
+                        progress_line = progress_line.replace(' ', '░')
+                        
+                        # Display progress bar in one line
+                        print(f"\r📤 {progress_line}", end='\r')
                         sys.stdout.write("\033[F")
+                        sys.stdout.flush()
+                        last_was_progress = True
                     else:
-                        # Normal output - new line
-                        if line_stripped:
-                            print(f"{line_stripped}")
+                        # Normal output
+                        if last_was_progress:
+                            print()  # New line after progress bar
+                        print(f"📤 {line_clean}")
+                        sys.stdout.flush()
+                        last_was_progress = False
                 
+                if last_was_progress:
+                    print()  # Final newline if last output was progress
+
                 process.wait()
                 
                 if process.returncode == 0:
