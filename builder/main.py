@@ -15,6 +15,8 @@
 import os
 import re
 import sys
+import subprocess
+import shlex
 import locale
 from os.path import isfile, join
 
@@ -32,6 +34,96 @@ class EsptoolProgressLogger:
     def __init__(self):
         """Initialize the progress logger"""
         pass
+    
+    def setup_esptool_logger(self):
+        """Configure the custom logger for esptool
+        
+        Returns:
+            bool: True if logger was successfully configured, False otherwise
+        """
+        try:
+            from esptool.logger import log, TemplateLogger
+            
+            class ProgressBarLogger(TemplateLogger):
+                """Custom logger class for esptool progress bar handling"""
+                
+                def __init__(self, parent_logger):
+                    """Initialize the progress bar logger
+                    
+                    Args:
+                        parent_logger: Parent logger instance
+                    """
+                    self.parent = parent_logger
+                
+                def print(self, message="", *args, **kwargs):
+                    """Print a message to stdout
+                    
+                    Args:
+                        message (str): Message to print
+                        *args: Additional arguments
+                        **kwargs: Additional keyword arguments
+                    """
+                    print(message, *args, **kwargs)
+                
+                def note(self, message):
+                    """Print a note message
+                    
+                    Args:
+                        message (str): Note message to print
+                    """
+                    print(f"\n📝 {message}")
+                
+                def warning(self, message):
+                    """Print a warning message
+                    
+                    Args:
+                        message (str): Warning message to print
+                    """
+                    print(f"\n⚠️  WARNING: {message}")
+                
+                def error(self, message):
+                    """Print an error message
+                    
+                    Args:
+                        message (str): Error message to print
+                    """
+                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
+                
+                def stage(self, finish=False):
+                    """Handle stage transitions
+                    
+                    Args:
+                        finish (bool): Whether this is the final stage
+                    """
+                    pass
+                
+                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=40):
+                    """Handle progress bar display
+                    
+                    Args:
+                        cur_iter (int): Current iteration
+                        total_iters (int): Total iterations
+                        prefix (str): Prefix text for progress bar
+                        suffix (str): Suffix text for progress bar
+                        bar_length (int): Length of the progress bar
+                    """
+                    pass
+                
+                def set_verbosity(self, verbosity):
+                    """Set the verbosity level
+                    
+                    Args:
+                        verbosity (int): Verbosity level
+                    """
+                    pass
+            
+            # Set the custom logger
+            log.set_logger(ProgressBarLogger(self))
+            return True
+            
+        except ImportError:
+            # esptool logger not available, use standard output
+            return False
 
 # Global logger instance
 progress_logger = EsptoolProgressLogger()
@@ -70,7 +162,7 @@ def BeforeUpload(target, source, env):
         env.Replace(UPLOAD_PORT=env.WaitForNewSerialPort(before_ports))
 
 def setup_esptool_progress_wrapper():
-    """Setup wrapper function for esptool commands with custom progress bar
+    """Setup wrapper function for esptool commands with progress bar
     
     Returns:
         function: Factory function for creating upload wrappers
@@ -96,13 +188,7 @@ def setup_esptool_progress_wrapper():
             Returns:
                 int: Return code (0 for success, non-zero for failure)
             """
-            print(f"🚀 Starting upload of {source[0]}...")
-            
-            import subprocess
-            import shlex
-            import sys
-            import re
-            
+
             cmd = env.subst(original_cmd, target=target, source=source)
             args = shlex.split(cmd) if isinstance(cmd, str) else cmd
             
@@ -115,47 +201,24 @@ def setup_esptool_progress_wrapper():
                     bufsize=1
                 )
                 
-                print("📤 Starting upload process...")
-                last_was_progress = False
-                
                 for line in process.stdout:
                     line_stripped = line.strip()
                     if not line_stripped:
                         continue
                     
-                    # Remove unwanted prefixes
-                    line_clean = re.sub(r'^[=>\s*]+\s*', '', line_stripped)
-                    
                     # Detect esptool progress bar lines
-                    is_progress = ("%" in line_clean and 
-                                 ("Writing" in line_clean or "Reading" in line_clean or 
-                                  "Uploading" in line_clean or "Erasing" in line_clean or
-                                  "Connecting" in line_clean))
-                    
-                    if is_progress:
-                        # Replace progress bar characters
-                        progress_line = line_clean
-                        # Replace esptool progress characters with custom ones
-                        progress_line = progress_line.replace('=', '█')
-                        progress_line = progress_line.replace('>', '█')
-                        progress_line = progress_line.replace(' ', '░')
-                        
-                        # Display progress bar in one line
-                        print(f"\r📤 {progress_line}", end='')
-                        sys.stdout.flush()
-                        last_was_progress = True
+                    if ("%" in line_stripped and 
+                        ("Writing" in line_stripped or "Reading" in line_stripped or 
+                         "Uploading" in line_stripped or "Erasing" in line_stripped)):
+                        # This is a progress bar - display it in one line
+                        print(f"{line_stripped}", end='\r')
+                        # Move cursor back up after progress bar output
+                        sys.stdout.write("\033[F")
                     else:
-                        # Normal output
-                        if last_was_progress:
-                            print()  # New line after progress bar
-                        print(f"📤 {line_clean[:120]}")
-                        sys.stdout.flush()
-                        last_was_progress = False
+                        # Normal output - new line
+                        if line_stripped:
+                            print(f"{line_stripped}")
                 
-                if last_was_progress:
-                    print()  # Final newline if last output was progress
-                
-                print("✅ Upload process completed, waiting for process to finish...")
                 process.wait()
                 
                 if process.returncode == 0:
@@ -735,7 +798,7 @@ elif upload_protocol == "esptool":
     # Use progress bar wrapper for esptool upload actions
     upload_actions = [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
-        env.Action(upload_wrapper_factory("$UPLOADCMD"), "📤 Uploading with Custom Progress Bar")
+        env.VerboseAction(upload_wrapper_factory("$UPLOADCMD"), "🚀 Uploading $SOURCE")
     ]
 
 elif upload_protocol in debug_tools:
@@ -790,8 +853,7 @@ else:
 
 env.AddPlatformTarget("upload", target_firm, upload_actions, "Upload")
 env.AddPlatformTarget("uploadfs", target_firm, upload_actions, "Upload Filesystem Image")
-env.AddPlatformTarget(
-    "uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
+env.AddPlatformTarget("uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
 
 #
 # Target: Erase Flash and Upload
@@ -803,7 +865,7 @@ env.AddPlatformTarget(
     [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
-        env.Action(upload_wrapper_factory("$UPLOADCMD"), "📤 Uploading with Custom Progress Bar")
+        env.VerboseAction(upload_wrapper_factory("$UPLOADCMD"), "🚀 Uploading $SOURCE")
     ],
     "Erase Flash and Upload",
 )
