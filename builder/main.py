@@ -31,59 +31,7 @@ class EsptoolProgressLogger:
     
     def __init__(self):
         """Initialize the progress logger"""
-        self._patched = False
-    
-    def patch_esptool_logger_class(self):
-        """Directly modify the esptool logger class for custom progress bar
-        
-        Returns:
-            bool: True if logger class was successfully patched, False otherwise
-        """
-        if self._patched:
-            return True
-            
-        try:
-            from esptool import logger
-            
-            def custom_progress_bar(self, cur_iter: int, total_iters: int, prefix: str = "", suffix: str = "", bar_length: int = 30):
-                """Custom progress bar with █ (completed) and ░ (remaining) characters
-                
-                Args:
-                    cur_iter (int): Current iteration
-                    total_iters (int): Total iterations
-                    prefix (str): Prefix text for progress bar
-                    suffix (str): Suffix text for progress bar
-                    bar_length (int): Length of the progress bar
-                """
-                if total_iters == 0:
-                    return
-                
-                filled = int(bar_length * cur_iter // total_iters)
-                
-                # Use █ for completed and ░ for remaining instead of "=" and " "
-                if filled == bar_length:
-                    bar = "█" * bar_length
-                elif filled == 0:
-                    bar = "░" * bar_length
-                else:
-                    bar = f"{'█' * filled}{'░' * (bar_length - filled)}"
-                
-                percent = f"{100 * (cur_iter / float(total_iters)):.1f}"
-                
-                # Use custom prefix instead of standard format
-                self.print(
-                    f"\r{self.ansi_clear}📤 {prefix}[{bar}] {percent:>5}%{suffix} ",
-                    end="\n" if not self._smart_features or cur_iter == total_iters else "",
-                    flush=True,
-                )
-            
-            # Replace the class method - affects all instances globally
-            logger.TemplateLogger.progress_bar = custom_progress_bar
-            self._patched = True
-            return True
-            
-        except ImportError:
-            return False
+        pass
 
 # Global logger instance
 progress_logger = EsptoolProgressLogger()
@@ -129,7 +77,7 @@ def setup_esptool_progress_wrapper():
     """
     
     def create_upload_wrapper(original_cmd):
-        """Create a wrapper for upload commands with custom progress bar
+        """Create a wrapper for upload commands with real-time progress display
         
         Args:
             original_cmd (str): Original upload command
@@ -138,7 +86,7 @@ def setup_esptool_progress_wrapper():
             function: Wrapper action function
         """
         def wrapper_action(target, source, env):
-            """Execute upload command with custom progress bar handling
+            """Execute upload command with progress bar handling
             
             Args:
                 target: SCons target
@@ -150,27 +98,73 @@ def setup_esptool_progress_wrapper():
             """
             print(f"🚀 Starting upload of {source[0]}...")
             
-            # Patch esptool logger class once
-            if progress_logger.patch_esptool_logger_class():
-                print("✅ Custom progress bar class activated")
-            
             import subprocess
             import shlex
+            import sys
+            import re
             
             cmd = env.subst(original_cmd, target=target, source=source)
             args = shlex.split(cmd) if isinstance(cmd, str) else cmd
             
             try:
-                # Simple subprocess call - esptool automatically uses patched class
-                result = subprocess.run(args, check=False)
+                process = subprocess.Popen(
+                    args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1
+                )
                 
-                if result.returncode == 0:
+                print("📤 Starting upload process...")
+                last_was_progress = False
+                
+                for line in process.stdout:
+                    line_stripped = line.strip()
+                    if not line_stripped:
+                        continue
+                    
+                    # Remove unwanted prefixes
+                    line_clean = re.sub(r'^[=>\s*]+\s*', '', line_stripped)
+                    
+                    # Detect esptool progress bar lines
+                    is_progress = ("%" in line_clean and 
+                                 ("Writing" in line_clean or "Reading" in line_clean or 
+                                  "Uploading" in line_clean or "Erasing" in line_clean or
+                                  "Connecting" in line_clean))
+                    
+                    if is_progress:
+                        # Replace progress bar characters
+                        progress_line = line_clean
+                        # Replace esptool progress characters with custom ones
+                        progress_line = progress_line.replace('=', '█')
+                        progress_line = progress_line.replace('>', '█')
+                        progress_line = progress_line.replace(' ', '░')
+                        
+                        # Display progress bar in one line
+                        print(f"\r📤 {progress_line}", end='')
+                        sys.stdout.flush()
+                        last_was_progress = True
+                    else:
+                        # Normal output
+                        if last_was_progress:
+                            print()  # New line after progress bar
+                        print(f"📤 {line_clean[:120]}")
+                        sys.stdout.flush()
+                        last_was_progress = False
+                
+                if last_was_progress:
+                    print()  # Final newline if last output was progress
+                
+                print("✅ Upload process completed, waiting for process to finish...")
+                process.wait()
+                
+                if process.returncode == 0:
                     print("✅ Upload completed successfully!")
+                    return 0
                 else:
-                    print(f"❌ Upload failed (Exit Code: {result.returncode})")
-                
-                return result.returncode
-                
+                    print(f"❌ Upload failed (Exit Code: {process.returncode})")
+                    return process.returncode
+                    
             except Exception as e:
                 print(f"❌ Upload error: {e}")
                 return 1
@@ -839,4 +833,3 @@ env.SConscript("sizedata.py", exports="env")
 #
 
 Default([target_buildprog, target_size])
-
