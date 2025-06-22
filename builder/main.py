@@ -179,19 +179,19 @@ def setup_esptool_progress_wrapper():
         """
         def wrapper_action(target, source, env):
             """Execute upload command with progress bar handling
-            
+
             Args:
                 target: SCons target
                 source: SCons source
                 env: SCons environment
-                
+
             Returns:
                 int: Return code (0 for success, non-zero for failure)
             """
 
             cmd = env.subst(original_cmd, target=target, source=source)
             args = shlex.split(cmd) if isinstance(cmd, str) else cmd
-            
+
             try:
                 process = subprocess.Popen(
                     args,
@@ -200,27 +200,25 @@ def setup_esptool_progress_wrapper():
                     universal_newlines=True,
                     bufsize=1
                 )
-
                 last_was_progress = False
-                
+
                 for line in process.stdout:
                     line_stripped = line.strip()
                     if not line_stripped:
                         continue
-                    
+
                     # Remove unwanted prefixes
                     line_clean = re.sub(r'^[=>\s*]+\s*', '', line_stripped)
                     
                     # Detect esptool progress bar lines
                     is_progress = ("%" in line_clean and 
                                  ("Writing" in line_clean or "Reading" in line_clean or 
-                                  "Uploading" in line_clean or "Erasing" in line_clean or
-                                  "Connecting" in line_clean))
+                                  "Uploading" in line_clean or "Erasing" in line_clean))
                     
                     if is_progress:
                         # Find and replace only the progress bar part (between [ ])
                         progress_line = line_clean
-                
+
                         # Use regex to find progress bar pattern [====> ] and replace characters
                         def replace_progress_chars(match):
                             bar_content = match.group(1)
@@ -229,39 +227,37 @@ def setup_esptool_progress_wrapper():
                             bar_content = bar_content.replace('>', '█')
                             bar_content = bar_content.replace(' ', '░')
                             return f"[{bar_content}]"
-                
+
                         # Apply replacement only to content within square brackets
                         progress_line = re.sub(r'\[([=>\s]*)\]', replace_progress_chars, progress_line)
-                        
+
                         # Display progress bar in one line
-                        print(f"📤 {progress_line}", end='\r')
+                        print(f"{progress_line}", end='\r')
                         sys.stdout.write("\033[F")
                         last_was_progress = True
                     else:
                         # Normal output
-                        if last_was_progress:
-                            print()  # New line after progress bar
-                        print(f"📤 {line_clean}")
+                        print(f"{line_clean}")
                         last_was_progress = False
                 
                 if last_was_progress:
                     print()  # Final newline if last output was progress
 
                 process.wait()
-                
+
                 if process.returncode == 0:
                     print("✅ Upload completed successfully!")
                     return 0
                 else:
                     print(f"❌ Upload failed (Exit Code: {process.returncode})")
                     return process.returncode
-                    
+
             except Exception as e:
                 print(f"❌ Upload error: {e}")
                 return 1
-        
+
         return wrapper_action
-    
+
     return create_upload_wrapper
 
 # Create progress wrapper
