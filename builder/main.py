@@ -226,7 +226,7 @@ def setup_esptool_progress_wrapper():
                         progress_line = progress_line.replace(' ', '░')
                         
                         # Display progress bar in one line
-                        print(f"\r📤 {progress_line}", end='\r')
+                        print(f"📤 {progress_line}", end='\r')
                         sys.stdout.write("\033[F")
                         last_was_progress = True
                     else:
