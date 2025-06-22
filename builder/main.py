@@ -235,9 +235,6 @@ def setup_esptool_progress_wrapper():
                         # Normal output
                         print(f"{line_stripped}")
                         last_was_progress = False
-                
-                if last_was_progress:
-                    print()  # Final newline if last output was progress
 
                 process.wait()
 
