@@ -228,14 +228,12 @@ def setup_esptool_progress_wrapper():
                         # Display progress bar in one line
                         print(f"\r📤 {progress_line}", end='\r')
                         sys.stdout.write("\033[F")
-                        sys.stdout.flush()
                         last_was_progress = True
                     else:
                         # Normal output
                         if last_was_progress:
                             print()  # New line after progress bar
                         print(f"📤 {line_clean}")
-                        sys.stdout.flush()
                         last_was_progress = False
                 
                 if last_was_progress:
