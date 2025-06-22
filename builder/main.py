@@ -36,7 +36,7 @@ class EsptoolProgressLogger:
         pass
     
     def setup_esptool_logger(self):
-        """Configure the custom logger for esptool
+        """Configure the custom logger for esptool with custom progress bar characters
         
         Returns:
             bool: True if logger was successfully configured, False otherwise
@@ -45,7 +45,7 @@ class EsptoolProgressLogger:
             from esptool.logger import log, TemplateLogger
             
             class ProgressBarLogger(TemplateLogger):
-                """Custom logger class for esptool progress bar handling"""
+                """Custom logger class for esptool progress bar handling with custom characters"""
                 
                 def __init__(self, parent_logger):
                     """Initialize the progress bar logger
@@ -55,14 +55,41 @@ class EsptoolProgressLogger:
                     """
                     self.parent = parent_logger
                 
+                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=40):
+                    """Custom progress bar with █ (completed) and ░ (remaining) characters
+                    
+                    Args:
+                        cur_iter (int): Current iteration
+                        total_iters (int): Total iterations
+                        prefix (str): Prefix text for progress bar
+                        suffix (str): Suffix text for progress bar
+                        bar_length (int): Length of the progress bar
+                    """
+                    if total_iters == 0:
+                        return
+                    
+                    percent = (cur_iter / total_iters) * 100
+                    filled_length = int(bar_length * cur_iter // total_iters)
+
+                    bar = '█' * filled_length + '░' * (bar_length - filled_length)
+
+                    print(f"\r{prefix} |{bar}| {percent:.1f}% {suffix}", end='')
+                    sys.stdout.flush()
+                    
+                    # Neue Zeile am Ende
+                    if cur_iter == total_iters:
+                        print()
+                
                 def print(self, message="", *args, **kwargs):
-                    """Print a message to stdout
+                    """Print a message to stdout without ====> prefix
                     
                     Args:
                         message (str): Message to print
                         *args: Additional arguments
                         **kwargs: Additional keyword arguments
                     """
+                    if isinstance(message, str):
+                        message = message.replace("=> ", "")
                     print(message, *args, **kwargs)
                 
                 def note(self, message):
@@ -71,7 +98,7 @@ class EsptoolProgressLogger:
                     Args:
                         message (str): Note message to print
                     """
-                    print(f"\n📝 {message}")
+                    print(f"📝 {message}")
                 
                 def warning(self, message):
                     """Print a warning message
@@ -79,7 +106,7 @@ class EsptoolProgressLogger:
                     Args:
                         message (str): Warning message to print
                     """
-                    print(f"\n⚠️  WARNING: {message}")
+                    print(f"⚠️  WARNING: {message}")
                 
                 def error(self, message):
                     """Print an error message
@@ -87,25 +114,13 @@ class EsptoolProgressLogger:
                     Args:
                         message (str): Error message to print
                     """
-                    print(f"\n❌ ERROR: {message}", file=sys.stderr)
+                    print(f"❌ ERROR: {message}", file=sys.stderr)
                 
                 def stage(self, finish=False):
                     """Handle stage transitions
                     
                     Args:
                         finish (bool): Whether this is the final stage
-                    """
-                    pass
-                
-                def progress_bar(self, cur_iter, total_iters, prefix="", suffix="", bar_length=40):
-                    """Handle progress bar display
-                    
-                    Args:
-                        cur_iter (int): Current iteration
-                        total_iters (int): Total iterations
-                        prefix (str): Prefix text for progress bar
-                        suffix (str): Suffix text for progress bar
-                        bar_length (int): Length of the progress bar
                     """
                     pass
                 
