@@ -218,12 +218,20 @@ def setup_esptool_progress_wrapper():
                                   "Connecting" in line_clean))
                     
                     if is_progress:
-                        # Replace progress bar characters
+                        # Find and replace only the progress bar part (between [ ])
                         progress_line = line_clean
-                        # Replace esptool progress characters with custom ones
-                        progress_line = progress_line.replace('=', '█')
-                        progress_line = progress_line.replace('>', '█')
-                        progress_line = progress_line.replace(' ', '░')
+                
+                        # Use regex to find progress bar pattern [====> ] and replace characters
+                        def replace_progress_chars(match):
+                            bar_content = match.group(1)
+                            # Replace = with █, > with █, and spaces with ░
+                            bar_content = bar_content.replace('=', '█')
+                            bar_content = bar_content.replace('>', '█')
+                            bar_content = bar_content.replace(' ', '░')
+                            return f"[{bar_content}]"
+                
+                        # Apply replacement only to content within square brackets
+                        progress_line = re.sub(r'\[([=>\s]*)\]', replace_progress_chars, progress_line)
                         
                         # Display progress bar in one line
                         print(f"📤 {progress_line}", end='\r')
