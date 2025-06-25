@@ -58,8 +58,9 @@ env.SConscript("_embed_files.py", exports="env")
 
 python_deps = {
     "wheel": ">=0.35.1",
-    "rich-click": ">=1.8.6",
+    "rich": ">=1.8.6",
     "PyYAML": ">=6.0.2",
+    "intelhex": ">=2.3.0",
     "esp-idf-size": ">=1.6.1"
 }
 
