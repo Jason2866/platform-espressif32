@@ -343,6 +343,10 @@ def firmware_metrics(target, source, env):
         if dash_index + 1 < len(sys.argv):
             cli_args = sys.argv[dash_index + 1 :]
 
+    # Add CLI arguments before the map file
+    if cli_args:
+        cmd.extend(cli_args)
+
     # Map-file as last argument
     cmd.append(map_file)
 
@@ -410,7 +414,7 @@ env.Replace(
     SIZECHECKCMD="$SIZETOOL -A -d $SOURCES",
     SIZEPRINTCMD="$SIZETOOL -B -d $SOURCES",
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
-    ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase_flash',
+    ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase-flash',
     MKFSTOOL="mk%s" % filesystem,
     # Legacy `ESP32_SPIFFS_IMAGE_NAME` is used as the second fallback value
     # for backward compatibility
@@ -446,11 +450,11 @@ env.Append(
                         "--chip",
                         mcu,
                         "elf2image",
-                        "--flash_mode",
+                        "--flash-mode",
                         "${__get_board_flash_mode(__env__)}",
-                        "--flash_freq",
+                        "--flash-freq",
                         "${__get_board_f_image(__env__)}",
-                        "--flash_size",
+                        "--flash-size",
                         board.get("upload.flash_size", "4MB"),
                         "-o",
                         "$TARGET",
@@ -587,16 +591,16 @@ elif upload_protocol == "esptool":
             "--baud",
             "$UPLOAD_SPEED",
             "--before",
-            board.get("upload.before_reset", "default_reset"),
+            board.get("upload.before_reset", "default-reset"),
             "--after",
-            board.get("upload.after_reset", "hard_reset"),
-            "write_flash",
+            board.get("upload.after_reset", "hard-reset"),
+            "write-flash",
             "-z",
-            "--flash_mode",
+            "--flash-mode",
             "${__get_board_flash_mode(__env__)}",
-            "--flash_freq",
+            "--flash-freq",
             "${__get_board_f_image(__env__)}",
-            "--flash_size",
+            "--flash-size",
             "detect",
         ],
         UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS '
@@ -615,16 +619,16 @@ elif upload_protocol == "esptool":
                 "--baud",
                 "$UPLOAD_SPEED",
                 "--before",
-                board.get("upload.before_reset", "default_reset"),
+                board.get("upload.before_reset", "default-reset"),
                 "--after",
-                board.get("upload.after_reset", "hard_reset"),
-                "write_flash",
+                board.get("upload.after_reset", "hard-reset"),
+                "write-flash",
                 "-z",
-                "--flash_mode",
+                "--flash-mode",
                 "${__get_board_flash_mode(__env__)}",
-                "--flash_freq",
+                "--flash-freq",
                 "${__get_board_f_image(__env__)}",
-                "--flash_size",
+                "--flash-size",
                 "detect",
                 "$FS_START",
             ],
