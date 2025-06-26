@@ -20,6 +20,12 @@ platform = https://github.com/Jason2866/platform-espressif32.git#Arduino/IDF54
 framework = arduino
 ```
 
+for ESP32 Solo1
+```
+[env:esp32solo1]
+board = esp32-solo1
+```
+
 The released frameworks can be downloaded [here](https://github.com/tasmota/arduino-esp32/releases)
 
 # Configuration
