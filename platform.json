@@ -18,7 +18,7 @@
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif32.git"
   },
-  "version": "2025.06.30",
+  "version": "2025.06.40",
   "frameworks": {
     "arduino": {
       "script": "builder/frameworks/arduino.py"
@@ -33,27 +33,27 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3738/framework-arduinoespressif32-all-release_v5.3-618bcc18.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/3742/framework-arduinoespressif32-all-release_v5.4-be997b26.zip"
     },
     "framework-espidf": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.3.3.250618/esp-idf-v5.3.3.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.2/esp-idf-v5.4.2.zip"
     },
     "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "13.2.0+20240530",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-13.2.0_20240530.zip"
+      "package-version": "14.2.0+20241119",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-14.2.0_20241119.zip"
     },
     "toolchain-riscv32-esp": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "13.2.0+20240530",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/riscv32-esp-elf-13.2.0_20240530.zip"
+      "package-version": "14.2.0+20241119",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/riscv32-esp-elf-14.2.0_20241119.zip"
     },
     "toolchain-esp32ulp": {
       "type": "toolchain",
@@ -79,7 +79,7 @@
     "tool-esptoolpy": {
       "type": "uploader",
       "optional": false,
-      "owner": "tasmota",
+      "owner": "Jason2866",
       "version": "https://github.com/Jason2866/esptool/releases/download/v5.0.0-dev1/esptool.zip"
     },
     "tl-install": {
