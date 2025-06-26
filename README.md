@@ -20,11 +20,13 @@ Support for the ESP32/ESP32solo1, ESP32C2, ESP32C3, ESP32C5, ESP32C6, ESP32S2, E
 platform = https://github.com/Jason2866/platform-espressif32.git#Arduino/IDF55
 framework = arduino
 ```
+
 for ESP32 Solo1
 ```
 [env:esp32solo1]
 board = esp32-solo1
 ```
+
 The released frameworks can be downloaded [here](https://github.com/tasmota/arduino-esp32/releases)
 
 # Configuration
