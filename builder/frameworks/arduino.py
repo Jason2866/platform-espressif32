@@ -620,8 +620,10 @@ def install_python_deps():
     def _get_installed_uv_packages():
         result = {}
         try:
+            uv_path = shutil.which("uv")
+            print(f"uv path: {uv_path}")
             uv_output = subprocess.check_output([
-                "uv", "pip", "list", "--format=json"
+                uv_path, "pip", "list", "--format=json"
             ])
             packages = json.loads(uv_output)
             for p in packages:
@@ -635,12 +637,25 @@ def install_python_deps():
     installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
     print("Packages to install:", packages_to_install)
+    python_exe = env.subst("$PYTHONEXE")
+    uv_path = shutil.which("uv")
+    print(f"uv path: {uv_path}")
+    print(f"python_exe: {python_exe}")
+    
     if packages_to_install:
+        if uv_path is None:
+            print("Error: uv command not found in PATH")
+            return False
+            
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
+        
+        # Use the same Python executable that PlatformIO is using
+        uv_python_arg = f'--python="{python_exe}"'
+        
         env.Execute(
             env.VerboseAction(
-                f'uv pip install --system --upgrade {packages_str}',
+                f'"{uv_path}" pip install {uv_python_arg} --upgrade {packages_str}',
                 "Installing Python dependencies",
             )
         )
