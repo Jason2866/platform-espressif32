@@ -968,6 +968,24 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 
 if ("arduino" in pioframework and "espidf" not in pioframework and
         arduino_lib_compile_flag in ("Inactive", "True")):
+    # Ensure PyYAML is available before importing component_manager
+    try:
+        import yaml
+    except ImportError:
+        print("PyYAML not available, installing...")
+        python_exe = env.subst("$PYTHONEXE")
+        uv_path = shutil.which("uv")
+        if uv_path:
+            try:
+                env.Execute(
+                    env.VerboseAction(
+                        f'"{uv_path}" pip install --python="{python_exe}" --upgrade "pyyaml>=6.0.2"',
+                        "Installing PyYAML for component manager",
+                    )
+                )
+            except Exception as e:
+                print(f"Warning: Could not install PyYAML: {e}")
+
     # try to remove not needed include path if an lib_ignore entry exists
     from component_manager import ComponentManager
     component_manager = ComponentManager(env)
