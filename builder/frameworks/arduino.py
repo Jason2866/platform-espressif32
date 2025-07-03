@@ -626,7 +626,7 @@ def install_python_deps():
         # Install with uv
         env.Execute(
             env.VerboseAction(
-                f'uv pip install --system {packages_str}',
+                f'uv pip install --python "{python_exe}" {packages_str}',
                 "Installing Arduino Python dependencies with uv",
             )
         )
