@@ -1630,8 +1630,6 @@ def install_python_deps():
     if packages_to_install:
         packages_str = " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
         
-        uv_success = False
-        
         # Try uv first - target the specific Python environment
         try:
             result = env.Execute(
@@ -1641,14 +1639,12 @@ def install_python_deps():
                 )
             )
             # Check if execution was successful
-            uv_success = (result == 0)
-            
+            if result != 0:
+                raise Exception(f"uv command failed with return code {result}")
+                
         except Exception as e:
             print(f"uv installation failed: {e}")
-            uv_success = False
-        
-        # Fallback to pip if uv failed
-        if not uv_success:
+            # Fallback to pip if uv failed
             try:
                 env.Execute(
                     env.VerboseAction(
@@ -1656,20 +1652,23 @@ def install_python_deps():
                         "Installing ESP-IDF's Python dependencies with pip (fallback)",
                     )
                 )
-            except Exception as e:
-                print(f"Error: Failed to install Python dependencies with both uv and pip: {e}")
+            except Exception as pip_e:
+                print(f"Error: Failed to install Python dependencies with both uv and pip: {pip_e}")
                 print("This may cause import errors for required modules like 'idf_component_manager'")
                 # Don't exit here as the build might still work if packages are already installed
 
     if IS_WINDOWS and "windows-curses" not in installed_packages:
         # Install windows-curses in the IDF Python environment
         try:
-            env.Execute(
+            result = env.Execute(
                 env.VerboseAction(
                     f'uv pip install --python "{python_exe_path}" windows-curses',
                     "Installing windows-curses package with uv (IDF environment)",
                 )
             )
+            if result != 0:
+                raise Exception(f"uv command failed with return code {result}")
+                
         except Exception as e:
             print(f"uv installation of windows-curses failed: {e}")
             # Fallback to pip if uv failed
@@ -1680,8 +1679,8 @@ def install_python_deps():
                         "Installing windows-curses package with pip (fallback)",
                     )
                 )
-            except Exception as e:
-                print(f"Error: Failed to install windows-curses with both uv and pip: {e}")
+            except Exception as pip_e:
+                print(f"Error: Failed to install windows-curses with both uv and pip: {pip_e}")
 
 
 def get_idf_venv_dir():
