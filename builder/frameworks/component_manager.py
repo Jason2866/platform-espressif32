@@ -11,8 +11,6 @@ dependencies efficiently.
 import os
 import shutil
 import re
-import yaml
-from yaml import SafeLoader
 from os.path import join
 from typing import Set, Optional, Dict, Any, List, Tuple
 
@@ -227,6 +225,8 @@ class ComponentHandler:
         Returns:
             Absolute path to the component YAML file
         """
+        import yaml
+        from yaml import SafeLoader
         # Try Arduino framework first
         framework_yml = join(self.config.arduino_framework_dir, "idf_component.yml")
         if os.path.exists(framework_yml):
@@ -269,6 +269,8 @@ class ComponentHandler:
         Args:
             file_path: Absolute path where to create the new YAML file
         """
+        import yaml
+        from yaml import SafeLoader
         default_content = {
             "dependencies": {
                 "idf": ">=5.1"
@@ -292,6 +294,8 @@ class ComponentHandler:
         Returns:
             Parsed YAML data as dictionary, or default structure on failure
         """
+        import yaml
+        from yaml import SafeLoader
         try:
             with open(file_path, "r", encoding='utf-8') as f:
                 return yaml.load(f, Loader=SafeLoader) or {"dependencies": {}}
@@ -310,6 +314,8 @@ class ComponentHandler:
             file_path: Absolute path to the YAML file to write
             data: Component data dictionary to serialize
         """
+        import yaml
+        from yaml import SafeLoader
         try:
             with open(file_path, "w", encoding='utf-8') as f:
                 yaml.dump(data, f)
