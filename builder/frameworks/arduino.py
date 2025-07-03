@@ -618,7 +618,6 @@ def install_python_deps():
                 "uv", "pip", "list", "--format=json"
             ])
             packages = json.loads(uv_output)
-            print("Packages to install:", packages)
             for p in packages:
                 result[p["name"]] = pepver_to_semver(p["version"])
         except Exception:
@@ -629,7 +628,7 @@ def install_python_deps():
 
     installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
-
+    print("Packages to install:", packages_to_install)
     if packages_to_install:
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
