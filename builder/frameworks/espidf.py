@@ -92,6 +92,7 @@ def install_standard_python_deps():
         return result
 
     deps = {
+        "uv": ">=0.1.0",
         "wheel": ">=0.35.1",
         "rich-click": ">=1.8.6",
         "PyYAML": ">=6.0.2",
@@ -1566,33 +1567,15 @@ def generate_mbedtls_bundle(sdk_config):
 def install_python_deps():
     def _get_installed_uv_packages(python_exe_path):
         result = {}
-        packages = {}
         try:
-            # First try uv pip list targeting the specific Python environment
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--python", python_exe_path, "--format=json"
             ])
             packages = json.loads(uv_output)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            # Fallback to pip if uv is not available or fails
-            try:
-                pip_output = subprocess.check_output(
-                    [
-                        python_exe_path,
-                        "-m",
-                        "pip",
-                        "list",
-                        "--format=json",
-                        "--disable-pip-version-check",
-                    ]
-                )
-                packages = json.loads(pip_output)
-            except:
-                print("Warning! Couldn't extract the list of installed Python packages.")
-                return {}
         except:
             print("Warning! Couldn't extract the list of installed Python packages.")
             return {}
+        
         for p in packages:
             result[p["name"]] = pepver_to_semver(p["version"])
 
@@ -1630,57 +1613,22 @@ def install_python_deps():
     if packages_to_install:
         packages_str = " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
         
-        # Try uv first - target the specific Python environment
-        try:
-            result = env.Execute(
-                env.VerboseAction(
-                    f'uv pip install --python "{python_exe_path}" {packages_str}',
-                    "Installing ESP-IDF's Python dependencies with uv (IDF environment)",
-                )
+        # Use uv to install packages in the specific Python environment
+        env.Execute(
+            env.VerboseAction(
+                f'uv pip install --python "{python_exe_path}" {packages_str}',
+                "Installing ESP-IDF's Python dependencies with uv",
             )
-            # Check if execution was successful
-            if result != 0:
-                raise Exception(f"uv command failed with return code {result}")
-                
-        except Exception as e:
-            print(f"uv installation failed: {e}")
-            # Fallback to pip if uv failed
-            try:
-                env.Execute(
-                    env.VerboseAction(
-                        f'"{python_exe_path}" -m pip install -U -q -q -q {packages_str}',
-                        "Installing ESP-IDF's Python dependencies with pip (fallback)",
-                    )
-                )
-            except Exception as pip_e:
-                print(f"Error: Failed to install Python dependencies with both uv and pip: {pip_e}")
-                print("This may cause import errors for required modules like 'idf_component_manager'")
-                # Don't exit here as the build might still work if packages are already installed
+        )
 
     if IS_WINDOWS and "windows-curses" not in installed_packages:
         # Install windows-curses in the IDF Python environment
-        try:
-            result = env.Execute(
-                env.VerboseAction(
-                    f'uv pip install --python "{python_exe_path}" windows-curses',
-                    "Installing windows-curses package with uv (IDF environment)",
-                )
+        env.Execute(
+            env.VerboseAction(
+                f'uv pip install --python "{python_exe_path}" windows-curses',
+                "Installing windows-curses package with uv",
             )
-            if result != 0:
-                raise Exception(f"uv command failed with return code {result}")
-                
-        except Exception as e:
-            print(f"uv installation of windows-curses failed: {e}")
-            # Fallback to pip if uv failed
-            try:
-                env.Execute(
-                    env.VerboseAction(
-                        f'"{python_exe_path}" -m pip install -q -q -q windows-curses',
-                        "Installing windows-curses package with pip (fallback)",
-                    )
-                )
-            except Exception as pip_e:
-                print(f"Error: Failed to install windows-curses with both uv and pip: {pip_e}")
+        )
 
 
 def get_idf_venv_dir():
