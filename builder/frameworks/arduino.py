@@ -971,25 +971,12 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     # Ensure PyYAML is available before importing component_manager
     try:
         import yaml
+        # try to remove not needed include path if an lib_ignore entry exists
+        from component_manager import ComponentManager
+        component_manager = ComponentManager(env)
+        component_manager.handle_component_settings()
     except ImportError:
-        print("PyYAML not available, installing...")
-        python_exe = env.subst("$PYTHONEXE")
-        uv_path = shutil.which("uv")
-        if uv_path:
-            try:
-                env.Execute(
-                    env.VerboseAction(
-                        f'"{uv_path}" pip install --python="{python_exe}" --upgrade "pyyaml>=6.0.2"',
-                        "Installing PyYAML for component manager",
-                    )
-                )
-            except Exception as e:
-                print(f"Warning: Could not install PyYAML: {e}")
-
-    # try to remove not needed include path if an lib_ignore entry exists
-    from component_manager import ComponentManager
-    component_manager = ComponentManager(env)
-    component_manager.handle_component_settings()
+        pass
     silent_action = env.Action(component_manager.restore_pioarduino_build_py)
     # hack to silence scons command output
     silent_action.strfunction = lambda target, source, env: ''
