@@ -77,6 +77,7 @@ def install_python_deps():
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             python_exe = env.subst("$PYTHONEXE")
+            print(f"DEBUG: Installing uv using Python: {python_exe}")
             try:
                 env.Execute(
                     env.VerboseAction(
@@ -94,6 +95,7 @@ def install_python_deps():
         result = {}
         try:
             python_exe = env.subst("$PYTHONEXE")
+            print(f"DEBUG: Using Python for package list: {python_exe}")
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--python", python_exe, "--format=json"
             ], timeout=60)
@@ -122,6 +124,7 @@ def install_python_deps():
                                 for p in packages_to_install)
 
         python_exe = env.subst("$PYTHONEXE")
+        print(f"DEBUG: Installing packages using Python: {python_exe}")
         # Using env.Execute for consistency with PlatformIO patterns
         env.Execute(
             env.VerboseAction(
