@@ -29,6 +29,7 @@ import sys
 import shutil
 import hashlib
 import threading
+import glob
 from contextlib import suppress
 from os.path import join, exists, isabs, splitdrive, commonpath, relpath
 from pathlib import Path
@@ -68,6 +69,47 @@ def get_packages_to_install(deps, installed_packages):
 def install_python_deps():
     """Install Python dependencies using uv package manager"""
     
+    def _get_platformio_python():
+        """Get the correct PlatformIO Python executable"""
+        # First try the environment variable
+        system_python = env.subst("$PYTHONEXE")
+        
+        # Check if it's already the PlatformIO Python
+        if ".platformio" in system_python:
+            return system_python
+            
+        # Look for PlatformIO Python in common locations
+        import glob
+        home_dir = os.path.expanduser("~")
+        
+        # Common PlatformIO Python paths
+        platformio_python_patterns = [
+            f"{home_dir}/.platformio/penv/*/bin/python*",
+            f"{home_dir}/.platformio/penv/bin/python*", 
+            f"{home_dir}/.platformio/python*/bin/python*",
+            "/usr/local/bin/pio-python*",
+        ]
+        
+        for pattern in platformio_python_patterns:
+            matches = glob.glob(pattern)
+            if matches:
+                # Use the first match that exists and is executable
+                for python_path in sorted(matches):
+                    if os.path.isfile(python_path) and os.access(python_path, os.X_OK):
+                        print(f"DEBUG: Found PlatformIO Python: {python_path}")
+                        return python_path
+        
+        # If we can't find PlatformIO Python, try to use the current Python executable
+        current_python = sys.executable
+        if ".platformio" in current_python:
+            print(f"DEBUG: Using current Python (in .platformio): {current_python}")
+            return current_python
+            
+        # Last resort: use the system Python but warn about it
+        print(f"WARNING: Could not find PlatformIO Python environment, using system Python: {system_python}")
+        print("This may cause package installation issues. Consider using PlatformIO's Python environment.")
+        return system_python
+    
     def _ensure_uv_available():
         """Ensure uv is available, install with pip if not"""
         try:
@@ -76,7 +118,7 @@ def install_python_deps():
                                 stderr=subprocess.DEVNULL)
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
-            python_exe = env.subst("$PYTHONEXE")
+            python_exe = _get_platformio_python()
             print(f"DEBUG: Installing uv using Python: {python_exe}")
             try:
                 env.Execute(
@@ -94,7 +136,7 @@ def install_python_deps():
         """Get installed packages using uv list"""
         result = {}
         try:
-            python_exe = env.subst("$PYTHONEXE")
+            python_exe = _get_platformio_python()
             print(f"DEBUG: Using Python for package list: {python_exe}")
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--python", python_exe, "--format=json"
@@ -123,7 +165,7 @@ def install_python_deps():
         packages_str = " ".join(f'"{p}{other_deps[p]}"'
                                 for p in packages_to_install)
 
-        python_exe = env.subst("$PYTHONEXE")
+        python_exe = _get_platformio_python()
         print(f"DEBUG: Installing packages using Python: {python_exe}")
         # Using env.Execute for consistency with PlatformIO patterns
         env.Execute(
