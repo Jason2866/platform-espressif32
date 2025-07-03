@@ -634,22 +634,36 @@ def install_python_deps():
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
         
-        # Try uv first, fallback to pip
+        uv_success = False
+        
+        # Try uv first - use --system to avoid venv requirement
         try:
-            env.Execute(
+            result = env.Execute(
                 env.VerboseAction(
-                    f'uv pip install {packages_str}',
+                    f'uv pip install --system {packages_str}',
                     "Installing Arduino Python dependencies with uv",
                 )
             )
-        except Exception:
-            # Fallback to pip if uv fails
-            env.Execute(
-                env.VerboseAction(
-                    f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
-                    "Installing Arduino Python dependencies with pip (fallback)",
+            # Check if execution was successful
+            uv_success = (result == 0)
+            
+        except Exception as e:
+            print(f"uv installation failed: {e}")
+            uv_success = False
+        
+        # Fallback to pip if uv failed
+        if not uv_success:
+            try:
+                env.Execute(
+                    env.VerboseAction(
+                        f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
+                        "Installing Arduino Python dependencies with pip (fallback)",
+                    )
                 )
-            )
+            except Exception as e:
+                print(f"Error: Failed to install Python dependencies with both uv and pip: {e}")
+                print("This may cause import errors for required modules like 'yaml'")
+                # Don't exit here as the build might still work if packages are already installed
 
 
 install_python_deps()

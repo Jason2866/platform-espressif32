@@ -1626,40 +1626,66 @@ def install_python_deps():
     if packages_to_install:
         packages_str = " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
         
-        # Try uv first, fallback to pip
+        uv_success = False
+        
+        # Try uv first - use --system to avoid venv requirement
         try:
-            env.Execute(
+            result = env.Execute(
                 env.VerboseAction(
-                    f'uv pip install {packages_str}',
+                    f'uv pip install --system {packages_str}',
                     "Installing ESP-IDF's Python dependencies with uv",
                 )
             )
-        except Exception:
-            # Fallback to pip if uv fails
-            env.Execute(
-                env.VerboseAction(
-                    f'"{python_exe_path}" -m pip install -U -q -q -q {packages_str}',
-                    "Installing ESP-IDF's Python dependencies with pip (fallback)",
+            # Check if execution was successful
+            uv_success = (result == 0)
+            
+        except Exception as e:
+            print(f"uv installation failed: {e}")
+            uv_success = False
+        
+        # Fallback to pip if uv failed
+        if not uv_success:
+            try:
+                env.Execute(
+                    env.VerboseAction(
+                        f'"{python_exe_path}" -m pip install -U -q -q -q {packages_str}',
+                        "Installing ESP-IDF's Python dependencies with pip (fallback)",
+                    )
                 )
-            )
+            except Exception as e:
+                print(f"Error: Failed to install Python dependencies with both uv and pip: {e}")
+                print("This may cause import errors for required modules like 'yaml'")
+                # Don't exit here as the build might still work if packages are already installed
 
     if IS_WINDOWS and "windows-curses" not in installed_packages:
-        # Try uv first, fallback to pip for windows-curses
+        uv_success = False
+        
+        # Try uv first for windows-curses
         try:
-            env.Execute(
+            result = env.Execute(
                 env.VerboseAction(
-                    'uv pip install windows-curses',
+                    'uv pip install --system windows-curses',
                     "Installing windows-curses package with uv",
                 )
             )
-        except Exception:
-            # Fallback to pip if uv fails
-            env.Execute(
-                env.VerboseAction(
-                    f'"{python_exe_path}" -m pip install -q -q -q windows-curses',
-                    "Installing windows-curses package with pip (fallback)",
+            # Check if execution was successful
+            uv_success = (result == 0)
+            
+        except Exception as e:
+            print(f"uv installation of windows-curses failed: {e}")
+            uv_success = False
+        
+        # Fallback to pip if uv failed
+        if not uv_success:
+            try:
+                env.Execute(
+                    env.VerboseAction(
+                        f'"{python_exe_path}" -m pip install -q -q -q windows-curses',
+                        "Installing windows-curses package with pip (fallback)",
+                    )
                 )
-            )
+            except Exception as e:
+                print(f"Error: Failed to install windows-curses with both uv and pip: {e}")
 
 
 def get_idf_venv_dir():
