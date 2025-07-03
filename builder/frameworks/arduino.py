@@ -43,7 +43,6 @@ from platformio.package.manager.tool import ToolPackageManager
 IS_WINDOWS = sys.platform.startswith("win")
 
 python_deps = {
-    "wheel": ">=0.35.1",
     "uv": ">=0.1.0",
     "rich-click": ">=1.8.6",
     "PyYAML": ">=6.0.2",
@@ -600,17 +599,26 @@ def get_packages_to_install(deps, installed_packages):
 
 
 def install_python_deps():
-    def _get_installed_pip_packages():
+    python_exe = env.subst("$PYTHONEXE")
+    try:
+        env.Execute(
+            env.VerboseAction(
+                f'"{python_exe}" -m pip install "uv>=0.1.0"',
+                "Installing uv package manager",
+            )
+        )
+    except Exception as e:
+        print(f"Error installing uv: {e}")
+        return False
+
+    def _get_installed_uv_packages():
         result = {}
-        python_exe = env.subst("$PYTHONEXE")
-        print(f"DEBUG: Installing packages using Python: {python_exe}")
         try:
-            pip_output = subprocess.check_output([
-                env.subst("$PYTHONEXE"),
-                "-m", "pip", "list", "--format=json",
-                "--disable-pip-version-check"
+            uv_output = subprocess.check_output([
+                "uv", "pip", "list", "--format=json"
             ])
-            packages = json.loads(pip_output)
+            packages = json.loads(uv_output)
+            print("Packages to install:", packages)
             for p in packages:
                 result[p["name"]] = pepver_to_semver(p["version"])
         except Exception:
@@ -619,19 +627,18 @@ def install_python_deps():
 
         return result
 
-    installed_packages = _get_installed_pip_packages()
-    packages_to_install = list(get_packages_to_install(python_deps,
-                                                       installed_packages))
+    installed_packages = _get_installed_uv_packages()
+    packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
 
-    if packages_to_install:
-        packages_str = " ".join(f'"{p}{python_deps[p]}"'
-                                for p in packages_to_install)
-        env.Execute(
-            env.VerboseAction(
-                f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
-                "Installing Arduino Python dependencies",
+        if packages_to_install:
+            packages_str = " ".join(f'"{p}{python_deps[p]}"'
+                                    for p in packages_to_install)
+            env.Execute(
+                env.VerboseAction(
+                    f'uv pip install --upgrade {packages_str}',
+                    "Installing Python dependencies",
+                )
             )
-        )
 
 
 install_python_deps()
