@@ -52,6 +52,87 @@ python_deps = {
     "esp-idf-size": ">=1.6.1"
 }
 
+def get_packages_to_install(deps, installed_packages):
+    """Generator for packages to install"""
+    for package, spec in deps.items():
+        if package not in installed_packages:
+            yield package
+        else:
+            version_spec = semantic_version.Spec(spec)
+            if not version_spec.match(installed_packages[package]):
+                yield package
+
+
+def install_python_deps():
+    def _ensure_uv_available():
+        """Ensure uv is available, install with pip if not"""
+        try:
+            subprocess.check_call(['uv', '--version'], 
+                                stdout=subprocess.DEVNULL, 
+                                stderr=subprocess.DEVNULL)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            python_exe = env.subst("$PYTHONEXE")
+            try:
+                env.Execute(
+                    env.VerboseAction(
+                        f'"{python_exe}" -m pip install "uv>=0.1.0" -q -q -q',
+                        "Installing uv package manager",
+                    )
+                )
+                return True
+            except Exception as e:
+                print(f"Error installing uv: {e}")
+                return False
+
+    def _get_installed_uv_packages():
+        result = {}
+        try:
+            python_exe = env.subst("$PYTHONEXE")
+            uv_output = subprocess.check_output([
+                "uv", "pip", "list", "--python", python_exe, "--format=json"
+            ])
+            packages = json.loads(uv_output)
+            for p in packages:
+                result[p["name"]] = pepver_to_semver(p["version"])
+        except Exception:
+            print("Warning! Couldn't extract the list of installed Python "
+                  "packages.")
+
+        return result
+
+    # Ensure uv is available
+    if not _ensure_uv_available():
+        print("Error: Could not install uv package manager")
+        return
+
+    # Get the dependencies excluding uv itself (since it's already installed)
+    other_deps = {k: v for k, v in python_deps.items() if k != "uv"}
+    
+    installed_packages = _get_installed_uv_packages()
+    packages_to_install = list(get_packages_to_install(other_deps,
+                                                       installed_packages))
+
+    if packages_to_install:
+        packages_str = " ".join(f'"{p}{other_deps[p]}"'
+                                for p in packages_to_install)
+        
+        python_exe = env.subst("$PYTHONEXE")
+        # Using env.Execute for consistency with PlatformIO patterns
+        env.Execute(
+            env.VerboseAction(
+                f'uv pip install --python "{python_exe}" --quiet --upgrade {packages_str}',
+                "Installing Python dependencies",
+            )
+        )
+
+
+# Initialization - env needed for dependency installation
+env = DefaultEnvironment()
+
+# Install Python dependencies IMMEDIATELY before any imports that need them
+install_python_deps()
+
 # Constants for better performance
 UNICORE_FLAGS = {
     "CORE32SOLO1",
@@ -515,8 +596,7 @@ def safe_remove_sdkconfig_files():
             safe_delete_file(file_path)
 
 
-# Initialization
-env = DefaultEnvironment()
+# Platform and board configuration (env already initialized above)
 pm = ToolPackageManager()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
@@ -587,82 +667,7 @@ if flag_custom_sdkconfig and has_unicore_flags():
     env.Replace(BUILD_UNFLAGS=new_build_unflags)
 
 
-def get_packages_to_install(deps, installed_packages):
-    """Generator for packages to install"""
-    for package, spec in deps.items():
-        if package not in installed_packages:
-            yield package
-        else:
-            version_spec = semantic_version.Spec(spec)
-            if not version_spec.match(installed_packages[package]):
-                yield package
 
-
-def install_python_deps():
-    def _ensure_uv_available():
-        """Ensure uv is available, install with pip if not"""
-        try:
-            subprocess.check_call(['uv', '--version'], 
-                                stdout=subprocess.DEVNULL, 
-                                stderr=subprocess.DEVNULL)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            python_exe = env.subst("$PYTHONEXE")
-            try:
-                env.Execute(
-                    env.VerboseAction(
-                        f'"{python_exe}" -m pip install "uv>=0.1.0" -q -q -q',
-                        "Installing uv package manager",
-                    )
-                )
-                return True
-            except Exception as e:
-                print(f"Error installing uv: {e}")
-                return False
-
-    def _get_installed_uv_packages():
-        result = {}
-        try:
-            python_exe = env.subst("$PYTHONEXE")
-            uv_output = subprocess.check_output([
-                "uv", "pip", "list", "--python", python_exe, "--format=json"
-            ])
-            packages = json.loads(uv_output)
-            for p in packages:
-                result[p["name"]] = pepver_to_semver(p["version"])
-        except Exception:
-            print("Warning! Couldn't extract the list of installed Python "
-                  "packages.")
-
-        return result
-
-    # Ensure uv is available
-    if not _ensure_uv_available():
-        print("Error: Could not install uv package manager")
-        return
-
-    # Get the dependencies excluding uv itself (since it's already installed)
-    other_deps = {k: v for k, v in python_deps.items() if k != "uv"}
-    
-    installed_packages = _get_installed_uv_packages()
-    packages_to_install = list(get_packages_to_install(other_deps,
-                                                       installed_packages))
-
-    if packages_to_install:
-        packages_str = " ".join(f'"{p}{other_deps[p]}"'
-                                for p in packages_to_install)
-        
-        python_exe = env.subst("$PYTHONEXE")
-        # Using env.Execute for consistency with PlatformIO patterns
-        env.Execute(
-            env.VerboseAction(
-                f'uv pip install --python "{python_exe}" --quiet --upgrade {packages_str}',
-                "Installing Python dependencies",
-            )
-        )
-
-
-install_python_deps()
 
 
 def get_MD5_hash(phrase):
