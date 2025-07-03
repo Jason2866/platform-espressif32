@@ -624,6 +624,7 @@ def install_python_deps():
                                 for p in packages_to_install)
         
         # Install with uv
+        python_exe = env.subst("$PYTHONEXE")
         env.Execute(
             env.VerboseAction(
                 f'uv pip install --python "{python_exe}" {packages_str}',
