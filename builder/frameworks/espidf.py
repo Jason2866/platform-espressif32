@@ -116,14 +116,18 @@ def install_standard_python_deps():
             for p in packages_to_install
         ])
         
-        # Try uv first, fallback to pip
+        # Try uv first with --system
         try:
-            env.Execute(
+            result = env.Execute(
                 env.VerboseAction(
-                    f'uv pip install {packages_str}',
+                    f'uv pip install --system {packages_str}',
                     "Installing standard Python dependencies with uv",
                 )
             )
+            # Check if execution was successful
+            if result != 0:
+                raise Exception("uv command failed")
+                
         except Exception:
             # Fallback to pip if uv fails
             env.Execute(
