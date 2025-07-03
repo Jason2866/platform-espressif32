@@ -634,7 +634,7 @@ def install_python_deps():
                                 for p in packages_to_install)
         env.Execute(
             env.VerboseAction(
-                f'uv pip install pip install --system --upgrade {packages_str}',
+                f'uv pip install --system --upgrade {packages_str}',
                 "Installing Python dependencies",
             )
         )
