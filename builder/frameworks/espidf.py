@@ -59,31 +59,15 @@ if os.path.exists(map_file):
 def install_standard_python_deps():
     def _get_installed_standard_uv_packages():
         result = {}
-        packages = {}
         try:
-            # First try uv pip list for compatibility
+            # Use uv pip list to get installed packages
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--format=json"
             ])
             packages = json.loads(uv_output)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            # Fallback to pip if uv is not available
-            try:
-                pip_output = subprocess.check_output(
-                    [
-                        env.subst("$PYTHONEXE"),
-                        "-m",
-                        "pip",
-                        "list",
-                        "--format=json",
-                        "--disable-pip-version-check",
-                    ]
-                )
-                packages = json.loads(pip_output)
-            except:
-                print("Warning! Couldn't extract the list of installed Python packages.")
-                return {}
-        except:
+        except Exception:
+            print("Warning! Couldn't extract the list of installed Python packages.")
+            return {}
             print("Warning! Couldn't extract the list of installed Python packages.")
             return {}
         for p in packages:
@@ -116,26 +100,13 @@ def install_standard_python_deps():
             for p in packages_to_install
         ])
         
-        # Try uv first with --system
-        try:
-            result = env.Execute(
-                env.VerboseAction(
-                    f'uv pip install --system {packages_str}',
-                    "Installing standard Python dependencies with uv",
-                )
+        # Install with uv
+        env.Execute(
+            env.VerboseAction(
+                f'uv pip install --system {packages_str}',
+                "Installing standard Python dependencies with uv",
             )
-            # Check if execution was successful
-            if result != 0:
-                raise Exception("uv command failed")
-                
-        except Exception:
-            # Fallback to pip if uv fails
-            env.Execute(
-                env.VerboseAction(
-                    f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
-                    "Installing standard Python dependencies with pip (fallback)",
-                )
-            )
+        )
     return
 
 install_standard_python_deps()

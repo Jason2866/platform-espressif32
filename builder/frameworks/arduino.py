@@ -602,27 +602,16 @@ def install_python_deps():
     def _get_installed_uv_packages():
         result = {}
         try:
-            # First try uv pip list for compatibility
+            # Use uv pip list to get installed packages
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--format=json"
             ])
             packages = json.loads(uv_output)
             for p in packages:
                 result[p["name"]] = pepver_to_semver(p["version"])
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            # Fallback to pip if uv is not available
-            try:
-                pip_output = subprocess.check_output([
-                    env.subst("$PYTHONEXE"),
-                    "-m", "pip", "list", "--format=json",
-                    "--disable-pip-version-check"
-                ])
-                packages = json.loads(pip_output)
-                for p in packages:
-                    result[p["name"]] = pepver_to_semver(p["version"])
-            except Exception:
-                print("Warning! Couldn't extract the list of installed Python "
-                      "packages.")
+        except Exception:
+            print("Warning! Couldn't extract the list of installed Python "
+                  "packages.")
 
         return result
 
@@ -634,36 +623,13 @@ def install_python_deps():
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
         
-        uv_success = False
-        
-        # Try uv first with --system
-        try:
-            result = env.Execute(
-                env.VerboseAction(
-                    f'uv pip install --system {packages_str}',
-                    "Installing Arduino Python dependencies with uv",
-                )
+        # Install with uv
+        env.Execute(
+            env.VerboseAction(
+                f'uv pip install --system {packages_str}',
+                "Installing Arduino Python dependencies with uv",
             )
-            # Check if execution was successful
-            uv_success = (result == 0)
-            
-        except Exception as e:
-            print(f"uv installation failed: {e}")
-            uv_success = False
-        
-        # Fallback to pip if uv failed
-        if not uv_success:
-            try:
-                env.Execute(
-                    env.VerboseAction(
-                        f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
-                        "Installing Arduino Python dependencies with pip (fallback)",
-                    )
-                )
-            except Exception as e:
-                print(f"Error: Failed to install Python dependencies with both uv and pip: {e}")
-                print("This may cause import errors for required modules like 'yaml'")
-                # Don't exit here as the build might still work if packages are already installed
+        )
 
 
 install_python_deps()
