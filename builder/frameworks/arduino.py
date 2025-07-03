@@ -968,7 +968,7 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 
 if ("arduino" in pioframework and "espidf" not in pioframework and
         arduino_lib_compile_flag in ("Inactive", "True")):
-    # Ensure PyYAML is available before importing component_manager
+    # Graceful handling of component_manager - only use if PyYAML is available
     try:
         import yaml
         # try to remove not needed include path if an lib_ignore entry exists
@@ -980,11 +980,12 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
         silent_action.strfunction = lambda target, source, env: ''
         env.AddPostAction("checkprogsize", silent_action)
     except ImportError:
-        pass
+        print("*** PyYAML not yet available - component manager features disabled ***")
+        print("*** PyYAML has now beeing automatically installed ***")
+        print("*** Component management features, will be available at next run ***")
+        # Continue without component manager - build will still work
 
     if IS_WINDOWS:
-        # Smart include path optimization based on bleeding edge configurable 
-        # threshold
         env.AddBuildMiddleware(smart_include_length_shorten)
 
     build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py")
