@@ -93,7 +93,6 @@ def install_standard_python_deps():
 
     deps = {
         "uv": ">=0.1.0",
-        "wheel": ">=0.35.1",
         "rich-click": ">=1.8.6",
         "PyYAML": ">=6.0.2",
         "intelhex": ">=2.3.0",
@@ -1586,7 +1585,7 @@ def install_python_deps():
         return
 
     deps = {
-        "wheel": ">=0.35.1",
+        "uv": ">=0.1.0",
         # https://github.com/platformio/platformio-core/issues/4614
         "urllib3": "<2",
         # https://github.com/platformio/platform-espressif32/issues/635
@@ -1706,7 +1705,6 @@ def ensure_python_venv_available():
             )
         )
 
-        # Check if pip is available (required for fallback even when using uv)
         assert os.path.isfile(
             pip_path
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"

@@ -43,7 +43,7 @@ from platformio.package.manager.tool import ToolPackageManager
 IS_WINDOWS = sys.platform.startswith("win")
 
 python_deps = {
-    "wheel": ">=0.35.1",
+    "uv": ">=0.1.0",
     "rich-click": ">=1.8.6",
     "PyYAML": ">=6.0.2",
     "zopfli": ">=0.2.2",
