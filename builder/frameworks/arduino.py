@@ -599,17 +599,23 @@ def get_packages_to_install(deps, installed_packages):
 
 
 def install_python_deps():
-    python_exe = env.subst("$PYTHONEXE")
+    """Ensure uv is available, install with pip if not"""
     try:
-        env.Execute(
-            env.VerboseAction(
-                f'"{python_exe}" -m pip install "uv>=0.1.0"',
-                "Installing uv package manager",
+        subprocess.check_call(['uv', '--version'], 
+                            stdout=subprocess.DEVNULL, 
+                            stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        python_exe = env.subst("$PYTHONEXE")
+        try:
+            env.Execute(
+                env.VerboseAction(
+                    f'"{python_exe}" -m pip install "uv>=0.1.0" -q -q -q',
+                    "Installing uv package manager",
+                )
             )
-        )
-    except Exception as e:
-        print(f"Error installing uv: {e}")
-        return False
+        except Exception as e:
+            print(f"Error installing uv: {e}")
+            return False
 
     def _get_installed_uv_packages():
         result = {}
