@@ -1628,7 +1628,7 @@ def install_python_deps():
         
         uv_success = False
         
-        # Try uv first - use --system to avoid venv requirement
+        # Try uv first with --system
         try:
             result = env.Execute(
                 env.VerboseAction(
