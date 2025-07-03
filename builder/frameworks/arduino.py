@@ -980,9 +980,9 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
         silent_action.strfunction = lambda target, source, env: ''
         env.AddPostAction("checkprogsize", silent_action)
     except ImportError:
-        print("*** PyYAML not yet available - component manager features disabled ***")
-        print("*** PyYAML has now beeing automatically installed ***")
-        print("*** Component management features, will be available at next run ***")
+        print("*** PyYAML not available - component manager features disabled ***")
+        print("*** PyYAML will be automatically installed during Python dependencies setup ***")
+        print("*** Component management features will be available on next build run ***")
         # Continue without component manager - build will still work
 
     if IS_WINDOWS:
