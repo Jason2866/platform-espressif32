@@ -29,7 +29,6 @@ import sys
 import shutil
 import hashlib
 import threading
-import glob
 from contextlib import suppress
 from os.path import join, exists, isabs, splitdrive, commonpath, relpath
 from pathlib import Path
@@ -41,11 +40,10 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
-env = DefaultEnvironment()
-
 IS_WINDOWS = sys.platform.startswith("win")
 
 python_deps = {
+    "wheel": ">=0.35.1",
     "uv": ">=0.1.0",
     "rich-click": ">=1.8.6",
     "PyYAML": ">=6.0.2",
@@ -54,128 +52,6 @@ python_deps = {
     "rich": ">=14.0.0",
     "esp-idf-size": ">=1.6.1"
 }
-
-def get_packages_to_install(deps, installed_packages):
-    """Generator for packages to install"""
-    for package, spec in deps.items():
-        if package not in installed_packages:
-            yield package
-        else:
-            version_spec = semantic_version.Spec(spec)
-            if not version_spec.match(installed_packages[package]):
-                yield package
-
-
-def install_python_deps():
-    """Install Python dependencies using uv package manager"""
-    
-    def _get_platformio_python():
-        """Get the correct PlatformIO Python executable"""
-        # First try the environment variable
-        system_python = env.subst("$PYTHONEXE")
-        
-        # Check if it's already the PlatformIO Python
-        if ".platformio" in system_python:
-            return system_python
-            
-        # Look for PlatformIO Python in common locations
-        import glob
-        home_dir = os.path.expanduser("~")
-        
-        # Common PlatformIO Python paths
-        platformio_python_patterns = [
-            f"{home_dir}/.platformio/penv/*/bin/python*",
-            f"{home_dir}/.platformio/penv/bin/python*", 
-            f"{home_dir}/.platformio/python*/bin/python*",
-            "/usr/local/bin/pio-python*",
-        ]
-        
-        for pattern in platformio_python_patterns:
-            matches = glob.glob(pattern)
-            if matches:
-                # Use the first match that exists and is executable
-                for python_path in sorted(matches):
-                    if os.path.isfile(python_path) and os.access(python_path, os.X_OK):
-                        print(f"DEBUG: Found PlatformIO Python: {python_path}")
-                        return python_path
-        
-        # If we can't find PlatformIO Python, try to use the current Python executable
-        current_python = sys.executable
-        if ".platformio" in current_python:
-            print(f"DEBUG: Using current Python (in .platformio): {current_python}")
-            return current_python
-            
-        # Last resort: use the system Python but warn about it
-        print(f"WARNING: Could not find PlatformIO Python environment, using system Python: {system_python}")
-        print("This may cause package installation issues. Consider using PlatformIO's Python environment.")
-        return system_python
-    
-    def _ensure_uv_available():
-        """Ensure uv is available, install with pip if not"""
-        try:
-            subprocess.check_call(['uv', '--version'], 
-                                stdout=subprocess.DEVNULL, 
-                                stderr=subprocess.DEVNULL)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            python_exe = _get_platformio_python()
-            print(f"DEBUG: Installing uv using Python: {python_exe}")
-            try:
-                env.Execute(
-                    env.VerboseAction(
-                        f'"{python_exe}" -m pip install "uv>=0.1.0" -q -q -q',
-                        "Installing uv package manager",
-                    )
-                )
-                return True
-            except Exception as e:
-                print(f"Error installing uv: {e}")
-                return False
-
-    def _get_installed_uv_packages():
-        """Get installed packages using uv list"""
-        result = {}
-        try:
-            python_exe = _get_platformio_python()
-            print(f"DEBUG: Using Python for package list: {python_exe}")
-            uv_output = subprocess.check_output([
-                "uv", "pip", "list", "--python", python_exe, "--format=json"
-            ], timeout=60)
-            packages = json.loads(uv_output)
-            for p in packages:
-                result[p["name"].lower()] = pepver_to_semver(p["version"])
-        except Exception:
-            print("Warning! Couldn't extract the list of installed Python "
-                  "packages.")
-
-        return result
-
-    # Ensure uv is available
-    if not _ensure_uv_available():
-        print("Error: Could not install uv package manager")
-        return False
-
-    # Get the dependencies excluding uv itself (since it's already installed)
-    other_deps = {k: v for k, v in python_deps.items() if k != "uv"}
-    installed_packages = _get_installed_uv_packages()
-    packages_to_install = list(get_packages_to_install(other_deps,
-                                                       installed_packages))
-
-    if packages_to_install:
-        packages_str = " ".join(f'"{p}{other_deps[p]}"'
-                                for p in packages_to_install)
-
-        python_exe = _get_platformio_python()
-        print(f"DEBUG: Installing packages using Python: {python_exe}")
-        # Using env.Execute for consistency with PlatformIO patterns
-        env.Execute(
-            env.VerboseAction(
-                f'uv pip install --python "{python_exe}" --quiet --upgrade {packages_str}',
-                "Installing Python dependencies",
-            )
-        )
-
-install_python_deps()
 
 # Constants for better performance
 UNICORE_FLAGS = {
@@ -640,7 +516,8 @@ def safe_remove_sdkconfig_files():
             safe_delete_file(file_path)
 
 
-
+# Initialization
+env = DefaultEnvironment()
 pm = ToolPackageManager()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
@@ -711,7 +588,53 @@ if flag_custom_sdkconfig and has_unicore_flags():
     env.Replace(BUILD_UNFLAGS=new_build_unflags)
 
 
+def get_packages_to_install(deps, installed_packages):
+    """Generator for packages to install"""
+    for package, spec in deps.items():
+        if package not in installed_packages:
+            yield package
+        else:
+            version_spec = semantic_version.Spec(spec)
+            if not version_spec.match(installed_packages[package]):
+                yield package
 
+
+def install_python_deps():
+    def _get_installed_pip_packages():
+        result = {}
+        python_exe = env.subst("$PYTHONEXE")
+        print(f"DEBUG: Installing packages using Python: {python_exe}")
+        try:
+            pip_output = subprocess.check_output([
+                env.subst("$PYTHONEXE"),
+                "-m", "pip", "list", "--format=json",
+                "--disable-pip-version-check"
+            ])
+            packages = json.loads(pip_output)
+            for p in packages:
+                result[p["name"]] = pepver_to_semver(p["version"])
+        except Exception:
+            print("Warning! Couldn't extract the list of installed Python "
+                  "packages.")
+
+        return result
+
+    installed_packages = _get_installed_pip_packages()
+    packages_to_install = list(get_packages_to_install(python_deps,
+                                                       installed_packages))
+
+    if packages_to_install:
+        packages_str = " ".join(f'"{p}{python_deps[p]}"'
+                                for p in packages_to_install)
+        env.Execute(
+            env.VerboseAction(
+                f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
+                "Installing Arduino Python dependencies",
+            )
+        )
+
+
+install_python_deps()
 
 
 def get_MD5_hash(phrase):
