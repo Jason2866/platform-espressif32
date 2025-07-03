@@ -40,6 +40,8 @@ from platformio import fs
 from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
+env = DefaultEnvironment()
+
 IS_WINDOWS = sys.platform.startswith("win")
 
 python_deps = {
@@ -64,6 +66,8 @@ def get_packages_to_install(deps, installed_packages):
 
 
 def install_python_deps():
+    """Install Python dependencies using uv package manager"""
+    
     def _ensure_uv_available():
         """Ensure uv is available, install with pip if not"""
         try:
@@ -86,15 +90,16 @@ def install_python_deps():
                 return False
 
     def _get_installed_uv_packages():
+        """Get installed packages using uv list"""
         result = {}
         try:
             python_exe = env.subst("$PYTHONEXE")
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--python", python_exe, "--format=json"
-            ])
+            ], timeout=60)
             packages = json.loads(uv_output)
             for p in packages:
-                result[p["name"]] = pepver_to_semver(p["version"])
+                result[p["name"].lower()] = pepver_to_semver(p["version"])
         except Exception:
             print("Warning! Couldn't extract the list of installed Python "
                   "packages.")
@@ -104,11 +109,10 @@ def install_python_deps():
     # Ensure uv is available
     if not _ensure_uv_available():
         print("Error: Could not install uv package manager")
-        return
+        return False
 
     # Get the dependencies excluding uv itself (since it's already installed)
     other_deps = {k: v for k, v in python_deps.items() if k != "uv"}
-    
     installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(other_deps,
                                                        installed_packages))
@@ -116,7 +120,7 @@ def install_python_deps():
     if packages_to_install:
         packages_str = " ".join(f'"{p}{other_deps[p]}"'
                                 for p in packages_to_install)
-        
+
         python_exe = env.subst("$PYTHONEXE")
         # Using env.Execute for consistency with PlatformIO patterns
         env.Execute(
@@ -126,11 +130,6 @@ def install_python_deps():
             )
         )
 
-
-# Initialization - env needed for dependency installation
-env = DefaultEnvironment()
-
-# Install Python dependencies IMMEDIATELY before any imports that need them
 install_python_deps()
 
 # Constants for better performance
@@ -596,7 +595,7 @@ def safe_remove_sdkconfig_files():
             safe_delete_file(file_path)
 
 
-# Platform and board configuration (env already initialized above)
+
 pm = ToolPackageManager()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
