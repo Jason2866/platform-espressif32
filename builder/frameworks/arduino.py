@@ -598,36 +598,57 @@ def get_packages_to_install(deps, installed_packages):
 
 
 def install_python_deps():
-    def _get_installed_pip_packages():
+    def _get_installed_uv_packages():
         result = {}
         try:
-            pip_output = subprocess.check_output([
-                env.subst("$PYTHONEXE"),
-                "-m", "pip", "list", "--format=json",
-                "--disable-pip-version-check"
+            # First try uv pip list for compatibility
+            uv_output = subprocess.check_output([
+                "uv", "pip", "list", "--format=json"
             ])
-            packages = json.loads(pip_output)
+            packages = json.loads(uv_output)
             for p in packages:
                 result[p["name"]] = pepver_to_semver(p["version"])
-        except Exception:
-            print("Warning! Couldn't extract the list of installed Python "
-                  "packages.")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to pip if uv is not available
+            try:
+                pip_output = subprocess.check_output([
+                    env.subst("$PYTHONEXE"),
+                    "-m", "pip", "list", "--format=json",
+                    "--disable-pip-version-check"
+                ])
+                packages = json.loads(pip_output)
+                for p in packages:
+                    result[p["name"]] = pepver_to_semver(p["version"])
+            except Exception:
+                print("Warning! Couldn't extract the list of installed Python "
+                      "packages.")
 
         return result
 
-    installed_packages = _get_installed_pip_packages()
+    installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(python_deps,
                                                        installed_packages))
 
     if packages_to_install:
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
-        env.Execute(
-            env.VerboseAction(
-                f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
-                "Installing Arduino Python dependencies",
+        
+        # Try uv first, fallback to pip
+        try:
+            env.Execute(
+                env.VerboseAction(
+                    f'uv pip install {packages_str}',
+                    "Installing Arduino Python dependencies with uv",
+                )
             )
-        )
+        except Exception:
+            # Fallback to pip if uv fails
+            env.Execute(
+                env.VerboseAction(
+                    f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
+                    "Installing Arduino Python dependencies with pip (fallback)",
+                )
+            )
 
 
 install_python_deps()

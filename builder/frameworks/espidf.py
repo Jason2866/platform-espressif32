@@ -57,21 +57,32 @@ if os.path.exists(map_file):
     os.remove(map_file)
 
 def install_standard_python_deps():
-    def _get_installed_standard_pip_packages():
+    def _get_installed_standard_uv_packages():
         result = {}
         packages = {}
-        pip_output = subprocess.check_output(
-            [
-                env.subst("$PYTHONEXE"),
-                "-m",
-                "pip",
-                "list",
-                "--format=json",
-                "--disable-pip-version-check",
-            ]
-        )
         try:
-            packages = json.loads(pip_output)
+            # First try uv pip list for compatibility
+            uv_output = subprocess.check_output([
+                "uv", "pip", "list", "--format=json"
+            ])
+            packages = json.loads(uv_output)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to pip if uv is not available
+            try:
+                pip_output = subprocess.check_output(
+                    [
+                        env.subst("$PYTHONEXE"),
+                        "-m",
+                        "pip",
+                        "list",
+                        "--format=json",
+                        "--disable-pip-version-check",
+                    ]
+                )
+                packages = json.loads(pip_output)
+            except:
+                print("Warning! Couldn't extract the list of installed Python packages.")
+                return {}
         except:
             print("Warning! Couldn't extract the list of installed Python packages.")
             return {}
@@ -89,7 +100,7 @@ def install_standard_python_deps():
         "esp-idf-size": ">=1.6.1"
     }
 
-    installed_packages = _get_installed_standard_pip_packages()
+    installed_packages = _get_installed_standard_uv_packages()
     packages_to_install = []
     for package, spec in deps.items():
         if package not in installed_packages:
@@ -100,20 +111,27 @@ def install_standard_python_deps():
                 packages_to_install.append(package)
 
     if packages_to_install:
-        env.Execute(
-            env.VerboseAction(
-                (
-                    '"$PYTHONEXE" -m pip install -U -q -q -q '
-                    + " ".join(
-                        [
-                            '"%s%s"' % (p, deps[p])
-                            for p in packages_to_install
-                        ]
-                    )
-                ),
-                "Installing standard Python dependencies",
+        packages_str = " ".join([
+            '"%s%s"' % (p, deps[p])
+            for p in packages_to_install
+        ])
+        
+        # Try uv first, fallback to pip
+        try:
+            env.Execute(
+                env.VerboseAction(
+                    f'uv pip install {packages_str}',
+                    "Installing standard Python dependencies with uv",
+                )
             )
-        )
+        except Exception:
+            # Fallback to pip if uv fails
+            env.Execute(
+                env.VerboseAction(
+                    f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
+                    "Installing standard Python dependencies with pip (fallback)",
+                )
+            )
     return
 
 install_standard_python_deps()
@@ -1542,21 +1560,32 @@ def generate_mbedtls_bundle(sdk_config):
 
 
 def install_python_deps():
-    def _get_installed_pip_packages(python_exe_path):
+    def _get_installed_uv_packages(python_exe_path):
         result = {}
         packages = {}
-        pip_output = subprocess.check_output(
-            [
-                python_exe_path,
-                "-m",
-                "pip",
-                "list",
-                "--format=json",
-                "--disable-pip-version-check",
-            ]
-        )
         try:
-            packages = json.loads(pip_output)
+            # First try uv pip list for compatibility
+            uv_output = subprocess.check_output([
+                "uv", "pip", "list", "--format=json"
+            ])
+            packages = json.loads(uv_output)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to pip if uv is not available
+            try:
+                pip_output = subprocess.check_output(
+                    [
+                        python_exe_path,
+                        "-m",
+                        "pip",
+                        "list",
+                        "--format=json",
+                        "--disable-pip-version-check",
+                    ]
+                )
+                packages = json.loads(pip_output)
+            except:
+                print("Warning! Couldn't extract the list of installed Python packages.")
+                return {}
         except:
             print("Warning! Couldn't extract the list of installed Python packages.")
             return {}
@@ -1584,7 +1613,7 @@ def install_python_deps():
         deps["chardet"] = ">=3.0.2,<4"
 
     python_exe_path = get_python_exe()
-    installed_packages = _get_installed_pip_packages(python_exe_path)
+    installed_packages = _get_installed_uv_packages(python_exe_path)
     packages_to_install = []
     for package, spec in deps.items():
         if package not in installed_packages:
@@ -1595,23 +1624,42 @@ def install_python_deps():
                 packages_to_install.append(package)
 
     if packages_to_install:
-        env.Execute(
-            env.VerboseAction(
-                (
-                    '"%s" -m pip install -U -q -q -q ' % python_exe_path
-                    + " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
-                ),
-                "Installing ESP-IDF's Python dependencies",
+        packages_str = " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
+        
+        # Try uv first, fallback to pip
+        try:
+            env.Execute(
+                env.VerboseAction(
+                    f'uv pip install {packages_str}',
+                    "Installing ESP-IDF's Python dependencies with uv",
+                )
             )
-        )
+        except Exception:
+            # Fallback to pip if uv fails
+            env.Execute(
+                env.VerboseAction(
+                    f'"{python_exe_path}" -m pip install -U -q -q -q {packages_str}',
+                    "Installing ESP-IDF's Python dependencies with pip (fallback)",
+                )
+            )
 
     if IS_WINDOWS and "windows-curses" not in installed_packages:
-        env.Execute(
-            env.VerboseAction(
-                '"%s" -m pip install -q -q -q windows-curses' % python_exe_path,
-                "Installing windows-curses package",
+        # Try uv first, fallback to pip for windows-curses
+        try:
+            env.Execute(
+                env.VerboseAction(
+                    'uv pip install windows-curses',
+                    "Installing windows-curses package with uv",
+                )
             )
-        )
+        except Exception:
+            # Fallback to pip if uv fails
+            env.Execute(
+                env.VerboseAction(
+                    f'"{python_exe_path}" -m pip install -q -q -q windows-curses',
+                    "Installing windows-curses package with pip (fallback)",
+                )
+            )
 
 
 def get_idf_venv_dir():
@@ -1689,6 +1737,7 @@ def ensure_python_venv_available():
             )
         )
 
+        # Check if pip is available (required for fallback even when using uv)
         assert os.path.isfile(
             pip_path
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
