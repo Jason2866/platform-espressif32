@@ -43,7 +43,6 @@ from platformio.package.manager.tool import ToolPackageManager
 IS_WINDOWS = sys.platform.startswith("win")
 
 python_deps = {
-    "wheel": ">=0.35.1",
     "uv": ">=0.1.0",
     "rich-click": ">=1.8.6",
     "PyYAML": ">=6.0.2",
@@ -600,15 +599,35 @@ def get_packages_to_install(deps, installed_packages):
 
 
 def install_python_deps():
-    def _get_installed_pip_packages():
+    def _ensure_uv_available():
+        """Ensure uv is available, install with pip if not"""
+        try:
+            subprocess.check_call(['uv', '--version'], 
+                                stdout=subprocess.DEVNULL, 
+                                stderr=subprocess.DEVNULL)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            python_exe = env.subst("$PYTHONEXE")
+            try:
+                env.Execute(
+                    env.VerboseAction(
+                        f'"{python_exe}" -m pip install "uv>=0.1.0" -q -q -q',
+                        "Installing uv package manager",
+                    )
+                )
+                return True
+            except Exception as e:
+                print(f"Error installing uv: {e}")
+                return False
+
+    def _get_installed_uv_packages():
         result = {}
         try:
-            pip_output = subprocess.check_output([
-                env.subst("$PYTHONEXE"),
-                "-m", "pip", "list", "--format=json",
-                "--disable-pip-version-check"
+            python_exe = env.subst("$PYTHONEXE")
+            uv_output = subprocess.check_output([
+                "uv", "pip", "list", "--python", python_exe, "--format=json"
             ])
-            packages = json.loads(pip_output)
+            packages = json.loads(uv_output)
             for p in packages:
                 result[p["name"]] = pepver_to_semver(p["version"])
         except Exception:
@@ -617,17 +636,28 @@ def install_python_deps():
 
         return result
 
-    installed_packages = _get_installed_pip_packages()
-    packages_to_install = list(get_packages_to_install(python_deps,
+    # Ensure uv is available
+    if not _ensure_uv_available():
+        print("Error: Could not install uv package manager")
+        return
+
+    # Get the dependencies excluding uv itself (since it's already installed)
+    other_deps = {k: v for k, v in python_deps.items() if k != "uv"}
+    
+    installed_packages = _get_installed_uv_packages()
+    packages_to_install = list(get_packages_to_install(other_deps,
                                                        installed_packages))
 
     if packages_to_install:
-        packages_str = " ".join(f'"{p}{python_deps[p]}"'
+        packages_str = " ".join(f'"{p}{other_deps[p]}"'
                                 for p in packages_to_install)
+        
+        python_exe = env.subst("$PYTHONEXE")
+        # Using env.Execute for consistency with PlatformIO patterns
         env.Execute(
             env.VerboseAction(
-                f'"$PYTHONEXE" -m pip install -U -q -q -q {packages_str}',
-                "Installing Arduino Python dependencies",
+                f'uv pip install --python "{python_exe}" --quiet --upgrade {packages_str}',
+                "Installing Python dependencies",
             )
         )
 
