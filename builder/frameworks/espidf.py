@@ -56,61 +56,6 @@ map_file = os.path.join(env.subst("$PROJECT_DIR"), env.subst("$PROGNAME") + ".ma
 if os.path.exists(map_file):
     os.remove(map_file)
 
-def install_standard_python_deps():
-    def _get_installed_standard_uv_packages():
-        result = {}
-        try:
-            # Use uv pip list to get installed packages
-            uv_output = subprocess.check_output([
-                "uv", "pip", "list", "--format=json"
-            ])
-            packages = json.loads(uv_output)
-        except Exception:
-            print("Warning! Couldn't extract the list of installed Python packages.")
-            return {}
-            print("Warning! Couldn't extract the list of installed Python packages.")
-            return {}
-        for p in packages:
-            result[p["name"]] = pepver_to_semver(p["version"])
-
-        return result
-
-    deps = {
-        "uv": ">=0.1.0",
-        "rich-click": ">=1.8.6",
-        "pyyaml": ">=6.0.2",
-        "intelhex": ">=2.3.0",
-        "rich": ">=14.0.0",
-        "esp-idf-size": ">=1.6.1"
-    }
-
-    installed_packages = _get_installed_standard_uv_packages()
-    packages_to_install = []
-    for package, spec in deps.items():
-        if package not in installed_packages:
-            packages_to_install.append(package)
-        else:
-            version_spec = semantic_version.Spec(spec)
-            if not version_spec.match(installed_packages[package]):
-                packages_to_install.append(package)
-
-    if packages_to_install:
-        packages_str = " ".join([
-            '"%s%s"' % (p, deps[p])
-            for p in packages_to_install
-        ])
-        
-        # Install with uv
-        env.Execute(
-            env.VerboseAction(
-                f'uv pip install --system {packages_str}',
-                "Installing standard Python dependencies with uv",
-            )
-        )
-    return
-
-install_standard_python_deps()
-
 # Allow changes in folders of managed components
 os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
 
