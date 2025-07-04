@@ -42,6 +42,33 @@ terminal_cp = locale.getpreferredencoding().lower()
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 
+def _install_esptool(env):
+    """Install esptool from local repository if not already installed"""
+    try:
+        # Check if esptool is already available
+        subprocess.check_call([env.subst("$PYTHONEXE"), "-c", "import esptool"], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    
+    # Install from esptool package folder
+    esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
+    if esptool_repo_path and os.path.isdir(esptool_repo_path):
+        try:
+            print("Installing esptool...")
+            subprocess.check_call([
+                env.subst("$PYTHONEXE"), "-m", "pip", "install", "-e", esptool_repo_path
+            ])
+            print("esptool installed successfully")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: Failed to install esptool: {e}")
+            return False
+    
+    return False
+
+
 def BeforeUpload(target, source, env):
     """
     Prepare the environment before uploading firmware.
@@ -317,6 +344,9 @@ if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
+# Install esptool if needed
+_install_esptool(env)
+
 # Configure build tools and environment variables
 env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
@@ -346,7 +376,7 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY=join(platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
+    OBJCOPY="esptool",
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
@@ -590,9 +620,7 @@ if upload_protocol == "espota":
 # Configure upload protocol: esptool
 elif upload_protocol == "esptool":
     env.Replace(
-        UPLOADER=join(
-            platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"
-        ),
+        UPLOADER="esptool",
         UPLOADERFLAGS=[
             "--chip",
             mcu,
