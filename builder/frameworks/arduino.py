@@ -42,15 +42,6 @@ from platformio.package.manager.tool import ToolPackageManager
 
 IS_WINDOWS = sys.platform.startswith("win")
 
-python_deps = {
-    "uv": ">=0.1.0",
-    "rich-click": ">=1.8.6",
-    "zopfli": ">=0.2.2",
-    "intelhex": ">=2.3.0",
-    "rich": ">=14.0.0",
-    "esp-idf-size": ">=1.6.1"
-}
-
 # Constants for better performance
 UNICORE_FLAGS = {
     "CORE32SOLO1",
@@ -584,83 +575,6 @@ if flag_custom_sdkconfig and has_unicore_flags():
                      " -mdisable-hardware-atomics -ustart_app_other_cores")
     new_build_unflags = build_unflags.split()
     env.Replace(BUILD_UNFLAGS=new_build_unflags)
-
-
-def get_packages_to_install(deps, installed_packages):
-    """Generator for packages to install"""
-    for package, spec in deps.items():
-        if package not in installed_packages:
-            yield package
-        else:
-            version_spec = semantic_version.Spec(spec)
-            if not version_spec.match(installed_packages[package]):
-                yield package
-
-
-def install_python_deps():
-    """Ensure uv is available, install with pip if not"""
-    try:
-        subprocess.check_call(['uv', '--version'], 
-                            stdout=subprocess.DEVNULL, 
-                            stderr=subprocess.DEVNULL)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        python_exe = env.subst("$PYTHONEXE")
-        try:
-            env.Execute(
-                env.VerboseAction(
-                    f'"{python_exe}" -m pip install "uv>=0.1.0" -q -q -q',
-                    "Installing uv package manager",
-                )
-            )
-        except Exception as e:
-            print(f"Error installing uv: {e}")
-            return False
-
-    def _get_installed_uv_packages():
-        result = {}
-        try:
-            uv_path = shutil.which("uv")
-            print(f"uv path: {uv_path}")
-            uv_output = subprocess.check_output([
-                uv_path, "pip", "list", "--format=json"
-            ])
-            packages = json.loads(uv_output)
-            for p in packages:
-                result[p["name"]] = pepver_to_semver(p["version"])
-        except Exception:
-            print("Warning! Couldn't extract the list of installed Python "
-                  "packages.")
-
-        return result
-
-    installed_packages = _get_installed_uv_packages()
-    packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
-    print("Packages to install:", packages_to_install)
-    python_exe = env.subst("$PYTHONEXE")
-    uv_path = shutil.which("uv")
-    print(f"uv path: {uv_path}")
-    print(f"python_exe: {python_exe}")
-    
-    if packages_to_install:
-        if uv_path is None:
-            print("Error: uv command not found in PATH")
-            return False
-            
-        packages_str = " ".join(f'"{p}{python_deps[p]}"'
-                                for p in packages_to_install)
-        
-        # Use the same Python executable that PlatformIO is using
-        uv_python_arg = f'--python="{python_exe}"'
-        
-        env.Execute(
-            env.VerboseAction(
-                f'"{uv_path}" pip install {uv_python_arg} --upgrade {packages_str}',
-                "Installing Python dependencies",
-            )
-        )
-
-
-install_python_deps()
 
 
 def get_MD5_hash(phrase):
