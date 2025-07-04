@@ -72,11 +72,10 @@ def install_python_deps():
                             stdout=subprocess.DEVNULL, 
                             stderr=subprocess.DEVNULL)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        python_exe = env.subst("$PYTHONEXE")
         try:
             env.Execute(
                 env.VerboseAction(
-                    f'"{python_exe}" -m pip install "uv>=0.1.0" -q -q -q',
+                    f'"{env.subst("$PYTHONEXE")}" -m pip install "uv>=0.1.0" -q -q -q',
                     "Installing uv package manager",
                 )
             )
@@ -87,10 +86,10 @@ def install_python_deps():
     def _get_installed_uv_packages():
         result = {}
         try:
-            uv_path = shutil.which("uv")
-            print(f"uv path: {uv_path}")
+            #uv_path = shutil.which("uv")
+            #print(f"uv path: {uv_path}")
             uv_output = subprocess.check_output([
-                uv_path, "pip", "list", "--format=json"
+                "uv", "pip", "list", "--format=json"
             ])
             packages = json.loads(uv_output)
             for p in packages:
@@ -104,9 +103,8 @@ def install_python_deps():
     installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
     print("Packages to install:", packages_to_install)
-    uv_path = shutil.which("uv")
-    print(f"uv path: {uv_path}")
-    #print(f"python_exe: {python_exe}")
+    #uv_path = shutil.which("uv")
+    #print(f"uv path: {uv_path}")
     
     if packages_to_install:         
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
@@ -115,7 +113,7 @@ def install_python_deps():
         
         env.Execute(
             env.VerboseAction(
-                f'"{uv_path}" pip install {uv_python_arg} --upgrade {packages_str}',
+                f'"uv pip install {uv_python_arg} --upgrade {packages_str}',
                 "Installing Python dependencies",
             )
         )
