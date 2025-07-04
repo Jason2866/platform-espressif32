@@ -90,8 +90,7 @@ def install_python_deps():
             uv_path = shutil.which("uv")
             print(f"uv path: {uv_path}")
             uv_output = subprocess.check_output([
-                uv_path, "pip", "list", "--format=json",
-                "--disable-pip-version-check"
+                uv_path, "pip", "list", "--format=json"
             ])
             packages = json.loads(uv_output)
             for p in packages:
@@ -105,15 +104,13 @@ def install_python_deps():
     installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
     print("Packages to install:", packages_to_install)
-    python_exe = env.subst("$PYTHONEXE")
     uv_path = shutil.which("uv")
     print(f"uv path: {uv_path}")
-    print(f"python_exe: {python_exe}")
+    #print(f"python_exe: {python_exe}")
     
     if packages_to_install:         
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
-
         uv_python_arg = f'--python="{env.subst("$PYTHONEXE")}"'
         
         env.Execute(
