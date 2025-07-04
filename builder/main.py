@@ -15,6 +15,7 @@
 import locale
 import os
 import re
+import semantic_version
 import shutil
 import shlex
 import subprocess
