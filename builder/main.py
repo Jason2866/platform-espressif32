@@ -33,6 +33,7 @@ from SCons.Script import (
 )
 
 from platformio.project.helpers import get_project_dir
+from platformio.package.version import pepver_to_semver
 from platformio.util import get_serial_ports
 
 # Initialize environment and configuration
