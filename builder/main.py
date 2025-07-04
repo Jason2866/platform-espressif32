@@ -15,8 +15,6 @@
 import locale
 import os
 import re
-import shlex
-import shutil
 import subprocess
 import sys
 from os.path import isfile, join
@@ -44,24 +42,20 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 
 def _install_esptool(env):
-    """Install esptool from local repository if not already installed"""
+    """Install esptool from package folder if not already installed"""
     try:
-        # Check if esptool is already available
         subprocess.check_call([env.subst("$PYTHONEXE"), "-c", "import esptool"], 
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
     
-    # Install from esptool package folder
     esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
     if esptool_repo_path and os.path.isdir(esptool_repo_path):
         try:
-            print("Installing esptool...")
             subprocess.check_call([
-                env.subst("$PYTHONEXE"), "-m", "pip", "install", "-e", esptool_repo_path
+                env.subst("$PYTHONEXE"), "-m", "pip", "install", "-qqq", "-e", esptool_repo_path
             ])
-            print("esptool installed successfully")
             return True
         except subprocess.CalledProcessError as e:
             print(f"Warning: Failed to install esptool: {e}")
@@ -347,8 +341,6 @@ if "INTEGRATION_EXTRA_DATA" not in env:
 
 # Install esptool if needed
 _install_esptool(env)
-esptool_path = shutil.which("esptool")
-print("Using esptool: %s" % esptool_path)
 
 # Configure build tools and environment variables
 env.Replace(
