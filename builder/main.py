@@ -106,16 +106,11 @@ def install_python_deps():
     print(f"uv path: {uv_path}")
     print(f"python_exe: {python_exe}")
     
-    if packages_to_install:
-        if uv_path is None:
-            print("Error: uv command not found in PATH")
-            return False
-            
+    if packages_to_install:         
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
-        
-        # Use the same Python executable that PlatformIO is using
-        uv_python_arg = f'--python="{python_exe}"'
+
+        uv_python_arg = f'--python="{env.subst("$PYTHONEXE")}"'
         
         env.Execute(
             env.VerboseAction(
@@ -129,20 +124,24 @@ install_python_deps()
 
 
 def _install_esptool(env):
-    """Install esptool from package folder if not already installed"""
+    """Install esptool from local path using uv package manager"""
+    uv_path = shutil.which("uv")
     try:
         subprocess.check_call([env.subst("$PYTHONEXE"), "-c", "import esptool"], 
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
-    
+
     esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
-    if esptool_repo_path and os.path.isdir(esptool_repo_path):
+    if esptool_repo_path and os.path.isdir(esptool_repo_path) and uv_path:
         try:
             subprocess.check_call([
-                env.subst("$PYTHONEXE"), "-m", "pip", "install", "-qqq", "-e", esptool_repo_path
+                uv_path, "pip", "install", 
+                f"--python={env.subst("$PYTHONEXE")}", 
+                "-e", esptool_repo_path
             ])
+            print(f"Successfully installed esptool from {esptool_repo_path} using uv")
             return True
         except subprocess.CalledProcessError as e:
             print(f"Warning: Failed to install esptool: {e}")
