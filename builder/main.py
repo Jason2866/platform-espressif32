@@ -376,7 +376,7 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY='"$PYTHONEXE" esptool',
+    OBJCOPY='$PYTHONEXE esptool',
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
@@ -620,7 +620,7 @@ if upload_protocol == "espota":
 # Configure upload protocol: esptool
 elif upload_protocol == "esptool":
     env.Replace(
-        UPLOADER='"$PYTHONEXE" esptool',
+        UPLOADER='$PYTHONEXE esptool',
         UPLOADERFLAGS=[
             "--chip",
             mcu,
