@@ -968,22 +968,15 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 
 if ("arduino" in pioframework and "espidf" not in pioframework and
         arduino_lib_compile_flag in ("Inactive", "True")):
-    # Graceful handling of component_manager - only use if PyYAML is available
-    try:
-        import yaml
-        # try to remove not needed include path if an lib_ignore entry exists
-        from component_manager import ComponentManager
-        component_manager = ComponentManager(env)
-        component_manager.handle_component_settings()
-        silent_action = env.Action(component_manager.restore_pioarduino_build_py)
-        # hack to silence scons command output
-        silent_action.strfunction = lambda target, source, env: ''
-        env.AddPostAction("checkprogsize", silent_action)
-    except ImportError:
-        print("*** PyYAML not available - component manager features disabled ***")
-        print("*** PyYAML will be automatically installed during Python dependencies setup ***")
-        print("*** Component management features will be available on next build run ***")
-        # Continue without component manager - build will still work
+
+    # try to remove not needed include path if an lib_ignore entry exists
+    from component_manager import ComponentManager
+    component_manager = ComponentManager(env)
+    component_manager.handle_component_settings()
+    silent_action = env.Action(component_manager.restore_pioarduino_build_py)
+    # hack to silence scons command output
+    silent_action.strfunction = lambda target, source, env: ''
+    env.AddPostAction("checkprogsize", silent_action)
 
     if IS_WINDOWS:
         env.AddBuildMiddleware(smart_include_length_shorten)
