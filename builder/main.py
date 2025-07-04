@@ -16,6 +16,7 @@ import locale
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from os.path import isfile, join
@@ -346,6 +347,8 @@ if "INTEGRATION_EXTRA_DATA" not in env:
 
 # Install esptool if needed
 _install_esptool(env)
+esptool_path = shutil.which("esptool")
+print("Using esptool: %s" % esptool_path)
 
 # Configure build tools and environment variables
 env.Replace(
@@ -376,7 +379,7 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY='$PYTHONEXE esptool',
+    OBJCOPY='esptool',
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
@@ -386,7 +389,7 @@ env.Replace(
     SIZECHECKCMD="$SIZETOOL -A -d $SOURCES",
     SIZEPRINTCMD="$SIZETOOL -B -d $SOURCES",
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
-    ERASECMD='"$PYTHONEXE" "$OBJCOPY" $ERASEFLAGS erase-flash',
+    ERASECMD='"$OBJCOPY" $ERASEFLAGS erase-flash',
     MKFSTOOL="mk%s" % filesystem,
 
     ESP32_FS_IMAGE_NAME=env.get(
@@ -417,7 +420,7 @@ env.Append(
             action=env.VerboseAction(
                 " ".join(
                     [
-                        '$OBJCOPY',
+                        "$OBJCOPY",
                         "--chip",
                         mcu,
                         "elf2image",
@@ -620,7 +623,7 @@ if upload_protocol == "espota":
 # Configure upload protocol: esptool
 elif upload_protocol == "esptool":
     env.Replace(
-        UPLOADER='$PYTHONEXE esptool',
+        UPLOADER="esptool",
         UPLOADERFLAGS=[
             "--chip",
             mcu,
@@ -669,7 +672,7 @@ elif upload_protocol == "esptool":
                 "detect",
                 "$FS_START",
             ],
-            UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS $SOURCE',
+            UPLOADCMD='"$UPLOADER" $UPLOADERFLAGS $SOURCE',
         )
 
     upload_actions = [
