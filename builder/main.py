@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import locale
+import json
 import os
 import re
 import semantic_version
