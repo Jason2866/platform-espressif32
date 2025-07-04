@@ -113,7 +113,7 @@ def install_python_deps():
         
         env.Execute(
             env.VerboseAction(
-                f'"uv pip install {uv_python_arg} --upgrade {packages_str}',
+                f'uv pip install {uv_python_arg} --upgrade {packages_str}',
                 "Installing Python dependencies",
             )
         )
