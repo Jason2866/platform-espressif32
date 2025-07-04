@@ -92,23 +92,13 @@ def install_python_deps():
             uv_output = subprocess.check_output([
                 uv_path, "pip", "list", "--format=json",
                 "--disable-pip-version-check"
-            ], stderr=subprocess.DEVNULL)
-        
-            # Filter out non-JSON lines
-            output_lines = uv_output.decode().strip().split('\n')
-            json_line = None
-            for line in output_lines:
-                line = line.strip()
-                if line.startswith('[') and line.endswith(']'):
-                    json_line = line
-                    break
-        
-            if json_line:
-                packages = json.loads(json_line)
-                for p in packages:
-                    result[p["name"]] = pepver_to_semver(p["version"])
-        except Exception as e:
-            print(f"Warning! Couldn't extract the list of installed Python packages: {e}")
+            ])
+            packages = json.loads(uv_output)
+            for p in packages:
+                result[p["name"]] = pepver_to_semver(p["version"])
+        except Exception:
+            print("Warning! Couldn't extract the list of installed Python "
+                  "packages.")
 
         return result
 
