@@ -376,7 +376,7 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY="esptool",
+    OBJCOPY='"$PYTHONEXE" esptool',
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
@@ -417,7 +417,7 @@ env.Append(
             action=env.VerboseAction(
                 " ".join(
                     [
-                        '"$PYTHONEXE" "$OBJCOPY"',
+                        '$OBJCOPY',
                         "--chip",
                         mcu,
                         "elf2image",
@@ -620,7 +620,7 @@ if upload_protocol == "espota":
 # Configure upload protocol: esptool
 elif upload_protocol == "esptool":
     env.Replace(
-        UPLOADER="esptool",
+        UPLOADER='"$PYTHONEXE" esptool',
         UPLOADERFLAGS=[
             "--chip",
             mcu,
@@ -641,8 +641,7 @@ elif upload_protocol == "esptool":
             "--flash-size",
             "detect",
         ],
-        UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS '
-        "$ESP32_APP_OFFSET $SOURCE",
+        UPLOADCMD='$UPLOADER $UPLOADERFLAGS $ESP32_APP_OFFSET $SOURCE'
     )
     for image in env.get("FLASH_EXTRA_IMAGES", []):
         env.Append(UPLOADERFLAGS=[image[0], env.subst(image[1])])
