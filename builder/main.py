@@ -205,29 +205,6 @@ install_python_deps()
 install_esptool(env)
 
 
-def _install_esptool(env):
-    """Install esptool from package folder if not already installed"""
-    try:
-        subprocess.check_call([env.subst("$PYTHONEXE"), "-c", "import esptool"], 
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
-    
-    esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
-    if esptool_repo_path and os.path.isdir(esptool_repo_path):
-        try:
-            subprocess.check_call([
-                env.subst("$PYTHONEXE"), "-m", "pip", "install", "-qqq", "-e", esptool_repo_path
-            ])
-            return True
-        except subprocess.CalledProcessError as e:
-            print(f"Warning: Failed to install esptool: {e}")
-            return False
-    
-    return False
-
-
 def BeforeUpload(target, source, env):
     """
     Prepare the environment before uploading firmware.
