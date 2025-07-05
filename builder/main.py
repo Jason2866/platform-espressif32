@@ -443,7 +443,6 @@ if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
 _install_esptool(env)
-install_python_deps()
 
 # Configure build tools and environment variables
 env.Replace(
