@@ -480,8 +480,6 @@ if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
-_install_esptool(env)
-
 # Configure build tools and environment variables
 env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
