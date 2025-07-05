@@ -139,7 +139,6 @@ def install_python_deps():
     
     return True
 
-install_python_deps()
 
 
 def _install_esptool(env):
@@ -166,6 +165,9 @@ def _install_esptool(env):
     
     return False
 
+
+install_python_deps()
+_install_esptool(env)
 
 def BeforeUpload(target, source, env):
     """
@@ -441,8 +443,6 @@ if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
 # Initialize integration extra data if not present
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
-
-_install_esptool(env)
 
 # Configure build tools and environment variables
 env.Replace(
