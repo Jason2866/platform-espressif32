@@ -54,7 +54,7 @@ python_deps = {
 }
 
 def get_packages_to_install(deps, installed_packages):
-    """Generator for packages to install"""
+    """Generator for Python packages to install"""
     for package, spec in deps.items():
         if package not in installed_packages:
             yield package
@@ -65,53 +65,79 @@ def get_packages_to_install(deps, installed_packages):
 
 
 def install_python_deps():
-    """Ensure uv is available, install with pip if not"""
-    try:
-        subprocess.check_call(['uv', '--version'], 
-                            stdout=subprocess.DEVNULL, 
-                            stderr=subprocess.DEVNULL)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        try:
-            env.Execute(
-                env.VerboseAction(
-                    f'"{env.subst("$PYTHONEXE")}" -m pip install "uv>=0.1.0" -q -q -q',
-                    "Installing uv package manager",
-                )
+    """Ensure uv package manager is available, install with pip if not"""
+    ret_code = env.Execute(
+        env.VerboseAction(
+            'uv --version > /dev/null 2>&1',
+            None  # Silent action
+        )
+    )
+    
+    if ret_code != 0:
+        ret_code = env.Execute(
+            env.VerboseAction(
+                f'"{env.subst("$PYTHONEXE")}" -m pip install "uv>=0.1.0" -q -q -q',
+                "Installing uv package manager",
             )
-        except Exception as e:
-            print(f"Error installing uv: {e}")
+        )
+        if ret_code != 0:
+            print(f"Error installing uv package manager (exit code: {ret_code})")
             return False
 
     def _get_installed_uv_packages():
         result = {}
         try:
-            uv_output = subprocess.check_output([
-                "uv", "pip", "list", "--format=json"
-            ], stderr=subprocess.DEVNULL)
-            packages = json.loads(uv_output)
-            for p in packages:
-                result[p["name"]] = pepver_to_semver(p["version"])
-        except Exception:
-            print("Warning! Couldn't extract the list of installed Python "
-                  "packages.")
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as tmp:
+                tmp_path = tmp.name
+            
+            ret_code = env.Execute(
+                env.VerboseAction(
+                    f'uv pip list --format=json > "{tmp_path}" 2>/dev/null',
+                    None  # Silent action
+                )
+            )
+            
+            if ret_code == 0:
+                try:
+                    with open(tmp_path, 'r') as f:
+                        content = f.read().strip()
+                        if content:
+                            packages = json.loads(content)
+                            for p in packages:
+                                result[p["name"]] = pepver_to_semver(p["version"])
+                except (json.JSONDecodeError, KeyError) as e:
+                    print(f"Warning: Could not parse package list: {e}")
+            
+            # Cleanup
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+                
+        except Exception as e:
+            print(f"Warning! Couldn't extract the list of installed Python packages: {e}")
 
         return result
 
     installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
     
-    if packages_to_install:         
+    if packages_to_install:
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
                                 for p in packages_to_install)
         uv_python_arg = f'--python="{env.subst("$PYTHONEXE")}"'
         
-        env.Execute(
+        ret_code = env.Execute(
             env.VerboseAction(
-                f'uv pip install {uv_python_arg} --upgrade --quiet {packages_str}',
+                f'uv pip install {uv_python_arg} --quiet --upgrade {packages_str}',
                 "Installing Python dependencies",
             )
         )
-
+        
+        if ret_code != 0:
+            print(f"Error: Failed to install Python dependencies (exit code: {ret_code})")
+            return False
+    
+    return True
 
 install_python_deps()
 
@@ -417,6 +443,7 @@ if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
 _install_esptool(env)
+install_python_deps()
 
 # Configure build tools and environment variables
 env.Replace(
@@ -577,11 +604,16 @@ def firmware_metrics(target, source, env):
         if env.GetProjectOption("custom_esp_idf_size_verbose", False):
             print(f"Running command: {' '.join(cmd)}")
         
-        # Call esp-idf-size
-        result = subprocess.run(cmd, check=False, capture_output=False)
+        cmd_str = " ".join(f'"{arg}"' if " " in arg else arg for arg in cmd)
+        ret_code = env.Execute(
+            env.VerboseAction(
+                cmd_str,
+                "Analyzing firmware size",
+            )
+        )
         
-        if result.returncode != 0:
-            print(f"Warning: esp-idf-size exited with code {result.returncode}")
+        if ret_code != 0:
+            print(f"Warning: esp-idf-size exited with code {ret_code}")
             
     except ImportError:
         print("Error: esp-idf-size module not found.")
