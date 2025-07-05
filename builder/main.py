@@ -627,6 +627,7 @@ def firmware_metrics(target, source, env):
             dash_index = sys.argv.index("--")
             if dash_index + 1 < len(sys.argv):
                 cli_args = sys.argv[dash_index + 1:]
+                cmd.extend(cli_args)
 
         # Add CLI arguments before the map file
         if cli_args:
@@ -639,12 +640,8 @@ def firmware_metrics(target, source, env):
         if env.GetProjectOption("custom_esp_idf_size_verbose", False):
             print(f"Running command: {' '.join(cmd)}")
         
-        result = subprocess.run(
-            cmd,
-            capture_output=False,
-            text=True,
-            encoding='utf-8'
-        )
+        # Call esp-idf-size
+        result = subprocess.run(cmd, check=False, capture_output=False)
         
         if result.returncode != 0:
             print(f"Warning: esp-idf-size exited with code {result.returncode}")
@@ -658,6 +655,7 @@ def firmware_metrics(target, source, env):
     except Exception as e:
         print(f"Error: Failed to run firmware metrics: {e}")
         print("Make sure esp-idf-size is installed: pip install esp-idf-size")
+
 
 #
 # Target: Build executable and linkable firmware or FS image
