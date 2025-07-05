@@ -35,6 +35,7 @@ from platformio.project.helpers import get_project_dir
 from platformio.package.version import pepver_to_semver
 from platformio.util import get_serial_ports
 
+
 # Initialize environment and configuration
 env = DefaultEnvironment()
 platform = env.PioPlatform()
@@ -52,6 +53,7 @@ python_deps = {
     "rich": ">=14.0.0",
     "esp-idf-size": ">=1.6.1"
 }
+
 
 def get_packages_to_install(deps, installed_packages):
     """Generator for Python packages to install"""
@@ -84,6 +86,7 @@ def install_python_deps():
             print(f"Error installing uv package manager (exit code: {ret_code})")
             return False
 
+    
     def _get_installed_uv_packages():
         result = {}
         try:
@@ -140,7 +143,6 @@ def install_python_deps():
     return True
 
 
-
 def _install_esptool(env):
     """Install esptool from local path using uv package manager"""
     try:
@@ -168,6 +170,7 @@ def _install_esptool(env):
 
 install_python_deps()
 _install_esptool(env)
+
 
 def BeforeUpload(target, source, env):
     """
@@ -556,6 +559,7 @@ env.Append(
 # Load framework-specific configuration
 if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
+
 
 def firmware_metrics(target, source, env):
     """
