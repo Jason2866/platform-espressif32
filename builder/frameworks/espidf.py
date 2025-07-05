@@ -1487,8 +1487,8 @@ def install_python_deps():
                 "uv", "pip", "list", "--python", python_exe_path, "--format=json"
             ])
             packages = json.loads(uv_output)
-        except:
-            print("Warning! Couldn't extract the list of installed Python packages.")
+        except (subprocess.CalledProcessError, json.JSONDecodeError, OSError) as e:
+            print(f"Warning! Couldn't extract the list of installed Python packages: {e}")
             return {}
         
         for p in packages:
