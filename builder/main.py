@@ -47,6 +47,7 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 python_deps = {
     "uv": ">=0.1.0",
+    "pyyaml": ">=6.0.2",
     "rich-click": ">=1.8.6",
     "zopfli": ">=0.2.2",
     "intelhex": ">=2.3.0",
@@ -68,54 +69,69 @@ def get_packages_to_install(deps, installed_packages):
 
 def install_python_deps():
     """Ensure uv package manager is available, install with pip if not"""
-    ret_code = env.Execute(
-        env.VerboseAction(
-            'uv --version > /dev/null 2>&1',
-            None  # Silent action
+    try:
+        result = subprocess.run(
+            ["uv", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=3
         )
-    )
+        uv_available = result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        uv_available = False
     
-    if ret_code != 0:
-        ret_code = env.Execute(
-            env.VerboseAction(
-                f'"{env.subst("$PYTHONEXE")}" -m pip install "uv>=0.1.0" -q -q -q',
-                "Installing uv package manager",
+    if not uv_available:
+        try:
+            result = subprocess.run(
+                [env.subst("$PYTHONEXE"), "-m", "pip", "install", "uv>=0.1.0", "-q", "-q", "-q"],
+                capture_output=True,
+                text=True,
+                timeout=30  # 30 second timeout
             )
-        )
-        if ret_code != 0:
-            print(f"Error installing uv package manager (exit code: {ret_code})")
+            if result.returncode != 0:
+                if result.stderr:
+                    print(f"Error output: {result.stderr.strip()}")
+                return False
+        except subprocess.TimeoutExpired:
+            print("Error: uv installation timed out")
+            return False
+        except FileNotFoundError:
+            print("Error: Python executable not found")
+            return False
+        except Exception as e:
+            print(f"Error installing uv package manager: {e}")
             return False
 
     
     def _get_installed_uv_packages():
         result = {}
         try:
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as tmp:
-                tmp_path = tmp.name
-            
-            ret_code = env.Execute(
-                env.VerboseAction(
-                    f'uv pip list --format=json > "{tmp_path}" 2>/dev/null',
-                    None  # Silent action
-                )
+            cmd = ["uv", "pip", "list", "--format=json"]
+            result_obj = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                timeout=30  # 30 second timeout
             )
             
-            if ret_code == 0:
-                try:
-                    with open(tmp_path, 'r') as f:
-                        content = f.read().strip()
-                        if content:
-                            packages = json.loads(content)
-                            for p in packages:
-                                result[p["name"]] = pepver_to_semver(p["version"])
-                except (json.JSONDecodeError, KeyError) as e:
-                    print(f"Warning: Could not parse package list: {e}")
-            
-            # Cleanup
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            if result_obj.returncode == 0:
+                content = result_obj.stdout.strip()
+                if content:
+                    packages = json.loads(content)
+                    for p in packages:
+                        result[p["name"]] = pepver_to_semver(p["version"])
+            else:
+                print(f"Warning: pip list failed with exit code {result_obj.returncode}")
+                if result_obj.stderr:
+                    print(f"Error output: {result_obj.stderr.strip()}")
                 
+        except subprocess.TimeoutExpired:
+            print("Warning: uv pip list command timed out")
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"Warning: Could not parse package list: {e}")
+        except FileNotFoundError:
+            print("Warning: uv command not found")
         except Exception as e:
             print(f"Warning! Couldn't extract the list of installed Python packages: {e}")
 
@@ -125,26 +141,43 @@ def install_python_deps():
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
     
     if packages_to_install:
-        packages_str = " ".join(f'"{p}{python_deps[p]}"'
-                                for p in packages_to_install)
-        uv_python_arg = f'--python="{env.subst("$PYTHONEXE")}"'
+        packages_list = [f"{p}{python_deps[p]}" for p in packages_to_install]
         
-        ret_code = env.Execute(
-            env.VerboseAction(
-                f'uv pip install {uv_python_arg} --quiet --upgrade {packages_str}',
-                "Installing Python dependencies",
+        cmd = [
+            "uv", "pip", "install",
+            f"--python={env.subst('$PYTHONEXE')}",
+            "--quiet", "--upgrade"
+        ] + packages_list
+        
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30  # 30 second timeout for package installation
             )
-        )
-        
-        if ret_code != 0:
-            print(f"Error: Failed to install Python dependencies (exit code: {ret_code})")
+            
+            if result.returncode != 0:
+                print(f"Error: Failed to install Python dependencies (exit code: {result.returncode})")
+                if result.stderr:
+                    print(f"Error output: {result.stderr.strip()}")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            print("Error: Python dependencies installation timed out")
+            return False
+        except FileNotFoundError:
+            print("Error: uv command not found")
+            return False
+        except Exception as e:
+            print(f"Error installing Python dependencies: {e}")
             return False
     
     return True
 
 
 def _install_esptool(env):
-    """Install esptool from local path using uv package manager"""
+    """Install esptool from package folder "tool-esptoolpy" using uv package manager"""
     try:
         subprocess.check_call([env.subst("$PYTHONEXE"), "-c", "import esptool"], 
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -594,7 +627,6 @@ def firmware_metrics(target, source, env):
             dash_index = sys.argv.index("--")
             if dash_index + 1 < len(sys.argv):
                 cli_args = sys.argv[dash_index + 1:]
-                cmd.extend(cli_args)
 
         # Add CLI arguments before the map file
         if cli_args:
@@ -607,16 +639,15 @@ def firmware_metrics(target, source, env):
         if env.GetProjectOption("custom_esp_idf_size_verbose", False):
             print(f"Running command: {' '.join(cmd)}")
         
-        cmd_str = " ".join(f'"{arg}"' if " " in arg else arg for arg in cmd)
-        ret_code = env.Execute(
-            env.VerboseAction(
-                cmd_str,
-                "Analyzing firmware size",
-            )
+        result = subprocess.run(
+            cmd,
+            capture_output=False,
+            text=True,
+            encoding='utf-8'
         )
         
-        if ret_code != 0:
-            print(f"Warning: esp-idf-size exited with code {ret_code}")
+        if result.returncode != 0:
+            print(f"Warning: esp-idf-size exited with code {result.returncode}")
             
     except ImportError:
         print("Error: esp-idf-size module not found.")
