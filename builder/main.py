@@ -87,7 +87,7 @@ def install_python_deps():
         try:
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--format=json"
-            ])
+            ], stderr=subprocess.DEVNULL)
             packages = json.loads(uv_output)
             for p in packages:
                 result[p["name"]] = pepver_to_semver(p["version"])
