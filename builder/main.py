@@ -176,7 +176,7 @@ def install_python_deps():
     return True
 
 
-def _install_esptool(env):
+def install_esptool(env):
     """Install esptool from package folder "tool-esptoolpy" using uv package manager"""
     try:
         subprocess.check_call([env.subst("$PYTHONEXE"), "-c", "import esptool"], 
@@ -202,7 +202,7 @@ def _install_esptool(env):
 
 
 install_python_deps()
-_install_esptool(env)
+install_esptool(env)
 
 
 def _install_esptool(env):
