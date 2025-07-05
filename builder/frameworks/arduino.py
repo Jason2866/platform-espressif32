@@ -22,8 +22,6 @@ kinds of creative coding, interactive objects, spaces or physical experiences.
 http://arduino.cc/en/Reference/HomePage
 """
 
-import subprocess
-import json
 import os
 import sys
 import shutil
@@ -34,10 +32,8 @@ from os.path import join, exists, isabs, splitdrive, commonpath, relpath
 from pathlib import Path
 from typing import Union, List
 
-import semantic_version
 from SCons.Script import DefaultEnvironment, SConscript
 from platformio import fs
-from platformio.package.version import pepver_to_semver
 from platformio.package.manager.tool import ToolPackageManager
 
 IS_WINDOWS = sys.platform.startswith("win")

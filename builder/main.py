@@ -17,7 +17,6 @@ import json
 import os
 import re
 import semantic_version
-import shutil
 import shlex
 import subprocess
 import sys
@@ -86,8 +85,6 @@ def install_python_deps():
     def _get_installed_uv_packages():
         result = {}
         try:
-            #uv_path = shutil.which("uv")
-            #print(f"uv path: {uv_path}")
             uv_output = subprocess.check_output([
                 "uv", "pip", "list", "--format=json"
             ])
@@ -102,9 +99,6 @@ def install_python_deps():
 
     installed_packages = _get_installed_uv_packages()
     packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
-    print("Packages to install:", packages_to_install)
-    #uv_path = shutil.which("uv")
-    #print(f"uv path: {uv_path}")
     
     if packages_to_install:         
         packages_str = " ".join(f'"{p}{python_deps[p]}"'
@@ -113,7 +107,7 @@ def install_python_deps():
         
         env.Execute(
             env.VerboseAction(
-                f'uv pip install {uv_python_arg} --upgrade {packages_str}',
+                f'uv pip install {uv_python_arg} --upgrade --quiet {packages_str}',
                 "Installing Python dependencies",
             )
         )
@@ -124,7 +118,6 @@ install_python_deps()
 
 def _install_esptool(env):
     """Install esptool from local path using uv package manager"""
-    uv_path = shutil.which("uv")
     try:
         subprocess.check_call([env.subst("$PYTHONEXE"), "-c", "import esptool"], 
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -133,14 +126,13 @@ def _install_esptool(env):
         pass
 
     esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
-    if esptool_repo_path and os.path.isdir(esptool_repo_path) and uv_path:
+    if esptool_repo_path and os.path.isdir(esptool_repo_path):
         try:
             subprocess.check_call([
-                uv_path, "pip", "install", 
+                "uv", "pip", "install", "--quiet",
                 f"--python={env.subst("$PYTHONEXE")}", 
                 "-e", esptool_repo_path
             ])
-            print(f"Successfully installed esptool from {esptool_repo_path} using uv")
             return True
         except subprocess.CalledProcessError as e:
             print(f"Warning: Failed to install esptool: {e}")
