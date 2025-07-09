@@ -79,8 +79,9 @@
     "tool-esptoolpy": {
       "type": "uploader",
       "optional": false,
-      "owner": "Jason2866",
-      "version": "https://github.com/Jason2866/esptool/releases/download/v5.0.0/esptool.zip"
+      "owner": "pioarduino",
+      "package-version": "5.0.0",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.0.0.zip"
     },
     "tl-install": {
       "type": "tool",
