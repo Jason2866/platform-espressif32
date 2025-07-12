@@ -251,6 +251,12 @@ class Espressif32Platform(PlatformBase):
             logger.error(f"Error reading package data for {tool_name}: {e}")
             return False
 
+    def _ensure_tool_installed(self, tool_name: str) -> None:
+        """Ensure a tool is installed, reinstalling if tools.json exists."""
+        tool_dir = os.path.join(self.packages_dir, tool_name)
+        if not os.path.exists(tool_dir) or os.path.exists(os.path.join(tool_dir, "tools.json")):
+            self.install_tool(tool_name)
+
     def install_tool(self, tool_name: str, retry_count: int = 0) -> bool:
         """Install a tool with optimized retry mechanism."""
         if retry_count >= RETRY_LIMIT:
@@ -426,35 +432,28 @@ class Espressif32Platform(PlatformBase):
     def _ensure_mklittlefs_version(self) -> None:
         """Ensure correct mklittlefs version is installed."""
         piopm_path = os.path.join(self.packages_dir, "tool-mklittlefs", ".piopm")
-
-        if os.path.exists(piopm_path):
-            try:
-                with open(piopm_path, 'r', encoding='utf-8') as f:
-                    package_data = json.load(f)
-                if package_data.get('version') != "3.2.0":
-                    os.remove(piopm_path)
-                    logger.info("Outdated mklittlefs version removed")
-            except (json.JSONDecodeError, KeyError) as e:
-                logger.error(f"Error reading mklittlefs package data: {e}")
+        
+        if not os.path.exists(piopm_path):
+            return
+            
+        try:
+            with open(piopm_path, 'r', encoding='utf-8') as f:
+                package_data = json.load(f)
+            
+            if package_data.get('version') != "3.2.0":
+                os.remove(piopm_path)
+                logger.info("Outdated mklittlefs version removed")
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Error reading mklittlefs package  {e}")
 
     def _setup_mklittlefs_for_download(self) -> None:
         """Setup mklittlefs for download functionality with version 4.x."""
         mklittlefs_dir = os.path.join(self.packages_dir, "tool-mklittlefs")
-        mklittlefs4_dir = os.path.join(
-            self.packages_dir, "tool-mklittlefs4"
-        )
+        mklittlefs4_dir = os.path.join(self.packages_dir, "tool-mklittlefs4")
 
-        # Ensure mklittlefs 3.x is installed
-        if not os.path.exists(mklittlefs_dir):
-            self.install_tool("tool-mklittlefs")
-        if os.path.exists(os.path.join(mklittlefs_dir, "tools.json")):
-            self.install_tool("tool-mklittlefs")
-
-        # Install mklittlefs 4.x
-        if not os.path.exists(mklittlefs4_dir):
-            self.install_tool("tool-mklittlefs4")
-        if os.path.exists(os.path.join(mklittlefs4_dir, "tools.json")):
-            self.install_tool("tool-mklittlefs4")
+        # Ensure both tools are installed
+        self._ensure_tool_installed("tool-mklittlefs")
+        self._ensure_tool_installed("tool-mklittlefs4")
 
         # Copy mklittlefs 4.x over 3.x
         if os.path.exists(mklittlefs4_dir):
@@ -470,7 +469,7 @@ class Espressif32Platform(PlatformBase):
             self._setup_mklittlefs_for_download()
         else:
             self._ensure_mklittlefs_version()
-            self.install_tool("tool-mklittlefs")
+            self._ensure_tool_installed("tool-mklittlefs")
 
     def _install_filesystem_tool(self, filesystem: str, for_download: bool = False) -> None:
         """Install filesystem-specific tools based on the filesystem type."""
