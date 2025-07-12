@@ -432,17 +432,17 @@ class Espressif32Platform(PlatformBase):
     def _ensure_mklittlefs_version(self) -> None:
         """Ensure correct mklittlefs version is installed."""
         piopm_path = os.path.join(self.packages_dir, "tool-mklittlefs", ".piopm")
-        
+    
         if not os.path.exists(piopm_path):
             return
-            
+        
         try:
             with open(piopm_path, 'r', encoding='utf-8') as f:
                 package_data = json.load(f)
-            
-            if package_data.get('version') != "3.2.0":
+            version = package_data.get('version', '')
+            if not version.startswith("3."):
                 os.remove(piopm_path)
-                logger.info("Outdated mklittlefs version removed")
+                logger.info(f"Incompatible mklittlefs version {version} removed (required: 3.x)")
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Error reading mklittlefs package  {e}")
 
