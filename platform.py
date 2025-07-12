@@ -29,8 +29,6 @@ from platformio.package.manager.tool import ToolPackageManager
 # Constants
 RETRY_LIMIT = 3
 SUBPROCESS_TIMEOUT = 300
-MKLITTLEFS_VERSION_3 = "tool-mklittlefs"
-MKLITTLEFS_VERSION_4 = "tool-mklittlefs4"
 DEFAULT_DEBUG_SPEED = "5000"
 DEFAULT_APP_OFFSET = "0x10000"
 
@@ -440,25 +438,25 @@ class Espressif32Platform(PlatformBase):
                 logger.error(f"Error reading mklittlefs package data: {e}")
 
     def _setup_mklittlefs_for_download(self) -> None:
-        """Setup mklittlefs for download functionality with version 4.0.x."""
+        """Setup mklittlefs for download functionality with version 4.x."""
         mklittlefs_dir = os.path.join(self.packages_dir, "tool-mklittlefs")
         mklittlefs4_dir = os.path.join(
             self.packages_dir, "tool-mklittlefs4"
         )
 
-        # Ensure mklittlefs 3.2.0 is installed
+        # Ensure mklittlefs 3.x is installed
         if not os.path.exists(mklittlefs_dir):
             self.install_tool("tool-mklittlefs")
         if os.path.exists(os.path.join(mklittlefs_dir, "tools.json")):
             self.install_tool("tool-mklittlefs")
 
-        # Install mklittlefs 4.0.x
+        # Install mklittlefs 4.x
         if not os.path.exists(mklittlefs4_dir):
             self.install_tool("tool-mklittlefs4")
         if os.path.exists(os.path.join(mklittlefs4_dir, "tools.json")):
             self.install_tool("tool-mklittlefs4")
 
-        # Copy mklittlefs 4.0.x over 3.2.0
+        # Copy mklittlefs 4.x over 3.x
         if os.path.exists(mklittlefs4_dir):
             package_src = os.path.join(mklittlefs_dir, "package.json")
             package_dst = os.path.join(mklittlefs4_dir, "package.json")
