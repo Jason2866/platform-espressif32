@@ -427,7 +427,7 @@ class Espressif32Platform(PlatformBase):
 
     def _ensure_mklittlefs_version(self) -> None:
         """Ensure correct mklittlefs version is installed."""
-        piopm_path = os.path.join(self.packages_dir, MKLITTLEFS_VERSION_3, ".piopm")
+        piopm_path = os.path.join(self.packages_dir, "tool-mklittlefs", ".piopm")
 
         if os.path.exists(piopm_path):
             try:
@@ -441,22 +441,22 @@ class Espressif32Platform(PlatformBase):
 
     def _setup_mklittlefs_for_download(self) -> None:
         """Setup mklittlefs for download functionality with version 4.0.x."""
-        mklittlefs_dir = os.path.join(self.packages_dir, MKLITTLEFS_VERSION_3)
+        mklittlefs_dir = os.path.join(self.packages_dir, "tool-mklittlefs")
         mklittlefs4_dir = os.path.join(
-            self.packages_dir, MKLITTLEFS_VERSION_4
+            self.packages_dir, "tool-mklittlefs4"
         )
 
         # Ensure mklittlefs 3.2.0 is installed
         if not os.path.exists(mklittlefs_dir):
-            self.install_tool(MKLITTLEFS_VERSION_3)
+            self.install_tool("tool-mklittlefs")
         if os.path.exists(os.path.join(mklittlefs_dir, "tools.json")):
-            self.install_tool(MKLITTLEFS_VERSION_3)
+            self.install_tool("tool-mklittlefs")
 
         # Install mklittlefs 4.0.x
         if not os.path.exists(mklittlefs4_dir):
-            self.install_tool(MKLITTLEFS_VERSION_4)
+            self.install_tool("tool-mklittlefs4")
         if os.path.exists(os.path.join(mklittlefs4_dir, "tools.json")):
-            self.install_tool(MKLITTLEFS_VERSION_4)
+            self.install_tool("tool-mklittlefs4")
 
         # Copy mklittlefs 4.0.x over 3.2.0
         if os.path.exists(mklittlefs4_dir):
@@ -472,7 +472,7 @@ class Espressif32Platform(PlatformBase):
             self._setup_mklittlefs_for_download()
         else:
             self._ensure_mklittlefs_version()
-            self.install_tool(MKLITTLEFS_VERSION_3)
+            self.install_tool("tool-mklittlefs")
 
     def _install_filesystem_tool(self, filesystem: str, for_download: bool = False) -> None:
         """Install filesystem-specific tools based on the filesystem type."""
