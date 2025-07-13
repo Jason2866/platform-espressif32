@@ -650,19 +650,21 @@ def configure_fs_build_isolation():
     Configure separate build directory for filesystem targets to improve performance.
     Disables LDF (Library Dependency Finder) and uses isolated build directory
     for uploadfs, uploadfsota, and buildfs targets.
-    
+
     This optimization prevents unnecessary library dependency scanning and compilation
     when only filesystem operations are performed.
     """
     fs_targets = {"uploadfs", "uploadfsota", "buildfs"}
     if fs_targets & set(COMMAND_LINE_TARGETS):
-        # Create separate build directory for filesystem targets
+        # Isolated build directory for filesystem operations
         fs_build_dir = env.Dir(env.subst("$PROJECT_BUILD_DIR/${PIOENV}_fs"))
         env.Replace(BUILD_DIR=fs_build_dir)
         
-        # Disable Library Dependency Finder for performance
-        env.Replace(LIB_LDF_MODE="off")
-        env.Replace(LIB_DEPS=[])
+        # Disable LDF by modifying project configuration directly
+        env_section = "env:" + env["PIOENV"]
+        if not projectconfig.has_section(env_section):
+            projectconfig.add_section(env_section)
+        projectconfig.set(env_section, "lib_ldf_mode", "off")
 
 
 # Initialize board configuration and MCU settings
