@@ -645,6 +645,26 @@ def check_lib_archive_exists():
     return False
 
 
+def configure_fs_build_isolation():
+    """
+    Configure separate build directory for filesystem targets to improve performance.
+    Disables LDF (Library Dependency Finder) and uses isolated build directory
+    for uploadfs, uploadfsota, and buildfs targets.
+    
+    This optimization prevents unnecessary library dependency scanning and compilation
+    when only filesystem operations are performed.
+    """
+    fs_targets = {"uploadfs", "uploadfsota", "buildfs"}
+    if fs_targets & set(COMMAND_LINE_TARGETS):
+        # Create separate build directory for filesystem targets
+        fs_build_dir = env.Dir(env.subst("$PROJECT_BUILD_DIR/${PIOENV}_fs"))
+        env.Replace(BUILD_DIR=fs_build_dir)
+        
+        # Disable Library Dependency Finder for performance
+        env.Replace(LIB_LDF_MODE="off")
+        env.Replace(LIB_DEPS=[])
+
+
 # Initialize board configuration and MCU settings
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
@@ -711,6 +731,9 @@ env.Replace(
     ARDUINO_LIB_COMPILE_FLAG="Inactive",
     PROGSUFFIX=".elf",
 )
+
+# Configure filesystem build isolation for performance optimization
+configure_fs_build_isolation()
 
 # Check if lib_archive is set in platformio.ini and set it to False
 # if not found. This makes weak defs in framework and libs possible.
