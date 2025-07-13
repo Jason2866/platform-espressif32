@@ -645,21 +645,15 @@ def check_lib_archive_exists():
     return False
 
 
-def configure_fs_build_isolation():
+def switch_off_ldf():
     """
-    Configure separate build directory for filesystem targets to improve performance.
-    Disables LDF (Library Dependency Finder) and uses isolated build directory
-    for uploadfs, uploadfsota, and buildfs targets.
+    Disables LDF (Library Dependency Finder) for uploadfs, uploadfsota, and buildfs targets.
 
     This optimization prevents unnecessary library dependency scanning and compilation
     when only filesystem operations are performed.
     """
     fs_targets = {"uploadfs", "uploadfsota", "buildfs"}
     if fs_targets & set(COMMAND_LINE_TARGETS):
-        # Isolated build directory for filesystem operations
-        fs_build_dir = env.Dir(env.subst("$PROJECT_BUILD_DIR/${PIOENV}_fs"))
-        env.Replace(BUILD_DIR=fs_build_dir)
-        
         # Disable LDF by modifying project configuration directly
         env_section = "env:" + env["PIOENV"]
         if not projectconfig.has_section(env_section):
@@ -795,8 +789,8 @@ if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
 
 
-# Configure filesystem build isolation for performance optimization
-configure_fs_build_isolation()
+# Disable LDF for filesystem operations
+switch_off_ldf()
 
 
 def firmware_metrics(target, source, env):
