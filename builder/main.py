@@ -734,9 +734,6 @@ env.Replace(
     PROGSUFFIX=".elf",
 )
 
-# Configure filesystem build isolation for performance optimization
-configure_fs_build_isolation()
-
 # Check if lib_archive is set in platformio.ini and set it to False
 # if not found. This makes weak defs in framework and libs possible.
 if not check_lib_archive_exists():
@@ -796,6 +793,10 @@ env.Append(
 # Load framework-specific configuration
 if not env.get("PIOFRAMEWORK"):
     env.SConscript("frameworks/_bare.py", exports="env")
+
+
+# Configure filesystem build isolation for performance optimization
+configure_fs_build_isolation()
 
 
 def firmware_metrics(target, source, env):
