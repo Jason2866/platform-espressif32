@@ -431,9 +431,10 @@ class Espressif32Platform(PlatformBase):
             try:
                 with open(piopm_path, 'r', encoding='utf-8') as f:
                     package_data = json.load(f)
-                if package_data.get('version') != "3.2.0":
+                version = package_data.get('version', '')
+                if not version.startswith("3."):
                     os.remove(piopm_path)
-                    logger.info("Outdated mklittlefs version removed")
+                    logger.info(f"Incompatible mklittlefs version {version} removed (required: 3.x)")
             except (json.JSONDecodeError, KeyError) as e:
                 logger.error(f"Error reading mklittlefs package data: {e}")
 
