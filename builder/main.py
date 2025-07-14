@@ -257,21 +257,51 @@ def install_python_deps():
 def install_esptool(env):
     """
     Install esptool from package folder "tool-esptoolpy" using uv package manager.
+    Also determines the path to the esptool executable binary.
     
     Args:
         env: SCons environment object
         
     Returns:
-        bool: True if successful, False otherwise
+        str: Path to esptool executable, or 'esptool' as fallback
     """
+    def _get_esptool_executable_path(python_exe):
+        """
+        Get the path to the esptool executable binary.
+        
+        Args:
+            python_exe (str): Path to Python executable
+            
+        Returns:
+            str: Path to esptool executable
+        """
+        if not python_exe or not os.path.isfile(python_exe):
+            return 'esptool'  # Fallback
+
+        python_dir = os.path.dirname(python_exe)
+
+        if sys.platform == "win32":
+            scripts_dir = os.path.join(python_dir, "Scripts")
+            esptool_exe = os.path.join(scripts_dir, "esptool.exe")
+        else:
+            scripts_dir = os.path.join(python_dir, "bin")
+            esptool_exe = os.path.join(scripts_dir, "esptool")
+
+        if os.path.isfile(esptool_exe):
+            return esptool_exe
+
+        return 'esptool'
+
     try:
         subprocess.check_call(
             [env.subst("$PYTHONEXE"), "-c", "import esptool"], 
             stdout=subprocess.DEVNULL, 
             stderr=subprocess.DEVNULL,
-            env=os.environ  # Use modified environment with custom PYTHONPATH
+            env=os.environ
         )
-        return True
+        python_exe = env.subst("$PYTHONEXE")
+        esptool_binary_path = _get_esptool_executable_path(python_exe)
+        return esptool_binary_path
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
@@ -282,18 +312,22 @@ def install_esptool(env):
                 "uv", "pip", "install", "--quiet",
                 f"--python={env.subst('$PYTHONEXE')}",
                 "-e", esptool_repo_path
-            ], env=os.environ)  # Use modified environment with custom PYTHONPATH
-            return True
+            ], env=os.environ)
+
+            python_exe = env.subst("$PYTHONEXE")
+            esptool_binary_path = _get_esptool_executable_path(python_exe)
+            return esptool_binary_path
+            
         except subprocess.CalledProcessError as e:
             print(f"Warning: Failed to install esptool: {e}")
-            return False
+            return 'esptool'  # Fallback
     
-    return False
+    return 'esptool'  # Fallback
 
 
 # Install Python dependencies and esptool
 install_python_deps()
-install_esptool(env)
+esptool_binary_path = install_esptool(env)
 
 
 def BeforeUpload(target, source, env):
@@ -675,6 +709,13 @@ if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
+# Take care of possible whitespaces in path
+objcopy_value = (
+    f'"{esptool_binary_path}"' 
+    if ' ' in esptool_binary_path 
+    else esptool_binary_path
+)
+
 # Configure build tools and environment variables
 env.Replace(
     __get_board_boot_mode=_get_board_boot_mode,
@@ -704,7 +745,7 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY=f'"{env.subst("$PYTHONEXE")}" -m esptool',
+    OBJCOPY=objcopy_value,
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
@@ -715,7 +756,22 @@ env.Replace(
     SIZEPRINTCMD="$SIZETOOL -B -d $SOURCES",
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
     ERASECMD='"$OBJCOPY" $ERASEFLAGS erase-flash',
-    MKFSTOOL="mk%s" % filesystem,
+    # mkspiffs package contains two different binaries for IDF and Arduino
+    MKFSTOOL="mk%s" % filesystem
+    + (
+        (
+            "_${PIOPLATFORM}_"
+            + (
+                "espidf"
+                if "espidf" in env.subst("$PIOFRAMEWORK")
+                else "${PIOFRAMEWORK}"
+            )
+        )
+        if filesystem == "spiffs"
+        else ""
+    ),
+    # Legacy `ESP32_SPIFFS_IMAGE_NAME` is used as the second fallback value
+    # for backward compatibility
 
     ESP32_FS_IMAGE_NAME=env.get(
         "ESP32_FS_IMAGE_NAME",
@@ -1011,6 +1067,27 @@ elif upload_protocol == "esptool":
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE"),
     ]
+
+# Configure upload protocol: DFU
+elif upload_protocol == "dfu":
+    hwids = board.get("build.hwids", [["0x2341", "0x0070"]])
+    vid = hwids[0][0]
+    pid = hwids[0][1]
+
+    upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
+
+    env.Replace(
+        UPLOADER=join(
+            platform.get_package_dir("tool-dfuutil-arduino") or "", "dfu-util"
+        ),
+        UPLOADERFLAGS=[
+            "-d",
+            ",".join(["%s:%s" % (hwid[0], hwid[1]) for hwid in hwids]),
+            "-Q",
+            "-D",
+        ],
+        UPLOADCMD='"$UPLOADER" $UPLOADERFLAGS "$SOURCE"',
+    )
 
 # Configure upload protocol: Debug tools (OpenOCD)
 elif upload_protocol in debug_tools:
