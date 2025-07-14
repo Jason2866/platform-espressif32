@@ -704,7 +704,7 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY='esptool',
+    OBJCOPY=f'"{env.subst("$PYTHONEXE")}" -m esptool',
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
