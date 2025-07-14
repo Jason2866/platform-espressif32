@@ -757,9 +757,6 @@ env.Replace(
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
     ERASECMD='"$OBJCOPY" $ERASEFLAGS erase-flash',
     MKFSTOOL="mk%s" % filesystem,
-    
-    # Legacy `ESP32_SPIFFS_IMAGE_NAME` is used as the second fallback value
-    # for backward compatibility
 
     ESP32_FS_IMAGE_NAME=env.get(
         "ESP32_FS_IMAGE_NAME",
