@@ -756,20 +756,8 @@ env.Replace(
     SIZEPRINTCMD="$SIZETOOL -B -d $SOURCES",
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
     ERASECMD='"$OBJCOPY" $ERASEFLAGS erase-flash',
-    # mkspiffs package contains two different binaries for IDF and Arduino
-    MKFSTOOL="mk%s" % filesystem
-    + (
-        (
-            "_${PIOPLATFORM}_"
-            + (
-                "espidf"
-                if "espidf" in env.subst("$PIOFRAMEWORK")
-                else "${PIOFRAMEWORK}"
-            )
-        )
-        if filesystem == "spiffs"
-        else ""
-    ),
+    MKFSTOOL="mk%s" % filesystem,
+    
     # Legacy `ESP32_SPIFFS_IMAGE_NAME` is used as the second fallback value
     # for backward compatibility
 
@@ -1067,27 +1055,6 @@ elif upload_protocol == "esptool":
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE"),
     ]
-
-# Configure upload protocol: DFU
-elif upload_protocol == "dfu":
-    hwids = board.get("build.hwids", [["0x2341", "0x0070"]])
-    vid = hwids[0][0]
-    pid = hwids[0][1]
-
-    upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
-
-    env.Replace(
-        UPLOADER=join(
-            platform.get_package_dir("tool-dfuutil-arduino") or "", "dfu-util"
-        ),
-        UPLOADERFLAGS=[
-            "-d",
-            ",".join(["%s:%s" % (hwid[0], hwid[1]) for hwid in hwids]),
-            "-Q",
-            "-D",
-        ],
-        UPLOADCMD='"$UPLOADER" $UPLOADERFLAGS "$SOURCE"',
-    )
 
 # Configure upload protocol: Debug tools (OpenOCD)
 elif upload_protocol in debug_tools:
