@@ -41,14 +41,14 @@ ESP_BUILTIN_DEBUG_MCUS = frozenset([
 MCU_TOOLCHAIN_CONFIG = {
     "xtensa": {
         "mcus": frozenset(["esp32", "esp32s2", "esp32s3"]),
-        "toolchains": ["toolchain-xtensa-esp-elf"],
+        "toolchains": ["toolchain-clang-esp"],
         "debug_tools": ["tool-xtensa-esp-elf-gdb"]
     },
     "riscv": {
         "mcus": frozenset([
             "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"
         ]),
-        "toolchains": ["toolchain-riscv32-esp"],
+        "toolchains": ["toolchain-clang-esp"],
         "debug_tools": ["tool-riscv32-esp-elf-gdb"]
     }
 }
@@ -358,7 +358,7 @@ class Espressif32Platform(PlatformBase):
                 result = config.copy()
                 result["ulp_toolchain"] = ["toolchain-esp32ulp"]
                 if mcu != "esp32":
-                    result["ulp_toolchain"].append("toolchain-riscv32-esp")
+                    result["ulp_toolchain"].append("toolchain-clang-esp")
                 self._mcu_config_cache[mcu] = result
                 return result
         return None
