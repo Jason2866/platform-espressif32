@@ -1028,7 +1028,16 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                     build_flags = _fix_component_relative_include(
                         config, build_flags, source_index)
                 
-                build_flags = fix_clang_build_flags(build_flags)
+                # Nur für Assembler: Target-Flags entfernen
+                if cg.get("language", "") == "ASM":
+                    # Entferne Compiler-spezifische Flags die nicht für Assembler sind
+                    if "--target=" in build_flags:
+                        # Entferne alle --target= Flags
+                        import re
+                        build_flags = re.sub(r'--target=\S+', '', build_flags)
+                    
+                    # Entferne longcalls
+                    build_flags = fix_clang_build_flags(build_flags)
                 
                 parsed_flags = build_env.ParseFlags(build_flags)
                 build_env.AppendUnique(**parsed_flags)
@@ -1144,8 +1153,6 @@ def run_cmake(src_dir, build_dir, extra_args=None):
 
     run_tool(cmd)
 
-# Globa Clang-Flag-Cleaning
-clean_clang_flags_globally()
 
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
     ignore_components = ignore_components or []
