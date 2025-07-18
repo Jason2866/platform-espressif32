@@ -600,6 +600,28 @@ def get_app_defines(app_config):
     return extract_defines(app_config["compileGroups"][0])
 
 
+# Fix linker emulation for Clang
+def fix_clang_linkflags(linkflags):
+    """Convert GCC linker flags to Clang compatible flags"""
+    if not linkflags:
+        return []
+    
+    result = []
+    for flag in linkflags:
+        if isinstance(flag, str):
+            # Convert cpu=esp32 to elf32xtensa for Clang
+            if "cpu=esp32" in flag:
+                flag = flag.replace("cpu=esp32", "elf32xtensa")
+            elif "cpu=esp32s2" in flag:
+                flag = flag.replace("cpu=esp32s2", "elf32xtensa")
+            elif "cpu=esp32s3" in flag:
+                flag = flag.replace("cpu=esp32s3", "elf32xtensa")
+            # Add other Clang-specific fixes as needed
+        result.append(flag)
+    
+    return result
+
+
 def extract_link_args(target_config):
     def _add_to_libpath(lib_path, link_args):
         if lib_path not in link_args["LIBPATH"]:
