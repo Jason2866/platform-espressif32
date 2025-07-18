@@ -739,12 +739,12 @@ def switch_off_ldf():
 # Initialize board configuration and MCU settings
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
-toolchain_arch = "xtensa-%s" % mcu
+toolchain_arch = "riscv32-esp"
 filesystem = board.get("build.filesystem", "littlefs")
 
-# Set toolchain architecture for RISC-V based ESP32 variants
-if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
-    toolchain_arch = "riscv32-esp"
+# Set toolchain architecture for xtensa based ESP32 variants
+if mcu in ("esp32", "esp32s2", "esp32s3"):
+    toolchain_arch = "xtensa-%s" % mcu
 
 # Set linker name and OBJDUMP name
 linker_name = "riscv32-esp-elf-clang-ld"
