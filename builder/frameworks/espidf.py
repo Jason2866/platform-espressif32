@@ -600,38 +600,6 @@ def get_app_defines(app_config):
     return extract_defines(app_config["compileGroups"][0])
 
 
-# Fix linker emulation for Clang
-def fix_clang_linkflags(linkflags):
-    """Convert GCC linker flags to Clang compatible flags"""
-    if not linkflags:
-        return []
-    
-    result = []
-    for flag in linkflags:
-        if isinstance(flag, str):
-            # Fix wrong -m Parameter for Xtensa
-            if flag.startswith("-melf32xtensa") and flag != "-melf32xtensa":
-                flag = "-melf32xtensa"
-            # Fix possible other variants
-            elif flag in ["-melf32xtensas2", "-melf32xtensas3", "-melf32xtensaesp32"]:
-                flag = "-melf32xtensa"
-            # Fix cpu= parameter to correct -m parameter
-            elif "cpu=esp32" in flag:
-                flag = flag.replace("cpu=esp32", "elf32xtensa")
-            elif "cpu=esp32s2" in flag:
-                flag = flag.replace("cpu=esp32s2", "elf32xtensa")
-            elif "cpu=esp32s3" in flag:
-                flag = flag.replace("cpu=esp32s3", "elf32xtensa")
-            # Fix falsely generated elf32xtensas3 -> elf32xtensa
-            elif "elf32xtensas3" in flag:
-                flag = flag.replace("elf32xtensas3", "elf32xtensa")
-            elif "elf32xtensas2" in flag:
-                flag = flag.replace("elf32xtensas2", "elf32xtensa")
-        result.append(flag)
-    
-    return result
-
-
 def extract_link_args(target_config):
     def _add_to_libpath(lib_path, link_args):
         if lib_path not in link_args["LIBPATH"]:
@@ -703,6 +671,62 @@ def filter_args(args, allowed, ignore=None):
                 result.append(args[i])
         i += 1
     return result
+
+
+def fix_clang_linkflags(linkflags):
+    """Convert GCC linker flags to Clang compatible flags"""
+    if not linkflags:
+        return []
+
+    result = []
+    for flag in linkflags:
+        if isinstance(flag, str):
+            # Fix wrong -m Parameter for Xtensa
+            if flag.startswith("-melf32xtensa") and flag != "-melf32xtensa":
+                flag = "-melf32xtensa"
+            # Fix possible other variants
+            elif flag in ["-melf32xtensas2", "-melf32xtensas3", "-melf32xtensaesp32"]:
+                flag = "-melf32xtensa"
+            # Fix cpu= parameter to correct -m parameter
+            elif "cpu=esp32" in flag:
+                flag = flag.replace("cpu=esp32", "elf32xtensa")
+            elif "cpu=esp32s2" in flag:
+                flag = flag.replace("cpu=esp32s2", "elf32xtensa")
+            elif "cpu=esp32s3" in flag:
+                flag = flag.replace("cpu=esp32s3", "elf32xtensa")
+            # Fix falsely generated elf32xtensas3 -> elf32xtensa
+            elif "elf32xtensas3" in flag:
+                flag = flag.replace("elf32xtensas3", "elf32xtensa")
+            elif "elf32xtensas2" in flag:
+                flag = flag.replace("elf32xtensas2", "elf32xtensa")
+        result.append(flag)
+
+    return result
+
+def fix_clang_build_flags(build_flags):
+    """Convert GCC build flags to Clang compatible flags"""
+    if not build_flags:
+        return build_flags
+    
+    # Fix longcalls in build flags
+    if "--longcalls" in build_flags:
+        build_flags = build_flags.replace("--longcalls", "-mlongcalls")
+    
+    return build_flags
+
+def clean_clang_flags_globally():
+    """Clean all Clang-incompatible flags from the environment"""
+    if "clang" not in env.subst("$CC").lower():
+        return
+    
+    # Bereinige alle relevanten Flag-Variablen
+    for flag_var in ["LINKFLAGS", "ASFLAGS", "CCFLAGS", "CXXFLAGS"]:
+        current_flags = env.get(flag_var, [])
+        if flag_var == "LINKFLAGS":
+            cleaned_flags = fix_clang_linkflags(current_flags)
+        else:
+            cleaned_flags = [fix_clang_build_flags(str(f)) for f in current_flags]
+        env.Replace(**{flag_var: cleaned_flags})
 
 
 def get_app_flags(app_config, default_config):
