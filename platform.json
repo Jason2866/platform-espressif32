@@ -39,7 +39,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.5.0-rc1/esp-idf-v5.5.0-rc1.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.5.0-rc1clang/esp-idf-v5.5.0-rc1clang.zip"
     },
     "toolchain-clang-esp": {
       "type": "toolchain",
