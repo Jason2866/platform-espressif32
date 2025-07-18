@@ -800,11 +800,14 @@ env.Replace(
     __get_board_f_boot=_get_board_f_boot,
     __get_board_flash_mode=_get_board_flash_mode,
     __get_board_memory_type=_get_board_memory_type,
-    AR="llvm-ar",
-    AS="clang",
     CC="clang",
     CXX="clang++",
-    LINK=linker_name,
+    AS="clang",
+    LINK="clang",
+    AR="llvm-ar",
+    RANLIB="llvm-ranlib",
+    OBJDUMP=objdump_name,
+    OBJCOPY=objcopy_value,
     GDB=join(
         platform.get_package_dir(
             "tool-riscv32-esp-elf-gdb"
@@ -822,13 +825,6 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY=objcopy_value,
-    OBJDUMP=objdump_name,
-    LINKFLAGS=[
-        f"--ld-path={linker_ld_path}",
-        "-z", "noexecstack"
-    ] + env.get("LINKFLAGS", []),
-    RANLIB="llvm-ranlib",
     SIZETOOL="llvm-size",
     ARFLAGS=["rc"],
     SIZEPROGREGEXP=r"^(?:\.iram0\.text|\.iram0\.vectors|\.dram0\.data|"
@@ -851,16 +847,36 @@ env.Replace(
     PROGSUFFIX=".elf",
 )
 
-if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
-    target_flags = ["--target=riscv32-esp-elf", "-march=rv32imc_zicsr_zifencei", "-mabi=ilp32"]
-elif mcu in ("esp32", "esp32s2", "esp32s3"):
-    target_flags = [f"--target=xtensa-{mcu}-elf"]
+def setup_clang_flags():
+    """Setup Clang-specific flags based on MCU architecture"""
+    if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
+        # RISC-V MCUs
+        target_flags = ["--target=riscv32-esp-elf", "-march=rv32imc_zicsr_zifencei", "-mabi=ilp32"]
+        env.Append(
+            CCFLAGS=target_flags,
+            CXXFLAGS=target_flags,
+            ASFLAGS=target_flags
+        )
+    elif mcu in ("esp32", "esp32s2", "esp32s3"):
+        # Xtensa MCUs
+        target_flags = ["--target=xtensa-esp-elf", f"-mcpu={mcu}"]
+        asm_flags = target_flags + ["-Xassembler", "--longcalls"]
+        
+        env.Append(
+            CCFLAGS=target_flags,
+            CXXFLAGS=target_flags,
+            ASFLAGS=asm_flags
+        )
+    
+    # Common linker flags
+    env.Append(
+        LINKFLAGS=[
+            f"--ld-path={linker_ld_path}",
+            "-z", "noexecstack"
+        ]
+    )
 
-env.Append(
-    CCFLAGS=target_flags,
-    CXXFLAGS=target_flags,
-    ASFLAGS=target_flags
-)
+setup_clang_flags()
 
 # Remove xtensa linker flags
 initial_linkflags = env.get("LINKFLAGS", [])
