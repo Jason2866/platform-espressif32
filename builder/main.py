@@ -748,10 +748,10 @@ if mcu in ("esp32", "esp32s2", "esp32s3"):
 
 # Set linker name and OBJDUMP name
 linker_name = "riscv32-esp-elf-clang"
-objdump_name = "riscv32-esp-elf-objdump"
+objdump_name = "riscv32-esp-elf-clang-objdump"
 if mcu in ("esp32", "esp32s2", "esp32s3"):
     linker_name = "xtensa-%s-elf-clang" % mcu
-    objdump_name = "xtensa-%s-elf-objdump" % mcu
+    objdump_name = "xtensa-%s-elf-clang-objdump" % mcu
 
 # Fix linker emulation for Clang by replacing xtensa linker flags
 def fix_clang_linkflags(linkflags):
