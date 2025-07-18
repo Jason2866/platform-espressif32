@@ -738,6 +738,11 @@ def get_app_flags(app_config, default_config):
                 fragment = ccfragment.get("fragment", "").strip("\" ")
                 if not fragment or fragment.startswith("-D"):
                     continue
+                
+                # Clang-Fix
+                if cg["language"] == "ASM":
+                    fragment = fix_clang_build_flags(fragment)
+                
                 flags[cg["language"]].extend(
                     click.parser.split_arg_string(fragment.strip())
                 )
