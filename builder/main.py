@@ -741,14 +741,12 @@ board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 filesystem = board.get("build.filesystem", "littlefs")
 
-# Set toolchain architecture
-toolchain_arch = "clang"
-
-# Set linker name
-linker_arch = "riscv32-esp-elf-clang-ld"
+# Set linker name and OBJDUMP name
+linker_name = "riscv32-esp-elf-clang-ld"
+objdump_name = "riscv32-esp-elf-clang-objdump"
 if mcu in ("esp32", "esp32s2", "esp32s3"):
-    linker_arch = "xtensa-%s-elf-clang-ld" % mcu
-    
+    linker_name = "xtensa-%s-elf-clang-ld" % mcu
+    objdump_name = "xtensa-%s-elf-clang-objdump" % mcu
 
 # Initialize integration extra data if not present
 if "INTEGRATION_EXTRA_DATA" not in env:
@@ -772,6 +770,7 @@ env.Replace(
     AS="clang",
     CC="clang",
     CXX="clang++",
+    LINK=linker_name,
     GDB=join(
         platform.get_package_dir(
             "tool-riscv32-esp-elf-gdb"
@@ -790,6 +789,7 @@ env.Replace(
         "%s-elf-gdb" % toolchain_arch,
     ),
     OBJCOPY=objcopy_value,
+    OBJDUMP=objdump_name,
     RANLIB="llvm-ranlib",
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
