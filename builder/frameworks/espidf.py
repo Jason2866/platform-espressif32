@@ -1095,12 +1095,30 @@ def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
+    # Nur für Assembler-Dateien
     if "clang" in env.subst("$CC").lower():
         for build_env in build_envs:
-            for flag_var in ["ASFLAGS", "ASPPFLAGS", "CCFLAGS"]:
+            for flag_var in ["ASFLAGS", "ASPPFLAGS"]:
                 current_flags = build_env.get(flag_var, [])
                 if current_flags:
-                    cleaned_flags = [f for f in current_flags if str(f).strip() not in ["-d", "--longcalls"]]
+                    cleaned_flags = []
+                    skip_next = False
+                
+                    for i, flag in enumerate(current_flags):
+                        if skip_next:
+                            skip_next = False
+                            continue
+                    
+                        flag_str = str(flag).strip()
+                    
+                        if flag_str == "-d" and i + 1 < len(current_flags) and str(current_flags[i + 1]).strip() == "--longcalls":
+                            skip_next = True
+                            continue
+                        elif flag_str in ["-d", "--longcalls"]:
+                            continue
+                        else:
+                            cleaned_flags.append(flag)
+                
                     build_env.Replace(**{flag_var: cleaned_flags})
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
