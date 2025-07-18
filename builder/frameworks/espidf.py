@@ -708,9 +708,17 @@ def fix_clang_build_flags(build_flags):
     if not build_flags:
         return build_flags
     
-    # Fix longcalls in build flags
+    # Für Assembler-Dateien: longcalls komplett entfernen
     if "--longcalls" in build_flags:
-        build_flags = build_flags.replace("--longcalls", "-mlongcalls")
+        # Entferne --longcalls komplett für Assembler
+        build_flags = build_flags.replace("--longcalls", "")
+        # Entferne auch eventuell doppelte Leerzeichen
+        build_flags = " ".join(build_flags.split())
+    
+    # Entferne auch -mlongcalls falls es irgendwo auftaucht
+    if "-mlongcalls" in build_flags:
+        build_flags = build_flags.replace("-mlongcalls", "")
+        build_flags = " ".join(build_flags.split())
     
     return build_flags
 
