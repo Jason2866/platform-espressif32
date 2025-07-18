@@ -1096,7 +1096,7 @@ def compile_source_files(
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     
-    # VOLLSTÄNDIGE CLANG-KORREKTUR: Bereinige alle Build-Umgebungen für Clang
+    # SELEKTIVE CLANG-KORREKTUR: Behalte wichtige Architektur-Flags
     if "clang" in env.subst("$CC").lower():
         for build_env in build_envs:
             # Nur ASFLAGS und ASPPFLAGS bereinigen (Assembler-spezifisch)
@@ -1113,8 +1113,12 @@ def compile_source_files(
                         
                         flag_str = str(flag).strip()
                         
-                        # Vollständige Entfernung aller problematischen GCC-spezifischen Flags
-                        if flag_str.startswith(("-mcpu=", "--target=", "-march=")):
+                        # Entferne NUR die problematischen, nicht die wichtigen Flags
+                        if flag_str.startswith("-mcpu=esp32"):
+                            # -mcpu=esp32* wird von Clang nicht unterstützt
+                            continue
+                        elif flag_str == "--target=xtensa-esp-elf":
+                            # --target= wird von clang-as nicht verstanden, aber vom Compiler gebraucht
                             continue
                         elif flag_str == "-Xassembler" and i + 1 < len(current_flags):
                             next_flag = str(current_flags[i + 1]).strip()
@@ -1127,6 +1131,7 @@ def compile_source_files(
                         elif flag_str in ["-d", "--longcalls", "-ffunction-sections", "-fdata-sections"]:
                             continue
                         else:
+                            # Alle anderen Flags BEHALTEN (wichtig für Xtensa-Instruktionen)
                             cleaned_flags.append(flag)
                     
                     build_env.Replace(**{flag_var: cleaned_flags})
