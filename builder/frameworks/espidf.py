@@ -1144,6 +1144,8 @@ def run_cmake(src_dir, build_dir, extra_args=None):
 
     run_tool(cmd)
 
+# Globa Clang-Flag-Cleaning
+clean_clang_flags_globally()
 
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
     ignore_components = ignore_components or []
