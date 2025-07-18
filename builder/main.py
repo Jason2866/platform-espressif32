@@ -747,11 +747,14 @@ if mcu in ("esp32", "esp32s2", "esp32s3"):
     toolchain_arch = "xtensa-%s" % mcu
 
 # Set linker name and OBJDUMP name
-linker_name = "riscv32-esp-elf-clang"
+linker_name = "clang"  # Use clang as frontend
 objdump_name = "riscv32-esp-elf-clang-objdump"
+linker_ld_path = "riscv32-esp-elf-clang-ld"
+
 if mcu in ("esp32", "esp32s2", "esp32s3"):
-    linker_name = "xtensa-%s-elf-clang" % mcu
+    linker_name = "clang"
     objdump_name = "xtensa-%s-elf-clang-objdump" % mcu
+    linker_ld_path = "xtensa-%s-elf-clang-ld" % mcu
 
 # Fix linker emulation for Clang by replacing xtensa linker flags
 def fix_clang_linkflags(linkflags):
@@ -821,6 +824,10 @@ env.Replace(
     ),
     OBJCOPY=objcopy_value,
     OBJDUMP=objdump_name,
+    LINKFLAGS=[
+        f"--ld-path={linker_ld_path}",
+        "-z", "noexecstack"
+    ] + env.get("LINKFLAGS", []),
     RANLIB="llvm-ranlib",
     SIZETOOL="llvm-size",
     ARFLAGS=["rc"],
