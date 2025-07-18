@@ -708,17 +708,34 @@ def fix_clang_build_flags(build_flags):
     if not build_flags:
         return build_flags
     
-    # Für Assembler-Dateien: longcalls komplett entfernen
-    if "--longcalls" in build_flags:
-        # Entferne --longcalls komplett für Assembler
-        build_flags = build_flags.replace("--longcalls", "")
-        # Entferne auch eventuell doppelte Leerzeichen
-        build_flags = " ".join(build_flags.split())
+    # GCC-spezifische Assembler-Kombinationen entfernen
+    gcc_combinations = [
+        "-d --longcalls",
+        "-d--longcalls", 
+        "-g --longcalls",
+        "-W --longcalls",
+    ]
     
-    # Entferne auch -mlongcalls falls es irgendwo auftaucht
-    if "-mlongcalls" in build_flags:
-        build_flags = build_flags.replace("-mlongcalls", "")
-        build_flags = " ".join(build_flags.split())
+    for combination in gcc_combinations:
+        if combination in build_flags:
+            build_flags = build_flags.replace(combination, "")
+    
+    # Einzelne Flags entfernen
+    single_flags = ["--longcalls", "-mlongcalls"]
+    for flag in single_flags:
+        if flag in build_flags:
+            build_flags = build_flags.replace(flag, "")
+    
+    # Übrig gebliebene problematische Flags
+    if " -d " in build_flags:
+        build_flags = build_flags.replace(" -d ", " ")
+    if build_flags.startswith("-d "):
+        build_flags = build_flags.replace("-d ", "")
+    if build_flags.endswith(" -d"):
+        build_flags = build_flags.replace(" -d", "")
+    
+    # Bereinige doppelte Leerzeichen
+    build_flags = " ".join(build_flags.split())
     
     return build_flags
 
