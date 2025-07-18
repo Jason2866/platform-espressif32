@@ -58,6 +58,8 @@ if os.path.exists(map_file):
 
 # Allow changes in folders of managed components
 os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
+# Use clang as toolchain
+os.environ["IDF_TOOLCHAIN"] = "clang"
 
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
