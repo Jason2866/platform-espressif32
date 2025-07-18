@@ -1095,6 +1095,13 @@ def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
+    if "clang" in env.subst("$CC").lower():
+        for build_env in build_envs:
+            for flag_var in ["ASFLAGS", "ASPPFLAGS", "CCFLAGS"]:
+                current_flags = build_env.get(flag_var, [])
+                if current_flags:
+                    cleaned_flags = [f for f in current_flags if str(f).strip() not in ["-d", "--longcalls"]]
+                    build_env.Replace(**{flag_var: cleaned_flags})
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
     for source in config.get("sources", []):
