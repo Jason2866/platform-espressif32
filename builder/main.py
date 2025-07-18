@@ -791,7 +791,7 @@ env.Replace(
     OBJCOPY=objcopy_value,
     OBJDUMP=objdump_name,
     RANLIB="llvm-ranlib",
-    SIZETOOL="%s-elf-size" % toolchain_arch,
+    SIZETOOL="llvm-size",
     ARFLAGS=["rc"],
     SIZEPROGREGEXP=r"^(?:\.iram0\.text|\.iram0\.vectors|\.dram0\.data|"
     r"\.flash\.text|\.flash\.rodata|)\s+([0-9]+).*",
