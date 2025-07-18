@@ -792,6 +792,16 @@ def get_app_flags(app_config, default_config):
 
         return flags
 
+    app_flags = _extract_flags(app_config)
+    default_flags = _extract_flags(default_config)
+
+    # Flags are sorted because CMake randomly populates build flags in code model
+    return {
+        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM"))),
+        "CFLAGS": sorted(app_flags.get("C", default_flags.get("C"))),
+        "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX"))),
+    }
+
 
 def get_sdk_configuration():
     config_path = os.path.join(BUILD_DIR, "config", "sdkconfig.json")
