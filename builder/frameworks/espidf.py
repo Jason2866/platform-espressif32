@@ -703,29 +703,60 @@ def fix_clang_linkflags(linkflags):
 
     return result
 
+
 def fix_clang_build_flags(build_flags):
     """Convert GCC build flags to Clang compatible flags"""
     if not build_flags:
         return build_flags
     
-    # Nur die wirklich problematischen Flags entfernen
-    if "-d --longcalls" in build_flags:
-        build_flags = build_flags.replace("-d --longcalls", "")
-    if "-d--longcalls" in build_flags:
-        build_flags = build_flags.replace("-d--longcalls", "")
-    if "--longcalls" in build_flags:
-        build_flags = build_flags.replace("--longcalls", "")
+    # Falls build_flags ein String ist
+    if isinstance(build_flags, str):
+        # String-basierte Korrektur
+        if "-d --longcalls" in build_flags:
+            build_flags = build_flags.replace("-d --longcalls", "")
+        if "-d--longcalls" in build_flags:
+            build_flags = build_flags.replace("-d--longcalls", "")
+        if "--longcalls" in build_flags:
+            build_flags = build_flags.replace("--longcalls", "")
+        
+        # Übrig gebliebene -d Flags entfernen
+        if " -d " in build_flags:
+            build_flags = build_flags.replace(" -d ", " ")
+        if build_flags.startswith("-d "):
+            build_flags = build_flags.replace("-d ", "")
+        if build_flags.endswith(" -d"):
+            build_flags = build_flags.replace(" -d", "")
+        
+        # Bereinige doppelte Leerzeichen
+        build_flags = " ".join(build_flags.split())
+        return build_flags
     
-    # Übrig gebliebene -d Flags entfernen
-    if " -d " in build_flags:
-        build_flags = build_flags.replace(" -d ", " ")
-    if build_flags.startswith("-d "):
-        build_flags = build_flags.replace("-d ", "")
-    if build_flags.endswith(" -d"):
-        build_flags = build_flags.replace(" -d", "")
+    # Falls build_flags eine Liste ist (das ist wahrscheinlich der Fall)
+    if isinstance(build_flags, list):
+        result = []
+        skip_next = False
+        
+        for i, flag in enumerate(build_flags):
+            if skip_next:
+                skip_next = False
+                continue
+                
+            if flag == "-d":
+                # Prüfe ob das nächste Flag --longcalls ist
+                if i + 1 < len(build_flags) and build_flags[i + 1] == "--longcalls":
+                    skip_next = True  # Überspringe sowohl -d als auch --longcalls
+                    continue
+                else:
+                    # -d allein ist problematisch für Clang-as, entferne es
+                    continue
+            elif flag == "--longcalls":
+                # Entferne --longcalls
+                continue
+            else:
+                result.append(flag)
+        
+        return result
     
-    # Bereinige doppelte Leerzeichen
-    build_flags = " ".join(build_flags.split())
     return build_flags
 
 
@@ -739,13 +770,14 @@ def get_app_flags(app_config, default_config):
                 if not fragment or fragment.startswith("-D"):
                     continue
                 
-                # Clang-Fix
-                if cg["language"] == "ASM":
-                    fragment = fix_clang_build_flags(fragment)
+                # Parse die Flags zu einer Liste
+                parsed_flags = click.parser.split_arg_string(fragment.strip())
                 
-                flags[cg["language"]].extend(
-                    click.parser.split_arg_string(fragment.strip())
-                )
+                # Clang-Korrektur für Assembler-Flags
+                if cg["language"] == "ASM":
+                    parsed_flags = fix_clang_build_flags(parsed_flags)
+                
+                flags[cg["language"]].extend(parsed_flags)
 
         return flags
 
@@ -754,9 +786,9 @@ def get_app_flags(app_config, default_config):
 
     # Flags are sorted because CMake randomly populates build flags in code model
     return {
-        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM"))),
-        "CFLAGS": sorted(app_flags.get("C", default_flags.get("C"))),
-        "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX"))),
+        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM", []))),
+        "CFLAGS": sorted(app_flags.get("C", default_flags.get("C", []))),
+        "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX", []))),
     }
 
 
