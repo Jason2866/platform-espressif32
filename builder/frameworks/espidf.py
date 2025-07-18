@@ -888,7 +888,7 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
         "objdump": os.path.join(
             TOOLCHAIN_DIR,
             "bin",
-            env.subst("$CC").replace("-gcc", "-objdump"),
+            env.subst("$CC").replace("-gcc", "-objdump").replace("clang", "objdump"),
         ),
     }
 
