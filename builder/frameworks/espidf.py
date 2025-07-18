@@ -680,27 +680,16 @@ def remove_duplicate_flags(flags):
     
     seen = set()
     result = []
-    skip_next = False
     
-    for i, flag in enumerate(flags):
-        if skip_next:
-            skip_next = False
-            continue
-            
+    for flag in flags:
         flag_str = str(flag).strip()
         
-        # Behandle spezifische problematische Kombinationen
-        if flag_str == "-d" and i + 1 < len(flags):
-            next_flag = str(flags[i + 1]).strip()
-            if next_flag == "--longcalls":
-                skip_next = True  # Überspringe beide: "-d" und "--longcalls"
-                continue
-            # Einzelnes "-d" ist auch problematisch für Clang-as
-            elif next_flag != "--longcalls":
-                continue  # Überspringe nur das "-d"
+        # Entferne nur spezifisch problematische Flags für Clang-as
+        if flag_str == "--target=xtensa-esp-elf":
+            continue
         elif flag_str == "--longcalls":
-            continue  # Überspringe "--longcalls"
-
+            continue
+            
         if flag_str not in seen:
             seen.add(flag_str)
             result.append(flag)
@@ -725,7 +714,6 @@ def fix_clang_linkflags(linkflags):
             result.append(flag)
 
     return result
-
 
 
 def get_app_flags(app_config, default_config):
@@ -1046,16 +1034,16 @@ def compile_source_files(
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     
-    # MINIMAL-INVASIVE CLANG-KORREKTUR: Nur Duplikate entfernen
+    # EINFACHE CLANG-KORREKTUR: Nur für Assembler-Flags
     if "clang" in env.subst("$CC").lower():
         for build_env in build_envs:
-            # Für alle Flag-Variablen
-            for flag_var in ["CCFLAGS", "CXXFLAGS", "ASFLAGS", "ASPPFLAGS"]:
+            # Nur für Assembler-spezifische Flags
+            for flag_var in ["ASFLAGS", "ASPPFLAGS"]:
                 current_flags = build_env.get(flag_var, [])
                 if current_flags:
-                    # Entferne nur Duplikate - KEINE anderen Manipulationen
-                    unique_flags = remove_duplicate_flags(current_flags)
-                    build_env.Replace(**{flag_var: unique_flags})
+                    # Entferne problematische Flags
+                    cleaned_flags = remove_duplicate_flags(current_flags)
+                    build_env.Replace(**{flag_var: cleaned_flags})
     
     # Rest der Funktion bleibt unverändert
     objects = []
