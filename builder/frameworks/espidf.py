@@ -721,62 +721,6 @@ def fix_clang_linkflags(linkflags):
     return result
 
 
-def fix_clang_build_flags(build_flags):
-    """Convert GCC build flags to Clang compatible flags"""
-    if not build_flags:
-        return build_flags
-    
-    # Falls build_flags ein String ist
-    if isinstance(build_flags, str):
-        # String-basierte Korrektur
-        if "-d --longcalls" in build_flags:
-            build_flags = build_flags.replace("-d --longcalls", "")
-        if "-d--longcalls" in build_flags:
-            build_flags = build_flags.replace("-d--longcalls", "")
-        if "--longcalls" in build_flags:
-            build_flags = build_flags.replace("--longcalls", "")
-        
-        # Übrig gebliebene -d Flags entfernen
-        if " -d " in build_flags:
-            build_flags = build_flags.replace(" -d ", " ")
-        if build_flags.startswith("-d "):
-            build_flags = build_flags.replace("-d ", "")
-        if build_flags.endswith(" -d"):
-            build_flags = build_flags.replace(" -d", "")
-        
-        # Bereinige doppelte Leerzeichen
-        build_flags = " ".join(build_flags.split())
-        return build_flags
-    
-    # Falls build_flags eine Liste ist (das ist wahrscheinlich der Fall)
-    if isinstance(build_flags, list):
-        result = []
-        skip_next = False
-        
-        for i, flag in enumerate(build_flags):
-            if skip_next:
-                skip_next = False
-                continue
-                
-            if flag == "-d":
-                # Prüfe ob das nächste Flag --longcalls ist
-                if i + 1 < len(build_flags) and build_flags[i + 1] == "--longcalls":
-                    skip_next = True  # Überspringe sowohl -d als auch --longcalls
-                    continue
-                else:
-                    # -d allein ist problematisch für Clang-as, entferne es
-                    continue
-            elif flag == "--longcalls":
-                # Entferne --longcalls
-                continue
-            else:
-                result.append(flag)
-        
-        return result
-    
-    return build_flags
-
-
 def get_app_flags(app_config, default_config):
     def _extract_flags(config):
         flags = {}
@@ -1110,7 +1054,7 @@ def compile_source_files(
                         unique_flags.append("-Wno-unknown-warning-option")
                     
                     build_env.Replace(**{flag_var: unique_flags})
-    
+
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
     
