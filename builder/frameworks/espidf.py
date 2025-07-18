@@ -674,20 +674,33 @@ def filter_args(args, allowed, ignore=None):
 
 
 def remove_duplicate_flags(flags):
-    """Remove duplicate flags and problematic flags while preserving order"""
+    """Remove duplicate flags while preserving order"""
     if not flags:
         return []
     
     seen = set()
     result = []
+    skip_next = False
     
-    for flag in flags:
-        flag_str = str(flag).strip()
-        
-        # Überspringe spezifisch problematische Flags
-        if flag_str in ["--longcalls", "-d"]:
+    for i, flag in enumerate(flags):
+        if skip_next:
+            skip_next = False
             continue
             
+        flag_str = str(flag).strip()
+        
+        # Behandle spezifische problematische Kombinationen
+        if flag_str == "-d" and i + 1 < len(flags):
+            next_flag = str(flags[i + 1]).strip()
+            if next_flag == "--longcalls":
+                skip_next = True  # Überspringe beide: "-d" und "--longcalls"
+                continue
+            # Einzelnes "-d" ist auch problematisch für Clang-as
+            elif next_flag != "--longcalls":
+                continue  # Überspringe nur das "-d"
+        elif flag_str == "--longcalls":
+            continue  # Überspringe "--longcalls"
+
         if flag_str not in seen:
             seen.add(flag_str)
             result.append(flag)
