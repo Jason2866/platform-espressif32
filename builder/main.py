@@ -851,6 +851,17 @@ env.Replace(
     PROGSUFFIX=".elf",
 )
 
+if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
+    target_flags = ["--target=riscv32-esp-elf", "-march=rv32imc_zicsr_zifencei", "-mabi=ilp32"]
+elif mcu in ("esp32", "esp32s2", "esp32s3"):
+    target_flags = [f"--target=xtensa-{mcu}-elf"]
+
+env.Append(
+    CCFLAGS=target_flags,
+    CXXFLAGS=target_flags,
+    ASFLAGS=target_flags
+)
+
 # Remove xtensa linker flags
 initial_linkflags = env.get("LINKFLAGS", [])
 if "clang" in env.subst("$CC").lower():
