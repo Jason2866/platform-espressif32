@@ -708,25 +708,15 @@ def fix_clang_build_flags(build_flags):
     if not build_flags:
         return build_flags
     
-    # GCC-spezifische Assembler-Kombinationen entfernen
-    gcc_combinations = [
-        "-d --longcalls",
-        "-d--longcalls", 
-        "-g --longcalls",
-        "-W --longcalls",
-    ]
+    # Nur die wirklich problematischen Flags entfernen
+    if "-d --longcalls" in build_flags:
+        build_flags = build_flags.replace("-d --longcalls", "")
+    if "-d--longcalls" in build_flags:
+        build_flags = build_flags.replace("-d--longcalls", "")
+    if "--longcalls" in build_flags:
+        build_flags = build_flags.replace("--longcalls", "")
     
-    for combination in gcc_combinations:
-        if combination in build_flags:
-            build_flags = build_flags.replace(combination, "")
-    
-    # Einzelne Flags entfernen
-    single_flags = ["--longcalls", "-mlongcalls"]
-    for flag in single_flags:
-        if flag in build_flags:
-            build_flags = build_flags.replace(flag, "")
-    
-    # Übrig gebliebene problematische Flags
+    # Übrig gebliebene -d Flags entfernen
     if " -d " in build_flags:
         build_flags = build_flags.replace(" -d ", " ")
     if build_flags.startswith("-d "):
@@ -736,22 +726,7 @@ def fix_clang_build_flags(build_flags):
     
     # Bereinige doppelte Leerzeichen
     build_flags = " ".join(build_flags.split())
-    
     return build_flags
-
-def clean_clang_flags_globally():
-    """Clean all Clang-incompatible flags from the environment"""
-    if "clang" not in env.subst("$CC").lower():
-        return
-    
-    # Bereinige alle relevanten Flag-Variablen
-    for flag_var in ["LINKFLAGS", "ASFLAGS", "CCFLAGS", "CXXFLAGS"]:
-        current_flags = env.get(flag_var, [])
-        if flag_var == "LINKFLAGS":
-            cleaned_flags = fix_clang_linkflags(current_flags)
-        else:
-            cleaned_flags = [fix_clang_build_flags(str(f)) for f in current_flags]
-        env.Replace(**{flag_var: cleaned_flags})
 
 
 def get_app_flags(app_config, default_config):
