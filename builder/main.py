@@ -739,12 +739,16 @@ def switch_off_ldf():
 # Initialize board configuration and MCU settings
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
-toolchain_arch = "xtensa-%s" % mcu
 filesystem = board.get("build.filesystem", "littlefs")
 
-# Set toolchain architecture for RISC-V based ESP32 variants
-if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
-    toolchain_arch = "riscv32-esp"
+# Set toolchain architecture
+toolchain_arch = "clang"
+
+# Set linker name
+linker_arch = "riscv32-esp-elf-clang-ld"
+if mcu in ("esp32", "esp32s2", "esp32s3"):
+    linker_arch = "xtensa-%s-elf-clang-ld" % mcu
+    
 
 # Initialize integration extra data if not present
 if "INTEGRATION_EXTRA_DATA" not in env:
@@ -764,10 +768,10 @@ env.Replace(
     __get_board_f_boot=_get_board_f_boot,
     __get_board_flash_mode=_get_board_flash_mode,
     __get_board_memory_type=_get_board_memory_type,
-    AR="%s-elf-gcc-ar" % toolchain_arch,
-    AS="%s-elf-as" % toolchain_arch,
-    CC="%s-elf-gcc" % toolchain_arch,
-    CXX="%s-elf-g++" % toolchain_arch,
+    AR="llvm-ar",
+    AS="clang",
+    CC="clang",
+    CXX="clang++",
     GDB=join(
         platform.get_package_dir(
             "tool-riscv32-esp-elf-gdb"
@@ -786,7 +790,7 @@ env.Replace(
         "%s-elf-gdb" % toolchain_arch,
     ),
     OBJCOPY=objcopy_value,
-    RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
+    RANLIB="llvm-ranlib",
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
     SIZEPROGREGEXP=r"^(?:\.iram0\.text|\.iram0\.vectors|\.dram0\.data|"
