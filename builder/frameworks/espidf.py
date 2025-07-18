@@ -620,6 +620,8 @@ def extract_link_args(target_config):
             continue
         args = click.parser.split_arg_string(fragment)
         if fragment_role == "flags":
+            # Fix Clang linkflags
+            args = fix_clang_linkflags(args)
             link_args["LINKFLAGS"].extend(args)
         elif fragment_role in ("libraries", "libraryPath"):
             if fragment.startswith("-l"):
