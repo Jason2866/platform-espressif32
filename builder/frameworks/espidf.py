@@ -786,27 +786,11 @@ def get_app_flags(app_config, default_config):
                 fragment = ccfragment.get("fragment", "").strip("\" ")
                 if not fragment or fragment.startswith("-D"):
                     continue
-                
-                # Parse die Flags zu einer Liste
-                parsed_flags = click.parser.split_arg_string(fragment.strip())
-                
-                # Clang-Korrektur für Assembler-Flags
-                if cg["language"] == "ASM":
-                    parsed_flags = fix_clang_build_flags(parsed_flags)
-                
-                flags[cg["language"]].extend(parsed_flags)
+                flags[cg["language"]].extend(
+                    click.parser.split_arg_string(fragment.strip())
+                )
 
         return flags
-
-    app_flags = _extract_flags(app_config)
-    default_flags = _extract_flags(default_config)
-
-    # Flags are sorted because CMake randomly populates build flags in code model
-    return {
-        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM", []))),
-        "CFLAGS": sorted(app_flags.get("C", default_flags.get("C", []))),
-        "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX", []))),
-    }
 
 
 def get_sdk_configuration():
