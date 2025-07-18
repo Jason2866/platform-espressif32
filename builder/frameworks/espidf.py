@@ -1095,44 +1095,52 @@ def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
-    # Nur für Assembler-Dateien
+    
+    # CLANG-KORREKTUR: Bereinige alle Build-Umgebungen für Clang
     if "clang" in env.subst("$CC").lower():
         for build_env in build_envs:
+            # Nur ASFLAGS und ASPPFLAGS bereinigen (Assembler-spezifisch)
             for flag_var in ["ASFLAGS", "ASPPFLAGS"]:
                 current_flags = build_env.get(flag_var, [])
                 if current_flags:
                     cleaned_flags = []
                     skip_next = False
-                
+                    
                     for i, flag in enumerate(current_flags):
                         if skip_next:
                             skip_next = False
                             continue
-                    
+                        
                         flag_str = str(flag).strip()
-                    
-                        if flag_str == "-d" and i + 1 < len(current_flags) and str(current_flags[i + 1]).strip() == "--longcalls":
+                        
+                        # Entferne Compiler-spezifische Flags
+                        if flag_str.startswith("--target="):
+                            continue
+                        elif flag_str == "-d" and i + 1 < len(current_flags) and str(current_flags[i + 1]).strip() == "--longcalls":
                             skip_next = True
                             continue
                         elif flag_str in ["-d", "--longcalls"]:
                             continue
                         else:
                             cleaned_flags.append(flag)
-                
+                    
                     build_env.Replace(**{flag_var: cleaned_flags})
+    
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
+    
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
+            
         compile_group_idx = source.get("compileGroupIndex")
         if compile_group_idx is not None:
             src_dir = config["paths"]["source"]
             if not os.path.isabs(src_dir):
                 src_dir = os.path.join(project_src_dir, config["paths"]["source"])
+            
             src_path = source.get("path")
             if not os.path.isabs(src_path):
-                # For cases when sources are located near CMakeLists.txt
                 src_path = os.path.join(project_src_dir, src_path)
 
             obj_path = os.path.join("$BUILD_DIR", prepend_dir or "")
