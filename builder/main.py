@@ -849,15 +849,7 @@ env.Replace(
 
 def setup_clang_flags():
     """Setup Clang-specific flags based on MCU architecture"""
-    if mcu in ("esp32c2", "esp32c3", "esp32c6", "esp32h2", "esp32p4"):
-        # RISC-V MCUs
-        target_flags = ["--target=riscv32-esp-elf", "-march=rv32imc_zicsr_zifencei", "-mabi=ilp32"]
-        env.Append(
-            CCFLAGS=target_flags,
-            CXXFLAGS=target_flags,
-            ASFLAGS=target_flags
-        )
-    elif mcu in ("esp32", "esp32s2", "esp32s3"):
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
         # Xtensa MCUs
         target_flags = ["--target=xtensa-esp-elf", f"-mcpu={mcu}"]
         asm_flags = target_flags + ["-Xassembler", "--longcalls"]
@@ -866,6 +858,14 @@ def setup_clang_flags():
             CCFLAGS=target_flags,
             CXXFLAGS=target_flags,
             ASFLAGS=asm_flags
+        )
+    else:
+        # RISC-V MCUs
+        target_flags = ["--target=riscv32-esp-elf", "-march=rv32imc_zicsr_zifencei", "-mabi=ilp32"]
+        env.Append(
+            CCFLAGS=target_flags,
+            CXXFLAGS=target_flags,
+            ASFLAGS=target_flags
         )
     
     # Common linker flags
