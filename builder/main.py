@@ -753,6 +753,27 @@ if mcu in ("esp32", "esp32s2", "esp32s3"):
     linker_name = "xtensa-%s-elf-clang-ld" % mcu
     objdump_name = "xtensa-%s-elf-clang-objdump" % mcu
 
+# Fix linker emulation for Clang by replacing xtensa linker flags
+def fix_clang_linkflags(linkflags):
+    """Convert GCC linker flags to Clang compatible flags"""
+    if not linkflags:
+        return []
+    
+    result = []
+    for flag in linkflags:
+        if isinstance(flag, str):
+            # Convert cpu=esp32 to elf32xtensa for Clang
+            if "cpu=esp32" in flag:
+                flag = flag.replace("cpu=esp32", "elf32xtensa")
+            elif "cpu=esp32s2" in flag:
+                flag = flag.replace("cpu=esp32s2", "elf32xtensa")
+            elif "cpu=esp32s3" in flag:
+                flag = flag.replace("cpu=esp32s3", "elf32xtensa")
+            # Add other Clang-specific fixes as needed
+        result.append(flag)
+    
+    return result
+
 # Initialize integration extra data if not present
 if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
@@ -817,6 +838,11 @@ env.Replace(
     ARDUINO_LIB_COMPILE_FLAG="Inactive",
     PROGSUFFIX=".elf",
 )
+
+# Remove xtensa linker flags
+initial_linkflags = env.get("LINKFLAGS", [])
+if "clang" in env.subst("$CC").lower():
+    initial_linkflags = fix_clang_linkflags(initial_linkflags)
 
 # Check if lib_archive is set in platformio.ini and set it to False
 # if not found. This makes weak defs in framework and libs possible.
