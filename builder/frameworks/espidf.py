@@ -1028,22 +1028,48 @@ def compile_source_files(
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     
-    # CLANG-KORREKTUR: Entferne doppelte Flags und füge Workaround hinzu
+    # KORREKTE CLANG-KORREKTUR: Nur spezifische problematische Flags
     if "clang" in env.subst("$CC").lower():
         for build_env in build_envs:
             # Für alle Flag-Variablen
             for flag_var in ["CCFLAGS", "CXXFLAGS", "ASFLAGS", "ASPPFLAGS"]:
                 current_flags = build_env.get(flag_var, [])
                 if current_flags:
-                    # Entferne Duplikate
-                    unique_flags = remove_duplicate_flags(current_flags)
+                    # Entferne Duplikate und problematische Flags
+                    unique_flags = []
+                    skip_next = False
+                    
+                    for i, flag in enumerate(current_flags):
+                        if skip_next:
+                            skip_next = False
+                            continue
+                            
+                        flag_str = str(flag).strip()
+                        
+                        # Exakte Übereinstimmung für problematische Flags
+                        if flag_str == "-d":
+                            # Prüfe ob das nächste Flag --longcalls ist
+                            if i + 1 < len(current_flags) and str(current_flags[i + 1]).strip() == "--longcalls":
+                                skip_next = True  # Überspringe beide
+                                continue
+                            else:
+                                # Einzelnes -d ist problematisch für Clang-as
+                                continue
+                        elif flag_str == "--longcalls":
+                            # Überspringe --longcalls
+                            continue
+                        else:
+                            # Alle anderen Flags behalten (einschließlich -DDEBUG, -debug, etc.)
+                            if flag_str not in [str(f) for f in unique_flags]:
+                                unique_flags.append(flag)
                     
                     # Füge Clang-Workaround hinzu
                     if "-Wno-unknown-warning-option" not in [str(f) for f in unique_flags]:
                         unique_flags.append("-Wno-unknown-warning-option")
                     
                     build_env.Replace(**{flag_var: unique_flags})
-
+    
+    # Rest der Funktion bleibt unverändert
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
     
