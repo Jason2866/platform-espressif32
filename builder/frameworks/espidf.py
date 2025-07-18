@@ -609,8 +609,14 @@ def fix_clang_linkflags(linkflags):
     result = []
     for flag in linkflags:
         if isinstance(flag, str):
-            # Convert cpu=esp32* to elf32xtensa for Clang
-            if "cpu=esp32" in flag:
+            # Fix wrong -m Parameter for Xtensa
+            if flag.startswith("-melf32xtensa") and flag != "-melf32xtensa":
+                flag = "-melf32xtensa"
+            # Fix possible other variants
+            elif flag in ["-melf32xtensas2", "-melf32xtensas3", "-melf32xtensaesp32"]:
+                flag = "-melf32xtensa"
+            # Fix cpu= parameter to correct -m parameter
+            elif "cpu=esp32" in flag:
                 flag = flag.replace("cpu=esp32", "elf32xtensa")
             elif "cpu=esp32s2" in flag:
                 flag = flag.replace("cpu=esp32s2", "elf32xtensa")
