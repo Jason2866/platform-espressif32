@@ -1096,7 +1096,7 @@ def compile_source_files(
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     
-    # CLANG-KORREKTUR: Bereinige alle Build-Umgebungen für Clang
+    # VOLLSTÄNDIGE CLANG-KORREKTUR: Bereinige alle Build-Umgebungen für Clang
     if "clang" in env.subst("$CC").lower():
         for build_env in build_envs:
             # Nur ASFLAGS und ASPPFLAGS bereinigen (Assembler-spezifisch)
@@ -1113,19 +1113,24 @@ def compile_source_files(
                         
                         flag_str = str(flag).strip()
                         
-                        # Entferne Compiler-spezifische Flags
-                        if flag_str.startswith("--target="):
+                        # Vollständige Entfernung aller problematischen GCC-spezifischen Flags
+                        if flag_str.startswith(("-mcpu=", "--target=", "-march=")):
                             continue
+                        elif flag_str == "-Xassembler" and i + 1 < len(current_flags):
+                            next_flag = str(current_flags[i + 1]).strip()
+                            if next_flag in ["-ffunction-sections", "-fdata-sections", "--longcalls"]:
+                                skip_next = True  # Überspringe beide
+                                continue
                         elif flag_str == "-d" and i + 1 < len(current_flags) and str(current_flags[i + 1]).strip() == "--longcalls":
                             skip_next = True
                             continue
-                        elif flag_str in ["-d", "--longcalls"]:
+                        elif flag_str in ["-d", "--longcalls", "-ffunction-sections", "-fdata-sections"]:
                             continue
                         else:
                             cleaned_flags.append(flag)
                     
                     build_env.Replace(**{flag_var: cleaned_flags})
-    
+
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
     
