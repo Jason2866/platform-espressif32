@@ -1351,11 +1351,48 @@ def finalize_clang_environment():
         env.Append(LINKFLAGS=["-rtlib=compiler-rt"])
         print("Using default Clang runtime library: compiler-rt")
     
-    # Clang libc++ Konfiguration
+    # WICHTIG: Clang C++ Library Konfiguration für ESP32
+    # Die ESP32-Clang-Toolchain verwendet GNU libstdc++ anstatt libc++
+    # Dies ist ein Hybrid-Ansatz: Clang-Compiler mit GNU C++ Standard Library
+    
+    # KORREKTUR: Verwende libstdc++ anstatt libc++ für ESP32-Clang
+    # Die Toolchain enthält nur libstdc++, nicht libc++
     env.Append(
-        CXXFLAGS=["-stdlib=libc++"],
-        LINKFLAGS=["-stdlib=libc++"]
+        CXXFLAGS=["-stdlib=libstdc++"],
+        LINKFLAGS=["-stdlib=libstdc++"]
     )
+    
+    # Füge explizit die verfügbaren C++ Libraries hinzu
+    esp32_cpp_libs = []
+    
+    # Prüfe auf verfügbare C++ Bibliotheken in den MCU-spezifischen Pfaden
+    for variant in mcu_variants:
+        variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
+        if os.path.exists(variant_lib_path):
+            libstdcpp_path = os.path.join(variant_lib_path, "libstdc++.a")
+            libclang_rt_path = os.path.join(variant_lib_path, "libclang_rt.builtins.a")
+            
+            if os.path.exists(libstdcpp_path) and "stdc++" not in esp32_cpp_libs:
+                esp32_cpp_libs.append("stdc++")
+                print(f"Found libstdc++.a in {variant} - using GNU C++ Standard Library")
+                
+            if os.path.exists(libclang_rt_path) and "clang_rt.builtins" not in esp32_cpp_libs:
+                esp32_cpp_libs.append("clang_rt.builtins")
+                print(f"Found Clang runtime builtins in {variant}")
+                break  # Nur einmal hinzufügen
+    
+    # Manuelle Verlinkung der gefundenen Libraries
+    if esp32_cpp_libs:
+        link_flags = []
+        for lib in esp32_cpp_libs:
+            link_flags.append(f"-l{lib}")
+        env.Append(LINKFLAGS=link_flags)
+        print(f"Using ESP32-Clang C++ libraries: {esp32_cpp_libs}")
+    else:
+        print("WARNING: No C++ runtime libraries found!")
+    
+    # Zusätzliche Clang-spezifische Linker-Flags
+    env.Append(LINKFLAGS=["-Wl,--allow-multiple-definition"])
     
     # KRITISCH: MCU-spezifische Header-Pfade
     cpp_header_paths = []
@@ -1477,17 +1514,30 @@ def finalize_clang_environment():
     if os.path.exists(clang_runtime_lib):
         env.Append(LIBPATH=[clang_runtime_lib])
     
-    # MCU-spezifische Library-Pfade
-    libc_plus_plus_paths = [
-        os.path.join(TOOLCHAIN_DIR, "lib", "libc++"),
+    # MCU-spezifische Library-Pfade (alle verfügbaren Varianten)
+    standard_lib_paths = [
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "lib"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "lib"),
     ]
     
-    for lib_path in libc_plus_plus_paths:
+    # Füge MCU-spezifische Bibliothekspfade für alle Varianten hinzu
+    for variant in mcu_variants:
+        variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
+        if os.path.exists(variant_lib_path):
+            standard_lib_paths.append(variant_lib_path)
+            print(f"Found MCU-specific library path for {variant}: {variant_lib_path}")
+    
+    # Füge alle gefundenen Library-Pfade hinzu
+    for lib_path in standard_lib_paths:
         if os.path.exists(lib_path):
             env.Append(LIBPATH=[lib_path])
-            print(f"Added Clang libc++ library path: {lib_path}")
+            print(f"Added Clang runtime library path: {lib_path}")
+    
+    # ESP32-spezifische C++ Runtime Libraries manuell verlinken
+    # Da keine separaten libc++/libc++abi/libunwind vorhanden sind
+    if sdk_config.get("COMPILER_CXX_EXCEPTIONS", True):
+        # Nur wenn C++ Exceptions aktiviert sind
+        pass  # ESP-IDF übernimmt das Exception Handling
     
     # Standard Clang-Linker-Flags
     linker_flags = [
