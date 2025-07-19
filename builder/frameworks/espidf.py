@@ -1534,16 +1534,128 @@ def finalize_clang_environment():
             print(f"Added Clang runtime library path: {lib_path}")
     
     # ESP32-spezifische C++ Runtime Libraries manuell verlinken
-    # Da keine separaten libc++/libc++abi/libunwind vorhanden sind
+    # WICHTIG: ESP32 benötigt spezielle Unwind- und ASM-Libraries für Clang
+    esp32_essential_libs = []
+    
+    # Clang Exception Handling für ESP32
     if sdk_config.get("COMPILER_CXX_EXCEPTIONS", True):
-        # Nur wenn C++ Exceptions aktiviert sind
-        pass  # ESP-IDF übernimmt das Exception Handling
+        # ESP32-spezifische Exception-Handling-Libraries
+        esp32_essential_libs.extend([
+            "gcc",  # GNU Compiler Collection Runtime
+            "stdc++",  # C++ Standard Library (bereits hinzugefügt, aber explizit für Exceptions)
+        ])
+        
+        # Unwind-Library für Exception Handling
+        esp32_unwind_paths = [
+            os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "lib", "libunwind.a"),
+            os.path.join(TOOLCHAIN_DIR, target_arch, "lib", "libgcc.a"),
+            os.path.join(TOOLCHAIN_DIR, target_arch, "lib", "libunwind.a"),
+        ]
+        
+        for unwind_path in esp32_unwind_paths:
+            if os.path.exists(unwind_path):
+                print(f"Found essential ESP32 exception library: {unwind_path}")
+                # Füge direkt als Archive hinzu, nicht als -l flag
+                env.Append(LIBS=[unwind_path])
+                break
+        else:
+            print("⚠ WARNING: No Unwind library found for ESP32 exceptions!")
+    
+    # ESP32-spezifische Assembler- und Hardware-Abstraktions-Libraries
+    # Diese Libraries enthalten die fehlenden Symbole wie xt_* und esp_*
+    esp32_hal_libs = []
+    
+    # Architektur-spezifische Libraries
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        esp32_hal_libs.extend([
+            "hal",  # Hardware Abstraction Layer
+            "xtensa",  # Xtensa-spezifische Funktionen (enthält xt_* Symbole)
+            "esp32",  # ESP32-spezifische Funktionen
+        ])
+    else:
+        esp32_hal_libs.extend([
+            "hal",  # Hardware Abstraction Layer  
+            "riscv",  # RISC-V spezifische Funktionen
+            "esp_hw_support",  # ESP Hardware Support für RISC-V
+        ])
+    
+    # Gemeinsame ESP32-Libraries (für alle Varianten)
+    common_esp32_libs = [
+        "soc",  # System-on-Chip specific functions (enthält esp_cpu_* Symbole)
+        "esp_hw_support",  # ESP Hardware Support
+        "esp_common",  # ESP Common functions
+        "esp_system",  # ESP System functions (enthält bootloader_* Symbole)
+        "freertos",  # FreeRTOS (enthält _xt_* Symbole)
+        "newlib",  # newlib C library (enthält _Unwind_* für Clang)
+        "bootloader_support",  # Bootloader support functions
+        "app_update",  # Application update
+        "spi_flash",  # SPI Flash (enthält spi_flash_hal_* Symbole)
+        "esp_partition",  # Partition management
+        "log",  # Logging (enthält esp_err_to_name)
+        "esp_mm",  # Memory management (enthält esp_mmu_* Symbole)
+    ]
+    
+    esp32_hal_libs.extend(common_esp32_libs)
+    
+    # Füge ESP32-spezifische Libraries zur Link-Liste hinzu
+    for lib in esp32_hal_libs:
+        esp32_essential_libs.append(lib)
+    
+    # Manuelle Verlinkung der ESP32-Essential-Libraries
+    if esp32_essential_libs:
+        link_flags = []
+        for lib in esp32_essential_libs:
+            if lib not in [l.replace("-l", "") for l in env.get("LINKFLAGS", []) if l.startswith("-l")]:
+                link_flags.append(f"-l{lib}")
+        
+        if link_flags:
+            env.Append(LINKFLAGS=link_flags)
+            print(f"Added ESP32 essential libraries: {[lib.replace('-l', '') for lib in link_flags]}")
     
     # Standard Clang-Linker-Flags
     linker_flags = [
         "-Wl,--gc-sections",
-        "-Wl,--warn-common"
+        "-Wl,--warn-common",
+        "-Wl,--allow-multiple-definition",  # Schon früher hinzugefügt, aber hier zur Klarstellung
+        "-Wl,--undefined=uxTopUsedPriority",  # FreeRTOS Symbol
+        "-Wl,--undefined=_xt_context_save",   # Xtensa Context Save
+        "-Wl,--undefined=_xt_context_restore", # Xtensa Context Restore
+        "-Wl,--undefined=_Unwind_Resume",     # Exception Handling
     ]
+    
+    # ESP32-spezifische Linker-Wrapping für fehlende Symbole  
+    # WICHTIG: Nur für Symbole verwenden, für die ESP-IDF Wrapper bereitstellt
+    esp32_wrap_symbols = [
+        # Nur kritische Symbole wrappen, für die ESP-IDF Wrapper hat
+        "esp_cpu_compare_and_set",  # Hat ESP-IDF Wrapper
+        "esp_cpu_stall",            # Hat ESP-IDF Wrapper
+        "esp_cpu_unstall",          # Hat ESP-IDF Wrapper
+    ]
+    
+    # Füge Weak-Symbol-Definitionen hinzu für kritische Wrapper
+    for symbol in esp32_wrap_symbols:
+        linker_flags.append(f"-Wl,--wrap={symbol}")
+    
+    # Statt wrapping: Direkte Linking-Verbesserungen für fehlende Symbole
+    esp32_link_improvements = [
+        "-Wl,--no-whole-archive",  # Vermeide das Einbinden aller Archive-Symbole
+        "-Wl,--as-needed",  # Linke nur benötigte Libraries
+        "-Wl,--allow-shlib-undefined",  # Erlaube undefinierte Symbole in shared libs für bessere Kompatibilität
+    ]
+    
+    linker_flags.extend(esp32_link_improvements)
+    
+    # Spezielle ESP32-Linker-Optionen für Clang
+    esp32_linker_options = [
+        "-Wl,--start-group",  # Gruppiere Libraries für zirkuläre Abhängigkeiten
+        # Libraries werden automatisch von ESP-IDF CMake hinzugefügt
+        "-Wl,--end-group",
+        "-Wl,--cref",  # Cross-reference table
+        "-Wl,--check-sections",  # Check section addresses for overlaps
+        # DEAKTIVIERT: "-Wl,--warn-unresolved-symbols",  # Kann bei ESP32 zu viele Warnungen erzeugen
+    ]
+    
+    linker_flags.extend(esp32_linker_options)
     
     if sys_platform.system() == "Darwin":
         linker_flags.extend(["-Wl,-dead_strip"])
