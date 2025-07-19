@@ -679,7 +679,9 @@ def extract_link_args(target_config):
             "esp_timer", "esp_pm", "esp_ringbuf", "esp_rom", "esp_app_format",
             "bootloader", "esp_bootloader_format", "heap", "newlib", "freertos",
             # Add more missing components based on undefined symbols
-            "esp_driver_uart", "esp_driver_spi", "esp_driver_i2c", "log"
+            "esp_driver_uart", "esp_driver_spi", "esp_driver_i2c", "log",
+            # Essential ESP-IDF components for startup and core functionality
+            "espcoredump", "app_update", "partition_table", "nvs_flash"
         ]
         
         # Combine architecture-specific and universal components
@@ -759,16 +761,13 @@ def extract_link_args(target_config):
                 # Add non-ESP-IDF libraries first (normal linking)
                 link_args["LIBS"].extend(other_libs)
                 
-                # Add --whole-archive to LINKFLAGS (not LIBS!)
-                link_args["LINKFLAGS"].append("-Wl,--whole-archive")
+                # Add ESP-IDF libraries multiple times to resolve circular dependencies
+                # This is a common embedded systems linking technique
+                link_args["LIBS"].extend(esp_idf_libs)  # First pass
+                link_args["LIBS"].extend(esp_idf_libs)  # Second pass
+                link_args["LIBS"].extend(esp_idf_libs)  # Third pass for stubborn dependencies
                 
-                # Add all ESP-IDF libraries 
-                link_args["LIBS"].extend(esp_idf_libs)
-                
-                # Add --no-whole-archive to LINKFLAGS to restore normal linking
-                link_args["LINKFLAGS"].append("-Wl,--no-whole-archive")
-                
-                print(f"LINKER: Using --whole-archive for {len(esp_idf_libs)} ESP-IDF libraries to resolve circular dependencies")
+                print(f"LINKER: Added {len(esp_idf_libs)} ESP-IDF libraries 3 times to resolve circular dependencies")
         
         if added_libs:
             print(f"Added {len(added_libs)} ESP-IDF libraries early in linking: {', '.join(added_libs)}")
@@ -1847,6 +1846,9 @@ def finalize_clang_environment():
     # if sys_platform.system() == "Darwin":
     #     linker_flags.extend(["-Wl,-dead_strip"])  # ENTFERNT: Nicht kompatibel mit ESP32-Linker
     
+    # Fix Clang linker flags before appending to environment
+    linker_flags = fix_clang_linkflags(linker_flags)
+    
     env.Append(LINKFLAGS=linker_flags)
     
     # Compiler Definitions
@@ -1859,6 +1861,17 @@ def finalize_clang_environment():
     print(f"Clang environment finalized for {mcu} ({target_arch})")
 
 finalize_clang_environment()
+
+# Add a final fix for any remaining -rtlib=gcc flags from ESP-IDF CMake
+def fix_final_linkflags(source, target, env):
+    """Final pass to fix any remaining -rtlib=gcc flags before linking"""
+    if env.get("LINKFLAGS"):
+        fixed_flags = fix_clang_linkflags(env["LINKFLAGS"])
+        env.Replace(LINKFLAGS=fixed_flags)
+        print(f"FINAL FIX: Applied -rtlib=libgcc conversion to {len(fixed_flags)} flags")
+
+# Apply the final fix right before the link step
+env.AddPreAction("$BUILD_DIR/firmware.elf", fix_final_linkflags)
 
 
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
