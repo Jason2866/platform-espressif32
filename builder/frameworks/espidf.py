@@ -1324,10 +1324,10 @@ def finalize_clang_environment():
                         print(f"Removing libstdc++ reference: {flag_str}")
                         continue
                     cleaned_flags.append(flag)
-                
+
                 if cleaned_flags != current_flags:
                     env.Replace(**{flag_var: cleaned_flags})
-        
+
         # Entferne auch aus LIBPATH alle Pfade die libstdc++ enthalten
         current_libpaths = env.get("LIBPATH", [])
         if current_libpaths:
@@ -1339,7 +1339,7 @@ def finalize_clang_environment():
                 else:
                     print(f"Removing libstdc++ library path: {path_str}")
             env.Replace(LIBPATH=cleaned_libpaths)
-    
+
     # Entferne alle libstdc++ Referenzen BEVOR Clang libc++ hinzugefügt wird
     remove_libstdcpp_from_env()
     
@@ -1352,7 +1352,7 @@ def finalize_clang_environment():
         env.Append(LINKFLAGS=["-rtlib=compiler-rt"])
         print("Using default Clang runtime library: compiler-rt")
     
-    # SAUBERE Clang libc++ Konfiguration (ohne libstdc++ Kontamination)
+    # WICHTIG: Clang libc++ Konfiguration mit Header-Pfaden
     env.Append(
         CXXFLAGS=["-stdlib=libc++"],
         LINKFLAGS=["-stdlib=libc++"]
@@ -1363,7 +1363,54 @@ def finalize_clang_environment():
     if os.path.exists(clang_runtime_lib):
         env.Append(LIBPATH=[clang_runtime_lib])
     
-    # Nur Clang libc++ Pfade hinzufügen
+    # KRITISCH: Füge C++ Header-Pfade hinzu
+    cpp_header_paths = []
+    
+    # Standard Clang libc++ Header-Pfade
+    potential_header_paths = [
+        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),  # Standard libc++ Headers
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf", "include", "c++", "v1"),
+        os.path.join(TOOLCHAIN_DIR, "xtensa-esp-elf", "include", "c++"),
+        os.path.join(TOOLCHAIN_DIR, "include", "c++"),
+    ]
+    
+    for header_path in potential_header_paths:
+        if os.path.exists(header_path):
+            cpp_header_paths.append(header_path)
+            print(f"Found C++ headers: {header_path}")
+    
+    if cpp_header_paths:
+        env.Append(CPPPATH=cpp_header_paths)
+        print(f"Added {len(cpp_header_paths)} C++ header paths")
+    else:
+        print("WARNING: No C++ header paths found!")
+        # Fallback: Versuche System-Header zu finden
+        try:
+            result = subprocess.run(
+                [env.subst("$CXX"), "-stdlib=libc++", "-v", "-x", "c++", "-E", "/dev/null"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                # Parse die Header-Pfade aus der Clang-Ausgabe
+                lines = result.stderr.split('\n')
+                in_include_search = False
+                for line in lines:
+                    if '#include <...> search starts here:' in line:
+                        in_include_search = True
+                        continue
+                    elif 'End of search list.' in line:
+                        break
+                    elif in_include_search and line.strip():
+                        header_path = line.strip()
+                        if os.path.exists(header_path):
+                            env.Append(CPPPATH=[header_path])
+                            print(f"Auto-detected C++ header: {header_path}")
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+            print("Could not auto-detect C++ headers")
+    
+    # Clang libc++ Library-Pfade
     libc_plus_plus_paths = [
         os.path.join(TOOLCHAIN_DIR, "lib", "libc++"),
         os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),
@@ -1373,7 +1420,7 @@ def finalize_clang_environment():
     for lib_path in libc_plus_plus_paths:
         if os.path.exists(lib_path):
             env.Append(LIBPATH=[lib_path])
-            print(f"Added Clang libc++ path: {lib_path}")
+            print(f"Added Clang libc++ library path: {lib_path}")
     
     # Standard Clang-Linker-Flags
     linker_flags = [
@@ -1393,7 +1440,7 @@ def finalize_clang_environment():
     if sdk_config.get("COMPILER_WARN_WRITE_STRINGS"):
         env.Append(CCFLAGS=["-Wwrite-strings"])
     
-    print("Pure Clang environment finalized: libstdc++ removed, libc++ added")
+    print("Pure Clang environment finalized: libstdc++ removed, libc++ added with headers")
 
 
 finalize_clang_environment()
