@@ -653,128 +653,28 @@ def extract_link_args(target_config):
                         )
                     else:
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
-        # DEBUG: Log what ESP-IDF CMake is trying to link
-        if "clang" in env.subst("$CC").lower():
-            print(f"ESP-IDF CMake link fragment: role={fragment_role}, fragment={fragment[:100]}...")
-
-    # CLANG-SPEZIFISCHE LIBRARY-PFADE UND LINKER-KONFIGURATION
+    # DEBUG: Log what ESP-IDF CMake is trying to link
     if "clang" in env.subst("$CC").lower():
-        sdk_config = get_sdk_configuration()
+        print(f"ESP-IDF CMake link fragment: role={fragment_role}, fragment={fragment[:100]}...")
+
+    # FINAL CLANG LINK ARGS SUMMARY
+    if "clang" in env.subst("$CC").lower():
+        # Print detailed summary of what will be linked
+        print(f"FINAL LINK ARGS - LIBS: {len(link_args['LIBS'])} items")
+        print(f"FINAL LINK ARGS - LIBPATH: {len(link_args['LIBPATH'])} paths")
+        print(f"FINAL LINK ARGS - LINKFLAGS: {len(link_args['LINKFLAGS'])} flags")
+        print(f"FINAL LINK ARGS - __LIB_DEPS: {len(link_args['__LIB_DEPS'])} deps")
         
-        # CRITICAL: Ensure ESP-IDF CMake libraries are added early
-        # The missing symbols indicate these libraries aren't being linked
+        # Show some sample content
+        if link_args['LIBS']:
+            print(f"Sample LIBS: {link_args['LIBS'][:5]}...")
+        if link_args['LIBPATH']:
+            print(f"Sample LIBPATH: {[p for p in link_args['LIBPATH'][:3]]}")
         
-        # Architecture-specific essential components (not MCU-specific) 
-        if mcu in ("esp32", "esp32s2", "esp32s3"):
-            # Xtensa architecture components
-            arch_components = ["xtensa"]
-        else:
-            # RISC-V architecture components  
-            arch_components = ["riscv"]
-        
-        # Universal ESP-IDF components needed for all targets
-        universal_components = [
-            "hal", "soc", "esp_hw_support", "esp_system", "driver",
-            "bootloader_support", "esp_mm", "esp_driver_gpio", "esp_common",
-            "esp_timer", "esp_pm", "esp_ringbuf", "esp_rom", "esp_app_format",
-            "bootloader", "esp_bootloader_format", "heap", "newlib", "freertos",
-            # Add more missing components based on undefined symbols
-            "esp_driver_uart", "esp_driver_spi", "esp_driver_i2c", "log",
-            # Essential ESP-IDF components for startup and core functionality
-            "espcoredump", "app_update", "partition_table", "nvs_flash"
-        ]
-        
-        # Combine architecture-specific and universal components
-        all_essential_components = arch_components + universal_components
-        
-        # Find and add ESP-IDF CMake-built libraries EARLY in the linking process
-        esp_idf_base_path = os.path.join(BUILD_DIR, "esp-idf")
-        added_libs = []
-        
-        for component in all_essential_components:
-            component_lib_path = os.path.join(esp_idf_base_path, component)
-            if os.path.exists(component_lib_path):
-                lib_file = os.path.join(component_lib_path, f"lib{component}.a")
-                if os.path.exists(lib_file):
-                    # Add LIBPATH and library name separately (SCons standard)
-                    _add_to_libpath(component_lib_path, link_args)
-                    lib_name = f"lib{component}.a"
-                    if lib_name not in link_args["LIBS"]:
-                        link_args["LIBS"].insert(0, lib_name)  # Insert at beginning for priority
-                        added_libs.append(component)
-                        print(f"EARLY: Added critical ESP-IDF library: {component}")
-        
-        # CRITICAL: Add some essential ESP-IDF libraries that might have different names
-        # These contain the undefined symbols we're seeing
-        essential_lib_paths = [
-            ("riscv", "libriscv.a"),  # Contains _vector_table, _mtvt_table symbols
-            ("esp_bootloader_format", "libesp_bootloader_format.a"),  # bootloader symbols
-            ("esp_mm", "libesp_mm.a"),  # MMU symbols like esp_mmu_map_init
-            ("esp_timer", "libesp_timer.a"),  # systimer symbols
-            ("esp_ringbuf", "libesp_ringbuf.a"),
-            ("esp_pm", "libesp_pm.a"),
-            ("esp_rom", "libesp_rom.a"),  # ROM symbols
-            ("bootloader", "libbootloader.a"),  # bootloader_flash_update_id, bootloader_init_mem
-            ("esp_app_format", "libesp_app_format.a"),  # esp_err_to_name
-            # Additional libraries for undefined symbols
-            ("freertos", "libfreertos.a"),  # esp_vApplicationIdleHook, esp_vApplicationTickHook  
-            ("esp_system", "libesp_system.a"),  # esp_system_abort, panic_abort, esp_task_wdt_init
-            ("esp_hw_support", "libesp_hw_support.a"),  # Various hw support functions
-            ("heap", "libheap.a"),  # esp_heap_adjust_alignment_to_hw
-            ("newlib", "libnewlib.a"),  # System abort functions
-        ]
-        
-        for component, lib_filename in essential_lib_paths:
-            component_lib_path = os.path.join(esp_idf_base_path, component)
-            if os.path.exists(component_lib_path):
-                lib_file = os.path.join(component_lib_path, lib_filename)
-                if os.path.exists(lib_file):
-                    _add_to_libpath(component_lib_path, link_args)
-                    if lib_filename not in link_args["LIBS"]:
-                        link_args["LIBS"].insert(0, lib_filename)
-                        added_libs.append(component)
-                        print(f"ESSENTIAL: Added ESP-IDF library: {component}")
-        
-        # ESP32 often has circular dependencies, add critical libraries again at the end
-        critical_repeats = ["libesp_system.a", "libriscv.a", "libesp_hw_support.a", "libhal.a"]
-        for lib_name in critical_repeats:
-            if lib_name in link_args["LIBS"]:
-                link_args["LIBS"].append(lib_name)  # Add again at the end
-                print(f"REPEAT: Added {lib_name} again for circular dependencies")
-        
-        # CRITICAL: Use --whole-archive for ESP-IDF libraries to resolve circular dependencies
-        # This forces the linker to include all symbols, not just referenced ones
-        if link_args["LIBS"]:
-            esp_idf_libs = []
-            other_libs = []
-            
-            for lib in link_args["LIBS"]:
-                if isinstance(lib, str) and (lib.startswith("lib") and lib.endswith(".a")):
-                    esp_idf_libs.append(lib)
-                else:
-                    other_libs.append(lib)
-            
-            if esp_idf_libs:
-                # Clear LIBS and rebuild with proper structure
-                link_args["LIBS"] = []
-                
-                # Add non-ESP-IDF libraries first (normal linking)
-                link_args["LIBS"].extend(other_libs)
-                
-                # Add ESP-IDF libraries multiple times to resolve circular dependencies
-                # This is a common embedded systems linking technique
-                link_args["LIBS"].extend(esp_idf_libs)  # First pass
-                link_args["LIBS"].extend(esp_idf_libs)  # Second pass
-                link_args["LIBS"].extend(esp_idf_libs)  # Third pass for stubborn dependencies
-                
-                print(f"LINKER: Added {len(esp_idf_libs)} ESP-IDF libraries 3 times to resolve circular dependencies")
-        
-        if added_libs:
-            print(f"Added {len(added_libs)} ESP-IDF libraries early in linking: {', '.join(added_libs)}")
+        # WICHTIG: Lasse ESP-IDF CMake die Libraries verwalten
+        # Nur minimale Clang-spezifische Pfade und Flags hinzufügen
         
         # Clang Runtime-Library-Pfade
-        clang_runtime_paths = []
-        
         if mcu in ("esp32", "esp32s2", "esp32s3"):
             # Xtensa
             clang_runtime_paths = [
@@ -792,28 +692,17 @@ def extract_link_args(target_config):
             if os.path.exists(lib_path):
                 _add_to_libpath(lib_path, link_args)
         
-        # Wichtige Clang-Linker-Flags
-        clang_link_flags = ["-fno-lto"]
+        # Nur wesentliche Clang-Flags
+        if "-fno-lto" not in link_args["LINKFLAGS"]:
+            link_args["LINKFLAGS"].append("-fno-lto")
         
-        # Exception Handling aus sdkconfig
-        if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
-            clang_link_flags.append("-Wl,--eh-frame-hdr")
-            
-        # C++ RTTI Link Flag
-        if not sdk_config.get("COMPILER_CXX_RTTI"):
-            clang_link_flags.append("-fno-rtti")
-            
-        # FreeRTOS Passive Idle Hook
-        if sdk_config.get("FREERTOS_USE_PASSIVE_IDLE_HOOK"):
-            clang_link_flags.append("-Wl,--wrap=vApplicationPassiveIdleHook")
+        # CRITICAL: Ensure all ESP-IDF libraries are properly linked
+        link_args = ensure_esp_idf_libraries_linked(link_args)
         
-        for flag in clang_link_flags:
-            if flag not in link_args["LINKFLAGS"]:
-                link_args["LINKFLAGS"].append(flag)
+        # Apply final runtime library fixes
+        link_args = final_rtlib_fix(link_args)
 
     return link_args
-
-
 def filter_args(args, allowed, ignore=None):
     if not allowed:
         return []
@@ -917,6 +806,198 @@ def fix_clang_linkflags(linkflags):
             result.append(flag)
 
     return result
+
+def final_rtlib_fix(link_args):
+    """Apply final -rtlib=gcc to -rtlib=libgcc conversion before linking"""
+    if "clang" not in env.subst("$CC").lower():
+        return link_args
+    
+    # Convert any remaining -rtlib=gcc flags to -rtlib=libgcc
+    fixed_flags = []
+    conversion_count = 0
+    
+    for flag in link_args.get("LINKFLAGS", []):
+        if isinstance(flag, str) and "-rtlib=gcc" in flag:
+            fixed_flag = flag.replace("-rtlib=gcc", "-rtlib=libgcc")
+            fixed_flags.append(fixed_flag)
+            conversion_count += 1
+            print(f"FINAL FIX: Converted {flag} -> {fixed_flag}")
+        else:
+            fixed_flags.append(flag)
+    
+    if conversion_count > 0:
+        print(f"FINAL FIX: Applied -rtlib=libgcc conversion to {conversion_count} flags")
+        link_args["LINKFLAGS"] = fixed_flags
+    
+    return link_args
+
+def ensure_esp_idf_libraries_linked(link_args):
+    """Ensure all ESP-IDF component libraries are properly included for linking"""
+    if "clang" not in env.subst("$CC").lower():
+        return link_args
+    
+    print("CLANG LINK: Ensuring all ESP-IDF libraries are included...")
+    
+    # Force inclusion of critical undefined symbols first
+    critical_symbols = [
+        "rtos_int_enter",
+        "rtos_int_exit", 
+        "uart_hal_write_txfifo",
+        "app_elf_sha256_str",
+        "esp_core_dump_write",
+        "_vector_table",
+        "_mtvt_table",
+        "_interrupt_handler",
+        "intr_handler_get",
+        "rv_utils_dbgr_is_attached", 
+        "esprv_int_set_vectored",
+        "gpio_func_sel",
+        "systimer_hal_init",
+        "esp_crosscore_int_send_yield",
+        "panic_abort",
+        "esp_vApplicationTickHook",
+        "esp_vApplicationIdleHook",
+        "esp_system_abort",
+        "esp_cpu_wait_for_intr",
+        "esp_cpu_set_breakpoint",
+        "bootloader_flash_update_id",
+        "esp_mmu_map_init",
+        "bootloader_init_mem",
+        "esp_deep_sleep_wakeup_io_reset",
+        "esp_heap_adjust_alignment_to_hw",
+        "esp_cache_suspend_ext_mem_cache",
+        "esp_cache_resume_ext_mem_cache",
+        "g_spi_lock_main_flash_dev",
+        "esp_partition_is_flash_region_writable",
+        "esp_partition_main_flash_region_safe",
+        "esp_system_get_time",
+        "esp_err_to_name",
+        "systimer_ticks_to_us",
+        "systimer_us_to_ticks",
+        "esp_flash_encryption_enabled",
+        "esp_int_wdt_init",
+        "esp_int_wdt_cpu_init",
+        "esp_random",
+        "esp_ota_get_running_partition"
+    ]
+    
+    print(f"CLANG LINK: Adding {len(critical_symbols)} critical undefined symbols")
+    for symbol in critical_symbols:
+        link_args["LINKFLAGS"].append(f"-Wl,--undefined={symbol}")
+        print(f"CLANG LINK: Forcing inclusion of critical symbol: {symbol}")
+    
+    # ESP-IDF build directory where all components are built
+    esp_idf_build_dir = os.path.join(BUILD_DIR, "esp-idf")
+    libraries_added = 0
+    
+    def _add_to_libpath(lib_path, link_args):
+        if lib_path not in link_args["LIBPATH"]:
+            link_args["LIBPATH"].append(lib_path)
+
+    def _add_archive(archive_path, link_args):
+        archive_name = os.path.basename(archive_path)
+        if archive_name not in link_args["LIBS"]:
+            _add_to_libpath(os.path.dirname(archive_path), link_args)
+            link_args["LIBS"].append(archive_name)
+    
+    # Critical missing components based on undefined symbols
+    critical_components = [
+        "hal", "esp_hw_support", "bootloader_support", "esp_system", 
+        "esp_mm", "esp_driver_gpio", "freertos", "esp_timer", 
+        "newlib", "heap", "riscv", "esp_driver_rmt", "esp_common",
+        "esp_bootloader_format", "esp_app_format", "esp_partition",
+        "esp_flash", "spi_flash", "esp_pm", "esp_adc", "esp_psram",
+        "esp_coex", "esp_wifi", "esp_phy", "wpa_supplicant", "esp_netif",
+        "lwip", "esp_event", "esp_eth", "esp_gdbstub", "esp_hid", 
+        "esp_http_client", "esp_http_server", "esp_https_ota",
+        "esp_https_server", "esp_local_ctrl", "esp_ringbuf",
+        "esp_rom", "esp_vfs", "fatfs", "wear_levelling", "esp_driver_spi",
+        "esp_driver_uart", "esp_driver_i2c", "esp_driver_ledc",
+        "esp_driver_pcnt", "esp_driver_i2s", "esp_driver_dac",
+        "esp_driver_mcpwm", "esp_driver_sdmmc", "esp_driver_sdspi",
+        "esp_driver_cam", "esp_driver_sdio", "esp_driver_touch_sens",
+        "esp_driver_usb_serial_jtag", "esp_driver_gptimer",
+        "esp_driver_temperature_sensor", "esp_driver_ana_cmpr",
+        "esp_driver_parlio", "esp_driver_usb", "soc"
+    ]
+    
+    # Scan ESP-IDF build directory for all component libraries
+    if os.path.exists(esp_idf_build_dir):
+        print(f"Scanning ESP-IDF build directory: {esp_idf_build_dir}")
+        
+        # Walk through all component directories
+        for component_dir in os.listdir(esp_idf_build_dir):
+            component_path = os.path.join(esp_idf_build_dir, component_dir)
+            if not os.path.isdir(component_path):
+                continue
+                
+            # Look for library files in this component
+            for file in os.listdir(component_path):
+                if file.endswith('.a'):
+                    lib_path = os.path.join(component_path, file)
+                    if os.path.exists(lib_path):
+                        _add_archive(lib_path, link_args)
+                        libraries_added += 1
+                        print(f"CLANG LINK: Added ESP-IDF library {file} from {component_dir}")
+        
+        # Add specific missing libraries for the remaining undefined symbols
+        # These are critical for rtos_int_enter/exit, uart_hal_write_txfifo, etc.
+        critical_missing_libs = [
+            # For rtos_int_enter/exit symbols
+            ("freertos", "libfreertos.a"),
+            # For HAL functions like uart_hal_write_txfifo
+            ("hal", "libhal.a"),
+            # For g_spi_lock_main_flash_dev symbol
+            ("spi_flash", "libspi_flash.a"), 
+            # For apm_hal functions
+            ("hal", "libhal.a"),
+            # For esp_cpu_configure_region_protection
+            ("esp_hw_support", "libesp_hw_support.a"),
+            # For bootloader functions
+            ("bootloader_support", "libbootloader_support.a"),
+            # Add SOC layer for low-level hardware access
+            ("soc", "libsoc.a"),
+        ]
+        
+        for component, lib_name in critical_missing_libs:
+            lib_path = os.path.join(esp_idf_build_dir, component, lib_name)
+            if os.path.exists(lib_path):
+                _add_archive(lib_path, link_args)
+                libraries_added += 1
+                print(f"CLANG LINK: Added critical missing library {lib_name} from {component}")
+            else:
+                # Try alternative locations
+                alt_lib_path = os.path.join(BUILD_DIR, "esp-idf", component, lib_name)
+                if os.path.exists(alt_lib_path):
+                    _add_archive(alt_lib_path, link_args)
+                    libraries_added += 1
+                    print(f"CLANG LINK: Added critical missing library {lib_name} from alt location")
+    
+    # Ensure linker can resolve circular dependencies
+    if libraries_added > 0:
+        # Force inclusion of critical undefined symbols that may not be automatically pulled in
+        critical_symbols = [
+            "rtos_int_enter",
+            "rtos_int_exit", 
+            "uart_hal_write_txfifo",
+            "app_elf_sha256_str",
+            "esp_core_dump_write"
+        ]
+        
+        for symbol in critical_symbols:
+            link_args["LINKFLAGS"].append(f"-Wl,--undefined={symbol}")
+            print(f"CLANG LINK: Forcing inclusion of critical symbol: {symbol}")
+        
+        # Add linker flags to handle circular dependencies between ESP-IDF components
+        link_args["LINKFLAGS"].extend([
+            "-Wl,--start-group",
+            "-Wl,--end-group"
+        ])
+        print("CLANG LINK: Added start-group/end-group flags for circular dependency resolution")
+    
+    print(f"CLANG LINK: Added {libraries_added} ESP-IDF component libraries")
+    return link_args
+
 def get_app_flags(app_config, default_config):
     def _extract_flags(config):
         flags = {}
