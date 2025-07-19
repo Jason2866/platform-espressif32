@@ -816,20 +816,6 @@ def final_rtlib_fix(link_args):
     
     return link_args
 
-def final_rtlib_fix(link_args):
-    """Final conversion of -rtlib=gcc to -rtlib=libgcc before linking (espidf_gcc.py style)"""
-    if not link_args:
-        return link_args
-    
-    # Convert in all link argument categories
-    for key in ['LINKFLAGS', 'LIBS', 'LIBPATH']:
-        if key in link_args and isinstance(link_args[key], list):
-            link_args[key] = [
-                '-rtlib=libgcc' if item == '-rtlib=gcc' else item
-                for item in link_args[key]
-            ]
-    
-    return link_args
 
 def final_rtlib_fix_list(flag_list):
     """Final conversion of -rtlib=gcc to -rtlib=libgcc in a flag list"""
@@ -2457,37 +2443,12 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# CRITICAL: Apply final Clang runtime library conversion before linking (espidf_gcc.py style)
-if "clang" in env.subst("$CC").lower():
-    print("FINAL: Applying espidf_gcc.py style runtime library conversion before linking...")
-    
+if "clang" in env.subst("$CC").lower():    
     # Apply final conversion to all collected link arguments
     link_args = final_rtlib_fix(link_args)
     extra_flags = final_rtlib_fix_list(extra_flags)
-    
-    # Also check project_flags for any remaining -rtlib=gcc
-    if 'LINKFLAGS' in project_flags:
-        project_flags['LINKFLAGS'] = [
-            '-rtlib=libgcc' if flag == '-rtlib=gcc' else flag 
-            for flag in project_flags['LINKFLAGS']
-        ]
-    
-    # Final verification - count remaining -rtlib=gcc instances
-    total_gcc_flags = 0
-    for flag_list in [link_args.get('LINKFLAGS', []), extra_flags, project_flags.get('LINKFLAGS', [])]:
-        total_gcc_flags += sum(1 for f in flag_list if '-rtlib=gcc' in str(f))
-    
-    if total_gcc_flags > 0:
-        print(f"WARNING: Still found {total_gcc_flags} -rtlib=gcc flags after final conversion!")
-    else:
-        print("SUCCESS: All -rtlib=gcc flags successfully converted to -rtlib=libgcc")
-
 project_flags.update(link_args)
 env.MergeFlags(project_flags)
-
-# Apply final extra flags to linking
-if extra_flags:
-    print(f"CLANG LINK: Adding {len(extra_flags)} ESP-IDF flags to LINKFLAGS")
 
 env.Prepend(
     CPPPATH=app_includes["plain_includes"],
@@ -2836,3 +2797,4 @@ if "clang" in env.subst("$CC").lower():
 env["INTEGRATION_EXTRA_DATA"].update(
     {"application_offset": env.subst("$ESP32_APP_OFFSET")}
 )
+
