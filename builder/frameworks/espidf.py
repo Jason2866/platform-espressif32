@@ -620,7 +620,9 @@ def extract_link_args(target_config):
             continue
         args = click.parser.split_arg_string(fragment)
         if fragment_role == "flags":
-            args = fix_clang_linkflags(args)
+            # WICHTIG: Für Clang nur problematische GCC-Flags filtern, nicht alle
+            if "clang" in env.subst("$CC").lower():
+                args = fix_clang_linkflags(args)
             link_args["LINKFLAGS"].extend(args)
         elif fragment_role in ("libraries", "libraryPath"):
             if fragment.startswith("-l"):
@@ -629,7 +631,16 @@ def extract_link_args(target_config):
                 lib_path = fragment.replace("-L", "").strip(" '\"")
                 _add_to_libpath(lib_path, link_args)
             elif fragment.startswith("-") and not fragment.startswith("-l"):
-                link_args["LINKFLAGS"].extend(args)
+                # CRITICAL: Handle -rtlib=gcc specifically for Clang
+                if "clang" in env.subst("$CC").lower() and "-rtlib=gcc" in fragment:
+                    print(f"CONVERTED ESP-IDF CMake rtlib in libraries: {fragment} -> -rtlib=libgcc")
+                    link_args["LINKFLAGS"].append("-rtlib=libgcc")
+                elif "clang" in env.subst("$CC").lower():
+                    # Convert the fragment itself, not args (which is the parsed version)
+                    converted_flags = fix_clang_linkflags([fragment])
+                    link_args["LINKFLAGS"].extend(converted_flags)
+                else:
+                    link_args["LINKFLAGS"].append(fragment)
             elif fragment.endswith(".a"):
                 archive_path = fragment
                 if os.path.isabs(archive_path):
@@ -642,6 +653,9 @@ def extract_link_args(target_config):
                         )
                     else:
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
+        # DEBUG: Log what ESP-IDF CMake is trying to link
+        if "clang" in env.subst("$CC").lower():
+            print(f"ESP-IDF CMake link fragment: role={fragment_role}, fragment={fragment[:100]}...")
 
     # CLANG-SPEZIFISCHE LIBRARY-PFADE UND LINKER-KONFIGURATION
     if "clang" in env.subst("$CC").lower():
@@ -759,8 +773,20 @@ def fix_clang_linkflags(linkflags):
     result = []
     for flag in linkflags:
         if isinstance(flag, str):
+            # KRITISCH: Handle GCC runtime library flags carefully
+            # For ESP32-C5 RISC-V, some symbols might only be in libgcc
+            if "-rtlib=gcc" in flag:
+                # Convert GCC rtlib to Clang-compatible libgcc
+                print(f"CONVERTED GCC rtlib flag from CMake: {flag} -> -rtlib=libgcc")
+                result.append("-rtlib=libgcc")
+                continue
+            elif flag == "-lgcc":
+                # Let ESP-IDF CMake handle libgcc vs compiler-rt decision
+                # Don't filter out -lgcc completely as it might contain essential symbols
+                print(f"PRESERVING ESP-IDF libgcc flag: {flag}")
+                result.append(flag)
             # Entferne alle GCC-spezifischen Linker-Emulations-Flags
-            if flag.startswith("-melf32xtensa"):
+            elif flag.startswith("-melf32xtensa"):
                 continue
             elif flag in ["-melf32xtensas2", "-melf32xtensas3", "-melf32xtensaesp32"]:
                 continue
@@ -780,8 +806,6 @@ def fix_clang_linkflags(linkflags):
             result.append(flag)
 
     return result
-
-
 def get_app_flags(app_config, default_config):
     def _extract_flags(config):
         flags = {}
@@ -1342,36 +1366,38 @@ def finalize_clang_environment():
     # Entferne alle libstdc++ Referenzen
     remove_libstdcpp_from_env()
     
-    # Runtime Library aus sdkconfig
+    # Runtime Library aus sdkconfig (WICHTIG: Muss vor allen anderen Libraries kommen)
     compiler_rt_lib_name = sdk_config.get("COMPILER_RT_LIB_NAME")
     if compiler_rt_lib_name:
         env.Append(LINKFLAGS=[f"-rtlib={compiler_rt_lib_name}"])
         print(f"Using Clang runtime library from sdkconfig: {compiler_rt_lib_name}")
     else:
-        env.Append(LINKFLAGS=["-rtlib=compiler-rt"])
-        print("Using default Clang runtime library: compiler-rt")
+        # Let ESP-IDF CMake decide on runtime library - don't force compiler-rt
+        print("Using ESP-IDF CMake default runtime library (likely libgcc)")
+    
+    # ENTFERNT: Explicit filtering of GCC runtime flags - let ESP-IDF CMake handle them
+    print("Preserving ESP-IDF CMake runtime library settings")
     
     # WICHTIG: Clang C++ Library Konfiguration für ESP32
     # Die ESP32-Clang-Toolchain verwendet GNU libstdc++ anstatt libc++
     # Dies ist ein Hybrid-Ansatz: Clang-Compiler mit GNU C++ Standard Library
     
-    # KORREKTUR: Verwende libstdc++ anstatt libc++ für ESP32-Clang
-    # Die Toolchain enthält nur libstdc++, nicht libc++
-    env.Append(
-        CXXFLAGS=["-stdlib=libstdc++"],
-        LINKFLAGS=["-stdlib=libstdc++"]
-    )
-    
-    # Bestimme die korrekte Ziel-Architektur und MCU-spezifische Varianten ZUERST
+    # Bestimme die korrekte Ziel-Architektur basierend auf ESP-IDF CMake Konfiguration ZUERST
+    # WICHTIG: ESP-IDF verwendet "xtensa-esp-elf" und "riscv32-esp-elf" (OHNE "unknown")
     if mcu in ("esp32", "esp32s2", "esp32s3"):
-        target_arch = "xtensa-esp-unknown-elf"
-        # MCU-spezifische C++ Header-Varianten für Xtensa (sortiert nach Priorität)
-        mcu_variants = [mcu, f"{mcu}_no-rtti", f"{mcu}_psram", f"{mcu}_psram_no-rtti"]
-        cpu_variant = mcu
+        target_arch = "xtensa-esp-elf"  # ESP-IDF Standard
+        # Architecture-specific C++ Header-Varianten für Xtensa (sortiert nach Priorität)
+        arch_variants = [
+            "xtensa",
+            "xtensa_no-rtti", 
+            "xtensa_psram", 
+            "xtensa_psram_no-rtti"
+        ]
+        cpu_variant = "xtensa"
     else:
-        target_arch = "riscv32-esp-unknown-elf" 
-        # MCU-spezifische C++ Header-Varianten für RISC-V (sortiert nach Priorität)
-        mcu_variants = [
+        target_arch = "riscv32-esp-elf"  # ESP-IDF Standard (OHNE "unknown") 
+        # Architecture-specific C++ Header-Varianten für RISC-V (sortiert nach Priorität)
+        arch_variants = [
             "rv32imac-zicsr-zifencei_ilp32",
             "rv32imac-zicsr-zifencei_ilp32_no-rtti",
             "rv32imafc-zicsr-zifencei-zba-zbb-zbc-zbs_ilp32f",
@@ -1383,11 +1409,52 @@ def finalize_clang_environment():
         ]
         cpu_variant = "rv32imac-zicsr-zifencei_ilp32"
     
+    # KORREKTUR: Verwende libstdc++ anstatt libc++ für ESP32-Clang
+    # Die Toolchain enthält nur libstdc++, nicht libc++
+    env.Append(
+        CXXFLAGS=["-stdlib=libstdc++"],
+        LINKFLAGS=["-stdlib=libstdc++"]
+    )
+    
+    # ESP-IDF CMake-konforme Compiler-Flags hinzufügen
+    # Basierend auf toolchain-clang-esp32.cmake
+    esp_idf_compiler_flags = [
+        f"--target={target_arch}",  # ESP-IDF Standard Target 
+        "-Wno-unknown-warning-option",  # Ignoriere unbekannte GCC-Warnungen
+    ]
+    
+    # Architecture-spezifische CPU-Flags (ESP-IDF CMake Standard)
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        # Xtensa architecture
+        esp_idf_compiler_flags.append("-mcpu=xtensa")
+    # RISC-V MCUs use generic RISC-V flags, no specific -mcpu needed
+    
+    # Assembler-Flags (ESP-IDF CMake Standard)
+    esp_idf_asm_flags = []
+    if mcu in ("esp32", "esp32s2", "esp32s3"):  # Xtensa architecture
+        esp_idf_asm_flags.append("-Xassembler")
+        esp_idf_asm_flags.append("--longcalls")
+    
+    # Linker-Flags (ESP-IDF CMake Standard)
+    esp_idf_linker_flags = [
+        "-z", "noexecstack",  # ESP-IDF Security Standard
+    ]
+    
+    # Füge ESP-IDF konforme Flags hinzu
+    env.Append(
+        CCFLAGS=esp_idf_compiler_flags,
+        CXXFLAGS=esp_idf_compiler_flags,
+        ASFLAGS=esp_idf_asm_flags,
+        LINKFLAGS=esp_idf_linker_flags
+    )
+    
+    print(f"Applied ESP-IDF CMake-compatible flags for {mcu} ({target_arch})")
+    
     # Füge explizit die verfügbaren C++ Libraries hinzu
     esp32_cpp_libs = []
     
-    # Prüfe auf verfügbare C++ Bibliotheken in den MCU-spezifischen Pfaden
-    for variant in mcu_variants:
+    # Prüfe auf verfügbare C++ Bibliotheken in den Architecture-spezifischen Pfaden
+    for variant in arch_variants:
         variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
         if os.path.exists(variant_lib_path):
             libstdcpp_path = os.path.join(variant_lib_path, "libstdc++.a")
@@ -1431,13 +1498,13 @@ def finalize_clang_environment():
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "include"),
     ]
     
-    # WICHTIG: Füge MCU-spezifische C++ Header-Pfade hinzu (für bits/c++config.h)
+    # WICHTIG: Füge Architecture-spezifische C++ Header-Pfade hinzu (für bits/c++config.h)
     # Diese sind essentiell für C++ Standard Library Headers
-    for variant in mcu_variants:
+    for variant in arch_variants:
         variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
         if os.path.exists(variant_path):
             potential_header_paths.append(variant_path)
-            print(f"Found MCU-specific C++ headers for {variant}: {variant_path}")
+            print(f"Found architecture-specific C++ headers for {variant}: {variant_path}")
     
     # Füge auch den allgemeinen C++ Include-Pfad hinzu falls vorhanden
     general_cpp_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
@@ -1521,11 +1588,11 @@ def finalize_clang_environment():
     ]
     
     # Füge MCU-spezifische Bibliothekspfade für alle Varianten hinzu
-    for variant in mcu_variants:
+    for variant in arch_variants:
         variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
         if os.path.exists(variant_lib_path):
             standard_lib_paths.append(variant_lib_path)
-            print(f"Found MCU-specific library path for {variant}: {variant_lib_path}")
+            print(f"Found architecture-specific library path for {variant}: {variant_lib_path}")
     
     # Füge alle gefundenen Library-Pfade hinzu
     for lib_path in standard_lib_paths:
@@ -1540,16 +1607,17 @@ def finalize_clang_environment():
     # Clang Exception Handling für ESP32
     if sdk_config.get("COMPILER_CXX_EXCEPTIONS", True):
         # ESP32-spezifische Exception-Handling-Libraries
-        # HINWEIS: Nur Standard-Libraries hinzufügen, ESP-IDF Libraries werden automatisch gelinkt
+        # WICHTIG: Nur Clang-kompatible Libraries hinzufügen
         esp32_essential_libs.extend([
-            "gcc",  # GNU Compiler Collection Runtime
+            # ENTFERNT: "gcc",  # GCC Runtime kann Clang-rtlib-Konflikte verursachen
             # "stdc++" wird bereits früher hinzugefügt
         ])
         
         # Unwind-Library für Exception Handling
         esp32_unwind_paths = [
             os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "lib", "libunwind.a"),
-            os.path.join(TOOLCHAIN_DIR, target_arch, "lib", "libgcc.a"),
+            # ENTFERNT: libgcc.a kann -rtlib=compiler-rt überschreiben
+            # os.path.join(TOOLCHAIN_DIR, target_arch, "lib", "libgcc.a"),
             os.path.join(TOOLCHAIN_DIR, target_arch, "lib", "libunwind.a"),
         ]
         
@@ -1584,8 +1652,8 @@ def finalize_clang_environment():
             for lib_file in os.listdir(lib_path):
                 if lib_file.startswith("lib") and lib_file.endswith(".a"):
                     lib_name = lib_file[3:-2]  # Entferne "lib" und ".a"
-                    # Nur echte Toolchain-Libraries, keine ESP-IDF spezifischen
-                    if lib_name in ["gcc", "stdc++", "m", "c"]:
+                    # Nur Clang-kompatible Libraries, keine GCC-spezifischen
+                    if lib_name in ["stdc++", "m", "c"]:  # ENTFERNT: "gcc"
                         if lib_name not in available_standard_libs:
                             available_standard_libs.append(lib_name)
     
@@ -1604,56 +1672,102 @@ def finalize_clang_environment():
         if link_flags:
             env.Append(LINKFLAGS=link_flags)
             print(f"Added essential toolchain libraries: {[lib.replace('-l', '') for lib in link_flags]}")
+    
+    # CRITICAL: Ensure ESP-IDF CMake-generated libraries are properly linked
+    # The missing symbols indicate ESP-IDF CMake isn't properly linking HAL libraries
+    
+    # Architecture-specific essential components (not MCU-specific)
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        # Xtensa architecture components
+        arch_components = ["xtensa"]
     else:
-        print("INFO: No additional toolchain libraries needed - relying on ESP-IDF CMake system")
+        # RISC-V architecture components  
+        arch_components = ["riscv"]
     
-    # Standard Clang-Linker-Flags
+    # Universal ESP-IDF components needed for all targets
+    universal_components = [
+        "hal", "soc", "esp_hw_support", "esp_system", "driver",
+        "bootloader_support", "esp_mm", "esp_driver_gpio"
+    ]
+    
+    # Combine architecture-specific and universal components
+    all_essential_components = arch_components + universal_components
+    
+    # Find and add ESP-IDF CMake-built libraries
+    essential_esp_libs = []
+    for component in all_essential_components:
+        component_lib_path = os.path.join(BUILD_DIR, "esp-idf", component)
+        if os.path.exists(component_lib_path):
+            lib_file = os.path.join(component_lib_path, f"lib{component}.a")
+            if os.path.exists(lib_file):
+                essential_esp_libs.append(lib_file)
+                print(f"Found critical ESP-IDF library: {component}")
+    
+    # Add libraries directly to LIBS (preserving ESP-IDF CMake order)
+    if essential_esp_libs:
+        env.Append(LIBS=essential_esp_libs)
+        print(f"CRITICAL: Added ESP-IDF libraries: {[os.path.basename(lib) for lib in essential_esp_libs]}")
+    else:
+        print("INFO: No additional ESP-IDF libraries found - relying on ESP-IDF CMake system")
+    
+    # DEBUG: Print final link configuration for troubleshooting
+    print(f"FINAL CLANG LINKING CONFIGURATION:")
+    print(f"  LINKFLAGS: {len(env.get('LINKFLAGS', []))} flags")
+    print(f"  LIBS: {len(env.get('LIBS', []))} libraries") 
+    print(f"  LIBPATH: {len(env.get('LIBPATH', []))} paths")
+    
+    # Show first few of each for debugging
+    linkflags = env.get('LINKFLAGS', [])
+    if linkflags:
+        print(f"  First LINKFLAGS: {linkflags[:5]}")
+    libs = env.get('LIBS', [])
+    if libs:
+        print(f"  First LIBS: {libs[:5]}")
+        # Check for HAL libraries specifically
+        hal_libs = [lib for lib in libs if 'hal' in str(lib).lower()]
+        if hal_libs:
+            print(f"  HAL LIBS found: {hal_libs[:3]}")
+        else:
+            print("  WARNING: No HAL libraries found in LIBS!")
+    libpaths = env.get('LIBPATH', [])
+    if libpaths:
+        print(f"  First LIBPATHS: {libpaths[:3]}")
+        
+    # Check if critical HAL symbols would be available
+    critical_symbols = ["systimer_hal_init", "gpio_func_sel", "intr_handler_get"]
+    print(f"  CRITICAL: Need to find symbols: {critical_symbols}")
+    
+    # Look for HAL library files in build directory
+    hal_lib_path = os.path.join(BUILD_DIR, "esp-idf", "hal")
+    if os.path.exists(hal_lib_path):
+        hal_files = os.listdir(hal_lib_path)
+        hal_lib_files = [f for f in hal_files if f.endswith('.a')]
+        print(f"  HAL library files available: {hal_lib_files}")
+    else:
+        print(f"  WARNING: HAL library path not found: {hal_lib_path}")
+
+    # ESP-IDF-konforme Standard Clang-Linker-Flags (vereinfacht)
+    # Orientiert an ESP-IDF CMake System, nicht an komplexer manueller Konfiguration
     linker_flags = [
-        "-Wl,--gc-sections",
-        "-Wl,--warn-common",
-        "-Wl,--allow-multiple-definition",  # Schon früher hinzugefügt, aber hier zur Klarstellung
-        "-Wl,--undefined=uxTopUsedPriority",  # FreeRTOS Symbol
-        "-Wl,--undefined=_xt_context_save",   # Xtensa Context Save
-        "-Wl,--undefined=_xt_context_restore", # Xtensa Context Restore
-        "-Wl,--undefined=_Unwind_Resume",     # Exception Handling
+        "-Wl,--gc-sections",           # Standard Garbage Collection
+        "-Wl,--warn-common",           # Warn über Common Symbols
+        "-Wl,--allow-multiple-definition",  # Schon früher hinzugefügt
     ]
     
-    # ESP32-spezifische Linker-Wrapping für fehlende Symbole  
-    # WICHTIG: Nur für Symbole verwenden, für die ESP-IDF Wrapper bereitstellt
-    esp32_wrap_symbols = [
-        # Nur kritische Symbole wrappen, für die ESP-IDF Wrapper hat
-        "esp_cpu_compare_and_set",  # Hat ESP-IDF Wrapper
-        "esp_cpu_stall",            # Hat ESP-IDF Wrapper
-        "esp_cpu_unstall",          # Hat ESP-IDF Wrapper
-    ]
-    
-    # Füge Weak-Symbol-Definitionen hinzu für kritische Wrapper
-    for symbol in esp32_wrap_symbols:
-        linker_flags.append(f"-Wl,--wrap={symbol}")
-    
-    # Statt wrapping: Direkte Linking-Verbesserungen für fehlende Symbole
-    esp32_link_improvements = [
-        "-Wl,--no-whole-archive",  # Vermeide das Einbinden aller Archive-Symbole
-        "-Wl,--as-needed",  # Linke nur benötigte Libraries
-        "-Wl,--allow-shlib-undefined",  # Erlaube undefinierte Symbole in shared libs für bessere Kompatibilität
-    ]
-    
-    linker_flags.extend(esp32_link_improvements)
-    
-    # Spezielle ESP32-Linker-Optionen für Clang
-    esp32_linker_options = [
+    # ESP-IDF lässt das CMake-System die meisten Symbole automatisch handhaben
+    # Nur kritische Basis-Linker-Optionen manuell setzen
+    esp32_basic_linker_options = [
         "-Wl,--start-group",  # Gruppiere Libraries für zirkuläre Abhängigkeiten
-        # Libraries werden automatisch von ESP-IDF CMake hinzugefügt
+        # Actual libraries werden von ESP-IDF CMake hinzugefügt
         "-Wl,--end-group",
-        "-Wl,--cref",  # Cross-reference table
-        "-Wl,--check-sections",  # Check section addresses for overlaps
-        # DEAKTIVIERT: "-Wl,--warn-unresolved-symbols",  # Kann bei ESP32 zu viele Warnungen erzeugen
     ]
     
-    linker_flags.extend(esp32_linker_options)
+    linker_flags.extend(esp32_basic_linker_options)
     
-    if sys_platform.system() == "Darwin":
-        linker_flags.extend(["-Wl,-dead_strip"])
+    # KORREKTUR: Entferne macOS-spezifische Linker-Flags für ESP32
+    # Der ESP32 Clang-Linker versteht keine Apple-spezifischen Flags
+    # if sys_platform.system() == "Darwin":
+    #     linker_flags.extend(["-Wl,-dead_strip"])  # ENTFERNT: Nicht kompatibel mit ESP32-Linker
     
     env.Append(LINKFLAGS=linker_flags)
     
