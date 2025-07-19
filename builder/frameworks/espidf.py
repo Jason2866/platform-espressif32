@@ -675,7 +675,11 @@ def extract_link_args(target_config):
         # Universal ESP-IDF components needed for all targets
         universal_components = [
             "hal", "soc", "esp_hw_support", "esp_system", "driver",
-            "bootloader_support", "esp_mm", "esp_driver_gpio", "esp_common"
+            "bootloader_support", "esp_mm", "esp_driver_gpio", "esp_common",
+            "esp_timer", "esp_pm", "esp_ringbuf", "esp_rom", "esp_app_format",
+            "bootloader", "esp_bootloader_format", "heap", "newlib", "freertos",
+            # Add more missing components based on undefined symbols
+            "esp_driver_uart", "esp_driver_spi", "esp_driver_i2c", "log"
         ]
         
         # Combine architecture-specific and universal components
@@ -703,10 +707,19 @@ def extract_link_args(target_config):
         essential_lib_paths = [
             ("riscv", "libriscv.a"),  # Contains _vector_table, _mtvt_table symbols
             ("esp_bootloader_format", "libesp_bootloader_format.a"),  # bootloader symbols
-            ("esp_mm", "libesp_mm.a"),  # MMU symbols
+            ("esp_mm", "libesp_mm.a"),  # MMU symbols like esp_mmu_map_init
             ("esp_timer", "libesp_timer.a"),  # systimer symbols
             ("esp_ringbuf", "libesp_ringbuf.a"),
             ("esp_pm", "libesp_pm.a"),
+            ("esp_rom", "libesp_rom.a"),  # ROM symbols
+            ("bootloader", "libbootloader.a"),  # bootloader_flash_update_id, bootloader_init_mem
+            ("esp_app_format", "libesp_app_format.a"),  # esp_err_to_name
+            # Additional libraries for undefined symbols
+            ("freertos", "libfreertos.a"),  # esp_vApplicationIdleHook, esp_vApplicationTickHook  
+            ("esp_system", "libesp_system.a"),  # esp_system_abort, panic_abort, esp_task_wdt_init
+            ("esp_hw_support", "libesp_hw_support.a"),  # Various hw support functions
+            ("heap", "libheap.a"),  # esp_heap_adjust_alignment_to_hw
+            ("newlib", "libnewlib.a"),  # System abort functions
         ]
         
         for component, lib_filename in essential_lib_paths:
@@ -719,6 +732,43 @@ def extract_link_args(target_config):
                         link_args["LIBS"].insert(0, lib_filename)
                         added_libs.append(component)
                         print(f"ESSENTIAL: Added ESP-IDF library: {component}")
+        
+        # ESP32 often has circular dependencies, add critical libraries again at the end
+        critical_repeats = ["libesp_system.a", "libriscv.a", "libesp_hw_support.a", "libhal.a"]
+        for lib_name in critical_repeats:
+            if lib_name in link_args["LIBS"]:
+                link_args["LIBS"].append(lib_name)  # Add again at the end
+                print(f"REPEAT: Added {lib_name} again for circular dependencies")
+        
+        # CRITICAL: Use --whole-archive for ESP-IDF libraries to resolve circular dependencies
+        # This forces the linker to include all symbols, not just referenced ones
+        if link_args["LIBS"]:
+            esp_idf_libs = []
+            other_libs = []
+            
+            for lib in link_args["LIBS"]:
+                if isinstance(lib, str) and (lib.startswith("lib") and lib.endswith(".a")):
+                    esp_idf_libs.append(lib)
+                else:
+                    other_libs.append(lib)
+            
+            if esp_idf_libs:
+                # Clear LIBS and rebuild with --whole-archive for ESP-IDF libraries
+                link_args["LIBS"] = []
+                
+                # Add non-ESP-IDF libraries first (normal linking)
+                link_args["LIBS"].extend(other_libs)
+                
+                # Add --whole-archive flag
+                link_args["LIBS"].append("-Wl,--whole-archive")
+                
+                # Add all ESP-IDF libraries 
+                link_args["LIBS"].extend(esp_idf_libs)
+                
+                # Add --no-whole-archive to restore normal linking for subsequent libraries
+                link_args["LIBS"].append("-Wl,--no-whole-archive")
+                
+                print(f"LINKER: Using --whole-archive for {len(esp_idf_libs)} ESP-IDF libraries to resolve circular dependencies")
         
         if added_libs:
             print(f"Added {len(added_libs)} ESP-IDF libraries early in linking: {', '.join(added_libs)}")
