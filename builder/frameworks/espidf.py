@@ -642,24 +642,8 @@ def extract_link_args(target_config):
                         )
                     else:
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
-    # DEBUG: Log what ESP-IDF CMake is trying to link
-    if "clang" in env.subst("$CC").lower():
-        print(f"ESP-IDF CMake link fragment: role={fragment_role}, fragment={fragment[:100]}...")
 
-    # FINAL CLANG LINK ARGS SUMMARY
     if "clang" in env.subst("$CC").lower():
-        # Print detailed summary of what will be linked
-        print(f"FINAL LINK ARGS - LIBS: {len(link_args['LIBS'])} items")
-        print(f"FINAL LINK ARGS - LIBPATH: {len(link_args['LIBPATH'])} paths")
-        print(f"FINAL LINK ARGS - LINKFLAGS: {len(link_args['LINKFLAGS'])} flags")
-        print(f"FINAL LINK ARGS - __LIB_DEPS: {len(link_args['__LIB_DEPS'])} deps")
-        
-        # Show some sample content
-        if link_args['LIBS']:
-            print(f"Sample LIBS: {link_args['LIBS'][:5]}...")
-        if link_args['LIBPATH']:
-            print(f"Sample LIBPATH: {[p for p in link_args['LIBPATH'][:3]]}")
-                
         # Clang Runtime-Library-Pfade
         if mcu in ("esp32", "esp32s2", "esp32s3"):
             # Xtensa - Use actual toolchain folder name
