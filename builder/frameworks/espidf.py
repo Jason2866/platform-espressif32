@@ -710,22 +710,43 @@ def filter_args(args, allowed, ignore=None):
 
 
 def remove_duplicate_flags(flags):
-    """Remove duplicate flags while preserving order"""
+    """Remove duplicate flags and problematic GCC flags for Clang Assembler"""
     if not flags:
         return []
     
     seen = set()
     result = []
+    skip_next = False
     
-    for flag in flags:
-        flag_str = str(flag).strip()
-        
-        # Entferne nur spezifisch problematische Flags für Clang-as
-        if flag_str == "--target=xtensa-esp-elf":
-            continue
-        elif flag_str == "--longcalls":
+    for i, flag in enumerate(flags):
+        if skip_next:
+            skip_next = False
             continue
             
+        flag_str = str(flag).strip()
+        
+        # Entferne problematische Assembler-Flags für Clang
+        if flag_str == "-Xassembler" and i + 1 < len(flags):
+            next_flag = str(flags[i + 1]).strip()
+            if next_flag in ["-ffunction-sections", "-fdata-sections"]:
+                # Überspringe "-Xassembler -ffunction-sections" komplett
+                skip_next = True
+                continue
+            elif next_flag == "--longcalls":
+                # Überspringe "-Xassembler --longcalls" komplett für Clang-as
+                skip_next = True
+                continue
+        elif flag_str == "--target=xtensa-esp-elf":
+            # Entferne Target-Flag für Assembler (Clang-as Problem)
+            continue
+        elif flag_str.startswith("-mcpu=esp32"):
+            # Entferne GCC-spezifische MCU-Flags für Assembler
+            continue
+        elif flag_str in ["--longcalls", "-ffunction-sections", "-fdata-sections", "-d"]:
+            # Entferne diese problematischen Flags
+            continue
+        
+        # Normale Duplikat-Behandlung
         if flag_str not in seen:
             seen.add(flag_str)
             result.append(flag)
