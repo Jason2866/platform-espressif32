@@ -1427,7 +1427,7 @@ def finalize_clang_environment():
         variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
         if os.path.exists(variant_path):
             potential_header_paths.append(variant_path)
-            print(f"Found architecture-specific C++ headers for {variant}: {variant_path}")
+            #print(f"Found architecture-specific C++ headers for {variant}: {variant_path}")
     
     # Füge auch den allgemeinen C++ Include-Pfad hinzu falls vorhanden
     general_cpp_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
@@ -1438,7 +1438,7 @@ def finalize_clang_environment():
     for header_path in potential_header_paths:
         if os.path.exists(header_path):
             cpp_header_paths.append(header_path)
-            print(f"Found C++ headers: {header_path}")
+            #print(f"Found C++ headers: {header_path}")
     
     if cpp_header_paths:
         # Wichtig: System-Includes verwenden für Standard-Headers
@@ -1461,13 +1461,13 @@ def finalize_clang_environment():
         variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
         if os.path.exists(variant_lib_path):
             standard_lib_paths.append(variant_lib_path)
-            print(f"Found architecture-specific library path for {variant}: {variant_lib_path}")
+            #print(f"Found architecture-specific library path for {variant}: {variant_lib_path}")
     
     # Füge alle gefundenen Library-Pfade hinzu
     for lib_path in standard_lib_paths:
         if os.path.exists(lib_path):
             env.Append(LIBPATH=[lib_path])
-            print(f"Added Clang runtime library path: {lib_path}")
+            #print(f"Added Clang runtime library path: {lib_path}")
         
     # Prüfe verfügbare Standard-Libraries im Toolchain
     toolchain_lib_paths = [
@@ -2318,10 +2318,7 @@ extra_flags = filter_args(
     ],
 )
 
-# Debug: Show extracted extra flags
-print(f"CLANG LINK: Extracted {len(extra_flags)} extra flags from ESP-IDF CMake")
 whole_archive_flags = [f for f in extra_flags if '--whole-archive' in f]
-print(f"CLANG LINK: Found {len(whole_archive_flags)} existing --whole-archive flags")
 
 if "clang" in env.subst("$CC").lower() and not whole_archive_flags: 
     esp_idf_build_dir = os.path.join(BUILD_DIR, "esp-idf")
@@ -2343,7 +2340,6 @@ if "clang" in env.subst("$CC").lower() and not whole_archive_flags:
             # Add whole-archive flags to extra_flags
             extra_whole_archive_flags = ["-Wl,--whole-archive"] + esp_idf_lib_paths + ["-Wl,--no-whole-archive"]
             extra_flags.extend(extra_whole_archive_flags)
-            print(f"CLANG LINK: Added --whole-archive for {len(esp_idf_lib_paths)} ESP-IDF components to extra_flags")
 
 link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
 
@@ -2412,9 +2408,8 @@ if "clang" in env.subst("$CC").lower():
     # Apply final conversion to all collected link arguments
     link_args = final_rtlib_fix(link_args)
     extra_flags = final_rtlib_fix_list(extra_flags)
-    project_flags.update(link_args)
-    env.MergeFlags(project_flags)
-
+project_flags.update(link_args)
+env.MergeFlags(project_flags)
 env.Prepend(
     CPPPATH=app_includes["plain_includes"],
     CPPDEFINES=project_defines,
@@ -2762,4 +2757,3 @@ if "clang" in env.subst("$CC").lower():
 env["INTEGRATION_EXTRA_DATA"].update(
     {"application_offset": env.subst("$ESP32_APP_OFFSET")}
 )
-
