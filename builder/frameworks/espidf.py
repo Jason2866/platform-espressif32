@@ -1300,6 +1300,38 @@ def run_cmake(src_dir, build_dir, extra_args=None):
     run_tool(cmd)
 
 
+def remove_libstdcpp_from_env():
+    """Remove all libstdc++ references from environment"""
+    for flag_var in ["CXXFLAGS", "LINKFLAGS", "LIBS", "LIBPATH"]:
+        current_flags = env.get(flag_var, [])
+        if current_flags:
+            cleaned_flags = []
+            for flag in current_flags:
+                flag_str = str(flag).strip()
+                # Entferne alle libstdc++ Referenzen
+                if any(libstdcpp_ref in flag_str for libstdcpp_ref in [
+                    "libstdc++", "lstdc++", "stdc++", 
+                    "-stdlib=libstdc++", "gnu-libstdc++"
+                ]):
+                    print(f"Removing libstdc++ reference: {flag_str}")
+                    continue
+                cleaned_flags.append(flag)
+            
+            if cleaned_flags != current_flags:
+                env.Replace(**{flag_var: cleaned_flags})
+    
+    # Entferne auch aus LIBPATH alle Pfade die libstdc++ enthalten
+    current_libpaths = env.get("LIBPATH", [])
+    if current_libpaths:
+        cleaned_libpaths = []
+        for path in current_libpaths:
+            path_str = str(path)
+            if "libstdc++" not in path_str and "gnu" not in path_str.lower():
+                cleaned_libpaths.append(path)
+            else:
+                print(f"Removing libstdc++ library path: {path_str}")
+        env.Replace(LIBPATH=cleaned_libpaths)
+
 def finalize_clang_environment():
     """Final Clang environment adjustments with sdkconfig integration"""
     if "clang" not in env.subst("$CC").lower():
@@ -1307,40 +1339,7 @@ def finalize_clang_environment():
     
     sdk_config = get_sdk_configuration()
     
-    # WICHTIG: Entferne alle GCC libstdc++ Referenzen
-    def remove_libstdcpp_from_env():
-        """Remove all libstdc++ references from environment"""
-        for flag_var in ["CXXFLAGS", "LINKFLAGS", "LIBS", "LIBPATH"]:
-            current_flags = env.get(flag_var, [])
-            if current_flags:
-                cleaned_flags = []
-                for flag in current_flags:
-                    flag_str = str(flag).strip()
-                    # Entferne alle libstdc++ Referenzen
-                    if any(libstdcpp_ref in flag_str for libstdcpp_ref in [
-                        "libstdc++", "lstdc++", "stdc++", 
-                        "-stdlib=libstdc++", "gnu-libstdc++"
-                    ]):
-                        print(f"Removing libstdc++ reference: {flag_str}")
-                        continue
-                    cleaned_flags.append(flag)
-
-                if cleaned_flags != current_flags:
-                    env.Replace(**{flag_var: cleaned_flags})
-
-        # Entferne auch aus LIBPATH alle Pfade die libstdc++ enthalten
-        current_libpaths = env.get("LIBPATH", [])
-        if current_libpaths:
-            cleaned_libpaths = []
-            for path in current_libpaths:
-                path_str = str(path)
-                if "libstdc++" not in path_str and "gnu" not in path_str.lower():
-                    cleaned_libpaths.append(path)
-                else:
-                    print(f"Removing libstdc++ library path: {path_str}")
-            env.Replace(LIBPATH=cleaned_libpaths)
-
-    # Entferne alle libstdc++ Referenzen BEVOR Clang libc++ hinzugefügt wird
+    # Entferne alle libstdc++ Referenzen
     remove_libstdcpp_from_env()
     
     # Runtime Library aus sdkconfig
@@ -1352,50 +1351,72 @@ def finalize_clang_environment():
         env.Append(LINKFLAGS=["-rtlib=compiler-rt"])
         print("Using default Clang runtime library: compiler-rt")
     
-    # WICHTIG: Clang libc++ Konfiguration mit Header-Pfaden
+    # Clang libc++ Konfiguration
     env.Append(
         CXXFLAGS=["-stdlib=libc++"],
         LINKFLAGS=["-stdlib=libc++"]
     )
     
-    # Clang Runtime Library-Pfade
-    clang_runtime_lib = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes")
-    if os.path.exists(clang_runtime_lib):
-        env.Append(LIBPATH=[clang_runtime_lib])
-    
-    # KRITISCH: Füge C++ Header-Pfade hinzu
+    # KRITISCH: MCU-spezifische Header-Pfade
     cpp_header_paths = []
     
-    # Standard Clang libc++ Header-Pfade
+    # Bestimme die korrekte Ziel-Architektur
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        target_arch = "xtensa-esp-unknown-elf"
+        cpu_variant = "esp32"  # oder esp32s2, esp32s3
+    else:
+        target_arch = "riscv32-esp-unknown-elf" 
+        cpu_variant = "rv32imac-zicsr-zifencei_ilp32"
+    
+    # MCU-spezifische C++ Header-Pfade
     potential_header_paths = [
-        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),  # Standard libc++ Headers
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf", "include", "c++", "v1"),
-        os.path.join(TOOLCHAIN_DIR, "xtensa-esp-elf", "include", "c++"),
-        os.path.join(TOOLCHAIN_DIR, "include", "c++"),
+        # Clang libc++ Headers (primär)
+        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),
+        os.path.join(TOOLCHAIN_DIR, target_arch, "include", "c++", "v1"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include", "c++", "v1"),
+        
+        # System Headers (sekundär)
+        os.path.join(TOOLCHAIN_DIR, target_arch, "include"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "include"),
+        
+        # ABI Headers (für cxxabi.h)
+        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1", "cxxabi"),
+        os.path.join(TOOLCHAIN_DIR, target_arch, "include", "c++", "v1", "cxxabi"),
     ]
     
+    # Füge nur existierende Pfade hinzu
     for header_path in potential_header_paths:
         if os.path.exists(header_path):
             cpp_header_paths.append(header_path)
             print(f"Found C++ headers: {header_path}")
     
     if cpp_header_paths:
+        # Wichtig: System-Includes verwenden für Standard-Headers
         env.Append(CPPPATH=cpp_header_paths)
-        print(f"Added {len(cpp_header_paths)} C++ header paths")
+        # Zusätzlich: System-Include-Flags für bessere Kompatibilität
+        for path in cpp_header_paths:
+            env.Append(CCFLAGS=[f"-isystem{path}"])
+        print(f"Added {len(cpp_header_paths)} C++ header paths with system includes")
     else:
         print("WARNING: No C++ header paths found!")
-        # Fallback: Versuche System-Header zu finden
+        
+        # Erweiterte Auto-Erkennung
         try:
+            # Frage Clang nach Standard-Include-Pfaden
             result = subprocess.run(
-                [env.subst("$CXX"), "-stdlib=libc++", "-v", "-x", "c++", "-E", "/dev/null"],
+                [env.subst("$CXX"), "-stdlib=libc++", "-v", "-E", "-x", "c++", "/dev/null"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                stderr=subprocess.STDOUT,
+                timeout=15
             )
-            if result.returncode == 0:
-                # Parse die Header-Pfade aus der Clang-Ausgabe
-                lines = result.stderr.split('\n')
+            
+            if "#include <...> search starts here:" in result.stdout:
+                lines = result.stdout.split('\n')
                 in_include_search = False
+                auto_paths = []
+                
                 for line in lines:
                     if '#include <...> search starts here:' in line:
                         in_include_search = True
@@ -1404,17 +1425,44 @@ def finalize_clang_environment():
                         break
                     elif in_include_search and line.strip():
                         header_path = line.strip()
-                        if os.path.exists(header_path):
-                            env.Append(CPPPATH=[header_path])
-                            print(f"Auto-detected C++ header: {header_path}")
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
-            print("Could not auto-detect C++ headers")
+                        if os.path.exists(header_path) and "c++" in header_path:
+                            auto_paths.append(header_path)
+                
+                if auto_paths:
+                    env.Append(CPPPATH=auto_paths)
+                    for path in auto_paths:
+                        env.Append(CCFLAGS=[f"-isystem{path}"])
+                    print(f"Auto-detected {len(auto_paths)} C++ header paths")
+                    
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
+            print(f"Could not auto-detect C++ headers: {e}")
     
-    # Clang libc++ Library-Pfade
+    # Spezielle cxxabi.h Behandlung
+    cxxabi_paths = [
+        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),
+        os.path.join(TOOLCHAIN_DIR, target_arch, "include", "c++", "v1"),
+        os.path.join(TOOLCHAIN_DIR, "include"),
+        os.path.join(TOOLCHAIN_DIR, target_arch, "include"),
+    ]
+    
+    for abi_path in cxxabi_paths:
+        cxxabi_file = os.path.join(abi_path, "cxxabi.h")
+        if os.path.exists(cxxabi_file):
+            if abi_path not in env.get("CPPPATH", []):
+                env.Append(CPPPATH=[abi_path])
+            print(f"Found cxxabi.h at: {cxxabi_file}")
+            break
+    
+    # Runtime Library-Pfade
+    clang_runtime_lib = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes")
+    if os.path.exists(clang_runtime_lib):
+        env.Append(LIBPATH=[clang_runtime_lib])
+    
+    # MCU-spezifische Library-Pfade
     libc_plus_plus_paths = [
         os.path.join(TOOLCHAIN_DIR, "lib", "libc++"),
-        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf", "lib"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "lib"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "lib"),
     ]
     
     for lib_path in libc_plus_plus_paths:
@@ -1433,15 +1481,14 @@ def finalize_clang_environment():
     
     env.Append(LINKFLAGS=linker_flags)
     
-    # Compiler Definitions aus sdkconfig
+    # Compiler Definitions
     if sdk_config.get("COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE"):
         env.Append(CPPDEFINES=["NDEBUG"])
     
     if sdk_config.get("COMPILER_WARN_WRITE_STRINGS"):
         env.Append(CCFLAGS=["-Wwrite-strings"])
     
-    print("Pure Clang environment finalized: libstdc++ removed, libc++ added with headers")
-
+    print(f"Clang environment finalized for {mcu} ({target_arch})")
 
 finalize_clang_environment()
 
