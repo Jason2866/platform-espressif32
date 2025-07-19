@@ -745,12 +745,50 @@ def get_app_flags(app_config, default_config):
 
     app_flags = _extract_flags(app_config)
     default_flags = _extract_flags(default_config)
+    
+    # CLANG-SPEZIFISCHE ERGÄNZUNGEN
+    if "clang" in env.subst("$CC").lower():
+        # Füge wichtige Clang-spezifische Flags hinzu
+        clang_warning_flags = [
+            "-Wno-documentation",
+            "-Wno-typedef-redefinition", 
+            "-Wno-char-subscripts",
+            "-Wno-format-security",
+            "-Wno-tautological-overlap-compare",
+            "-Wno-tautological-pointer-compare",
+            "-Wno-pointer-bool-conversion",
+            "-Wno-string-concatenation",
+            "-Wno-enum-conversion",
+            "-Wno-section",
+            "-Wno-unknown-attributes",
+            "-Wno-atomic-alignment",
+            "-Wno-unused-but-set-variable",
+            "-Wno-unused-function",
+            "-Wno-gnu-variable-sized-type-not-at-end",
+            "-Wno-constant-logical-operand",
+            "-Wno-c2x-extensions",
+            "-Wno-extern-c-compat",
+            "-Wno-single-bit-bitfield-constant-conversion"
+        ]
+        
+        # Füge Clang-Flags zu allen Sprachen hinzu
+        for lang in ["C", "CXX", "ASM"]:
+            if lang not in app_flags:
+                app_flags[lang] = []
+            if lang not in default_flags:
+                default_flags[lang] = []
+            
+            app_flags[lang].extend(clang_warning_flags)
+            
+        # C++-spezifische Flags
+        if "CXX" in app_flags:
+            app_flags["CXX"].append("-fno-use-cxa-atexit")
 
     # Flags are sorted because CMake randomly populates build flags in code model
     return {
-        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM"))),
-        "CFLAGS": sorted(app_flags.get("C", default_flags.get("C"))),
-        "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX"))),
+        "ASPPFLAGS": sorted(set(app_flags.get("ASM", default_flags.get("ASM", [])))),
+        "CFLAGS": sorted(set(app_flags.get("C", default_flags.get("C", [])))),
+        "CXXFLAGS": sorted(set(app_flags.get("CXX", default_flags.get("CXX", [])))),
     }
 
 
