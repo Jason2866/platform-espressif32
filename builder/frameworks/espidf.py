@@ -1307,20 +1307,73 @@ def finalize_clang_environment():
     
     sdk_config = get_sdk_configuration()
     
+    # WICHTIG: Entferne alle GCC libstdc++ Referenzen
+    def remove_libstdcpp_from_env():
+        """Remove all libstdc++ references from environment"""
+        for flag_var in ["CXXFLAGS", "LINKFLAGS", "LIBS", "LIBPATH"]:
+            current_flags = env.get(flag_var, [])
+            if current_flags:
+                cleaned_flags = []
+                for flag in current_flags:
+                    flag_str = str(flag).strip()
+                    # Entferne alle libstdc++ Referenzen
+                    if any(libstdcpp_ref in flag_str for libstdcpp_ref in [
+                        "libstdc++", "lstdc++", "stdc++", 
+                        "-stdlib=libstdc++", "gnu-libstdc++"
+                    ]):
+                        print(f"Removing libstdc++ reference: {flag_str}")
+                        continue
+                    cleaned_flags.append(flag)
+                
+                if cleaned_flags != current_flags:
+                    env.Replace(**{flag_var: cleaned_flags})
+        
+        # Entferne auch aus LIBPATH alle Pfade die libstdc++ enthalten
+        current_libpaths = env.get("LIBPATH", [])
+        if current_libpaths:
+            cleaned_libpaths = []
+            for path in current_libpaths:
+                path_str = str(path)
+                if "libstdc++" not in path_str and "gnu" not in path_str.lower():
+                    cleaned_libpaths.append(path)
+                else:
+                    print(f"Removing libstdc++ library path: {path_str}")
+            env.Replace(LIBPATH=cleaned_libpaths)
+    
+    # Entferne alle libstdc++ Referenzen BEVOR Clang libc++ hinzugefügt wird
+    remove_libstdcpp_from_env()
+    
     # Runtime Library aus sdkconfig
     compiler_rt_lib_name = sdk_config.get("COMPILER_RT_LIB_NAME")
     if compiler_rt_lib_name:
         env.Append(LINKFLAGS=[f"-rtlib={compiler_rt_lib_name}"])
         print(f"Using Clang runtime library from sdkconfig: {compiler_rt_lib_name}")
     else:
-        # Fallback für ESP-IDF Standard
         env.Append(LINKFLAGS=["-rtlib=compiler-rt"])
         print("Using default Clang runtime library: compiler-rt")
+    
+    # SAUBERE Clang libc++ Konfiguration (ohne libstdc++ Kontamination)
+    env.Append(
+        CXXFLAGS=["-stdlib=libc++"],
+        LINKFLAGS=["-stdlib=libc++"]
+    )
     
     # Clang Runtime Library-Pfade
     clang_runtime_lib = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes")
     if os.path.exists(clang_runtime_lib):
         env.Append(LIBPATH=[clang_runtime_lib])
+    
+    # Nur Clang libc++ Pfade hinzufügen
+    libc_plus_plus_paths = [
+        os.path.join(TOOLCHAIN_DIR, "lib", "libc++"),
+        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf", "lib"),
+    ]
+    
+    for lib_path in libc_plus_plus_paths:
+        if os.path.exists(lib_path):
+            env.Append(LIBPATH=[lib_path])
+            print(f"Added Clang libc++ path: {lib_path}")
     
     # Standard Clang-Linker-Flags
     linker_flags = [
@@ -1328,7 +1381,6 @@ def finalize_clang_environment():
         "-Wl,--warn-common"
     ]
     
-    # macOS-spezifische Flags
     if sys_platform.system() == "Darwin":
         linker_flags.extend(["-Wl,-dead_strip"])
     
@@ -1338,11 +1390,11 @@ def finalize_clang_environment():
     if sdk_config.get("COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE"):
         env.Append(CPPDEFINES=["NDEBUG"])
     
-    # Write Strings Warning
     if sdk_config.get("COMPILER_WARN_WRITE_STRINGS"):
         env.Append(CCFLAGS=["-Wwrite-strings"])
     
-    print("Pure Clang environment finalized with sdkconfig integration")
+    print("Pure Clang environment finalized: libstdc++ removed, libc++ added")
+
 
 finalize_clang_environment()
 
