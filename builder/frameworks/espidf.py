@@ -790,12 +790,12 @@ def final_rtlib_fix(link_args):
             fixed_flag = flag.replace("-rtlib=gcc", "-rtlib=libgcc")
             fixed_flags.append(fixed_flag)
             conversion_count += 1
-            print(f"FINAL FIX: Converted {flag} -> {fixed_flag}")
+            #print(f"FINAL FIX: Converted {flag} -> {fixed_flag}")
         else:
             fixed_flags.append(flag)
     
     if conversion_count > 0:
-        print(f"FINAL FIX: Applied -rtlib=libgcc conversion to {conversion_count} flags")
+        #print(f"FINAL FIX: Applied -rtlib=libgcc conversion to {conversion_count} flags")
         link_args["LINKFLAGS"] = fixed_flags
     
     return link_args
@@ -812,7 +812,7 @@ def final_rtlib_fix_list(flag_list):
             # Convert all runtime library variations to libgcc
             if "gcc" in flag or "clang_rt" in flag or "compiler-rt" in flag:
                 result.append('-rtlib=libgcc')
-                print(f"FINAL CONVERSION: {flag} -> -rtlib=libgcc")
+                #print(f"FINAL CONVERSION: {flag} -> -rtlib=libgcc")
             else:
                 result.append(flag)
         else:
@@ -1387,9 +1387,6 @@ def finalize_clang_environment():
         ASFLAGS=esp_idf_asm_flags,
         LINKFLAGS=esp_idf_linker_flags
     )
-    
-    print(f"Applied ESP-IDF CMake-compatible flags for {mcu} ({target_arch})")
-        
     # Zusätzliche Clang-spezifische Linker-Flags
     env.Append(LINKFLAGS=["-Wl,--allow-multiple-definition"])
     
@@ -1434,7 +1431,7 @@ def finalize_clang_environment():
         # Zusätzlich: System-Include-Flags für bessere Kompatibilität
         for path in cpp_header_paths:
             env.Append(CCFLAGS=[f"-isystem{path}"])
-        print(f"Added {len(cpp_header_paths)} C++ header paths with system includes")
+        #print(f"Added {len(cpp_header_paths)} C++ header paths with system includes")
         
     
     # MCU-spezifische Library-Pfade (alle verfügbaren Varianten)
@@ -1485,7 +1482,7 @@ def finalize_clang_environment():
     
     env.Append(LINKFLAGS=linker_flags)
     
-    print(f"Clang environment finalized for {mcu} ({target_arch})")
+    #print(f"Clang environment finalized for {mcu} ({target_arch})")
 
 finalize_clang_environment()
 
@@ -1495,7 +1492,6 @@ def fix_final_linkflags(source, target, env):
     if env.get("LINKFLAGS"):
         fixed_flags = fix_clang_linkflags(env["LINKFLAGS"])
         env.Replace(LINKFLAGS=fixed_flags)
-        print(f"FINAL FIX: Applied -rtlib=libgcc conversion to {len(fixed_flags)} flags")
 
 # Apply the final fix right before the link step
 env.AddPreAction("$BUILD_DIR/firmware.elf", fix_final_linkflags)
