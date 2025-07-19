@@ -1303,6 +1303,53 @@ def run_cmake(src_dir, build_dir, extra_args=None):
     run_tool(cmd)
 
 
+def finalize_clang_environment():
+    """Final Clang environment adjustments with sdkconfig integration"""
+    if "clang" not in env.subst("$CC").lower():
+        return
+    
+    sdk_config = get_sdk_configuration()
+    
+    # Runtime Library aus sdkconfig
+    compiler_rt_lib_name = sdk_config.get("COMPILER_RT_LIB_NAME")
+    if compiler_rt_lib_name:
+        env.Append(LINKFLAGS=[f"-rtlib={compiler_rt_lib_name}"])
+        print(f"Using Clang runtime library from sdkconfig: {compiler_rt_lib_name}")
+    else:
+        # Fallback für ESP-IDF Standard
+        env.Append(LINKFLAGS=["-rtlib=compiler-rt"])
+        print("Using default Clang runtime library: compiler-rt")
+    
+    # Clang Runtime Library-Pfade
+    clang_runtime_lib = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes")
+    if os.path.exists(clang_runtime_lib):
+        env.Append(LIBPATH=[clang_runtime_lib])
+    
+    # Standard Clang-Linker-Flags
+    linker_flags = [
+        "-Wl,--gc-sections",
+        "-Wl,--warn-common"
+    ]
+    
+    # macOS-spezifische Flags
+    if sys_platform.system() == "Darwin":
+        linker_flags.extend(["-Wl,-dead_strip"])
+    
+    env.Append(LINKFLAGS=linker_flags)
+    
+    # Compiler Definitions aus sdkconfig
+    if sdk_config.get("COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE"):
+        env.Append(CPPDEFINES=["NDEBUG"])
+    
+    # Write Strings Warning
+    if sdk_config.get("COMPILER_WARN_WRITE_STRINGS"):
+        env.Append(CCFLAGS=["-Wwrite-strings"])
+    
+    print("Pure Clang environment finalized with sdkconfig integration")
+
+finalize_clang_environment()
+
+
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
     ignore_components = ignore_components or []
     result = [
