@@ -1229,18 +1229,6 @@ def compile_source_files(
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     
-    # EINFACHE CLANG-KORREKTUR: Nur für Assembler-Flags
-    if "clang" in env.subst("$CC").lower():
-        for build_env in build_envs:
-            # Nur für Assembler-spezifische Flags
-            for flag_var in ["ASFLAGS", "ASPPFLAGS"]:
-                current_flags = build_env.get(flag_var, [])
-                if current_flags:
-                    # Entferne problematische Flags
-                    cleaned_flags = remove_duplicate_flags(current_flags)
-                    build_env.Replace(**{flag_var: cleaned_flags})
-    
-    # Rest der Funktion bleibt unverändert
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
     
