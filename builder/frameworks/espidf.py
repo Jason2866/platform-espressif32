@@ -753,20 +753,20 @@ def extract_link_args(target_config):
                     other_libs.append(lib)
             
             if esp_idf_libs:
-                # Clear LIBS and rebuild with --whole-archive for ESP-IDF libraries
+                # Clear LIBS and rebuild with proper structure
                 link_args["LIBS"] = []
                 
                 # Add non-ESP-IDF libraries first (normal linking)
                 link_args["LIBS"].extend(other_libs)
                 
-                # Add --whole-archive flag
-                link_args["LIBS"].append("-Wl,--whole-archive")
+                # Add --whole-archive to LINKFLAGS (not LIBS!)
+                link_args["LINKFLAGS"].append("-Wl,--whole-archive")
                 
                 # Add all ESP-IDF libraries 
                 link_args["LIBS"].extend(esp_idf_libs)
                 
-                # Add --no-whole-archive to restore normal linking for subsequent libraries
-                link_args["LIBS"].append("-Wl,--no-whole-archive")
+                # Add --no-whole-archive to LINKFLAGS to restore normal linking
+                link_args["LINKFLAGS"].append("-Wl,--no-whole-archive")
                 
                 print(f"LINKER: Using --whole-archive for {len(esp_idf_libs)} ESP-IDF libraries to resolve circular dependencies")
         
