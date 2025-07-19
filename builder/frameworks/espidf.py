@@ -735,6 +735,9 @@ def remove_duplicate_flags(flags):
             # Entferne -d (allein) oder -d gefolgt von Leerzeichen und anderen Argumenten
             # ABER behalte -DDEBUG, -dynamic, etc. (die starten mit -d aber haben kein Leerzeichen)
             continue
+        elif flag_str.startswith("-mcpu=esp32"):
+            # WICHTIG: Entferne -mcpu=esp32* (nicht von Clang unterstützt)
+            continue
         elif flag_str == "--longcalls":
             continue  
         elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
