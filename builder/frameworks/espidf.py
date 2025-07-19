@@ -661,6 +661,68 @@ def extract_link_args(target_config):
     if "clang" in env.subst("$CC").lower():
         sdk_config = get_sdk_configuration()
         
+        # CRITICAL: Ensure ESP-IDF CMake libraries are added early
+        # The missing symbols indicate these libraries aren't being linked
+        
+        # Architecture-specific essential components (not MCU-specific) 
+        if mcu in ("esp32", "esp32s2", "esp32s3"):
+            # Xtensa architecture components
+            arch_components = ["xtensa"]
+        else:
+            # RISC-V architecture components  
+            arch_components = ["riscv"]
+        
+        # Universal ESP-IDF components needed for all targets
+        universal_components = [
+            "hal", "soc", "esp_hw_support", "esp_system", "driver",
+            "bootloader_support", "esp_mm", "esp_driver_gpio", "esp_common"
+        ]
+        
+        # Combine architecture-specific and universal components
+        all_essential_components = arch_components + universal_components
+        
+        # Find and add ESP-IDF CMake-built libraries EARLY in the linking process
+        esp_idf_base_path = os.path.join(BUILD_DIR, "esp-idf")
+        added_libs = []
+        
+        for component in all_essential_components:
+            component_lib_path = os.path.join(esp_idf_base_path, component)
+            if os.path.exists(component_lib_path):
+                lib_file = os.path.join(component_lib_path, f"lib{component}.a")
+                if os.path.exists(lib_file):
+                    # Add LIBPATH and library name separately (SCons standard)
+                    _add_to_libpath(component_lib_path, link_args)
+                    lib_name = f"lib{component}.a"
+                    if lib_name not in link_args["LIBS"]:
+                        link_args["LIBS"].insert(0, lib_name)  # Insert at beginning for priority
+                        added_libs.append(component)
+                        print(f"EARLY: Added critical ESP-IDF library: {component}")
+        
+        # CRITICAL: Add some essential ESP-IDF libraries that might have different names
+        # These contain the undefined symbols we're seeing
+        essential_lib_paths = [
+            ("riscv", "libriscv.a"),  # Contains _vector_table, _mtvt_table symbols
+            ("esp_bootloader_format", "libesp_bootloader_format.a"),  # bootloader symbols
+            ("esp_mm", "libesp_mm.a"),  # MMU symbols
+            ("esp_timer", "libesp_timer.a"),  # systimer symbols
+            ("esp_ringbuf", "libesp_ringbuf.a"),
+            ("esp_pm", "libesp_pm.a"),
+        ]
+        
+        for component, lib_filename in essential_lib_paths:
+            component_lib_path = os.path.join(esp_idf_base_path, component)
+            if os.path.exists(component_lib_path):
+                lib_file = os.path.join(component_lib_path, lib_filename)
+                if os.path.exists(lib_file):
+                    _add_to_libpath(component_lib_path, link_args)
+                    if lib_filename not in link_args["LIBS"]:
+                        link_args["LIBS"].insert(0, lib_filename)
+                        added_libs.append(component)
+                        print(f"ESSENTIAL: Added ESP-IDF library: {component}")
+        
+        if added_libs:
+            print(f"Added {len(added_libs)} ESP-IDF libraries early in linking: {', '.join(added_libs)}")
+        
         # Clang Runtime-Library-Pfade
         clang_runtime_paths = []
         
@@ -1673,42 +1735,8 @@ def finalize_clang_environment():
             env.Append(LINKFLAGS=link_flags)
             print(f"Added essential toolchain libraries: {[lib.replace('-l', '') for lib in link_flags]}")
     
-    # CRITICAL: Ensure ESP-IDF CMake-generated libraries are properly linked
-    # The missing symbols indicate ESP-IDF CMake isn't properly linking HAL libraries
-    
-    # Architecture-specific essential components (not MCU-specific)
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        # Xtensa architecture components
-        arch_components = ["xtensa"]
-    else:
-        # RISC-V architecture components  
-        arch_components = ["riscv"]
-    
-    # Universal ESP-IDF components needed for all targets
-    universal_components = [
-        "hal", "soc", "esp_hw_support", "esp_system", "driver",
-        "bootloader_support", "esp_mm", "esp_driver_gpio"
-    ]
-    
-    # Combine architecture-specific and universal components
-    all_essential_components = arch_components + universal_components
-    
-    # Find and add ESP-IDF CMake-built libraries
-    essential_esp_libs = []
-    for component in all_essential_components:
-        component_lib_path = os.path.join(BUILD_DIR, "esp-idf", component)
-        if os.path.exists(component_lib_path):
-            lib_file = os.path.join(component_lib_path, f"lib{component}.a")
-            if os.path.exists(lib_file):
-                essential_esp_libs.append(lib_file)
-                print(f"Found critical ESP-IDF library: {component}")
-    
-    # Add libraries directly to LIBS (preserving ESP-IDF CMake order)
-    if essential_esp_libs:
-        env.Append(LIBS=essential_esp_libs)
-        print(f"CRITICAL: Added ESP-IDF libraries: {[os.path.basename(lib) for lib in essential_esp_libs]}")
-    else:
-        print("INFO: No additional ESP-IDF libraries found - relying on ESP-IDF CMake system")
+    # CRITICAL: ESP-IDF libraries are now added early in extract_link_args()
+    # This ensures they are available when ESP-IDF CMake needs them
     
     # DEBUG: Print final link configuration for troubleshooting
     print(f"FINAL CLANG LINKING CONFIGURATION:")
