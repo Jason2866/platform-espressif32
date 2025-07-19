@@ -710,7 +710,7 @@ def filter_args(args, allowed, ignore=None):
 
 
 def remove_duplicate_flags(flags):
-    """Remove duplicate flags and problematic GCC flags for Clang Assembler"""
+    """Remove duplicate flags and GCC-specific problematic flags"""
     if not flags:
         return []
     
@@ -725,28 +725,22 @@ def remove_duplicate_flags(flags):
             
         flag_str = str(flag).strip()
         
-        # Entferne problematische Assembler-Flags für Clang
+        # Spezielle Behandlung für GCC-problematische Flags
         if flag_str == "-Xassembler" and i + 1 < len(flags):
             next_flag = str(flags[i + 1]).strip()
-            if next_flag in ["-ffunction-sections", "-fdata-sections"]:
-                # Überspringe "-Xassembler -ffunction-sections" komplett
+            if next_flag in ["-ffunction-sections", "-fdata-sections", "--longcalls"]:
                 skip_next = True
                 continue
-            elif next_flag == "--longcalls":
-                # Überspringe "-Xassembler --longcalls" komplett für Clang-as
-                skip_next = True
-                continue
-        elif flag_str == "--target=xtensa-esp-elf":
-            # Entferne Target-Flag für Assembler (Clang-as Problem)
+        elif flag_str.startswith("-d ") or flag_str == "-d":
+            # Entferne -d (allein) oder -d gefolgt von Leerzeichen und anderen Argumenten
+            # ABER behalte -DDEBUG, -dynamic, etc. (die starten mit -d aber haben kein Leerzeichen)
             continue
-        elif flag_str.startswith("-mcpu=esp32"):
-            # Entferne GCC-spezifische MCU-Flags für Assembler
-            continue
-        elif flag_str in ["--longcalls", "-ffunction-sections", "-fdata-sections", "-d"]:
-            # Entferne diese problematischen Flags
+        elif flag_str == "--longcalls":
+            continue  
+        elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
             continue
         
-        # Normale Duplikat-Behandlung
+        # Normale Duplikat-Entfernung
         if flag_str not in seen:
             seen.add(flag_str)
             result.append(flag)
