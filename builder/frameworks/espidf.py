@@ -1540,9 +1540,10 @@ def finalize_clang_environment():
     # Clang Exception Handling für ESP32
     if sdk_config.get("COMPILER_CXX_EXCEPTIONS", True):
         # ESP32-spezifische Exception-Handling-Libraries
+        # HINWEIS: Nur Standard-Libraries hinzufügen, ESP-IDF Libraries werden automatisch gelinkt
         esp32_essential_libs.extend([
             "gcc",  # GNU Compiler Collection Runtime
-            "stdc++",  # C++ Standard Library (bereits hinzugefügt, aber explizit für Exceptions)
+            # "stdc++" wird bereits früher hinzugefügt
         ])
         
         # Unwind-Library für Exception Handling
@@ -1561,56 +1562,50 @@ def finalize_clang_environment():
         else:
             print("⚠ WARNING: No Unwind library found for ESP32 exceptions!")
     
-    # ESP32-spezifische Assembler- und Hardware-Abstraktions-Libraries
-    # Diese Libraries enthalten die fehlenden Symbole wie xt_* und esp_*
-    esp32_hal_libs = []
+    # WICHTIG: ESP32-spezifische HAL-Libraries werden vom ESP-IDF CMake-System verwaltet
+    # Diese Libraries (hal, xtensa, soc, esp_system, etc.) dürfen NICHT manuell gelinkt werden
+    # Das ESP-IDF Build-System fügt sie automatisch hinzu
     
-    # Architektur-spezifische Libraries
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        esp32_hal_libs.extend([
-            "hal",  # Hardware Abstraction Layer
-            "xtensa",  # Xtensa-spezifische Funktionen (enthält xt_* Symbole)
-            "esp32",  # ESP32-spezifische Funktionen
-        ])
-    else:
-        esp32_hal_libs.extend([
-            "hal",  # Hardware Abstraction Layer  
-            "riscv",  # RISC-V spezifische Funktionen
-            "esp_hw_support",  # ESP Hardware Support für RISC-V
-        ])
-    
-    # Gemeinsame ESP32-Libraries (für alle Varianten)
-    common_esp32_libs = [
-        "soc",  # System-on-Chip specific functions (enthält esp_cpu_* Symbole)
-        "esp_hw_support",  # ESP Hardware Support
-        "esp_common",  # ESP Common functions
-        "esp_system",  # ESP System functions (enthält bootloader_* Symbole)
-        "freertos",  # FreeRTOS (enthält _xt_* Symbole)
-        "newlib",  # newlib C library (enthält _Unwind_* für Clang)
-        "bootloader_support",  # Bootloader support functions
-        "app_update",  # Application update
-        "spi_flash",  # SPI Flash (enthält spi_flash_hal_* Symbole)
-        "esp_partition",  # Partition management
-        "log",  # Logging (enthält esp_err_to_name)
-        "esp_mm",  # Memory management (enthält esp_mmu_* Symbole)
+    # Nur Standard-Toolchain-Libraries manuell hinzufügen
+    standard_libs = [
+        # Nur Libraries hinzufügen, die definitiv im Toolchain-Pfad existieren
+        # Alle ESP-IDF spezifischen Libraries werden automatisch gehandhabt
     ]
     
-    esp32_hal_libs.extend(common_esp32_libs)
+    # Prüfe verfügbare Standard-Libraries im Toolchain
+    toolchain_lib_paths = [
+        os.path.join(TOOLCHAIN_DIR, target_arch, "lib"),
+        os.path.join(TOOLCHAIN_DIR, "lib"),
+    ]
     
-    # Füge ESP32-spezifische Libraries zur Link-Liste hinzu
-    for lib in esp32_hal_libs:
-        esp32_essential_libs.append(lib)
+    available_standard_libs = []
+    for lib_path in toolchain_lib_paths:
+        if os.path.exists(lib_path):
+            for lib_file in os.listdir(lib_path):
+                if lib_file.startswith("lib") and lib_file.endswith(".a"):
+                    lib_name = lib_file[3:-2]  # Entferne "lib" und ".a"
+                    # Nur echte Toolchain-Libraries, keine ESP-IDF spezifischen
+                    if lib_name in ["gcc", "stdc++", "m", "c"]:
+                        if lib_name not in available_standard_libs:
+                            available_standard_libs.append(lib_name)
     
-    # Manuelle Verlinkung der ESP32-Essential-Libraries
+    if available_standard_libs:
+        print(f"Found standard toolchain libraries: {available_standard_libs}")
+        esp32_essential_libs.extend(available_standard_libs)
+    
+    # Manuelle Verlinkung nur der Standard-Libraries
     if esp32_essential_libs:
         link_flags = []
         for lib in esp32_essential_libs:
+            # Verhindere Duplikate
             if lib not in [l.replace("-l", "") for l in env.get("LINKFLAGS", []) if l.startswith("-l")]:
                 link_flags.append(f"-l{lib}")
         
         if link_flags:
             env.Append(LINKFLAGS=link_flags)
-            print(f"Added ESP32 essential libraries: {[lib.replace('-l', '') for lib in link_flags]}")
+            print(f"Added essential toolchain libraries: {[lib.replace('-l', '') for lib in link_flags]}")
+    else:
+        print("INFO: No additional toolchain libraries needed - relying on ESP-IDF CMake system")
     
     # Standard Clang-Linker-Flags
     linker_flags = [
