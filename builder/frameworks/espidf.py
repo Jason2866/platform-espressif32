@@ -620,7 +620,6 @@ def extract_link_args(target_config):
             continue
         args = click.parser.split_arg_string(fragment)
         if fragment_role == "flags":
-            # Fix Clang linkflags
             args = fix_clang_linkflags(args)
             link_args["LINKFLAGS"].extend(args)
         elif fragment_role in ("libraries", "libraryPath"):
@@ -630,25 +629,62 @@ def extract_link_args(target_config):
                 lib_path = fragment.replace("-L", "").strip(" '\"")
                 _add_to_libpath(lib_path, link_args)
             elif fragment.startswith("-") and not fragment.startswith("-l"):
-                # CMake mistakenly marks LINKFLAGS as libraries
                 link_args["LINKFLAGS"].extend(args)
             elif fragment.endswith(".a"):
                 archive_path = fragment
-                # process static archives
                 if os.path.isabs(archive_path):
-                    # In case of precompiled archives
                     _add_archive(archive_path, link_args)
                 else:
-                    # In case of archives within project
                     if archive_path.startswith(".."):
-                        # Precompiled archives from project component
                         _add_archive(
                             os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
                             link_args,
                         )
                     else:
-                        # Internally built libraries used for dependency resolution
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
+
+    # CLANG-SPEZIFISCHE LIBRARY-PFADE UND LINKER-KONFIGURATION
+    if "clang" in env.subst("$CC").lower():
+        sdk_config = get_sdk_configuration()
+        
+        # Clang Runtime-Library-Pfade
+        clang_runtime_paths = []
+        
+        if mcu in ("esp32", "esp32s2", "esp32s3"):
+            # Xtensa
+            clang_runtime_paths = [
+                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf"),
+                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
+            ]
+        else:
+            # RISC-V
+            clang_runtime_paths = [
+                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "riscv32-esp-unknown-elf"),
+                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
+            ]
+        
+        for lib_path in clang_runtime_paths:
+            if os.path.exists(lib_path):
+                _add_to_libpath(lib_path, link_args)
+        
+        # Wichtige Clang-Linker-Flags
+        clang_link_flags = ["-fno-lto"]
+        
+        # Exception Handling aus sdkconfig
+        if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
+            clang_link_flags.append("-Wl,--eh-frame-hdr")
+            
+        # C++ RTTI Link Flag
+        if not sdk_config.get("COMPILER_CXX_RTTI"):
+            clang_link_flags.append("-fno-rtti")
+            
+        # FreeRTOS Passive Idle Hook
+        if sdk_config.get("FREERTOS_USE_PASSIVE_IDLE_HOOK"):
+            clang_link_flags.append("-Wl,--wrap=vApplicationPassiveIdleHook")
+        
+        for flag in clang_link_flags:
+            if flag not in link_args["LINKFLAGS"]:
+                link_args["LINKFLAGS"].append(flag)
 
     return link_args
 
@@ -705,25 +741,25 @@ def fix_clang_linkflags(linkflags):
     result = []
     for flag in linkflags:
         if isinstance(flag, str):
-            # Fix wrong -m Parameter for Xtensa
-            if flag.startswith("-melf32xtensa") and flag != "-melf32xtensa":
-                flag = "-melf32xtensa"
-            # Fix possible other variants
+            # Entferne alle GCC-spezifischen Linker-Emulations-Flags
+            if flag.startswith("-melf32xtensa"):
+                continue
             elif flag in ["-melf32xtensas2", "-melf32xtensas3", "-melf32xtensaesp32"]:
-                flag = "-melf32xtensa"
-            # Fix cpu= parameter to correct -m parameter
+                continue
             elif "cpu=esp32" in flag:
-                flag = flag.replace("cpu=esp32", "elf32xtensa")
+                continue
             elif "cpu=esp32s2" in flag:
-                flag = flag.replace("cpu=esp32s2", "elf32xtensa")
+                continue  
             elif "cpu=esp32s3" in flag:
-                flag = flag.replace("cpu=esp32s3", "elf32xtensa")
-            # Fix falsely generated elf32xtensas3 -> elf32xtensa
+                continue
             elif "elf32xtensas3" in flag:
-                flag = flag.replace("elf32xtensas3", "elf32xtensa")
+                continue
             elif "elf32xtensas2" in flag:
-                flag = flag.replace("elf32xtensas2", "elf32xtensa")
-        result.append(flag)
+                continue
+            else:
+                result.append(flag)
+        else:
+            result.append(flag)
 
     return result
 
@@ -740,15 +776,16 @@ def get_app_flags(app_config, default_config):
                 flags[cg["language"]].extend(
                     click.parser.split_arg_string(fragment.strip())
                 )
-
         return flags
 
     app_flags = _extract_flags(app_config)
     default_flags = _extract_flags(default_config)
     
-    # CLANG-SPEZIFISCHE ERGÄNZUNGEN
+    # CLANG-SPEZIFISCHE FLAGS basierend auf ESP-IDF CMake und sdkconfig
     if "clang" in env.subst("$CC").lower():
-        # Füge wichtige Clang-spezifische Flags hinzu
+        sdk_config = get_sdk_configuration()
+        
+        # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
         clang_warning_flags = [
             "-Wno-documentation",
             "-Wno-typedef-redefinition", 
@@ -771,20 +808,71 @@ def get_app_flags(app_config, default_config):
             "-Wno-single-bit-bitfield-constant-conversion"
         ]
         
-        # Füge Clang-Flags zu allen Sprachen hinzu
+        # Clang-spezifische Optimierungs-Flags
+        optimization_flags = []
+        if sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_SIZE") or sdk_config.get("COMPILER_OPTIMIZATION_SIZE"):
+            optimization_flags.append("-Oz")  # Clang verwendet -Oz statt -Os
+        elif sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG") or sdk_config.get("COMPILER_OPTIMIZATION_DEBUG"):
+            optimization_flags.append("-Og")
+        elif sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_NONE") or sdk_config.get("COMPILER_OPTIMIZATION_NONE"):
+            optimization_flags.append("-O0")
+        elif sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_PERF") or sdk_config.get("COMPILER_OPTIMIZATION_PERF"):
+            optimization_flags.append("-O2")
+        
+        # Weitere wichtige Clang-Flags
+        common_clang_flags = [
+            "-fno-common",  # Wichtig für Symbol-Resolution
+            "-fno-jump-tables",  # ESP-IDF Standard
+            "-fno-merge-constants" if sdk_config.get("COMPILER_NO_MERGE_CONSTANTS") else None,
+        ]
+        common_clang_flags = [f for f in common_clang_flags if f is not None]
+        
+        # Stack Protection
+        if sdk_config.get("COMPILER_STACK_CHECK_MODE_NORM"):
+            common_clang_flags.append("-fstack-protector")
+        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_STRONG"):
+            common_clang_flags.append("-fstack-protector-strong")
+        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_ALL"):
+            common_clang_flags.append("-fstack-protector-all")
+        
+        # Frame Pointer
+        if sdk_config.get("ESP_SYSTEM_USE_FRAME_POINTER"):
+            common_clang_flags.append("-fno-omit-frame-pointer")
+        
+        # Exception Handling
+        if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
+            common_clang_flags.append("-fasynchronous-unwind-tables")
+        
+        # Füge Flags zu allen Sprachen hinzu
+        all_flags = clang_warning_flags + optimization_flags + common_clang_flags
+        
         for lang in ["C", "CXX", "ASM"]:
             if lang not in app_flags:
                 app_flags[lang] = []
-            if lang not in default_flags:
-                default_flags[lang] = []
+            app_flags[lang].extend(all_flags)
             
-            app_flags[lang].extend(clang_warning_flags)
+        # C++-spezifische Clang-Flags
+        if "CXX" not in app_flags:
+            app_flags["CXX"] = []
             
-        # C++-spezifische Flags
-        if "CXX" in app_flags:
-            app_flags["CXX"].append("-fno-use-cxa-atexit")
+        cxx_flags = [
+            "-fno-use-cxa-atexit",  # Clang-spezifisch für C++ Runtime
+        ]
+        
+        # C++ Exceptions aus sdkconfig
+        if sdk_config.get("COMPILER_CXX_EXCEPTIONS"):
+            cxx_flags.append("-fexceptions")
+        else:
+            cxx_flags.append("-fno-exceptions")
+            
+        # C++ RTTI aus sdkconfig
+        if sdk_config.get("COMPILER_CXX_RTTI"):
+            cxx_flags.append("-frtti")
+        else:
+            cxx_flags.append("-fno-rtti")
+        
+        app_flags["CXX"].extend(cxx_flags)
 
-    # Flags are sorted because CMake randomly populates build flags in code model
     return {
         "ASPPFLAGS": sorted(set(app_flags.get("ASM", default_flags.get("ASM", [])))),
         "CFLAGS": sorted(set(app_flags.get("C", default_flags.get("C", [])))),
