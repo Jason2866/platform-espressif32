@@ -1371,18 +1371,15 @@ def finalize_clang_environment():
     # MCU-spezifische C++ Header-Pfade
     potential_header_paths = [
         # Clang libc++ Headers (primär)
-        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),
-        os.path.join(TOOLCHAIN_DIR, target_arch, "include", "c++", "v1"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include", "c++", "v1"),
+        os.path.join(TOOLCHAIN_DIR, "include", "llvm-c"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "include"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0"),
         
         # System Headers (sekundär)
         os.path.join(TOOLCHAIN_DIR, target_arch, "include"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "include"),
-        
-        # ABI Headers (für cxxabi.h)
-        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1", "cxxabi"),
-        os.path.join(TOOLCHAIN_DIR, target_arch, "include", "c++", "v1", "cxxabi"),
     ]
     
     # Füge nur existierende Pfade hinzu
@@ -1437,21 +1434,6 @@ def finalize_clang_environment():
         except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
             print(f"Could not auto-detect C++ headers: {e}")
     
-    # Spezielle cxxabi.h Behandlung
-    cxxabi_paths = [
-        os.path.join(TOOLCHAIN_DIR, "include", "c++", "v1"),
-        os.path.join(TOOLCHAIN_DIR, target_arch, "include", "c++", "v1"),
-        os.path.join(TOOLCHAIN_DIR, "include"),
-        os.path.join(TOOLCHAIN_DIR, target_arch, "include"),
-    ]
-    
-    for abi_path in cxxabi_paths:
-        cxxabi_file = os.path.join(abi_path, "cxxabi.h")
-        if os.path.exists(cxxabi_file):
-            if abi_path not in env.get("CPPPATH", []):
-                env.Append(CPPPATH=[abi_path])
-            print(f"Found cxxabi.h at: {cxxabi_file}")
-            break
     
     # Runtime Library-Pfade
     clang_runtime_lib = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes")
