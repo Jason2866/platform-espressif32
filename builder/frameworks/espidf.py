@@ -836,25 +836,6 @@ def final_rtlib_fix_list(flag_list):
     
     return result
 
-def ensure_esp_idf_libraries_linked(link_args):
-    """Ensure ESP-IDF component libraries are properly included for linking"""
-    if "clang" not in env.subst("$CC").lower():
-        return link_args
-    
-    print("CLANG LINK: Finalizing ESP-IDF library paths...")
-    
-    # Simple helper to add library paths
-    def _add_to_libpath(lib_path, link_args):
-        if lib_path not in link_args["LIBPATH"]:
-            link_args["LIBPATH"].append(lib_path)
-    
-    # Add remaining Clang compatibility flags 
-    if "-Wno-unknown-warning-option" not in link_args["LINKFLAGS"]:
-        link_args["LINKFLAGS"].append("-Wno-unknown-warning-option")
-    
-    print("CLANG LINK: ESP-IDF library integration complete")
-    return link_args
-
 
 def get_app_flags(app_config, default_config):
     def _extract_flags(config):
@@ -2447,8 +2428,8 @@ if "clang" in env.subst("$CC").lower():
     # Apply final conversion to all collected link arguments
     link_args = final_rtlib_fix(link_args)
     extra_flags = final_rtlib_fix_list(extra_flags)
-project_flags.update(link_args)
-env.MergeFlags(project_flags)
+    project_flags.update(link_args)
+    env.MergeFlags(project_flags)
 
 env.Prepend(
     CPPPATH=app_includes["plain_includes"],
