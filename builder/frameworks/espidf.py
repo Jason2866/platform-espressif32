@@ -1362,6 +1362,27 @@ def finalize_clang_environment():
         LINKFLAGS=["-stdlib=libstdc++"]
     )
     
+    # Bestimme die korrekte Ziel-Architektur und MCU-spezifische Varianten ZUERST
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        target_arch = "xtensa-esp-unknown-elf"
+        # MCU-spezifische C++ Header-Varianten für Xtensa (sortiert nach Priorität)
+        mcu_variants = [mcu, f"{mcu}_no-rtti", f"{mcu}_psram", f"{mcu}_psram_no-rtti"]
+        cpu_variant = mcu
+    else:
+        target_arch = "riscv32-esp-unknown-elf" 
+        # MCU-spezifische C++ Header-Varianten für RISC-V (sortiert nach Priorität)
+        mcu_variants = [
+            "rv32imac-zicsr-zifencei_ilp32",
+            "rv32imac-zicsr-zifencei_ilp32_no-rtti",
+            "rv32imafc-zicsr-zifencei-zba-zbb-zbc-zbs_ilp32f",
+            "rv32imafc-zicsr-zifencei-zba-zbb-zbc-zbs_ilp32f_no-rtti",
+            "rv32imc-zicsr-zifencei_ilp32",
+            "rv32imc-zicsr-zifencei_ilp32_no-rtti",
+            "rv32i-zicsr-zifencei_ilp32",
+            "rv32i-zicsr-zifencei_ilp32_no-rtti"
+        ]
+        cpu_variant = "rv32imac-zicsr-zifencei_ilp32"
+    
     # Füge explizit die verfügbaren C++ Libraries hinzu
     esp32_cpp_libs = []
     
@@ -1396,27 +1417,6 @@ def finalize_clang_environment():
     
     # KRITISCH: MCU-spezifische Header-Pfade
     cpp_header_paths = []
-    
-    # Bestimme die korrekte Ziel-Architektur und MCU-spezifische Varianten
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        target_arch = "xtensa-esp-unknown-elf"
-        # MCU-spezifische C++ Header-Varianten für Xtensa (sortiert nach Priorität)
-        mcu_variants = [mcu, f"{mcu}_no-rtti", f"{mcu}_psram", f"{mcu}_psram_no-rtti"]
-        cpu_variant = mcu
-    else:
-        target_arch = "riscv32-esp-unknown-elf" 
-        # MCU-spezifische C++ Header-Varianten für RISC-V (sortiert nach Priorität)
-        mcu_variants = [
-            "rv32imac-zicsr-zifencei_ilp32",
-            "rv32imac-zicsr-zifencei_ilp32_no-rtti",
-            "rv32imafc-zicsr-zifencei-zba-zbb-zbc-zbs_ilp32f",
-            "rv32imafc-zicsr-zifencei-zba-zbb-zbc-zbs_ilp32f_no-rtti",
-            "rv32imc-zicsr-zifencei_ilp32",
-            "rv32imc-zicsr-zifencei_ilp32_no-rtti",
-            "rv32i-zicsr-zifencei_ilp32",
-            "rv32i-zicsr-zifencei_ilp32_no-rtti"
-        ]
-        cpu_variant = "rv32imac-zicsr-zifencei_ilp32"
     
     # MCU-spezifische C++ Header-Pfade (KRITISCH für bits/c++config.h)
     potential_header_paths = [
