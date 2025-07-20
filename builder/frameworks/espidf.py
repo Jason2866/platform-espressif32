@@ -1029,9 +1029,9 @@ def get_app_flags(app_config, default_config):
         app_flags["CXX"].extend(cxx_flags)
 
     return {
-        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM"))),
-        "CFLAGS": sorted(app_flags.get("C", default_flags.get("C"))),
-        "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX"))),
+        "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
+        "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
+        "CXXFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("CXX", default_flags.get("CXX", []))))),
     }
 
 
