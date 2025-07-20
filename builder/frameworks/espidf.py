@@ -1331,9 +1331,7 @@ def finalize_clang_environment():
     # Bestimme die korrekte Ziel-Architektur basierend auf ESP-IDF CMake Konfiguration ZUERST
     # WICHTIG: Für Compiler-Target verwende ESP-IDF Standard ("xtensa-esp-elf", "riscv32-esp-elf")
     # ABER für Runtime-Library-Pfade verwende tatsächliche Toolchain-Ordner ("xtensa-esp-unknown-elf", "riscv32-esp-unknown-elf")
-    sdk_config = get_sdk_configuration()
-    is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
-    if not is_riscv:
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
         target_arch = "xtensa-esp-elf"  # ESP-IDF Standard für Compiler-Target
         # Architecture-specific C++ Header-Varianten für Xtensa (sortiert nach Priorität)
         arch_variants = [
