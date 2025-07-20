@@ -660,6 +660,24 @@ def extract_link_args(target_config):
                     else:
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
                         print(f"    Added to __LIB_DEPS: {os.path.basename(archive_path)}")
+            else:
+                # NEUE ERGÄNZUNG: Relative Bibliothekspfade verarbeiten
+                print(f"  Processing relative library paths: {args}")
+                for arg in args:
+                    if arg.endswith('.a'):
+                        # Relative Archive-Pfade zu absoluten Pfaden konvertieren
+                        if not os.path.isabs(arg):
+                            full_path = os.path.join(BUILD_DIR, arg)
+                        else:
+                            full_path = arg
+                        _add_archive(full_path, link_args)
+                        print(f"    Added relative archive: {arg} -> {full_path}")
+                    elif arg.startswith('-u'):
+                        # Undefined symbols werden zur __LIB_DEPS hinzugefügt
+                        link_args["__LIB_DEPS"].append(arg)
+                        print(f"    Added undefined symbol to __LIB_DEPS: {arg}")
+                    else:
+                        print(f"    Unprocessed library arg: {arg}")
 
     print(f"=== TOTAL FRAGMENTS PROCESSED: {fragment_counter} ===")
     print(f"PARTIAL LINKFLAGS: {len(link_args['LINKFLAGS'])} items")
