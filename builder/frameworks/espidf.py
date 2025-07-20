@@ -857,50 +857,80 @@ def remove_duplicate_flags(flags):
     return result
 
 def fix_clang_linkflags(linkflags):
-    """Convert GCC linker flags to Clang compatible flags"""
+    """Convert GCC linker flags to Clang compatible flags - WITH DEBUG"""
     if not linkflags:
         return []
 
+    print(f"=== fix_clang_linkflags INPUT: {len(linkflags)} flags ===")
+    for i, flag in enumerate(linkflags):
+        print(f"  IN[{i}]: {flag}")
+
     result = []
+    removed_flags = []
+    converted_flags = []
+    
     for flag in linkflags:
         if isinstance(flag, str):
-            # KRITISCH: Comprehensive runtime library flag conversion
+            original_flag = flag
+            
+            # KRITISCH: Archive-Pfade dürfen NICHT gefiltert werden
+            if flag.endswith('.a') or '/lib' in flag:
+                result.append(flag)
+                print(f"  PRESERVED ARCHIVE: {flag}")
+                continue
+                
+            # Runtime library flag conversion
             if "-rtlib=" in flag:
-                # Convert all runtime library variations to Clang-compatible libgcc
                 if "gcc" in flag or "clang_rt" in flag or "compiler-rt" in flag:
-                    print(f"CONVERTED runtime library flag from CMake: {flag} -> -rtlib=libgcc")
-                    result.append("-rtlib=libgcc")
+                    converted_flag = "-rtlib=libgcc"
+                    result.append(converted_flag)
+                    converted_flags.append((flag, converted_flag))
                     continue
                 else:
-                    # Keep other rtlib variations as-is
                     result.append(flag)
                     continue
             elif flag == "-lgcc":
-                # Let ESP-IDF CMake handle libgcc vs compiler-rt decision
-                # Don't filter out -lgcc completely as it might contain essential symbols
-                print(f"PRESERVING ESP-IDF libgcc flag: {flag}")
                 result.append(flag)
+                print(f"  PRESERVED LIBGCC: {flag}")
+                continue
             # Entferne alle GCC-spezifischen Linker-Emulations-Flags
             elif flag.startswith("-melf32xtensa"):
+                removed_flags.append(flag)
                 continue
             elif flag in ["-melf32xtensas2", "-melf32xtensas3", "-melf32xtensaesp32"]:
+                removed_flags.append(flag)
                 continue
             elif "cpu=esp32" in flag:
+                removed_flags.append(flag)
                 continue
             elif "cpu=esp32s2" in flag:
+                removed_flags.append(flag)
                 continue  
             elif "cpu=esp32s3" in flag:
+                removed_flags.append(flag)
                 continue
             elif "elf32xtensas3" in flag:
+                removed_flags.append(flag)
                 continue
             elif "elf32xtensas2" in flag:
+                removed_flags.append(flag)
                 continue
             else:
                 result.append(flag)
         else:
             result.append(flag)
 
+    print(f"=== fix_clang_linkflags OUTPUT: {len(result)} flags ===")
+    for i, flag in enumerate(result):
+        print(f"  OUT[{i}]: {flag}")
+    
+    if removed_flags:
+        print(f"=== REMOVED FLAGS: {removed_flags} ===")
+    if converted_flags:
+        print(f"=== CONVERTED FLAGS: {converted_flags} ===")
+        
     return result
+
 
 def final_rtlib_fix(link_args):
     """Apply final -rtlib=gcc to -rtlib=libgcc conversion before linking"""
