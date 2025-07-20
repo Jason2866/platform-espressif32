@@ -774,10 +774,8 @@ def remove_duplicate_flags(flags):
         elif flag_str.startswith("-mcpu=esp32"):
             continue
         elif flag_str == "--longcalls":
-            # KRITISCH: Alle Varianten von --longcalls entfernen
             continue
         elif flag_str.startswith("--longcalls"):
-            # Zusätzlich: Alle --longcalls* Varianten
             continue
         elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
             continue
@@ -785,9 +783,9 @@ def remove_duplicate_flags(flags):
         # NEUE ERGÄNZUNG: Spezielle Assembler-Flag-Bereinigung
         # Entferne problematische Assembler-spezifische GCC-Flags
         if any(gcc_flag in flag_str for gcc_flag in [
-            "--longcalls",           # GCC longcalls
-            "-Wa,--longcalls",       # Assembler longcalls
-            "-Xassembler,--longcalls"  # Explizit an Assembler weitergegebene longcalls
+            "--longcalls",
+            "-Wa,--longcalls",
+            "-Xassembler,--longcalls"
         ]):
             continue
         
@@ -802,7 +800,6 @@ def remove_duplicate_flags(flags):
                 continue
             # WICHTIG: Für Xtensa --longcalls durch -mlongcalls ersetzen
             if "--longcalls" in flag_str:
-                # Ersetze --longcalls durch -mlongcalls für Xtensa
                 if flag_str == "--longcalls":
                     flag_str = "-mlongcalls"
                 else:
@@ -811,7 +808,7 @@ def remove_duplicate_flags(flags):
         # Normale Duplikat-Entfernung
         if flag_str not in seen:
             seen.add(flag_str)
-            result.append(flag_str)  # Verwende flag_str statt flag für konsistente String-Behandlung
+            result.append(flag_str)
     
     return result
 
