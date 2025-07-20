@@ -620,9 +620,9 @@ def extract_link_args(target_config):
             continue
         args = click.parser.split_arg_string(fragment)
         if fragment_role == "flags":
-            # WICHTIG: Für Clang nur problematische GCC-Flags filtern, nicht alle
-            if "clang" in env.subst("$CC").lower():
-                args = fix_clang_linkflags(args)
+#            # WICHTIG: Für Clang nur problematische GCC-Flags filtern, nicht alle
+#            if "clang" in env.subst("$CC").lower():
+#                args = fix_clang_linkflags(args)
             link_args["LINKFLAGS"].extend(args)
         elif fragment_role in ("libraries", "libraryPath"):
             if fragment.startswith("-l"):
@@ -634,7 +634,6 @@ def extract_link_args(target_config):
                 # CMake mistakenly marks LINKFLAGS as libraries
                 link_args["LINKFLAGS"].extend(args)
             elif fragment.endswith(".a"):
-                # KRITISCHE ERGÄNZUNG: Exakt wie GCC-Original
                 archive_path = fragment
                 # process static archives
                 if os.path.isabs(archive_path):
