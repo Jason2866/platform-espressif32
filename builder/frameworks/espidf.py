@@ -1654,7 +1654,7 @@ def finalize_clang_environment():
 
     
     # Fix Clang linker flags before appending to environment
-    linker_flags = fix_clang_linkflags(linker_flags)
+#    linker_flags = fix_clang_linkflags(linker_flags)
     
     env.Append(LINKFLAGS=linker_flags)
     
