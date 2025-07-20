@@ -788,9 +788,6 @@ def remove_duplicate_flags(flags):
     if not flags:
         return []
 
-    sdk_config = get_sdk_configuration()
-    is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
-    
     seen = set()
     result = []
     skip_next = False
