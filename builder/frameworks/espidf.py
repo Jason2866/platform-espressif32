@@ -2871,44 +2871,6 @@ with open(partitions_csv) as fp:
 
 env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
 
-#
-# Global fix for malformed runtime library flags
-#
-if "clang" in env.subst("$CC").lower():
-    def fix_malformed_rtlib_flags(env, target, source):
-        """Global fix for any remaining malformed -rtlib flags and library names"""
-        # Fix flags in LINKFLAGS, CCFLAGS, CXXFLAGS
-        for var_name in ['LINKFLAGS', 'CCFLAGS', 'CXXFLAGS']:
-            flags = env.get(var_name, [])
-            if flags:
-                fixed_flags = []
-                for flag in flags:
-                    if isinstance(flag, str) and "-rtlib=" in flag and ("clang_rt" in flag or "builtins" in flag):
-                        fixed_flag = "-rtlib=libgcc"
-                        print(f"GLOBAL FIX: Converted malformed {flag} -> {fixed_flag}")
-                        fixed_flags.append(fixed_flag)
-                    else:
-                        fixed_flags.append(flag)
-                env.Replace(**{var_name: fixed_flags})
-        
-        # Fix malformed library names in LIBS
-        libs = env.get('LIBS', [])
-        if libs:
-            fixed_libs = []
-            for lib in libs:
-                lib_str = str(lib)
-                # Remove malformed clang_rt.builtins library and replace with proper libgcc
-                if "clang_rt.builtins" in lib_str or "clang_rt" in lib_str:
-                    # Don't add libgcc as -l flag since we already have -rtlib=libgcc
-                    print(f"GLOBAL FIX: Removed malformed library: {lib_str}")
-                    continue  # Skip this malformed library
-                else:
-                    fixed_libs.append(lib)
-            env.Replace(LIBS=fixed_libs)
-    
-    # Apply global fix before any linking
-    env.AddPreAction("$BUILD_DIR/bootloader.elf", fix_malformed_rtlib_flags)
-    env.AddPreAction("$BUILD_DIR/firmware.elf", fix_malformed_rtlib_flags)
 
 #
 # Propagate application offset to debug configurations
