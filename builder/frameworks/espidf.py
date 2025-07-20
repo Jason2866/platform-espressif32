@@ -672,29 +672,16 @@ def extract_link_args(target_config):
         
         # Bootloader-spezifische Behandlung
         if target_config.get("name", "").endswith("bootloader.elf"):
-            # Architektur-unabhängige Clang Compiler-Optimierung aus sdkconfig
             clang_bootloader_flags = []
-            
-            # Compiler-Optimierung aus sdkconfig - für alle Architekturen
-            if sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE"):
-                clang_bootloader_flags.append("-Oz")
-            elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG"):
-                clang_bootloader_flags.append("-Og")
-            elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF"):
-                clang_bootloader_flags.append("-O2")
-            elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE"):
-                clang_bootloader_flags.append("-O0")
             
             # Architektur-spezifische Flags
             if is_riscv:
-                # RISC-V spezifische Bootloader-Flags
                 clang_bootloader_flags.extend([
                     "-march=rv32imc", 
                     "-mabi=ilp32",
                     "-fno-lto"
                 ])
             elif is_xtensa:
-                # Xtensa spezifische Bootloader-Flags
                 clang_bootloader_flags.extend([
                     "-mlongcalls",
                     "-fno-lto"
@@ -770,6 +757,7 @@ def extract_link_args(target_config):
                 link_args["LINKFLAGS"].append("-rtlib=libgcc")
     
     return link_args
+
 
 def filter_args(args, allowed, ignore=None):
     if not allowed:
@@ -963,9 +951,22 @@ def get_app_flags(app_config, default_config):
                 fragment = ccfragment.get("fragment", "").strip("\" ")
                 if not fragment or fragment.startswith("-D"):
                     continue
-                flags[cg["language"]].extend(
-                    click.parser.split_arg_string(fragment.strip())
-                )
+                # Flag-Bereinigung bereits bei der Extraktion
+                fragment_args = click.parser.split_arg_string(fragment.strip())
+                cleaned_args = []
+                for arg in fragment_args:
+                    if arg == "--longcalls":
+                        cleaned_args.append("-mlongcalls")
+                    elif "--longcalls" in arg:
+                        cleaned_args.append(arg.replace("--longcalls", "-mlongcalls"))
+                    elif arg == "-Os":
+                        # Ersetze -Os durch -Oz für Clang
+                        cleaned_args.append("-Oz")
+                    elif arg.startswith("-mcpu=esp32"):
+                        continue
+                    else:
+                        cleaned_args.append(arg)
+                flags[cg["language"]].extend(cleaned_args)
         return flags
 
     app_flags = _extract_flags(app_config)
@@ -999,26 +1000,13 @@ def get_app_flags(app_config, default_config):
             "-Wno-single-bit-bitfield-constant-conversion"
         ]
         
-        # Clang-spezifische Optimierungs-Flags
-        optimization_flags = []
-        if sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_SIZE") or sdk_config.get("COMPILER_OPTIMIZATION_SIZE"):
-            optimization_flags.append("-Oz")  # Clang verwendet -Oz statt -Os
-        elif sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG") or sdk_config.get("COMPILER_OPTIMIZATION_DEBUG"):
-            optimization_flags.append("-Og")
-        elif sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_NONE") or sdk_config.get("COMPILER_OPTIMIZATION_NONE"):
-            optimization_flags.append("-O0")
-        elif sdk_config.get("BOOTLOADER_COMPILER_OPTIMIZATION_PERF") or sdk_config.get("COMPILER_OPTIMIZATION_PERF"):
-            optimization_flags.append("-O2")
-        
         # Weitere wichtige Clang-Flags
         common_clang_flags = [
             "-fno-common",  # Wichtig für Symbol-Resolution
             "-fno-jump-tables",  # ESP-IDF Standard
-            "-fno-merge-constants" if sdk_config.get("COMPILER_NO_MERGE_CONSTANTS") else None,
         ]
-        common_clang_flags = [f for f in common_clang_flags if f is not None]
         
-        # Stack Protection
+        # Stack Protection basierend auf sdkconfig
         if sdk_config.get("COMPILER_STACK_CHECK_MODE_NORM"):
             common_clang_flags.append("-fstack-protector")
         elif sdk_config.get("COMPILER_STACK_CHECK_MODE_STRONG"):
@@ -1026,11 +1014,11 @@ def get_app_flags(app_config, default_config):
         elif sdk_config.get("COMPILER_STACK_CHECK_MODE_ALL"):
             common_clang_flags.append("-fstack-protector-all")
         
-        # Frame Pointer
+        # Frame Pointer basierend auf sdkconfig
         if sdk_config.get("ESP_SYSTEM_USE_FRAME_POINTER"):
             common_clang_flags.append("-fno-omit-frame-pointer")
         
-        # Exception Handling
+        # Exception Handling basierend auf sdkconfig
         if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
             common_clang_flags.append("-fasynchronous-unwind-tables")
         
@@ -1048,7 +1036,7 @@ def get_app_flags(app_config, default_config):
             ]
         
         # Füge Flags zu allen Sprachen hinzu
-        all_flags = clang_warning_flags + optimization_flags + common_clang_flags + arch_specific_flags
+        all_flags = clang_warning_flags + common_clang_flags + arch_specific_flags
         
         for lang in ["C", "CXX", "ASM"]:
             if lang not in app_flags:
@@ -1077,10 +1065,11 @@ def get_app_flags(app_config, default_config):
         
         app_flags["CXX"].extend(cxx_flags)
 
+    # Bereinige alle Flags vor der Rückgabe
     return {
-        "ASPPFLAGS": sorted(set(app_flags.get("ASM", default_flags.get("ASM", [])))),
-        "CFLAGS": sorted(set(app_flags.get("C", default_flags.get("C", [])))),
-        "CXXFLAGS": sorted(set(app_flags.get("CXX", default_flags.get("CXX", [])))),
+        "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
+        "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
+        "CXXFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("CXX", default_flags.get("CXX", []))))),
     }
 
 
