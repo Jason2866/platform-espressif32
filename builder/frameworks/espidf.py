@@ -806,7 +806,7 @@ def remove_duplicate_flags(flags):
             continue
             
         flag_str = str(flag).strip()
-        # ERWEITERTE GCC-zu-Clang Flag-Bereinigung für Assembler
+        # GCC-zu-Clang Flag-Bereinigung für Assembler
         if flag_str == "-Xassembler" and i + 1 < len(flags):
             next_flag = str(flags[i + 1]).strip()
             if next_flag in ["-ffunction-sections", "-fdata-sections", "--longcalls"]:
@@ -833,23 +833,23 @@ def remove_duplicate_flags(flags):
         ]):
             continue
         
-        # Architektur-spezifische Flag-Bereinigung basierend auf sdkconfig
-        if is_riscv:
-            # Entferne Xtensa-spezifische Flags für RISC-V
-            if any(x in flag_str for x in ["-mlongcalls", "-mcpu=esp32", "xtensa", "--longcalls"]):
-                continue
-        else:  # Xtensa
-            # Entferne RISC-V-spezifische Flags für Xtensa
-            if any(x in flag_str for x in ["-march=rv", "-mabi=ilp", "riscv", "-mno-relax"]):
-                continue
-            # WICHTIG: Für Xtensa --longcalls durch -mlongcalls ersetzen
-            if "--longcalls" in flag_str:
-                if flag_str == "--longcalls":
-                    flag_str = "-mlongcalls"
-                else:
-                    flag_str = flag_str.replace("--longcalls", "-mlongcalls")
+#        # Architektur-spezifische Flag-Bereinigung basierend auf sdkconfig
+#        if is_riscv:
+#            # Entferne Xtensa-spezifische Flags für RISC-V
+#            if any(x in flag_str for x in ["-mlongcalls", "-mcpu=esp32", "xtensa", "--longcalls"]):
+#                continue
+#        else:  # Xtensa
+#            # Entferne RISC-V-spezifische Flags für Xtensa
+#            if any(x in flag_str for x in ["-march=rv", "-mabi=ilp", "riscv", "-mno-relax"]):
+#                continue
+#            # WICHTIG: Für Xtensa --longcalls durch -mlongcalls ersetzen
+#            if "--longcalls" in flag_str:
+#                if flag_str == "--longcalls":
+#                    flag_str = "-mlongcalls"
+#                else:
+#                    flag_str = flag_str.replace("--longcalls", "-mlongcalls")
         
-        # Normale Duplikat-Entfernung
+        # Duplikat-Entfernung
         if flag_str not in seen:
             seen.add(flag_str)
             result.append(flag_str)
