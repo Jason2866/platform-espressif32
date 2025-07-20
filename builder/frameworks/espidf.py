@@ -759,12 +759,7 @@ def extract_link_args(target_config):
             for lib_name in essential_bootloader_libs:
                 if lib_name not in link_args["__LIB_DEPS"]:
                     link_args["__LIB_DEPS"].append(lib_name)
-       
-        # Architektur-spezifische rtlib-Behandlung
-#        if is_riscv or is_xtensa:
-#            if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
-#                link_args["LINKFLAGS"].append("-rtlib=libgcc")
-    
+
     return link_args
 
 
@@ -832,22 +827,6 @@ def remove_duplicate_flags(flags):
             "-Xassembler,--longcalls"
         ]):
             continue
-        
-#        # Architektur-spezifische Flag-Bereinigung basierend auf sdkconfig
-#        if is_riscv:
-#            # Entferne Xtensa-spezifische Flags für RISC-V
-#            if any(x in flag_str for x in ["-mlongcalls", "-mcpu=esp32", "xtensa", "--longcalls"]):
-#                continue
-#        else:  # Xtensa
-#            # Entferne RISC-V-spezifische Flags für Xtensa
-#            if any(x in flag_str for x in ["-march=rv", "-mabi=ilp", "riscv", "-mno-relax"]):
-#                continue
-#            # WICHTIG: Für Xtensa --longcalls durch -mlongcalls ersetzen
-#            if "--longcalls" in flag_str:
-#                if flag_str == "--longcalls":
-#                    flag_str = "-mlongcalls"
-#                else:
-#                    flag_str = flag_str.replace("--longcalls", "-mlongcalls")
         
         # Duplikat-Entfernung
         if flag_str not in seen:
