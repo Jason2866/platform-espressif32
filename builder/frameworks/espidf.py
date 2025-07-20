@@ -702,7 +702,34 @@ def extract_link_args(target_config):
                     "-Wl,--undefined=esp_rom_spiflash_erase_sector",
                     "-Wl,--undefined=esp_rom_md5_init",
                     "-Wl,--undefined=esp_rom_md5_update",
-                    "-Wl,--undefined=esp_rom_md5_final"
+                    "-Wl,--undefined=esp_rom_md5_final",
+                    # ESP-IDF System-Symbol-Wrapping für Clang
+                    "-Wl,--wrap=__cxa_allocate_exception",
+                    "-Wl,--wrap=__cxa_throw", 
+                    "-Wl,--wrap=_Unwind_DeleteException",
+                    "-Wl,--undefined=esp_fill_random",
+                    "-Wl,--undefined=misc_nvs_init",
+                    "-Wl,--undefined=net80211_printf",
+                    "-Wl,--undefined=esp_brownout_init",
+                    "-Wl,--undefined=esp_wifi_power_domain_on",
+                    "-Wl,--undefined=esp_wifi_power_domain_off",
+                    "-Wl,--undefined=esp_phy_modem_init",
+                    "-Wl,--undefined=esp_phy_modem_deinit",
+                    "-Wl,--undefined=esp_partition_read",
+                    "-Wl,--undefined=esp_partition_write",
+                    "-Wl,--undefined=esp_partition_erase_range",
+                    "-Wl,--undefined=esp_partition_find_first",
+                    "-Wl,--undefined=g_log_level",
+                    "-Wl,--undefined=regdomain_table",
+                    "-Wl,--undefined=regulatory_data",
+                    "-Wl,--undefined=_g_esp_netif_netstack_default_wifi_sta",
+                    "-Wl,--undefined=_g_esp_netif_netstack_default_wifi_ap",
+                    "-Wl,--undefined=esp_netif_action_start",
+                    "-Wl,--undefined=esp_netif_action_stop",
+                    "-Wl,--undefined=esp_netif_action_connected",
+                    "-Wl,--undefined=esp_netif_action_disconnected",
+                    "-Wl,--undefined=esp_netif_action_got_ip",
+                    "-Wl,--undefined=g_espnow_user_oui"
                 ])
             
             link_args["LINKFLAGS"].extend(clang_bootloader_flags)
