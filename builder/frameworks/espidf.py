@@ -2339,30 +2339,6 @@ extra_flags = filter_args(
         "-Wl,--no-whole-archive",
     ],
 )
-
-whole_archive_flags = [f for f in extra_flags if '--whole-archive' in f]
-
-if "clang" in env.subst("$CC").lower() and not whole_archive_flags: 
-    esp_idf_build_dir = os.path.join(BUILD_DIR, "esp-idf")
-    if os.path.exists(esp_idf_build_dir):
-        # Collect all ESP-IDF component library files  
-        esp_idf_lib_paths = []
-        component_dirs = os.listdir(esp_idf_build_dir)
-        
-        for component_dir in component_dirs:
-            component_path = os.path.join(esp_idf_build_dir, component_dir)
-            if os.path.isdir(component_path):
-                lib_file = f"lib{component_dir}.a"
-                lib_full_path = os.path.join(component_path, lib_file)
-                if os.path.exists(lib_full_path):
-                    esp_idf_lib_paths.append(lib_full_path)
-        
-        # Add --whole-archive flags
-        if esp_idf_lib_paths:
-            # Add whole-archive flags to extra_flags
-            extra_whole_archive_flags = ["-Wl,--whole-archive"] + esp_idf_lib_paths + ["-Wl,--no-whole-archive"]
-            extra_flags.extend(extra_whole_archive_flags)
-
 link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
 
 # remove the main linker script flags '-T memory.ld'
@@ -2425,11 +2401,6 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 #
 # Main environment configuration
 #
-
-#if "clang" in env.subst("$CC").lower():    
-    # Apply final conversion to all collected link arguments
-#    link_args = final_rtlib_fix(link_args)
-#    extra_flags = final_rtlib_fix_list(extra_flags)
 
 project_flags.update(link_args)
 env.MergeFlags(project_flags)
@@ -2733,7 +2704,6 @@ with open(partitions_csv) as fp:
         next_offset = (next_offset + bound - 1) & ~(bound - 1)
 
 env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
-
 
 #
 # Propagate application offset to debug configurations
