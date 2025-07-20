@@ -863,51 +863,6 @@ def remove_duplicate_flags(flags):
     return result
 
 
-def final_rtlib_fix(link_args):
-    """Apply final -rtlib=gcc to -rtlib=libgcc conversion before linking"""
-    if "clang" not in env.subst("$CC").lower():
-        return link_args
-    
-    # Convert any remaining -rtlib=gcc flags to -rtlib=libgcc
-    fixed_flags = []
-    conversion_count = 0
-    
-    for flag in link_args.get("LINKFLAGS", []):
-        if isinstance(flag, str) and "-rtlib=gcc" in flag:
-            fixed_flag = flag.replace("-rtlib=gcc", "-rtlib=libgcc")
-            fixed_flags.append(fixed_flag)
-            conversion_count += 1
-            #print(f"FINAL FIX: Converted {flag} -> {fixed_flag}")
-        else:
-            fixed_flags.append(flag)
-    
-    if conversion_count > 0:
-        #print(f"FINAL FIX: Applied -rtlib=libgcc conversion to {conversion_count} flags")
-        link_args["LINKFLAGS"] = fixed_flags
-    
-    return link_args
-
-
-def final_rtlib_fix_list(flag_list):
-    """Final conversion of -rtlib=gcc to -rtlib=libgcc in a flag list"""
-    if not flag_list or not isinstance(flag_list, list):
-        return flag_list
-    
-    result = []
-    for flag in flag_list:
-        if isinstance(flag, str) and "-rtlib=" in flag:
-            # Convert all runtime library variations to libgcc
-            if "gcc" in flag or "clang_rt" in flag or "compiler-rt" in flag:
-                result.append('-rtlib=libgcc')
-                #print(f"FINAL CONVERSION: {flag} -> -rtlib=libgcc")
-            else:
-                result.append(flag)
-        else:
-            result.append(flag)
-    
-    return result
-
-
 def get_app_flags(app_config, default_config):
     def _extract_flags(config):
         flags = {}
@@ -1505,7 +1460,7 @@ def finalize_clang_environment():
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "include"),
     ]
     
-    # WICHTIG: Füge Architecture-spezifische C++ Header-Pfade hinzu (für bits/c++config.h)
+    # Füge Architecture-spezifische C++ Header-Pfade hinzu
     # Diese sind essentiell für C++ Standard Library Headers
     for variant in arch_variants:
         variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
@@ -1569,31 +1524,15 @@ def finalize_clang_environment():
     
     esp32_basic_linker_options = [
         "-Wl,--start-group",  # Gruppiere Libraries für zirkuläre Abhängigkeiten
-        # Actual libraries werden von ESP-IDF CMake hinzugefügt
         "-Wl,--end-group",
     ]
     
     linker_flags.extend(esp32_basic_linker_options)
 
-    
-    # Fix Clang linker flags before appending to environment
-#    linker_flags = fix_clang_linkflags(linker_flags)
-    
     env.Append(LINKFLAGS=linker_flags)
-    
     #print(f"Clang environment finalized for {mcu} ({target_arch})")
 
 finalize_clang_environment()
-
-# Add a final fix for any remaining -rtlib=gcc flags from ESP-IDF CMake
-def fix_final_linkflags(source, target, env):
-    """Final pass to fix any remaining -rtlib=gcc flags before linking"""
-#    if env.get("LINKFLAGS"):
-#        fixed_flags = fix_clang_linkflags(env["LINKFLAGS"])
-#        env.Replace(LINKFLAGS=fixed_flags)
-
-# Apply the final fix right before the link step
-#env.AddPreAction("$BUILD_DIR/firmware.elf", fix_final_linkflags)
 
 
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
