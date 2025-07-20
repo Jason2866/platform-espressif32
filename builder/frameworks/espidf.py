@@ -1379,9 +1379,7 @@ def finalize_clang_environment():
         ASFLAGS=esp_idf_asm_flags,
         LINKFLAGS=esp_idf_linker_flags
     )
-    # Zusätzliche Clang-spezifische Linker-Flags
-    env.Append(LINKFLAGS=["-Wl,--allow-multiple-definition"])
-    
+ 
     # KRITISCH: MCU-spezifische Header-Pfade
     cpp_header_paths = []
     
@@ -1444,12 +1442,6 @@ def finalize_clang_environment():
         "-Wl,--warn-common",
         "-Wl,--allow-multiple-definition",
     ]
-    esp32_basic_linker_options = [
-        "-Wl,--start-group",
-        "-Wl,--end-group",
-    ]
-    linker_flags.extend(esp32_basic_linker_options)
-
     env.Append(LINKFLAGS=linker_flags)
 
 finalize_clang_environment()
