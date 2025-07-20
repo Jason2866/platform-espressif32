@@ -759,15 +759,11 @@ def extract_link_args(target_config):
             for lib_name in essential_bootloader_libs:
                 if lib_name not in link_args["__LIB_DEPS"]:
                     link_args["__LIB_DEPS"].append(lib_name)
-        
-        # Nur wesentliche Clang-Flags
-        if "-fno-lto" not in link_args["LINKFLAGS"]:
-            link_args["LINKFLAGS"].append("-fno-lto")
-            
+       
         # Architektur-spezifische rtlib-Behandlung
-        if is_riscv or is_xtensa:
-            if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
-                link_args["LINKFLAGS"].append("-rtlib=libgcc")
+#        if is_riscv or is_xtensa:
+#            if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
+#                link_args["LINKFLAGS"].append("-rtlib=libgcc")
     
     return link_args
 
@@ -796,8 +792,7 @@ def remove_duplicate_flags(flags):
     """Remove duplicate flags und architektur-spezifische problematische flags"""
     if not flags:
         return []
-    
-    # Architektur-Detection aus sdkconfig
+
     sdk_config = get_sdk_configuration()
     is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
     
@@ -811,7 +806,6 @@ def remove_duplicate_flags(flags):
             continue
             
         flag_str = str(flag).strip()
-        
         # ERWEITERTE GCC-zu-Clang Flag-Bereinigung für Assembler
         if flag_str == "-Xassembler" and i + 1 < len(flags):
             next_flag = str(flags[i + 1]).strip()
@@ -897,7 +891,6 @@ def get_app_flags(app_config, default_config):
     if "clang" in env.subst("$CC").lower():
         sdk_config = get_sdk_configuration()
         is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
-        
         # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
         clang_warning_flags = [
             "-Wno-documentation",
@@ -920,36 +913,18 @@ def get_app_flags(app_config, default_config):
             "-Wno-extern-c-compat",
             "-Wno-single-bit-bitfield-constant-conversion"
         ]
-        
         # Weitere wichtige Clang-Flags
         common_clang_flags = [
             "-fno-common",
             "-fno-jump-tables",
         ]
-        
-        # Stack Protection basierend auf sdkconfig
-        if sdk_config.get("COMPILER_STACK_CHECK_MODE_NORM"):
-            common_clang_flags.append("-fstack-protector")
-        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_STRONG"):
-            common_clang_flags.append("-fstack-protector-strong")
-        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_ALL"):
-            common_clang_flags.append("-fstack-protector-all")
-        
-        # Frame Pointer basierend auf sdkconfig
-        if sdk_config.get("ESP_SYSTEM_USE_FRAME_POINTER"):
-            common_clang_flags.append("-fno-omit-frame-pointer")
-        
-        # Exception Handling basierend auf sdkconfig
-        if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
-            common_clang_flags.append("-fasynchronous-unwind-tables")
-        
         # Architektur-spezifische Flags - getrennt für C/C++ und ASM
         if is_riscv:
             c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
             asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
         else:  # Xtensa
             c_cxx_flags = ["-mlongcalls"]
-            asm_flags = []  # KEIN -mlongcalls für Assembly
+            asm_flags = []
         
         # Sprachspezifische Flag-Anwendung
         for lang in ["C", "CXX"]:
@@ -968,20 +943,7 @@ def get_app_flags(app_config, default_config):
             
         cxx_flags = [
             "-fno-use-cxa-atexit",
-        ]
-        
-        # C++ Exceptions aus sdkconfig
-        if sdk_config.get("COMPILER_CXX_EXCEPTIONS"):
-            cxx_flags.append("-fexceptions")
-        else:
-            cxx_flags.append("-fno-exceptions")
-            
-        # C++ RTTI aus sdkconfig
-        if sdk_config.get("COMPILER_CXX_RTTI"):
-            cxx_flags.append("-frtti")
-        else:
-            cxx_flags.append("-fno-rtti")
-        
+        ]    
         app_flags["CXX"].extend(cxx_flags)
 
     return {
