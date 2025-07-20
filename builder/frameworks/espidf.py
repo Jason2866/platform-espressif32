@@ -712,6 +712,9 @@ def extract_link_args(target_config):
                 # ROM-API-spezifische Pfade
                 os.path.join(bootloader_base_path, "esp_rom"),
                 os.path.join(bootloader_base_path, "esp_bootloader_format"),
+                # SoC-spezifische Pfade
+                os.path.join(bootloader_base_path, "soc"),
+                os.path.join(bootloader_base_path, "esp_system"),
             ]
             
             # Architektur-spezifische Pfade
@@ -724,7 +727,7 @@ def extract_link_args(target_config):
             for lib_path in potential_bootloader_paths:
                 _add_to_libpath(lib_path, link_args)
             
-            # Erweiterte Bootloader-Bibliotheken mit ROM-API-Support
+            # Vollständige Bootloader-Bibliotheken mit SoC-Support
             essential_bootloader_libs = [
                 "libbootloader_support.a",
                 "liblog.a", 
@@ -736,6 +739,9 @@ def extract_link_args(target_config):
                 "libesp_rom.a",
                 "libnewlib.a",
                 "libesp_bootloader_format.a",
+                # SoC-spezifische Bibliotheken
+                "libsoc.a",           # Für GPIO_PIN_MUX_REG_OFFSET
+                "libesp_system.a",    # System-Level Definitionen
             ]
             
             # Architektur-spezifische Bibliotheken
