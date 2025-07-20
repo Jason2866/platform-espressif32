@@ -986,26 +986,24 @@ def get_app_flags(app_config, default_config):
         if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
             common_clang_flags.append("-fasynchronous-unwind-tables")
         
-        # Architektur-spezifische Flags basierend auf sdkconfig
-        arch_specific_flags = []
+        # Architektur-spezifische Flags - getrennt für C/C++ und ASM
         if is_riscv:
-            arch_specific_flags = [
-                "-march=rv32imc", 
-                "-mabi=ilp32", 
-                "-mno-relax"
-            ]
+            c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
+            asm_flags = ["-march=rv32imc", "-mabi=ilp32"]  # Ohne -mno-relax für ASM
         else:  # Xtensa
-            arch_specific_flags = [
-                "-mlongcalls"
-            ]
+            c_cxx_flags = ["-mlongcalls"]
+            asm_flags = []  # KEIN -mlongcalls für Assembly um Warnungen zu vermeiden
         
-        # Füge Flags zu allen Sprachen hinzu
-        all_flags = clang_warning_flags + common_clang_flags + arch_specific_flags
-        
-        for lang in ["C", "CXX", "ASM"]:
+        # Füge Flags sprachspezifisch hinzu
+        for lang in ["C", "CXX"]:
             if lang not in app_flags:
                 app_flags[lang] = []
-            app_flags[lang].extend(all_flags)
+            app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
+        
+        # Assembly bekommt separate Behandlung ohne problematische Flags
+        if "ASM" not in app_flags:
+            app_flags["ASM"] = []
+        app_flags["ASM"].extend(asm_flags)  # Nur minimale ASM-Flags
             
         # C++-spezifische Clang-Flags
         if "CXX" not in app_flags:
