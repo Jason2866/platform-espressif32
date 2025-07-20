@@ -1331,7 +1331,9 @@ def finalize_clang_environment():
     # Bestimme die korrekte Ziel-Architektur basierend auf ESP-IDF CMake Konfiguration ZUERST
     # WICHTIG: Für Compiler-Target verwende ESP-IDF Standard ("xtensa-esp-elf", "riscv32-esp-elf")
     # ABER für Runtime-Library-Pfade verwende tatsächliche Toolchain-Ordner ("xtensa-esp-unknown-elf", "riscv32-esp-unknown-elf")
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
+    sdk_config = get_sdk_configuration()
+    is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
+    if not is_riscv:
         target_arch = "xtensa-esp-elf"  # ESP-IDF Standard für Compiler-Target
         # Architecture-specific C++ Header-Varianten für Xtensa (sortiert nach Priorität)
         arch_variants = [
@@ -1354,28 +1356,25 @@ def finalize_clang_environment():
             "rv32i-zicsr-zifencei_ilp32",
             "rv32i-zicsr-zifencei_ilp32_no-rtti"
         ]
-        cpu_variant = "rv32imac-zicsr-zifencei_ilp32"
-    
+        cpu_variant = "rv32imac-zicsr-zifencei_ilp32" 
 
     # ESP-IDF CMake-konforme Compiler-Flags hinzufügen
-    # Basierend auf toolchain-clang-esp32.cmake
     esp_idf_compiler_flags = [
         f"--target={target_arch}",  # ESP-IDF Standard Target 
         "-Wno-unknown-warning-option",  # Ignoriere unbekannte GCC-Warnungen
     ]
     
-    # Assembler-Flags (ESP-IDF CMake Standard)
+    # Assembler-Flags
     esp_idf_asm_flags = []
     if mcu in ("esp32", "esp32s2", "esp32s3"):  # Xtensa architecture
         esp_idf_asm_flags.append("-Xassembler")
         esp_idf_asm_flags.append("--longcalls")
     
-    # Linker-Flags (ESP-IDF CMake Standard)
+    # Linker-Flags
     esp_idf_linker_flags = [
         "-z", "noexecstack",  # ESP-IDF Security Standard
     ]
-    
-    # Füge ESP-IDF konforme Flags hinzu
+
     env.Append(
         CCFLAGS=esp_idf_compiler_flags,
         CXXFLAGS=esp_idf_compiler_flags,
