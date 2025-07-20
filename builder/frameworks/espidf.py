@@ -620,9 +620,6 @@ def extract_link_args(target_config):
             continue
         args = click.parser.split_arg_string(fragment)
         if fragment_role == "flags":
-#            # WICHTIG: Für Clang nur problematische GCC-Flags filtern, nicht alle
-#            if "clang" in env.subst("$CC").lower():
-#                args = fix_clang_linkflags(args)
             link_args["LINKFLAGS"].extend(args)
         elif fragment_role in ("libraries", "libraryPath"):
             if fragment.startswith("-l"):
@@ -1032,9 +1029,9 @@ def get_app_flags(app_config, default_config):
         app_flags["CXX"].extend(cxx_flags)
 
     return {
-        "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
-        "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
-        "CXXFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("CXX", default_flags.get("CXX", []))))),
+        "ASPPFLAGS": sorted(app_flags.get("ASM", default_flags.get("ASM"))),
+        "CFLAGS": sorted(app_flags.get("C", default_flags.get("C"))),
+        "CXXFLAGS": sorted(app_flags.get("CXX", default_flags.get("CXX"))),
     }
 
 
