@@ -681,7 +681,7 @@ def extract_link_args(target_config):
                 
                 # Compiler-Optimierung aus sdkconfig
                 if sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE"):
-                    riscv_bootloader_flags.append("-Os")
+                    riscv_bootloader_flags.append("-Oz")
                 elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG"):
                     riscv_bootloader_flags.append("-Og")
                 elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF"):
