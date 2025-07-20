@@ -670,7 +670,7 @@ def extract_link_args(target_config):
             if os.path.exists(lib_path):
                 _add_to_libpath(lib_path, link_args)
         
-        # Bootloader-spezifische Behandlung
+        # Bootloader-spezifische Behandlung - NUR Flags und Pfade, KEINE Bibliotheks-Suche
         if target_config.get("name", "").endswith("bootloader.elf"):
             clang_bootloader_flags = []
             
@@ -689,45 +689,10 @@ def extract_link_args(target_config):
             
             link_args["LINKFLAGS"].extend(clang_bootloader_flags)
             
-            # ERWEITERTE Bootloader-Bibliotheks-Behandlung
+            # Vorbereitung der Bibliothekspfade (für späteren Build)
             bootloader_base_path = os.path.join(BUILD_DIR, "bootloader", "esp-idf")
             
-            # Kritische Bootloader-Bibliotheken mit expliziter Suche
-            critical_bootloader_libs = [
-                "libbootloader_support.a",  # bootloader_init, bootloader_reset, bootloader_utility_*
-                "liblog.a",                 # esp_log_timestamp
-                "libspi_flash.a",           # Flash-Operationen
-                "libhal.a",                 # Hardware Abstraction Layer
-                "libesp_app_format.a",      # App-Format-Handling
-                "libesp_partition.a",       # Partition-Management
-                "libesp_common.a",          # Gemeinsame ESP-Funktionen
-                "libesp_hw_support.a",      # Hardware-Support
-                "libesp_system.a",          # System-Funktionen
-                "libnewlib.a",              # C-Library-Support
-            ]
-            
-            # Architektur-spezifische Bibliotheken
-            if is_riscv:
-                critical_bootloader_libs.append("libriscv.a")
-            elif is_xtensa:
-                critical_bootloader_libs.append("libxtensa.a")
-            
-            # Durchsuche alle Unterverzeichnisse nach den kritischen Bibliotheken
-            found_libs = []
-            for root, dirs, files in os.walk(bootloader_base_path):
-                for lib_name in critical_bootloader_libs:
-                    if lib_name in files:
-                        lib_path = os.path.join(root, lib_name)
-                        _add_archive(lib_path, link_args)
-                        found_libs.append(lib_name)
-            
-            # Debug-Ausgabe für fehlende Bibliotheken
-            missing_libs = [lib for lib in critical_bootloader_libs if lib not in found_libs]
-            if missing_libs:
-                print(f"Warning: Missing critical bootloader libraries: {missing_libs}")
-            
-            # Zusätzliche Bibliothekspfade hinzufügen
-            additional_bootloader_paths = [
+            potential_bootloader_paths = [
                 os.path.join(bootloader_base_path, "bootloader_support"),
                 os.path.join(bootloader_base_path, "log"),
                 os.path.join(bootloader_base_path, "spi_flash"),
@@ -739,13 +704,13 @@ def extract_link_args(target_config):
             
             # Architektur-spezifische Pfade
             if is_riscv:
-                additional_bootloader_paths.append(os.path.join(bootloader_base_path, "riscv"))
+                potential_bootloader_paths.append(os.path.join(bootloader_base_path, "riscv"))
             elif is_xtensa:
-                additional_bootloader_paths.append(os.path.join(bootloader_base_path, "xtensa"))
+                potential_bootloader_paths.append(os.path.join(bootloader_base_path, "xtensa"))
             
-            for lib_path in additional_bootloader_paths:
-                if os.path.exists(lib_path):
-                    _add_to_libpath(lib_path, link_args)
+            # Füge Bibliothekspfade hinzu (SCons wird später die Bibliotheken finden)
+            for lib_path in potential_bootloader_paths:
+                _add_to_libpath(lib_path, link_args)
         
         # Nur wesentliche Clang-Flags
         if "-fno-lto" not in link_args["LINKFLAGS"]:
@@ -757,7 +722,6 @@ def extract_link_args(target_config):
                 link_args["LINKFLAGS"].append("-rtlib=libgcc")
     
     return link_args
-
 
 def filter_args(args, allowed, ignore=None):
     if not allowed:
