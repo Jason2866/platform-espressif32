@@ -845,22 +845,9 @@ def get_app_flags(app_config, default_config):
                 fragment = ccfragment.get("fragment", "").strip("\" ")
                 if not fragment or fragment.startswith("-D"):
                     continue
-                # Flag-Bereinigung bereits bei der Extraktion
-                fragment_args = click.parser.split_arg_string(fragment.strip())
-                cleaned_args = []
-                for arg in fragment_args:
-                    if arg == "--longcalls":
-                        cleaned_args.append("-mlongcalls")
-                    elif "--longcalls" in arg:
-                        cleaned_args.append(arg.replace("--longcalls", "-mlongcalls"))
-                    elif arg == "-Os":
-                        # Ersetze -Os durch -Oz für Clang
-                        cleaned_args.append("-Oz")
-                    elif arg.startswith("-mcpu=esp32"):
-                        continue
-                    else:
-                        cleaned_args.append(arg)
-                flags[cg["language"]].extend(cleaned_args)
+                flags[cg["language"]].extend(
+                    click.parser.split_arg_string(fragment.strip())
+                )
         return flags
 
     app_flags = _extract_flags(app_config)
