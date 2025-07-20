@@ -907,6 +907,7 @@ def get_app_flags(app_config, default_config):
     # CLANG-SPEZIFISCHE FLAGS basierend auf ESP-IDF CMake und sdkconfig
     if "clang" in env.subst("$CC").lower():
         sdk_config = get_sdk_configuration()
+        is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
         
         # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
         clang_warning_flags = [
@@ -966,8 +967,21 @@ def get_app_flags(app_config, default_config):
         if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
             common_clang_flags.append("-fasynchronous-unwind-tables")
         
+        # Architektur-spezifische Flags basierend auf sdkconfig
+        arch_specific_flags = []
+        if is_riscv:
+            arch_specific_flags = [
+                "-march=rv32imc", 
+                "-mabi=ilp32", 
+                "-mno-relax"
+            ]
+        else:  # Xtensa
+            arch_specific_flags = [
+                "-mlongcalls"
+            ]
+        
         # Füge Flags zu allen Sprachen hinzu
-        all_flags = clang_warning_flags + optimization_flags + common_clang_flags
+        all_flags = clang_warning_flags + optimization_flags + common_clang_flags + arch_specific_flags
         
         for lang in ["C", "CXX", "ASM"]:
             if lang not in app_flags:
