@@ -644,6 +644,7 @@ def extract_link_args(target_config):
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
 
     if "clang" in env.subst("$CC").lower():
+        # sdkconfig-basierte Architektur-Detection
         sdk_config = get_sdk_configuration()
         is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
         is_xtensa = sdk_config.get("CONFIG_IDF_TARGET_ARCH_XTENSA", False)
@@ -671,8 +672,10 @@ def extract_link_args(target_config):
         
         # Bootloader-spezifische Behandlung
         if target_config.get("name", "").endswith("bootloader.elf"):
+            # Architektur-unabhängige Clang Compiler-Optimierung aus sdkconfig
             clang_bootloader_flags = []
-
+            
+            # Compiler-Optimierung aus sdkconfig - für alle Architekturen
             if sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE"):
                 clang_bootloader_flags.append("-Oz")
             elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG"):
@@ -681,14 +684,17 @@ def extract_link_args(target_config):
                 clang_bootloader_flags.append("-O2")
             elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE"):
                 clang_bootloader_flags.append("-O0")
-
+            
+            # Architektur-spezifische Flags
             if is_riscv:
+                # RISC-V spezifische Bootloader-Flags
                 clang_bootloader_flags.extend([
                     "-march=rv32imc", 
                     "-mabi=ilp32",
                     "-fno-lto"
                 ])
             elif is_xtensa:
+                # Xtensa spezifische Bootloader-Flags
                 clang_bootloader_flags.extend([
                     "-mlongcalls",
                     "-fno-lto"
@@ -696,29 +702,61 @@ def extract_link_args(target_config):
             
             link_args["LINKFLAGS"].extend(clang_bootloader_flags)
             
-            # Bootloader-spezifische Bibliothekspfade für beide Architekturen
-            bootloader_lib_paths = [
-                os.path.join(BUILD_DIR, "bootloader", "esp-idf", "bootloader_support"),
-                os.path.join(BUILD_DIR, "bootloader", "esp-idf", "spi_flash"),
-                os.path.join(BUILD_DIR, "bootloader", "esp-idf", "hal"),
-                os.path.join(BUILD_DIR, "bootloader", "esp-idf", "log"),
-                os.path.join(BUILD_DIR, "bootloader", "esp-idf", "esp_app_format"),
-                os.path.join(BUILD_DIR, "bootloader", "esp-idf", "esp_partition"),
+            # ERWEITERTE Bootloader-Bibliotheks-Behandlung
+            bootloader_base_path = os.path.join(BUILD_DIR, "bootloader", "esp-idf")
+            
+            # Kritische Bootloader-Bibliotheken mit expliziter Suche
+            critical_bootloader_libs = [
+                "libbootloader_support.a",  # bootloader_init, bootloader_reset, bootloader_utility_*
+                "liblog.a",                 # esp_log_timestamp
+                "libspi_flash.a",           # Flash-Operationen
+                "libhal.a",                 # Hardware Abstraction Layer
+                "libesp_app_format.a",      # App-Format-Handling
+                "libesp_partition.a",       # Partition-Management
+                "libesp_common.a",          # Gemeinsame ESP-Funktionen
+                "libesp_hw_support.a",      # Hardware-Support
+                "libesp_system.a",          # System-Funktionen
+                "libnewlib.a",              # C-Library-Support
             ]
             
-            # Architektur-spezifische Bootloader-Bibliothekspfade
+            # Architektur-spezifische Bibliotheken
             if is_riscv:
-                bootloader_lib_paths.extend([
-                    os.path.join(BUILD_DIR, "bootloader", "esp-idf", "riscv"),
-                    os.path.join(BUILD_DIR, "bootloader", "esp-idf", "esp_hw_support"),
-                ])
+                critical_bootloader_libs.append("libriscv.a")
             elif is_xtensa:
-                bootloader_lib_paths.extend([
-                    os.path.join(BUILD_DIR, "bootloader", "esp-idf", "xtensa"),
-                ])
+                critical_bootloader_libs.append("libxtensa.a")
             
-            # Füge existierende Bootloader-Bibliothekspfade hinzu
-            for lib_path in bootloader_lib_paths:
+            # Durchsuche alle Unterverzeichnisse nach den kritischen Bibliotheken
+            found_libs = []
+            for root, dirs, files in os.walk(bootloader_base_path):
+                for lib_name in critical_bootloader_libs:
+                    if lib_name in files:
+                        lib_path = os.path.join(root, lib_name)
+                        _add_archive(lib_path, link_args)
+                        found_libs.append(lib_name)
+            
+            # Debug-Ausgabe für fehlende Bibliotheken
+            missing_libs = [lib for lib in critical_bootloader_libs if lib not in found_libs]
+            if missing_libs:
+                print(f"Warning: Missing critical bootloader libraries: {missing_libs}")
+            
+            # Zusätzliche Bibliothekspfade hinzufügen
+            additional_bootloader_paths = [
+                os.path.join(bootloader_base_path, "bootloader_support"),
+                os.path.join(bootloader_base_path, "log"),
+                os.path.join(bootloader_base_path, "spi_flash"),
+                os.path.join(bootloader_base_path, "hal"),
+                os.path.join(bootloader_base_path, "esp_common"),
+                os.path.join(bootloader_base_path, "esp_hw_support"),
+                os.path.join(bootloader_base_path, "newlib"),
+            ]
+            
+            # Architektur-spezifische Pfade
+            if is_riscv:
+                additional_bootloader_paths.append(os.path.join(bootloader_base_path, "riscv"))
+            elif is_xtensa:
+                additional_bootloader_paths.append(os.path.join(bootloader_base_path, "xtensa"))
+            
+            for lib_path in additional_bootloader_paths:
                 if os.path.exists(lib_path):
                     _add_to_libpath(lib_path, link_args)
         
@@ -727,15 +765,11 @@ def extract_link_args(target_config):
             link_args["LINKFLAGS"].append("-fno-lto")
             
         # Architektur-spezifische rtlib-Behandlung
-        if is_riscv:
-            if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
-                link_args["LINKFLAGS"].append("-rtlib=libgcc")
-        elif is_xtensa:
+        if is_riscv or is_xtensa:
             if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
                 link_args["LINKFLAGS"].append("-rtlib=libgcc")
     
     return link_args
-
 
 def filter_args(args, allowed, ignore=None):
     if not allowed:
