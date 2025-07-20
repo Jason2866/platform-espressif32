@@ -613,87 +613,50 @@ def extract_link_args(target_config):
 
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
 
-    print("=== PROCESSING CMAKE COMMAND FRAGMENTS ===")
-    fragment_counter = 0
-    
     for f in target_config.get("link", {}).get("commandFragments", []):
         fragment = f.get("fragment", "").strip()
         fragment_role = f.get("role", "").strip()
-        fragment_counter += 1
-        
-        print(f"Fragment {fragment_counter}: Role='{fragment_role}', Content='{fragment}'")
-        
         if not fragment or not fragment_role:
             continue
-            
         args = click.parser.split_arg_string(fragment)
-        print(f"  Parsed args: {args}")
-        
         if fragment_role == "flags":
+            # WICHTIG: Für Clang nur problematische GCC-Flags filtern, nicht alle
             if "clang" in env.subst("$CC").lower():
-                original_args = args[:]
                 args = fix_clang_linkflags(args)
-                if original_args != args:
-                    print(f"  CLANG CONVERSION: {original_args} -> {args}")
             link_args["LINKFLAGS"].extend(args)
-            print(f"  Added to LINKFLAGS: {args}")
-            
         elif fragment_role in ("libraries", "libraryPath"):
             if fragment.startswith("-l"):
                 link_args["LIBS"].extend(args)
-                print(f"  Added to LIBS: {args}")
             elif fragment.startswith("-L"):
                 lib_path = fragment.replace("-L", "").strip(" '\"")
                 _add_to_libpath(lib_path, link_args)
-                print(f"  Added to LIBPATH: {lib_path}")
             elif fragment.startswith("-") and not fragment.startswith("-l"):
+                # CMake mistakenly marks LINKFLAGS as libraries
+                link_args["LINKFLAGS"].extend(args)
+            elif fragment.endswith(".a"):
+                # KRITISCHE ERGÄNZUNG: Exakt wie GCC-Original
                 archive_path = fragment
-                print(f"  Processing archive: {archive_path}")
+                # process static archives
                 if os.path.isabs(archive_path):
+                    # In case of precompiled archives
                     _add_archive(archive_path, link_args)
-                    print(f"    Added absolute archive: {archive_path}")
                 else:
+                    # In case of archives within project
                     if archive_path.startswith(".."):
-                        full_path = os.path.normpath(os.path.join(BUILD_DIR, archive_path))
-                        _add_archive(full_path, link_args)
-                        print(f"    Added relative archive: {full_path}")
+                        # Precompiled archives from project component
+                        _add_archive(
+                            os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
+                            link_args,
+                        )
                     else:
+                        # Internally built libraries used for dependency resolution
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
-                        print(f"    Added to __LIB_DEPS: {os.path.basename(archive_path)}")
-            else:
-                # NEUE ERGÄNZUNG: Relative Bibliothekspfade verarbeiten
-                print(f"  Processing relative library paths: {args}")
-                for arg in args:
-                    if arg.endswith('.a'):
-                        # Relative Archive-Pfade zu absoluten Pfaden konvertieren
-                        if not os.path.isabs(arg):
-                            full_path = os.path.join(BUILD_DIR, arg)
-                        else:
-                            full_path = arg
-                        _add_archive(full_path, link_args)
-                        print(f"    Added relative archive: {arg} -> {full_path}")
-                    elif arg.startswith('-u'):
-                        # Undefined symbols werden zur __LIB_DEPS hinzugefügt
-                        link_args["__LIB_DEPS"].append(arg)
-                        print(f"    Added undefined symbol to __LIB_DEPS: {arg}")
-                    else:
-                        print(f"    Unprocessed library arg: {arg}")
-
-    print(f"=== TOTAL FRAGMENTS PROCESSED: {fragment_counter} ===")
-    print(f"PARTIAL LINKFLAGS: {len(link_args['LINKFLAGS'])} items")
-    print(f"PARTIAL LIBS: {len(link_args['LIBS'])} items")  
-    print(f"PARTIAL LIBPATH: {len(link_args['LIBPATH'])} items")
-    print(f"PARTIAL __LIB_DEPS: {len(link_args['__LIB_DEPS'])} items")
 
     if "clang" in env.subst("$CC").lower():
-        print("=== STARTING CLANG-SPECIFIC PROCESSING ===")
-        
         # sdkconfig-basierte Architektur-Detection
         sdk_config = get_sdk_configuration()
         is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
         is_xtensa = sdk_config.get("CONFIG_IDF_TARGET_ARCH_XTENSA", False)
-        
-        print(f"Architecture detection: RISC-V={is_riscv}, Xtensa={is_xtensa}")
         
         # Architektur-spezifische Clang Runtime-Library-Pfade
         if is_riscv:
@@ -701,34 +664,23 @@ def extract_link_args(target_config):
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "riscv32-esp-unknown-elf"),
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
             ]
-            print("Using RISC-V runtime paths")
         elif is_xtensa:
             clang_runtime_paths = [
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf"),
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
             ]
-            print("Using Xtensa runtime paths")
         else:
             # Fallback für unbekannte Architekturen
             clang_runtime_paths = [
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
             ]
-            print("Using fallback runtime paths")
         
         for lib_path in clang_runtime_paths:
             if os.path.exists(lib_path):
                 _add_to_libpath(lib_path, link_args)
-                print(f"Added runtime path: {lib_path}")
-            else:
-                print(f"Runtime path does not exist: {lib_path}")
         
         # Bootloader-spezifische Behandlung
-        target_name = target_config.get("name", "")
-        print(f"Target name: {target_name}")
-        
-        if target_name.endswith("bootloader.elf"):
-            print("=== PROCESSING BOOTLOADER TARGET ===")
-            
+        if target_config.get("name", "").endswith("bootloader.elf"):
             clang_bootloader_flags = []
             
             # Architektur-spezifische Flags
@@ -738,7 +690,6 @@ def extract_link_args(target_config):
                     "-mabi=ilp32",
                     "-fno-lto"
                 ])
-                print("Added RISC-V bootloader flags")
             elif is_xtensa:
                 clang_bootloader_flags.extend([
                     "-mlongcalls",
@@ -753,14 +704,11 @@ def extract_link_args(target_config):
                     "-Wl,--undefined=esp_rom_md5_update",
                     "-Wl,--undefined=esp_rom_md5_final"
                 ])
-                print("Added Xtensa bootloader flags with ROM API")
             
             link_args["LINKFLAGS"].extend(clang_bootloader_flags)
-            print(f"Added {len(clang_bootloader_flags)} bootloader flags")
             
             # Bootloader-Bibliothekspfade vorbereiten
             bootloader_base_path = os.path.join(BUILD_DIR, "bootloader", "esp-idf")
-            print(f"Bootloader base path: {bootloader_base_path}")
             
             potential_bootloader_paths = [
                 os.path.join(bootloader_base_path, "bootloader_support"),
@@ -785,16 +733,8 @@ def extract_link_args(target_config):
                 potential_bootloader_paths.append(os.path.join(bootloader_base_path, "xtensa"))
             
             # Füge Bibliothekspfade hinzu
-            paths_added = 0
             for lib_path in potential_bootloader_paths:
-                if os.path.exists(lib_path):
-                    _add_to_libpath(lib_path, link_args)
-                    print(f"Added bootloader path: {lib_path}")
-                    paths_added += 1
-                else:
-                    print(f"Bootloader path does not exist: {lib_path}")
-            
-            print(f"Added {paths_added} bootloader library paths")
+                _add_to_libpath(lib_path, link_args)
             
             # Vollständige Bootloader-Bibliotheken mit SoC-Support
             essential_bootloader_libs = [
@@ -819,52 +759,19 @@ def extract_link_args(target_config):
             elif is_xtensa:
                 essential_bootloader_libs.append("libxtensa.a")
             
-            print(f"Adding {len(essential_bootloader_libs)} essential bootloader libraries to __LIB_DEPS")
-            
             # Füge zur __LIB_DEPS hinzu
-            libs_added = 0
             for lib_name in essential_bootloader_libs:
                 if lib_name not in link_args["__LIB_DEPS"]:
                     link_args["__LIB_DEPS"].append(lib_name)
-                    print(f"Added to __LIB_DEPS: {lib_name}")
-                    libs_added += 1
-                else:
-                    print(f"Already in __LIB_DEPS: {lib_name}")
-            
-            print(f"Added {libs_added} new libraries to __LIB_DEPS")
-            
-        else:
-            print("=== PROCESSING MAIN FIRMWARE TARGET ===")
         
         # Nur wesentliche Clang-Flags
         if "-fno-lto" not in link_args["LINKFLAGS"]:
             link_args["LINKFLAGS"].append("-fno-lto")
-            print("Added -fno-lto flag")
             
         # Architektur-spezifische rtlib-Behandlung
         if is_riscv or is_xtensa:
             if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
                 link_args["LINKFLAGS"].append("-rtlib=libgcc")
-                print("Added -rtlib=libgcc flag")
-    
-    print("=== FINAL LINK ARGS SUMMARY ===")
-    print(f"FINAL LINKFLAGS: {len(link_args['LINKFLAGS'])} items")
-    for i, flag in enumerate(link_args['LINKFLAGS']):
-        print(f"  LINKFLAG[{i}]: {flag}")
-    
-    print(f"FINAL LIBS: {len(link_args['LIBS'])} items")
-    for i, lib in enumerate(link_args['LIBS']):
-        print(f"  LIB[{i}]: {lib}")
-        
-    print(f"FINAL LIBPATH: {len(link_args['LIBPATH'])} items")
-    for i, path in enumerate(link_args['LIBPATH']):
-        print(f"  LIBPATH[{i}]: {path}")
-        
-    print(f"FINAL __LIB_DEPS: {len(link_args['__LIB_DEPS'])} items")
-    for i, dep in enumerate(link_args['__LIB_DEPS']):
-        print(f"  __LIB_DEP[{i}]: {dep}")
-    
-    print("=== END EXTRACT_LINK_ARGS DEBUG ===")
     
     return link_args
 
