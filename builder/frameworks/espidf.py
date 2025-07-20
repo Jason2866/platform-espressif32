@@ -669,28 +669,33 @@ def extract_link_args(target_config):
             if os.path.exists(lib_path):
                 _add_to_libpath(lib_path, link_args)
         
-        # Bootloader-spezifische Behandlung basierend auf Architektur
+        # Bootloader-spezifische Behandlung
         if target_config.get("name", "").endswith("bootloader.elf"):
+            clang_bootloader_flags = []
+
+            if sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE"):
+                clang_bootloader_flags.append("-Oz")
+            elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG"):
+                clang_bootloader_flags.append("-Og")
+            elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF"):
+                clang_bootloader_flags.append("-O2")
+            elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE"):
+                clang_bootloader_flags.append("-O0")
+
             if is_riscv:
-                # RISC-V Bootloader-Flags aus sdkconfig
-                riscv_bootloader_flags = [
+                clang_bootloader_flags.extend([
                     "-march=rv32imc", 
                     "-mabi=ilp32",
                     "-fno-lto"
-                ]
-                
-                # Compiler-Optimierung aus sdkconfig
-                if sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_SIZE"):
-                    riscv_bootloader_flags.append("-Oz")
-                elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_DEBUG"):
-                    riscv_bootloader_flags.append("-Og")
-                elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_PERF"):
-                    riscv_bootloader_flags.append("-O2")
-                elif sdk_config.get("CONFIG_BOOTLOADER_COMPILER_OPTIMIZATION_NONE"):
-                    riscv_bootloader_flags.append("-O0")
-                
-                link_args["LINKFLAGS"].extend(riscv_bootloader_flags)
-                
+                ])
+            elif is_xtensa:
+                clang_bootloader_flags.extend([
+                    "-mlongcalls",
+                    "-fno-lto"
+                ])
+            
+            link_args["LINKFLAGS"].extend(clang_bootloader_flags)
+            
             # Bootloader-spezifische Bibliothekspfade für beide Architekturen
             bootloader_lib_paths = [
                 os.path.join(BUILD_DIR, "bootloader", "esp-idf", "bootloader_support"),
@@ -723,11 +728,9 @@ def extract_link_args(target_config):
             
         # Architektur-spezifische rtlib-Behandlung
         if is_riscv:
-            # RISC-V spezifische Linker-Behandlung
             if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
                 link_args["LINKFLAGS"].append("-rtlib=libgcc")
         elif is_xtensa:
-            # Xtensa spezifische Linker-Behandlung
             if "-rtlib=libgcc" not in " ".join(link_args["LINKFLAGS"]):
                 link_args["LINKFLAGS"].append("-rtlib=libgcc")
     
