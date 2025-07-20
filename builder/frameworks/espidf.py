@@ -1665,12 +1665,12 @@ finalize_clang_environment()
 # Add a final fix for any remaining -rtlib=gcc flags from ESP-IDF CMake
 def fix_final_linkflags(source, target, env):
     """Final pass to fix any remaining -rtlib=gcc flags before linking"""
-    if env.get("LINKFLAGS"):
-        fixed_flags = fix_clang_linkflags(env["LINKFLAGS"])
-        env.Replace(LINKFLAGS=fixed_flags)
+#    if env.get("LINKFLAGS"):
+#        fixed_flags = fix_clang_linkflags(env["LINKFLAGS"])
+#        env.Replace(LINKFLAGS=fixed_flags)
 
 # Apply the final fix right before the link step
-env.AddPreAction("$BUILD_DIR/firmware.elf", fix_final_linkflags)
+#env.AddPreAction("$BUILD_DIR/firmware.elf", fix_final_linkflags)
 
 
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
