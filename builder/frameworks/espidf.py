@@ -2487,10 +2487,11 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-if "clang" in env.subst("$CC").lower():    
+#if "clang" in env.subst("$CC").lower():    
     # Apply final conversion to all collected link arguments
-    link_args = final_rtlib_fix(link_args)
-    extra_flags = final_rtlib_fix_list(extra_flags)
+#    link_args = final_rtlib_fix(link_args)
+#    extra_flags = final_rtlib_fix_list(extra_flags)
+
 project_flags.update(link_args)
 env.MergeFlags(project_flags)
 env.Prepend(
