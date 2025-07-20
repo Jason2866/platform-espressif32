@@ -684,7 +684,16 @@ def extract_link_args(target_config):
             elif is_xtensa:
                 clang_bootloader_flags.extend([
                     "-mlongcalls",
-                    "-fno-lto"
+                    "-fno-lto",
+                    # ROM-API-spezifische Linker-Flags für Xtensa
+                    "-Wl,--undefined=ets_printf",
+                    "-Wl,--undefined=uart_tx_wait_idle",
+                    "-Wl,--undefined=esp_rom_spiflash_write",
+                    "-Wl,--undefined=esp_rom_spiflash_read",
+                    "-Wl,--undefined=esp_rom_spiflash_erase_sector",
+                    "-Wl,--undefined=esp_rom_md5_init",
+                    "-Wl,--undefined=esp_rom_md5_update",
+                    "-Wl,--undefined=esp_rom_md5_final"
                 ])
             
             link_args["LINKFLAGS"].extend(clang_bootloader_flags)
@@ -700,6 +709,9 @@ def extract_link_args(target_config):
                 os.path.join(bootloader_base_path, "esp_common"),
                 os.path.join(bootloader_base_path, "esp_hw_support"),
                 os.path.join(bootloader_base_path, "newlib"),
+                # ROM-API-spezifische Pfade
+                os.path.join(bootloader_base_path, "esp_rom"),
+                os.path.join(bootloader_base_path, "esp_bootloader_format"),
             ]
             
             # Architektur-spezifische Pfade
@@ -712,7 +724,7 @@ def extract_link_args(target_config):
             for lib_path in potential_bootloader_paths:
                 _add_to_libpath(lib_path, link_args)
             
-            # KORREKTUR: Nutze __LIB_DEPS statt LIBS für Bootloader-Bibliotheken
+            # Erweiterte Bootloader-Bibliotheken mit ROM-API-Support
             essential_bootloader_libs = [
                 "libbootloader_support.a",
                 "liblog.a", 
@@ -720,6 +732,10 @@ def extract_link_args(target_config):
                 "libhal.a",
                 "libesp_common.a",
                 "libesp_hw_support.a",
+                # ROM-API-spezifische Bibliotheken
+                "libesp_rom.a",
+                "libnewlib.a",
+                "libesp_bootloader_format.a",
             ]
             
             # Architektur-spezifische Bibliotheken
@@ -728,7 +744,7 @@ def extract_link_args(target_config):
             elif is_xtensa:
                 essential_bootloader_libs.append("libxtensa.a")
             
-            # Füge zur __LIB_DEPS hinzu (wird von PlatformIO's Build-System verarbeitet)
+            # Füge zur __LIB_DEPS hinzu
             for lib_name in essential_bootloader_libs:
                 if lib_name not in link_args["__LIB_DEPS"]:
                     link_args["__LIB_DEPS"].append(lib_name)
@@ -743,6 +759,7 @@ def extract_link_args(target_config):
                 link_args["LINKFLAGS"].append("-rtlib=libgcc")
     
     return link_args
+
 
 def filter_args(args, allowed, ignore=None):
     if not allowed:
@@ -1045,108 +1062,6 @@ def get_app_flags(app_config, default_config):
         
         app_flags["CXX"].extend(cxx_flags)
 
-    return {
-        "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
-        "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
-        "CXXFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("CXX", default_flags.get("CXX", []))))),
-    }
-
-
-    app_flags = _extract_flags(app_config)
-    default_flags = _extract_flags(default_config)
-    
-    # CLANG-SPEZIFISCHE FLAGS basierend auf ESP-IDF CMake und sdkconfig
-    if "clang" in env.subst("$CC").lower():
-        sdk_config = get_sdk_configuration()
-        is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
-        
-        # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
-        clang_warning_flags = [
-            "-Wno-documentation",
-            "-Wno-typedef-redefinition", 
-            "-Wno-char-subscripts",
-            "-Wno-format-security",
-            "-Wno-tautological-overlap-compare",
-            "-Wno-tautological-pointer-compare",
-            "-Wno-pointer-bool-conversion",
-            "-Wno-string-concatenation",
-            "-Wno-enum-conversion",
-            "-Wno-section",
-            "-Wno-unknown-attributes",
-            "-Wno-atomic-alignment",
-            "-Wno-unused-but-set-variable",
-            "-Wno-unused-function",
-            "-Wno-gnu-variable-sized-type-not-at-end",
-            "-Wno-constant-logical-operand",
-            "-Wno-c2x-extensions",
-            "-Wno-extern-c-compat",
-            "-Wno-single-bit-bitfield-constant-conversion"
-        ]
-        
-        # Weitere wichtige Clang-Flags
-        common_clang_flags = [
-            "-fno-common",  # Wichtig für Symbol-Resolution
-            "-fno-jump-tables",  # ESP-IDF Standard
-        ]
-        
-        # Stack Protection basierend auf sdkconfig
-        if sdk_config.get("COMPILER_STACK_CHECK_MODE_NORM"):
-            common_clang_flags.append("-fstack-protector")
-        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_STRONG"):
-            common_clang_flags.append("-fstack-protector-strong")
-        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_ALL"):
-            common_clang_flags.append("-fstack-protector-all")
-        
-        # Frame Pointer basierend auf sdkconfig
-        if sdk_config.get("ESP_SYSTEM_USE_FRAME_POINTER"):
-            common_clang_flags.append("-fno-omit-frame-pointer")
-        
-        # Exception Handling basierend auf sdkconfig
-        if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
-            common_clang_flags.append("-fasynchronous-unwind-tables")
-        
-        # Architektur-spezifische Flags - getrennt für C/C++ und ASM
-        if is_riscv:
-            c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
-            asm_flags = ["-march=rv32imc", "-mabi=ilp32"]  # Ohne -mno-relax für ASM
-        else:  # Xtensa
-            c_cxx_flags = ["-mlongcalls"]
-            asm_flags = []  # KEIN -mlongcalls für Assembly um Warnungen zu vermeiden
-        
-        # Füge Flags sprachspezifisch hinzu
-        for lang in ["C", "CXX"]:
-            if lang not in app_flags:
-                app_flags[lang] = []
-            app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
-        
-        # Assembly bekommt separate Behandlung ohne problematische Flags
-        if "ASM" not in app_flags:
-            app_flags["ASM"] = []
-        app_flags["ASM"].extend(asm_flags)  # Nur minimale ASM-Flags
-            
-        # C++-spezifische Clang-Flags
-        if "CXX" not in app_flags:
-            app_flags["CXX"] = []
-            
-        cxx_flags = [
-            "-fno-use-cxa-atexit",  # Clang-spezifisch für C++ Runtime
-        ]
-        
-        # C++ Exceptions aus sdkconfig
-        if sdk_config.get("COMPILER_CXX_EXCEPTIONS"):
-            cxx_flags.append("-fexceptions")
-        else:
-            cxx_flags.append("-fno-exceptions")
-            
-        # C++ RTTI aus sdkconfig
-        if sdk_config.get("COMPILER_CXX_RTTI"):
-            cxx_flags.append("-frtti")
-        else:
-            cxx_flags.append("-fno-rtti")
-        
-        app_flags["CXX"].extend(cxx_flags)
-
-    # Bereinige alle Flags vor der Rückgabe
     return {
         "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
         "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
