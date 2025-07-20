@@ -670,7 +670,7 @@ def extract_link_args(target_config):
             if os.path.exists(lib_path):
                 _add_to_libpath(lib_path, link_args)
         
-        # Bootloader-spezifische Behandlung - NUR Flags und Pfade, KEINE Bibliotheks-Suche
+        # Bootloader-spezifische Behandlung
         if target_config.get("name", "").endswith("bootloader.elf"):
             clang_bootloader_flags = []
             
@@ -689,7 +689,7 @@ def extract_link_args(target_config):
             
             link_args["LINKFLAGS"].extend(clang_bootloader_flags)
             
-            # Vorbereitung der Bibliothekspfade (für späteren Build)
+            # Bootloader-Bibliothekspfade vorbereiten
             bootloader_base_path = os.path.join(BUILD_DIR, "bootloader", "esp-idf")
             
             potential_bootloader_paths = [
@@ -708,9 +708,30 @@ def extract_link_args(target_config):
             elif is_xtensa:
                 potential_bootloader_paths.append(os.path.join(bootloader_base_path, "xtensa"))
             
-            # Füge Bibliothekspfade hinzu (SCons wird später die Bibliotheken finden)
+            # Füge Bibliothekspfade hinzu
             for lib_path in potential_bootloader_paths:
                 _add_to_libpath(lib_path, link_args)
+            
+            # KORREKTUR: Nutze __LIB_DEPS statt LIBS für Bootloader-Bibliotheken
+            essential_bootloader_libs = [
+                "libbootloader_support.a",
+                "liblog.a", 
+                "libspi_flash.a",
+                "libhal.a",
+                "libesp_common.a",
+                "libesp_hw_support.a",
+            ]
+            
+            # Architektur-spezifische Bibliotheken
+            if is_riscv:
+                essential_bootloader_libs.append("libriscv.a")
+            elif is_xtensa:
+                essential_bootloader_libs.append("libxtensa.a")
+            
+            # Füge zur __LIB_DEPS hinzu (wird von PlatformIO's Build-System verarbeitet)
+            for lib_name in essential_bootloader_libs:
+                if lib_name not in link_args["__LIB_DEPS"]:
+                    link_args["__LIB_DEPS"].append(lib_name)
         
         # Nur wesentliche Clang-Flags
         if "-fno-lto" not in link_args["LINKFLAGS"]:
@@ -929,6 +950,107 @@ def get_app_flags(app_config, default_config):
                         cleaned_args.append(arg)
                 flags[cg["language"]].extend(cleaned_args)
         return flags
+
+    app_flags = _extract_flags(app_config)
+    default_flags = _extract_flags(default_config)
+    
+    # CLANG-SPEZIFISCHE FLAGS basierend auf ESP-IDF CMake und sdkconfig
+    if "clang" in env.subst("$CC").lower():
+        sdk_config = get_sdk_configuration()
+        is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
+        
+        # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
+        clang_warning_flags = [
+            "-Wno-documentation",
+            "-Wno-typedef-redefinition", 
+            "-Wno-char-subscripts",
+            "-Wno-format-security",
+            "-Wno-tautological-overlap-compare",
+            "-Wno-tautological-pointer-compare",
+            "-Wno-pointer-bool-conversion",
+            "-Wno-string-concatenation",
+            "-Wno-enum-conversion",
+            "-Wno-section",
+            "-Wno-unknown-attributes",
+            "-Wno-atomic-alignment",
+            "-Wno-unused-but-set-variable",
+            "-Wno-unused-function",
+            "-Wno-gnu-variable-sized-type-not-at-end",
+            "-Wno-constant-logical-operand",
+            "-Wno-c2x-extensions",
+            "-Wno-extern-c-compat",
+            "-Wno-single-bit-bitfield-constant-conversion"
+        ]
+        
+        # Weitere wichtige Clang-Flags
+        common_clang_flags = [
+            "-fno-common",
+            "-fno-jump-tables",
+        ]
+        
+        # Stack Protection basierend auf sdkconfig
+        if sdk_config.get("COMPILER_STACK_CHECK_MODE_NORM"):
+            common_clang_flags.append("-fstack-protector")
+        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_STRONG"):
+            common_clang_flags.append("-fstack-protector-strong")
+        elif sdk_config.get("COMPILER_STACK_CHECK_MODE_ALL"):
+            common_clang_flags.append("-fstack-protector-all")
+        
+        # Frame Pointer basierend auf sdkconfig
+        if sdk_config.get("ESP_SYSTEM_USE_FRAME_POINTER"):
+            common_clang_flags.append("-fno-omit-frame-pointer")
+        
+        # Exception Handling basierend auf sdkconfig
+        if sdk_config.get("ESP_SYSTEM_USE_EH_FRAME"):
+            common_clang_flags.append("-fasynchronous-unwind-tables")
+        
+        # Architektur-spezifische Flags - getrennt für C/C++ und ASM
+        if is_riscv:
+            c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
+            asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
+        else:  # Xtensa
+            c_cxx_flags = ["-mlongcalls"]
+            asm_flags = []  # KEIN -mlongcalls für Assembly
+        
+        # Sprachspezifische Flag-Anwendung
+        for lang in ["C", "CXX"]:
+            if lang not in app_flags:
+                app_flags[lang] = []
+            app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
+        
+        # Assembly separate Behandlung
+        if "ASM" not in app_flags:
+            app_flags["ASM"] = []
+        app_flags["ASM"].extend(asm_flags)
+            
+        # C++-spezifische Clang-Flags
+        if "CXX" not in app_flags:
+            app_flags["CXX"] = []
+            
+        cxx_flags = [
+            "-fno-use-cxa-atexit",
+        ]
+        
+        # C++ Exceptions aus sdkconfig
+        if sdk_config.get("COMPILER_CXX_EXCEPTIONS"):
+            cxx_flags.append("-fexceptions")
+        else:
+            cxx_flags.append("-fno-exceptions")
+            
+        # C++ RTTI aus sdkconfig
+        if sdk_config.get("COMPILER_CXX_RTTI"):
+            cxx_flags.append("-frtti")
+        else:
+            cxx_flags.append("-fno-rtti")
+        
+        app_flags["CXX"].extend(cxx_flags)
+
+    return {
+        "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
+        "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
+        "CXXFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("CXX", default_flags.get("CXX", []))))),
+    }
+
 
     app_flags = _extract_flags(app_config)
     default_flags = _extract_flags(default_config)
