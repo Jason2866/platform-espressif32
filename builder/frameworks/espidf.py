@@ -792,10 +792,11 @@ def filter_args(args, allowed, ignore=None):
 
 
 def remove_duplicate_flags(flags):
-    """Remove duplicate and architecture specific flags"""
+    """Remove duplicate flags und architektur-spezifische problematische flags"""
     if not flags:
         return []
-
+    
+    # Architektur-Detection aus sdkconfig
     sdk_config = get_sdk_configuration()
     is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
     
@@ -810,41 +811,57 @@ def remove_duplicate_flags(flags):
             
         flag_str = str(flag).strip()
         
-        # Spezielle Behandlung für GCC-problematische Flags
+        # ERWEITERTE GCC-zu-Clang Flag-Bereinigung für Assembler
         if flag_str == "-Xassembler" and i + 1 < len(flags):
             next_flag = str(flags[i + 1]).strip()
             if next_flag in ["-ffunction-sections", "-fdata-sections", "--longcalls"]:
                 skip_next = True
                 continue
         elif flag_str.startswith("-d ") or flag_str == "-d":
-            # Entferne -d (allein) oder -d gefolgt von Leerzeichen und anderen Argumenten
-            # ABER behalte -DDEBUG, -dynamic, etc. (die starten mit -d aber haben kein Leerzeichen)
             continue
         elif flag_str.startswith("-mcpu=esp32"):
-            # WICHTIG: Entferne -mcpu=esp32* (nicht von Clang unterstützt)
             continue
         elif flag_str == "--longcalls":
-            continue  
+            # KRITISCH: Alle Varianten von --longcalls entfernen
+            continue
+        elif flag_str.startswith("--longcalls"):
+            # Zusätzlich: Alle --longcalls* Varianten
+            continue
         elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
+            continue
+        
+        # NEUE ERGÄNZUNG: Spezielle Assembler-Flag-Bereinigung
+        # Entferne problematische Assembler-spezifische GCC-Flags
+        if any(gcc_flag in flag_str for gcc_flag in [
+            "--longcalls",           # GCC longcalls
+            "-Wa,--longcalls",       # Assembler longcalls
+            "-Xassembler,--longcalls"  # Explizit an Assembler weitergegebene longcalls
+        ]):
             continue
         
         # Architektur-spezifische Flag-Bereinigung basierend auf sdkconfig
         if is_riscv:
             # Entferne Xtensa-spezifische Flags für RISC-V
-            if any(x in flag_str for x in ["-mlongcalls", "-mcpu=esp32", "xtensa"]):
+            if any(x in flag_str for x in ["-mlongcalls", "-mcpu=esp32", "xtensa", "--longcalls"]):
                 continue
         else:  # Xtensa
             # Entferne RISC-V-spezifische Flags für Xtensa
             if any(x in flag_str for x in ["-march=rv", "-mabi=ilp", "riscv", "-mno-relax"]):
                 continue
+            # WICHTIG: Für Xtensa --longcalls durch -mlongcalls ersetzen
+            if "--longcalls" in flag_str:
+                # Ersetze --longcalls durch -mlongcalls für Xtensa
+                if flag_str == "--longcalls":
+                    flag_str = "-mlongcalls"
+                else:
+                    flag_str = flag_str.replace("--longcalls", "-mlongcalls")
         
         # Normale Duplikat-Entfernung
         if flag_str not in seen:
             seen.add(flag_str)
-            result.append(flag)
+            result.append(flag_str)  # Verwende flag_str statt flag für konsistente String-Behandlung
     
     return result
-
 
 def fix_clang_linkflags(linkflags):
     """Convert GCC linker flags to Clang compatible flags"""
