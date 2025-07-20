@@ -829,10 +829,11 @@ def remove_duplicate_flags(flags):
         elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
             continue
         
-        # NEUE ERGÄNZUNG: Spezielle Assembler-Flag-Bereinigung
+        # Assembler-Flag-Bereinigung
         # Entferne problematische Assembler-spezifische GCC-Flags
         if any(gcc_flag in flag_str for gcc_flag in [
             "--longcalls",
+            "-mlongcalls",
             "-Wa,--longcalls",
             "-Xassembler,--longcalls"
         ]):
