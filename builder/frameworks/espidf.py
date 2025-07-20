@@ -755,9 +755,12 @@ def filter_args(args, allowed, ignore=None):
 
 
 def remove_duplicate_flags(flags):
-    """Remove duplicate flags and GCC-specific problematic flags"""
+    """Remove duplicate and architecture specific flags"""
     if not flags:
         return []
+
+    sdk_config = get_sdk_configuration()
+    is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
     
     seen = set()
     result = []
@@ -787,6 +790,16 @@ def remove_duplicate_flags(flags):
             continue  
         elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
             continue
+        
+        # Architektur-spezifische Flag-Bereinigung basierend auf sdkconfig
+        if is_riscv:
+            # Entferne Xtensa-spezifische Flags für RISC-V
+            if any(x in flag_str for x in ["-mlongcalls", "-mcpu=esp32", "xtensa"]):
+                continue
+        else:  # Xtensa
+            # Entferne RISC-V-spezifische Flags für Xtensa
+            if any(x in flag_str for x in ["-march=rv", "-mabi=ilp", "riscv", "-mno-relax"]):
+                continue
         
         # Normale Duplikat-Entfernung
         if flag_str not in seen:
