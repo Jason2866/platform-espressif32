@@ -1385,13 +1385,12 @@ def finalize_clang_environment():
     # KRITISCH: MCU-spezifische Header-Pfade
     cpp_header_paths = []
     
-    # MCU-spezifische C++ Header-Pfade (KRITISCH für bits/c++config.h)
+    # MCU-spezifische C++ Header-Pfade
     potential_header_paths = [
         # Clang libc++ Headers (primär)
         os.path.join(TOOLCHAIN_DIR, "include", "llvm-c"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "include"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch),
-        
         # System Headers (sekundär)
         os.path.join(TOOLCHAIN_DIR, target_arch, "include"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include"),
@@ -1399,12 +1398,10 @@ def finalize_clang_environment():
     ]
     
     # Füge Architecture-spezifische C++ Header-Pfade hinzu
-    # Diese sind essentiell für C++ Standard Library Headers
     for variant in arch_variants:
         variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
         if os.path.exists(variant_path):
             potential_header_paths.append(variant_path)
-            #print(f"Found architecture-specific C++ headers for {variant}: {variant_path}")
     
     # Füge auch den allgemeinen C++ Include-Pfad hinzu falls vorhanden
     general_cpp_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
@@ -1415,16 +1412,13 @@ def finalize_clang_environment():
     for header_path in potential_header_paths:
         if os.path.exists(header_path):
             cpp_header_paths.append(header_path)
-            #print(f"Found C++ headers: {header_path}")
     
     if cpp_header_paths:
-        # Wichtig: System-Includes verwenden für Standard-Headers
+        # System-Includes verwenden für Standard-Headers
         env.Append(CPPPATH=cpp_header_paths)
-        # Zusätzlich: System-Include-Flags für bessere Kompatibilität
+        # System-Include-Flags für bessere Kompatibilität
         for path in cpp_header_paths:
             env.Append(CCFLAGS=[f"-isystem{path}"])
-        #print(f"Added {len(cpp_header_paths)} C++ header paths with system includes")
-        
     
     # MCU-spezifische Library-Pfade (alle verfügbaren Varianten)
     standard_lib_paths = [
@@ -1438,37 +1432,25 @@ def finalize_clang_environment():
         variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
         if os.path.exists(variant_lib_path):
             standard_lib_paths.append(variant_lib_path)
-            #print(f"Found architecture-specific library path for {variant}: {variant_lib_path}")
     
     # Füge alle gefundenen Library-Pfade hinzu
     for lib_path in standard_lib_paths:
         if os.path.exists(lib_path):
             env.Append(LIBPATH=[lib_path])
-            #print(f"Added Clang runtime library path: {lib_path}")
-        
-    # Prüfe verfügbare Standard-Libraries im Toolchain
-    toolchain_lib_paths = [
-        os.path.join(TOOLCHAIN_DIR, target_arch, "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib"),
-    ]
     
-    # ESP-IDF-konforme Standard Clang-Linker-Flags (vereinfacht)
+    # ESP-IDF-konforme Standard Clang-Linker-Flags
     linker_flags = [
-        "-Wl,--gc-sections",           # Standard Garbage Collection
-        "-Wl,--warn-common",           # Warn über Common Symbols
-        "-Wl,--allow-multiple-definition",  # Schon früher hinzugefügt
+        "-Wl,--gc-sections",
+        "-Wl,--warn-common",
+        "-Wl,--allow-multiple-definition",
     ]
-    
     esp32_basic_linker_options = [
-        "-Wl,--start-group",  # Gruppiere Libraries für zirkuläre Abhängigkeiten
+        "-Wl,--start-group",
         "-Wl,--end-group",
     ]
-    
     linker_flags.extend(esp32_basic_linker_options)
 
     env.Append(LINKFLAGS=linker_flags)
-    #print(f"Clang environment finalized for {mcu} ({target_arch})")
 
 finalize_clang_environment()
 
