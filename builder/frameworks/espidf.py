@@ -613,40 +613,95 @@ def extract_link_args(target_config):
 
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
 
-    for f in target_config.get("link", {}).get("commandFragments", []):
-        fragment = f.get("fragment", "").strip()
-        fragment_role = f.get("role", "").strip()
-        if not fragment or not fragment_role:
-            continue
-        args = click.parser.split_arg_string(fragment)
-        if fragment_role == "flags":
-            link_args["LINKFLAGS"].extend(args)
-        elif fragment_role in ("libraries", "libraryPath"):
-            if fragment.startswith("-l"):
-                link_args["LIBS"].extend(args)
-            elif fragment.startswith("-L"):
-                lib_path = fragment.replace("-L", "").strip(" '\"")
-                _add_to_libpath(lib_path, link_args)
-            elif fragment.startswith("-") and not fragment.startswith("-l"):
-                # CMake mistakenly marks LINKFLAGS as libraries
+    # CLANG: Vollständige Fragment-Verarbeitung
+    if "clang" in env.subst("$CC").lower():
+        fragments = target_config.get("link", {}).get("commandFragments", [])
+        processed_scripts = set()
+        
+        i = 0
+        while i < len(fragments):
+            fragment = fragments[i].get("fragment", "").strip()
+            fragment_role = fragments[i].get("role", "").strip()
+            
+            if not fragment or not fragment_role:
+                i += 1
+                continue
+                
+            if fragment_role == "flags":
+                # Handle -T flag + linker script pairs
+                if fragment == "-T" and i + 1 < len(fragments):
+                    next_fragment = fragments[i + 1].get("fragment", "").strip()
+                    if next_fragment.endswith(".ld"):
+                        if next_fragment not in processed_scripts:
+                            link_args["LINKFLAGS"].append(f"-T{next_fragment}")
+                            processed_scripts.add(next_fragment)
+                        i += 2
+                        continue
+                
+                # Normal flags
+                args = click.parser.split_arg_string(fragment)
                 link_args["LINKFLAGS"].extend(args)
-            elif fragment.endswith(".a"):
-                archive_path = fragment
-                # process static archives
-                if os.path.isabs(archive_path):
-                    # In case of precompiled archives
-                    _add_archive(archive_path, link_args)
-                else:
-                    # In case of archives within project
-                    if archive_path.startswith(".."):
-                        # Precompiled archives from project component
-                        _add_archive(
-                            os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
-                            link_args,
-                        )
+                
+            elif fragment_role in ("libraries", "libraryPath"):
+                if fragment.startswith("-u "):
+                    symbol = fragment[3:]
+                    flag = f"-u{symbol}"
+                    if flag not in link_args["LINKFLAGS"]:
+                        link_args["LINKFLAGS"].append(flag)
+                elif fragment.startswith("-Wl,"):
+                    if fragment not in link_args["LINKFLAGS"]:
+                        link_args["LINKFLAGS"].append(fragment)
+                elif fragment.startswith("-l"):
+                    link_args["LIBS"].extend(click.parser.split_arg_string(fragment))
+                elif fragment.startswith("-L"):
+                    lib_path = fragment.replace("-L", "").strip(" '\"")
+                    _add_to_libpath(lib_path, link_args)
+                elif fragment.startswith("-") and not fragment.startswith("-l"):
+                    link_args["LINKFLAGS"].extend(click.parser.split_arg_string(fragment))
+                elif fragment.endswith(".a"):
+                    archive_path = fragment
+                    if os.path.isabs(archive_path):
+                        _add_archive(archive_path, link_args)
                     else:
-                        # Internally built libraries used for dependency resolution
-                        link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
+                        if archive_path.startswith(".."):
+                            _add_archive(
+                                os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
+                                link_args,
+                            )
+                        else:
+                            link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
+            i += 1
+        
+    else:
+        # Original GCC processing
+        for f in target_config.get("link", {}).get("commandFragments", []):
+            fragment = f.get("fragment", "").strip()
+            fragment_role = f.get("role", "").strip()
+            if not fragment or not fragment_role:
+                continue
+            args = click.parser.split_arg_string(fragment)
+            if fragment_role == "flags":
+                link_args["LINKFLAGS"].extend(args)
+            elif fragment_role in ("libraries", "libraryPath"):
+                if fragment.startswith("-l"):
+                    link_args["LIBS"].extend(args)
+                elif fragment.startswith("-L"):
+                    lib_path = fragment.replace("-L", "").strip(" '\"")
+                    _add_to_libpath(lib_path, link_args)
+                elif fragment.startswith("-") and not fragment.startswith("-l"):
+                    link_args["LINKFLAGS"].extend(args)
+                elif fragment.endswith(".a"):
+                    archive_path = fragment
+                    if os.path.isabs(archive_path):
+                        _add_archive(archive_path, link_args)
+                    else:
+                        if archive_path.startswith(".."):
+                            _add_archive(
+                                os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
+                                link_args,
+                            )
+                        else:
+                            link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
 
     return link_args
 
@@ -2111,26 +2166,24 @@ libs = find_lib_deps(
 
 # Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
 # cannot merge them correctly
-extra_flags = filter_args(
-    link_args["LINKFLAGS"],
-    [
-        "-T",
-        "-u",
-        "-Wl,--start-group",
-        "-Wl,--end-group",
-        "-Wl,--whole-archive",
-        "-Wl,--no-whole-archive",
-    ],
-)
-link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
-
-# remove the main linker script flags '-T memory.ld'
-try:
-    ld_index = extra_flags.index("memory.ld")
-    extra_flags.pop(ld_index)
-    extra_flags.pop(ld_index - 1)
-except:
-    print("Warning! Couldn't find the main linker script in the CMake code model.")
+# Extra flags - CLANG FIX: Keine Filterung für Clang
+if "clang" in env.subst("$CC").lower():
+    # Für Clang: ALLE CMake-Flags behalten
+    extra_flags = []
+else:
+    # Original GCC-Filterung
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group", "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
+    
+    try:
+        ld_index = extra_flags.index("memory.ld")
+        extra_flags.pop(ld_index)
+        extra_flags.pop(ld_index - 1)
+    except:
+        print("Warning! Couldn't find the main linker script in the CMake code model.")
 
 #
 # Process project sources
