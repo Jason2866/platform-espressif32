@@ -2164,12 +2164,47 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
-# cannot merge them correctly
-# Extra flags - CLANG FIX: Keine Filterung für Clang
+# Extra flags - CLANG FIX: Selektive Filterung für Clang
 if "clang" in env.subst("$CC").lower():
-    # Für Clang: ALLE CMake-Flags behalten
-    extra_flags = []
+    print("CLANG: Applying selective flag filtering - keep critical flags, handle memory.ld")
+    
+    # Für Clang: Nur memory.ld behandeln wie bei GCC, ALLE anderen Flags behalten
+    current_flags = link_args["LINKFLAGS"]
+    
+    # Suche nach memory.ld und -T memory.ld patterns
+    memory_ld_flags = []
+    other_flags = []
+    
+    i = 0
+    while i < len(current_flags):
+        flag = str(current_flags[i])
+        
+        if flag == "-T" and i + 1 < len(current_flags) and str(current_flags[i + 1]) == "memory.ld":
+            # Gefunden: -T memory.ld (getrennt)
+            memory_ld_flags.extend([current_flags[i], current_flags[i + 1]])
+            i += 2
+        elif flag == "-Tmemory.ld":
+            # Gefunden: -Tmemory.ld (zusammen)
+            memory_ld_flags.append(current_flags[i])
+            i += 1
+        elif flag == "memory.ld":
+            # Gefunden: memory.ld (standalone)
+            memory_ld_flags.append(current_flags[i])
+            i += 1
+        else:
+            # Alle anderen Flags behalten
+            other_flags.append(current_flags[i])
+            i += 1
+    
+    print(f"CLANG: Found {len(memory_ld_flags)} memory.ld related flags")
+    print(f"CLANG: Keeping {len(other_flags)} other critical flags")
+    
+    # Setze nur die anderen Flags zurück (ohne memory.ld)
+    link_args["LINKFLAGS"] = other_flags
+    
+    # memory.ld wird von der Original-GCC-Logic behandelt
+    extra_flags = memory_ld_flags
+    
 else:
     # Original GCC-Filterung
     extra_flags = filter_args(
@@ -2177,13 +2212,14 @@ else:
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group", "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
     link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
-    
-    try:
-        ld_index = extra_flags.index("memory.ld")
-        extra_flags.pop(ld_index)
-        extra_flags.pop(ld_index - 1)
-    except:
-        print("Warning! Couldn't find the main linker script in the CMake code model.")
+
+# Original memory.ld Behandlung für BEIDE (GCC und Clang)
+try:
+    ld_index = extra_flags.index("memory.ld")
+    extra_flags.pop(ld_index)
+    extra_flags.pop(ld_index - 1)
+except:
+    print("Warning! Couldn't find the main linker script in the CMake code model.")
 
 #
 # Process project sources
