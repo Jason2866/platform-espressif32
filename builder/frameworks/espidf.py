@@ -1122,6 +1122,10 @@ def compile_source_files(
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
+    
+    # DEBUG: Prüfe Assembly-Dateien speziell bei Clang
+    clang_debug = "clang" in default_env.subst("$CC").lower()
+    
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
@@ -1150,6 +1154,20 @@ def compile_source_files(
                 "build.esp-idf.preserve_source_file_extension", "yes"
             ) == "yes"
 
+            # CLANG ASSEMBLY DEBUG
+            if clang_debug and src_path.endswith(('.S', '.s')):
+                cg = config["compileGroups"][compile_group_idx]
+                asm_flags = []
+                for ccfragment in cg["compileCommandFragments"]:
+                    fragment = ccfragment.get("fragment", "").strip("\" ")
+                    if fragment:
+                        asm_flags.append(fragment)
+                
+                # Prüfe auf kritische Flags
+                has_longcalls = any("longcalls" in f or "mlongcalls" in f for f in asm_flags)
+                has_assembler = any("__ASSEMBLER__" in f for f in asm_flags)
+                
+                print(f"CLANG ASM: {os.path.basename(src_path)} - longcalls:{has_longcalls}, assembler_define:{has_assembler}")
             objects.append(
                 build_envs[compile_group_idx].StaticObject(
                     target=(
