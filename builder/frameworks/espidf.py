@@ -2164,46 +2164,40 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Extra flags - CLANG FIX: Selektive Filterung für Clang
+# Extra flags - CLANG FIX: Einfache memory.ld Kontrolle
 if "clang" in env.subst("$CC").lower():
-    print("CLANG: Applying selective flag filtering - keep critical flags, handle memory.ld")
+    print("CLANG: Removing all memory.ld flags to prevent duplicates")
     
-    # Für Clang: Nur memory.ld behandeln wie bei GCC, ALLE anderen Flags behalten
+    # Entferne ALLE memory.ld Flags aus LINKFLAGS
     current_flags = link_args["LINKFLAGS"]
-    
-    # Suche nach memory.ld und -T memory.ld patterns
-    memory_ld_flags = []
-    other_flags = []
+    cleaned_flags = []
+    memory_ld_found = False
     
     i = 0
     while i < len(current_flags):
         flag = str(current_flags[i])
         
         if flag == "-T" and i + 1 < len(current_flags) and str(current_flags[i + 1]) == "memory.ld":
-            # Gefunden: -T memory.ld (getrennt)
-            memory_ld_flags.extend([current_flags[i], current_flags[i + 1]])
-            i += 2
+            memory_ld_found = True
+            i += 2  # Überspringe beide
         elif flag == "-Tmemory.ld":
-            # Gefunden: -Tmemory.ld (zusammen)
-            memory_ld_flags.append(current_flags[i])
-            i += 1
+            memory_ld_found = True
+            i += 1  # Überspringe
         elif flag == "memory.ld":
-            # Gefunden: memory.ld (standalone)
-            memory_ld_flags.append(current_flags[i])
-            i += 1
+            memory_ld_found = True
+            i += 1  # Überspringe
         else:
-            # Alle anderen Flags behalten
-            other_flags.append(current_flags[i])
+            cleaned_flags.append(current_flags[i])
             i += 1
     
-    print(f"CLANG: Found {len(memory_ld_flags)} memory.ld related flags")
-    print(f"CLANG: Keeping {len(other_flags)} other critical flags")
+    link_args["LINKFLAGS"] = cleaned_flags
     
-    # Setze nur die anderen Flags zurück (ohne memory.ld)
-    link_args["LINKFLAGS"] = other_flags
+    # Manuell memory.ld zu extra_flags hinzufügen (wird von Original-Logik behandelt)
+    extra_flags = []
+    if memory_ld_found:
+        extra_flags = ["-T", "memory.ld"]
     
-    # memory.ld wird von der Original-GCC-Logic behandelt
-    extra_flags = memory_ld_flags
+    print(f"CLANG: Cleaned {len(current_flags) - len(cleaned_flags)} memory.ld flags")
     
 else:
     # Original GCC-Filterung
@@ -2213,7 +2207,7 @@ else:
     )
     link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
 
-# Original memory.ld Behandlung für BEIDE (GCC und Clang)
+# Original memory.ld Behandlung
 try:
     ld_index = extra_flags.index("memory.ld")
     extra_flags.pop(ld_index)
