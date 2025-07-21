@@ -649,40 +649,8 @@ def extract_link_args(target_config):
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
 
     if "clang" in env.subst("$CC").lower():
-        # sdkconfig-basierte Architektur-Detection
-        sdk_config = get_sdk_configuration()
-        is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
-        is_xtensa = sdk_config.get("CONFIG_IDF_TARGET_ARCH_XTENSA", False)
-        print("*** riscv:", is_riscv)
-        print("*** xtensa:", is_xtensa)
-
         if target_config.get("name", "").endswith("bootloader.elf"):
-            clang_bootloader_flags = []
-            
-            # Architektur-spezifische Flags
-            if is_riscv:
-                clang_bootloader_flags.extend([
-                    "-march=rv32imc", 
-                    "-mabi=ilp32",
-                    "-fno-lto"
-                ])
-            elif is_xtensa:
-                clang_bootloader_flags.extend([
-                    "-mlongcalls",
-                    "-fno-lto",
-                    # ROM-API-spezifische Linker-Flags für Xtensa
-                    "-Wl,--undefined=ets_printf",
-                    "-Wl,--undefined=uart_tx_wait_idle",
-                    "-Wl,--undefined=esp_rom_spiflash_write",
-                    "-Wl,--undefined=esp_rom_spiflash_read",
-                    "-Wl,--undefined=esp_rom_spiflash_erase_sector",
-                    "-Wl,--undefined=esp_rom_md5_init",
-                    "-Wl,--undefined=esp_rom_md5_update",
-                    "-Wl,--undefined=esp_rom_md5_final"
-                ])
-            
-            link_args["LINKFLAGS"].extend(clang_bootloader_flags)
-            
+            print("**** BOOTLOADER SETTINGS ****")
             # Bootloader-Bibliothekspfade vorbereiten
             bootloader_base_path = os.path.join(BUILD_DIR, "bootloader", "esp-idf")
             
@@ -701,18 +669,11 @@ def extract_link_args(target_config):
                 os.path.join(bootloader_base_path, "soc"),
                 os.path.join(bootloader_base_path, "esp_system"),
             ]
-            
-            # Architektur-spezifische Pfade
-            if is_riscv:
-                potential_bootloader_paths.append(os.path.join(bootloader_base_path, "riscv"))
-            elif is_xtensa:
-                potential_bootloader_paths.append(os.path.join(bootloader_base_path, "xtensa"))
-            
+        
             # Füge Bibliothekspfade hinzu
             for lib_path in potential_bootloader_paths:
                 _add_to_libpath(lib_path, link_args)
-            
-            # Vollständige Bootloader-Bibliotheken mit SoC-Support
+
             essential_bootloader_libs = [
                 "libbootloader_support.a",
                 "liblog.a", 
@@ -720,21 +681,15 @@ def extract_link_args(target_config):
                 "libhal.a",
                 "libesp_common.a",
                 "libesp_hw_support.a",
+                "libnewlib.a",
                 # ROM-API-spezifische Bibliotheken
                 "libesp_rom.a",
-                "libnewlib.a",
                 "libesp_bootloader_format.a",
                 # SoC-spezifische Bibliotheken für GPIO-Register
                 "libsoc.a",
                 "libesp_system.a",
             ]
-            
-            # Architektur-spezifische Bibliotheken
-            if is_riscv:
-                essential_bootloader_libs.append("libriscv.a")
-            elif is_xtensa:
-                essential_bootloader_libs.append("libxtensa.a")
-            
+           
             # Füge zur __LIB_DEPS hinzu
             for lib_name in essential_bootloader_libs:
                 if lib_name not in link_args["__LIB_DEPS"]:
