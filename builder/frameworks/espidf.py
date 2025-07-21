@@ -655,22 +655,17 @@ def extract_link_args(target_config):
         is_xtensa = sdk_config.get("CONFIG_IDF_TARGET_ARCH_XTENSA", False)
         
         # Architektur-spezifische Clang Runtime-Library-Pfade
-        if is_riscv:
-            clang_runtime_paths = [
-                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "riscv32-esp-unknown-elf"),
-                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
-            ]
-        elif is_xtensa:
+        if is_xtensa:
             clang_runtime_paths = [
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf"),
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
             ]
-        else:
-            # Fallback für unbekannte Architekturen
+        elif is_riscv:
             clang_runtime_paths = [
+                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "riscv32-esp-unknown-elf"),
                 os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
             ]
-        
+
         for lib_path in clang_runtime_paths:
             if os.path.exists(lib_path):
                 _add_to_libpath(lib_path, link_args)
