@@ -798,6 +798,7 @@ def get_app_flags(app_config, default_config):
         ]    
         app_flags["CXX"].extend(cxx_flags)
 
+    # Flags are sorted because CMake randomly populates build flags in code model
     return {
         "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
         "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
