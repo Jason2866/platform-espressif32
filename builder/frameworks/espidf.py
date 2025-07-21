@@ -653,24 +653,9 @@ def extract_link_args(target_config):
         sdk_config = get_sdk_configuration()
         is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
         is_xtensa = sdk_config.get("CONFIG_IDF_TARGET_ARCH_XTENSA", False)
-        
-        # Architektur-spezifische Clang Runtime-Library-Pfade
-        if is_xtensa:
-            clang_runtime_paths = [
-                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "xtensa-esp-unknown-elf"),
-                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
-            ]
-        elif is_riscv:
-            clang_runtime_paths = [
-                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", "riscv32-esp-unknown-elf"),
-                os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
-            ]
+        print("*** riscv:", is_riscv)
+        print("*** xtensa:", is_xtensa)
 
-        for lib_path in clang_runtime_paths:
-            if os.path.exists(lib_path):
-                _add_to_libpath(lib_path, link_args)
-        
-        # Bootloader-spezifische Behandlung
         if target_config.get("name", "").endswith("bootloader.elf"):
             clang_bootloader_flags = []
             
