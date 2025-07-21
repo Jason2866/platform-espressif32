@@ -648,53 +648,6 @@ def extract_link_args(target_config):
                         # Internally built libraries used for dependency resolution
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
 
-    if "clang" in env.subst("$CC").lower():
-        if target_config.get("name", "").endswith("bootloader.elf"):
-            print("**** BOOTLOADER SETTINGS ****")
-            # Bootloader-Bibliothekspfade vorbereiten
-            bootloader_base_path = os.path.join(BUILD_DIR, "bootloader", "esp-idf")
-            
-            potential_bootloader_paths = [
-                os.path.join(bootloader_base_path, "bootloader_support"),
-                os.path.join(bootloader_base_path, "log"),
-                os.path.join(bootloader_base_path, "spi_flash"),
-                os.path.join(bootloader_base_path, "hal"),
-                os.path.join(bootloader_base_path, "esp_common"),
-                os.path.join(bootloader_base_path, "esp_hw_support"),
-                os.path.join(bootloader_base_path, "newlib"),
-                # ROM-API-spezifische Pfade
-                os.path.join(bootloader_base_path, "esp_rom"),
-                os.path.join(bootloader_base_path, "esp_bootloader_format"),
-                # SoC-spezifische Pfade für GPIO-Register
-                os.path.join(bootloader_base_path, "soc"),
-                os.path.join(bootloader_base_path, "esp_system"),
-            ]
-        
-            # Füge Bibliothekspfade hinzu
-            for lib_path in potential_bootloader_paths:
-                _add_to_libpath(lib_path, link_args)
-
-            essential_bootloader_libs = [
-                "libbootloader_support.a",
-                "liblog.a", 
-                "libspi_flash.a",
-                "libhal.a",
-                "libesp_common.a",
-                "libesp_hw_support.a",
-                "libnewlib.a",
-                # ROM-API-spezifische Bibliotheken
-                "libesp_rom.a",
-                "libesp_bootloader_format.a",
-                # SoC-spezifische Bibliotheken für GPIO-Register
-                "libsoc.a",
-                "libesp_system.a",
-            ]
-           
-            # Füge zur __LIB_DEPS hinzu
-            for lib_name in essential_bootloader_libs:
-                if lib_name not in link_args["__LIB_DEPS"]:
-                    link_args["__LIB_DEPS"].append(lib_name)
-
     return link_args
 
 
