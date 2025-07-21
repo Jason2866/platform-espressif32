@@ -1256,11 +1256,12 @@ def finalize_clang_environment():
         "-Wno-unknown-warning-option",  # Ignoriere unbekannte GCC-Warnungen
     ]
     
-    # Assembler-Flags
+    # Assembler-Flags für Xtensa
     esp_idf_asm_flags = []
     if mcu in ("esp32", "esp32s2", "esp32s3"):  # Xtensa architecture
-        esp_idf_asm_flags.append("-Xassembler")
-        esp_idf_asm_flags.append("--longcalls")
+        # Für Xtensa + Clang KEINE Assembly-Flags für longcalls
+        # Diese werden über Compiler-Flags (-mlongcalls) gehandhabt
+        pass
     
     # Linker-Flags
     esp_idf_linker_flags = [
