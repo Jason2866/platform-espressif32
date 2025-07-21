@@ -686,10 +686,18 @@ def remove_duplicate_flags(flags):
             continue
             
         flag_str = str(flag).strip()
-        # GCC-zu-Clang Flag-Bereinigung für Assembler
+        # CLANG-XTENSA FIX: Konvertiere GCC-Assembly-Flags zu Clang-Compiler-Flags
         if flag_str == "-Xassembler" and i + 1 < len(flags):
             next_flag = str(flags[i + 1]).strip()
-            if next_flag in ["-ffunction-sections", "-fdata-sections", "--longcalls"]:
+            if next_flag == "--longcalls":
+                # Für Clang: Verwende Compiler-Flag statt Assembly-Flag
+                if "-mlongcalls" not in seen:
+                    result.append("-mlongcalls")
+                    seen.add("-mlongcalls")
+                skip_next = True
+                continue
+            elif next_flag in ["-ffunction-sections", "-fdata-sections"]:
+                # Diese Flags komplett entfernen für Clang
                 skip_next = True
                 continue
         elif flag_str.startswith("-d ") or flag_str == "-d":
@@ -697,6 +705,10 @@ def remove_duplicate_flags(flags):
         elif flag_str.startswith("-mcpu=esp32"):
             continue
         elif flag_str == "--longcalls":
+            # Direkte longcalls-Flags zu -mlongcalls konvertieren
+            if "-mlongcalls" not in seen:
+                result.append("-mlongcalls")
+                seen.add("-mlongcalls")
             continue
         elif flag_str.startswith("--longcalls"):
             continue
@@ -704,13 +716,14 @@ def remove_duplicate_flags(flags):
             continue
         
         # Assembler-Flag-Bereinigung
-        # Entferne problematische Assembler-spezifische GCC-Flags
         if any(gcc_flag in flag_str for gcc_flag in [
-            "--longcalls",
-            "-mlongcalls",
             "-Wa,--longcalls",
             "-Xassembler,--longcalls"
         ]):
+            # Konvertiere zu Clang-kompatiblem Flag
+            if "-mlongcalls" not in seen:
+                result.append("-mlongcalls")
+                seen.add("-mlongcalls")
             continue
         
         # Duplikat-Entfernung
@@ -719,6 +732,7 @@ def remove_duplicate_flags(flags):
             result.append(flag_str)
     
     return result
+
 
 
 def get_app_flags(app_config, default_config):
