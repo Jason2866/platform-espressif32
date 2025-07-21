@@ -789,7 +789,9 @@ def get_app_flags(app_config, default_config):
             c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
             asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
         else:  # Xtensa
-            c_cxx_flags = ["-mlongcalls"]
+            # KRITISCH: Verwende -mlongcalls für Clang (nicht --longcalls)
+            c_cxx_flags = ["-mlongcalls", "-mtext-section-literals"]
+            # Assembly bekommt minimale Flags
             asm_flags = []
         
         # Sprachspezifische Flag-Anwendung
@@ -798,10 +800,17 @@ def get_app_flags(app_config, default_config):
                 app_flags[lang] = []
             app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
         
-        # Assembly separate Behandlung
+        # Assembly separate Behandlung - nur RISC-V bekommt spezielle Flags
         if "ASM" not in app_flags:
             app_flags["ASM"] = []
-        app_flags["ASM"].extend(asm_flags)
+        
+        # Assembly-spezifische Defines
+        asm_defines = [
+            "-D__ASSEMBLER__",           # Assembly-Modus
+            "-DESP_PLATFORM",            # ESP32-Plattform  
+            "-DCONFIG_IDF_TARGET_ESP32", # IDF-Target
+        ]
+        app_flags["ASM"].extend(asm_defines + asm_flags)
             
         # C++-spezifische Clang-Flags
         if "CXX" not in app_flags:
