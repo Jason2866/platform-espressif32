@@ -733,6 +733,7 @@ def get_app_flags(app_config, default_config):
                 flags[cg["language"]].extend(
                     click.parser.split_arg_string(fragment.strip())
                 )
+
         return flags
 
     app_flags = _extract_flags(app_config)
@@ -1095,22 +1096,19 @@ def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
-    
     objects = []
     components_dir = fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))
-    
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
-            
         compile_group_idx = source.get("compileGroupIndex")
         if compile_group_idx is not None:
             src_dir = config["paths"]["source"]
             if not os.path.isabs(src_dir):
                 src_dir = os.path.join(project_src_dir, config["paths"]["source"])
-            
             src_path = source.get("path")
             if not os.path.isabs(src_path):
+                # For cases when sources are located near CMakeLists.txt
                 src_path = os.path.join(project_src_dir, src_path)
 
             obj_path = os.path.join("$BUILD_DIR", prepend_dir or "")
