@@ -1299,8 +1299,8 @@ def finalize_clang_environment():
         LINKFLAGS=esp_idf_linker_flags
     )
  
-#    # KRITISCH: MCU-spezifische Header-Pfade
-#    cpp_header_paths = []
+    # MCU-spezifische Header-Pfade
+    cpp_header_paths = []
     
     # MCU-spezifische C++ Header-Pfade
     potential_header_paths = [
@@ -1330,12 +1330,12 @@ def finalize_clang_environment():
         if os.path.exists(header_path):
             cpp_header_paths.append(header_path)
     
-#    if cpp_header_paths:
-#        # System-Includes verwenden für Standard-Headers
-#        env.Append(CPPPATH=cpp_header_paths)
-#        # System-Include-Flags für bessere Kompatibilität
-#        for path in cpp_header_paths:
-#            env.Append(CCFLAGS=[f"-isystem{path}"])
+    if cpp_header_paths:
+        # System-Includes verwenden für Standard-Headers
+        env.Append(CPPPATH=cpp_header_paths)
+        # System-Include-Flags für bessere Kompatibilität
+        for path in cpp_header_paths:
+            env.Append(CCFLAGS=[f"-isystem{path}"])
     
     # MCU-spezifische Library-Pfade (alle verfügbaren Varianten)
     standard_lib_paths = [
