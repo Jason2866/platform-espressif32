@@ -1332,7 +1332,7 @@ def finalize_clang_environment():
     ]
     # Füge Architecture-spezifische C++ Header-Pfade hinzu
     for variant in arch_variants:
-        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "include"),
+        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "include")
         if os.path.exists(variant_path):
             potential_header_paths.append(variant_path)
 
@@ -1351,7 +1351,7 @@ def finalize_clang_environment():
         os.path.join(TOOLCHAIN_DIR, "lib"),
     ]
     for variant in arch_variants:
-        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "lib"),
+        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "lib")
         if os.path.exists(variant_path):
             standard_lib_paths.append(variant_path)
 
