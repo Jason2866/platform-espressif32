@@ -2164,56 +2164,213 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Extra flags - CLANG FIX: Einfache memory.ld Kontrolle
-if "clang" in env.subst("$CC").lower():
-    print("CLANG: Removing all memory.ld flags to prevent duplicates")
+def fix_clang_linking_bypass_scons():
+    """Umgeht SCons Flag-Processing komplett für Clang-Builds"""
+    if 'clang' not in env.subst('$CC').lower():
+        return
     
-    # Entferne ALLE memory.ld Flags aus LINKFLAGS
-    current_flags = link_args["LINKFLAGS"]
-    cleaned_flags = []
-    memory_ld_found = False
+    print("CLANG: Bypassing SCons flag processing completely")
     
-    i = 0
-    while i < len(current_flags):
-        flag = str(current_flags[i])
-        
-        if flag == "-T" and i + 1 < len(current_flags) and str(current_flags[i + 1]) == "memory.ld":
-            memory_ld_found = True
-            i += 2  # Überspringe beide
-        elif flag == "-Tmemory.ld":
-            memory_ld_found = True
-            i += 1  # Überspringe
-        elif flag == "memory.ld":
-            memory_ld_found = True
-            i += 1  # Überspringe
-        else:
-            cleaned_flags.append(current_flags[i])
-            i += 1
+    # Schritt 1: Sammle alle benötigten Informationen
+    current_libs = env.get('LIBS', [])
+    current_libpath = env.get('LIBPATH', [])
+    current_linkflags = env.get('LINKFLAGS', [])
     
-    link_args["LINKFLAGS"] = cleaned_flags
+    # Schritt 2: Deaktiviere SCons automatische Flag-Generierung
+    env['_LIBFLAGS'] = ''        # Keine automatischen -l Flags
+    env['_LIBDIRFLAGS'] = ''     # Keine automatischen -L Flags
     
-    # Manuell memory.ld zu extra_flags hinzufügen (wird von Original-Logik behandelt)
-    extra_flags = []
-    if memory_ld_found:
-        extra_flags = ["-T", "memory.ld"]
+    # Schritt 3: Baue eigene Linker-Kommandozeile auf
+    custom_link_flags = []
     
-    print(f"CLANG: Cleaned {len(current_flags) - len(cleaned_flags)} memory.ld flags")
+    # ROM-Symbole forcieren (muss am Anfang stehen)
+    critical_rom_symbols = [
+        'xt_set_interrupt_handler', 'xt_ints_on', 'xt_ints_off', 'xt_int_has_handler',
+        '_xt_context_save', '_xt_context_restore', '_xt_coproc_init', '_xt_user_exit',
+        '_xt_coproc_release', '_xt_coproc_savecs', '_invalid_pc_placeholder'
+    ]
     
-else:
-    # Original GCC-Filterung
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group", "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
+    for symbol in critical_rom_symbols:
+        custom_link_flags.extend(['-u', symbol])
+    
+    # ESP32-System-Symbole forcieren
+    system_symbols = [
+        'esp_random', 'esp_read_mac', 'esp_fill_random', 'esp_chip_info',
+        'esp_cpu_compare_and_set', 'esp_cpu_stall', 'esp_cpu_unstall',
+        'bootloader_init_mem', 'bootloader_flash_update_id'
+    ]
+    
+    for symbol in system_symbols:
+        custom_link_flags.extend(['-u', symbol])
+    
+    # Schritt 4: Library-Gruppierung mit Whole-Archive
+    custom_link_flags.append('-Wl,--start-group')
+    
+    # Direkte Library-Pfade mit Whole-Archive
+    libraries_found = 0
+    for lib_name in current_libs:
+        if isinstance(lib_name, str) and not lib_name.startswith('-'):
+            for lib_dir in current_libpath:
+                lib_path = os.path.join(lib_dir, f'lib{lib_name}.a')
+                if os.path.exists(lib_path):
+                    custom_link_flags.extend([
+                        '-Wl,--whole-archive',
+                        lib_path,
+                        '-Wl,--no-whole-archive'
+                    ])
+                    libraries_found += 1
+                    break
+            else:
+                # Fallback: Standard -l Flag
+                custom_link_flags.append(f'-l{lib_name}')
+    
+    custom_link_flags.append('-Wl,--end-group')
+    
+    # Schritt 5: Originale LINKFLAGS hinzufügen (ROM-Scripts, etc.)
+    for flag in current_linkflags:
+        flag_str = str(flag)
+        # Nur kritische Flags behalten, keine Standard-Library-Flags
+        if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or 
+            flag_str.startswith('--target') or flag_str.startswith('-mcpu')):
+            custom_link_flags.append(flag)
+    
+    # Schritt 6: Library-Pfade als -L Flags hinzufügen
+    for lib_dir in current_libpath:
+        custom_link_flags.append(f'-L{lib_dir}')
+    
+    # Schritt 7: Ersetze Standard-Variablen
+    env.Replace(LIBS=[])
+    env.Replace(LIBPATH=[])
+    env.Replace(LINKFLAGS=custom_link_flags)
+    
+    print(f"CLANG: Bypassed SCons processing for {libraries_found} libraries")
+    print(f"CLANG: Generated {len(custom_link_flags)} custom linker flags")
+    
+    return True
 
-# Original memory.ld Behandlung
-try:
-    ld_index = extra_flags.index("memory.ld")
-    extra_flags.pop(ld_index)
-    extra_flags.pop(ld_index - 1)
-except:
-    print("Warning! Couldn't find the main linker script in the CMake code model.")
+
+def fix_clang_linking_direct_linkcom():
+    """Überschreibt LINKCOM direkt für komplette Kontrolle"""
+    if 'clang' not in env.subst('$CC').lower():
+        return
+    
+    print("CLANG: Taking direct control of LINKCOM")
+    
+    # Sammle Informationen
+    current_libs = env.get('LIBS', [])
+    current_libpath = env.get('LIBPATH', [])
+    current_linkflags = env.get('LINKFLAGS', [])
+    
+    # Baue komplette Linker-Kommandozeile
+    linker_cmd_parts = [
+        '$LINK',                    # Clang-Linker
+        '-o $TARGET',              # Output-File
+        '$SOURCES',                # Object-Files
+    ]
+    
+    # Symbol-Forcing hinzufügen
+    symbol_forcing = []
+    critical_symbols = [
+        'xt_set_interrupt_handler', 'xt_ints_on', 'xt_ints_off',
+        '_xt_context_save', '_xt_context_restore', '_xt_coproc_init',
+        'esp_random', 'esp_read_mac', 'esp_chip_info'
+    ]
+    
+    for symbol in critical_symbols:
+        symbol_forcing.extend(['-u', symbol])
+    
+    # ROM-Scripts und andere LINKFLAGS
+    preserved_flags = []
+    for flag in current_linkflags:
+        flag_str = str(flag)
+        if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or
+            flag_str.startswith('--target') or flag_str.startswith('-mcpu') or
+            flag_str.endswith('.ld')):
+            preserved_flags.append(flag_str)
+    
+    # Library-Gruppierung
+    library_flags = ['-Wl,--start-group']
+    
+    # Direkte Library-Integration
+    for lib_name in current_libs:
+        if isinstance(lib_name, str) and not lib_name.startswith('-'):
+            library_found = False
+            for lib_dir in current_libpath:
+                lib_path = os.path.join(lib_dir, f'lib{lib_name}.a')
+                if os.path.exists(lib_path):
+                    library_flags.extend([
+                        '-Wl,--whole-archive',
+                        lib_path,
+                        '-Wl,--no-whole-archive'
+                    ])
+                    library_found = True
+                    break
+            
+            if not library_found:
+                library_flags.append(f'-l{lib_name}')
+    
+    library_flags.append('-Wl,--end-group')
+    
+    # Library-Pfade
+    libpath_flags = []
+    for lib_dir in current_libpath:
+        libpath_flags.append(f'-L{lib_dir}')
+    
+    # Kombiniere alles
+    all_flags = (symbol_forcing + preserved_flags + libpath_flags + library_flags)
+    linker_cmd_parts.extend(all_flags)
+    
+    # Setze neue LINKCOM
+    custom_linkcom = ' '.join(linker_cmd_parts)
+    env['LINKCOM'] = custom_linkcom
+    
+    # Leere Standard-Variablen um Konflikte zu vermeiden
+    env.Replace(LIBS=[])
+    env.Replace(LIBPATH=[])
+    env.Replace(LINKFLAGS=[])
+    
+    print(f"CLANG: Set custom LINKCOM with {len(all_flags)} flags")
+    print(f"LINKCOM: {custom_linkcom[:100]}...")
+    
+    return True
+
+
+
+# Diese Funktion ERSETZT die bisherige Flag-Filterung komplett
+def remove_old_flag_filtering_and_apply_clang_fix():
+    """Entfernt alte Flag-Filterung und wendet Clang-Fix an"""
+    if "clang" in env.subst("$CC").lower():
+        print("CLANG: Applying new SCons-bypass solution")
+        
+        # Verwende eine der beiden Lösungen:
+        success = fix_clang_linking_bypass_scons()  # ODER
+        # success = fix_clang_linking_direct_linkcom()
+        
+        if success:
+            # Keine weitere Flag-Verarbeitung für Clang
+            extra_flags = []
+        else:
+            print("CLANG: Fallback to original processing")
+            extra_flags = []
+    else:
+        # Original GCC-Filterung bleibt unverändert
+        extra_flags = filter_args(
+            link_args["LINKFLAGS"],
+            ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group", "-Wl,--whole-archive", "-Wl,--no-whole-archive"]
+        )
+        link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
+        
+        # Original memory.ld Behandlung für GCC
+        try:
+            ld_index = extra_flags.index("memory.ld")
+            extra_flags.pop(ld_index)
+            extra_flags.pop(ld_index - 1)
+        except:
+            print("Warning! Couldn't find the main linker script in the CMake code model.")
+
+# WICHTIG: Diese Funktion muss NACH extract_link_args() aber VOR env.Program() platziert werden
+remove_old_flag_filtering_and_apply_clang_fix()
+
 
 #
 # Process project sources
