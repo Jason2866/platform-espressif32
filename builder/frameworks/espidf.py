@@ -1270,56 +1270,46 @@ def finalize_clang_environment():
     """Final Clang environment adjustments with sdkconfig integration"""
     if "clang" not in env.subst("$CC").lower():
         return
-# TODO arch cpu and target is currently wrong        
-    # WICHTIG: Clang C++ Library Konfiguration für ESP32
-    # Bestimme die korrekte Ziel-Architektur basierend auf ESP-IDF CMake Konfiguration ZUERST
-    # WICHTIG: Für Compiler-Target verwende ESP-IDF Standard ("xtensa-esp-elf", "riscv32-esp-elf")
-    # ABER für Runtime-Library-Pfade verwende tatsächliche Toolchain-Ordner ("xtensa-esp-unknown-elf", "riscv32-esp-unknown-elf")
+    # Architektur und Toolchain-Version ermitteln
+    toolchain_dir = TOOLCHAIN_DIR
+    sdkconfig_json = get_sdk_configuration()
+    psram_enabled = False
+    if mcu == "esp32":
+        psram_enabled = sdkconfig_json.get("CONFIG_ESP32_SPIRAM_SUPPORT", False)
+    elif mcu == "esp32s3":
+        psram_enabled = sdkconfig_json.get("CONFIG_ESP32S3_SPIRAM_SUPPORT", False)
+
     if mcu in ("esp32", "esp32s2", "esp32s3"):
-        target_arch = "xtensa-esp-elf"  # ESP-IDF Standard für Compiler-Target
-        # Architecture-specific C++ Header-Varianten für Xtensa (sortiert nach Priorität)
-        arch_variants = [
-            "esp32",
-            "esp32_no-rtti",
-            "esp32_psram",
-            "esp32_psram_no-rtti",
-            "esp32s2",
-            "esp32s2_no-rtti",
-            "esp32s3",
-            "esp32s3_no-rtti"
-        ]
-        cpu_variant = "xtensa-esp-unknown-elf"
+        target_arch = "xtensa-esp-elf"
+        if mcu == "esp32" and not psram_enabled:
+            arch_variants = ["esp32", "esp32_no-rtti"]
+        if mcu == "esp32" and psram_enabled:
+            arch_variants = ["esp32_psram", "esp32_psram_no-rtti"]
+        if mcu == "esp32s2":
+            arch_variants = ["esp32s2", "esp32s2_no-rtti"]
+        if mcu == "esp32s3" and not psram_enabled:
+            arch_variants = ["esp32s3", "esp32s3_no-rtti"]
+        if mcu == "esp32s3" and psram_enabled:
+            arch_variants = ["esp32s3_psram", "esp32s3_psram_no-rtti"]
     else:
-        target_arch = "riscv32-esp-elf"  # ESP-IDF Standard für Compiler-Target
-        # Architecture-specific C++ Header-Varianten für RISC-V (sortiert nach Priorität)
+        target_arch = "riscv32-esp-elf"
         arch_variants = [
             "rv32imac-zicsr-zifencei_ilp32",
-            "rv32imac-zicsr-zifencei_ilp32_no-rtti",
-            "rv32imafc-zicsr-zifencei-zba-zbb-zbc-zbs_ilp32f",
-            "rv32imafc-zicsr-zifencei-zba-zbb-zbc-zbs_ilp32f_no-rtti",
-            "rv32imc-zicsr-zifencei_ilp32",
-            "rv32imc-zicsr-zifencei_ilp32_no-rtti",
-            "rv32i-zicsr-zifencei_ilp32",
-            "rv32i-zicsr-zifencei_ilp32_no-rtti"
+            "rv32imac-zicsr-zifencei_ilp32_no-rtti"
         ]
-        cpu_variant = "rv32imac-zicsr-zifencei_ilp32"
 
-    # ESP-IDF CMake-konforme Compiler-Flags hinzufügen
+    clang_version = "19"  # ggf. dynamisch ermitteln
+
+    # Compiler- und Assembler-Flags
     esp_idf_compiler_flags = [
-        f"--target={target_arch}",  # ESP-IDF Standard Target 
-        "-Wno-unknown-warning-option",  # Ignoriere unbekannte GCC-Warnungen
+        f"--target={target_arch}",
+        "-Wno-unknown-warning-option",
     ]
-    
-    # Assembler-Flags
     esp_idf_asm_flags = []
-    if mcu in ("esp32", "esp32s2", "esp32s3"):  # Xtensa architecture
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
         esp_idf_asm_flags.append("-Xassembler")
         esp_idf_asm_flags.append("--longcalls")
-    
-    # Linker-Flags
-    esp_idf_linker_flags = [
-        "-z", "noexecstack",  # ESP-IDF Security Standard
-    ]
+    esp_idf_linker_flags = ["-z", "noexecstack"]
 
     env.Append(
         CCFLAGS=esp_idf_compiler_flags,
@@ -1327,86 +1317,49 @@ def finalize_clang_environment():
         ASFLAGS=esp_idf_asm_flags,
         LINKFLAGS=esp_idf_linker_flags
     )
- 
-    # MCU-spezifische Header-Pfade
-    cpp_header_paths = []
-    
-    # MCU-spezifische C++ Header-Pfade
-    potential_header_paths = [
-        # Clang libc++ Headers (primär)
-        os.path.join(TOOLCHAIN_DIR, "include", "llvm-c"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "include"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch),
-        # System Headers (sekundär)
-        os.path.join(TOOLCHAIN_DIR, target_arch, "include"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "include"),
+
+    # Include-Pfade
+    include_paths = [
+        os.path.join(toolchain_dir, "lib", "clang", clang_version, "include"),
+        os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include"),
+        os.path.join(toolchain_dir, target_arch, "include"),
     ]
-    
-    # Füge Architecture-spezifische C++ Header-Pfade hinzu
+    # C++ Standard Library Pfade
+    cpp_stdlib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
+    if os.path.exists(cpp_stdlib_path):
+        include_paths.append(cpp_stdlib_path)
+    # Architektur-Varianten
     for variant in arch_variants:
-        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
+        variant_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
         if os.path.exists(variant_path):
-            potential_header_paths.append(variant_path)
-    
-    # Füge auch den allgemeinen C++ Include-Pfad hinzu falls vorhanden
-    general_cpp_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
-    if os.path.exists(general_cpp_path):
-        potential_header_paths.append(general_cpp_path)
-    
-    # Füge nur existierende Pfade hinzu
-    for header_path in potential_header_paths:
-        if os.path.exists(header_path):
-            cpp_header_paths.append(header_path)
-    
-    if cpp_header_paths:
-        # System-Includes verwenden für Standard-Headers
-        env.Append(CPPPATH=cpp_header_paths)
-        # System-Include-Flags für bessere Kompatibilität
-        for path in cpp_header_paths:
+            include_paths.append(variant_path)
+    # Nur existierende Pfade verwenden
+    include_paths = [p for p in include_paths if os.path.exists(p)]
+    if include_paths:
+        env.Append(CPPPATH=include_paths)
+        for path in include_paths:
             env.Append(CCFLAGS=[f"-isystem{path}"])
-    
-    # MCU-spezifische Library-Pfade (alle verfügbaren Varianten)
-    standard_lib_paths = [
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "lib"),
-        # Runtime-spezifische Library-Pfade für Exception-Handling
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "esp32", "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "esp32_no-rtti", "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "gcc", "xtensa-esp-elf"),
-        os.path.join(TOOLCHAIN_DIR, "xtensa-esp-elf", "lib"),
-        # Weitere potentielle Exception-Handling-Library-Pfade
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "lib", "esp32"),
+
+    # Library-Pfade
+    lib_paths = [
+        os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "lib"),
+        os.path.join(toolchain_dir, target_arch, "lib"),
+        os.path.join(toolchain_dir, "lib", "clang", clang_version, "lib"),
     ]
-    
-    # Füge MCU-spezifische Bibliothekspfade für alle Varianten hinzu
     for variant in arch_variants:
-        variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
+        variant_lib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, variant, "lib")
         if os.path.exists(variant_lib_path):
-            standard_lib_paths.append(variant_lib_path)
-        
-        # Auch cpu_variant-spezifische Varianten-Pfade
-        cpu_variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "lib")
-        if os.path.exists(cpu_variant_lib_path):
-            standard_lib_paths.append(cpu_variant_lib_path)
-    
-    # Füge alle gefundenen Library-Pfade hinzu
-    for lib_path in standard_lib_paths:
-        if os.path.exists(lib_path):
-            env.Append(LIBPATH=[lib_path])
-    
-    # ESP-IDF-konforme Standard Clang-Linker-Flags
-    linker_flags = [
+            lib_paths.append(variant_lib_path)
+    lib_paths = [p for p in lib_paths if os.path.exists(p)]
+    if lib_paths:
+        env.Append(LIBPATH=lib_paths)
+
+    # Standard-Linker-Flags
+    env.Append(LINKFLAGS=[
         "-Wl,--gc-sections",
         "-Wl,--warn-common",
         "-Wl,--allow-multiple-definition",
-    ]
-    env.Append(LINKFLAGS=linker_flags)
-
-finalize_clang_environment()
+    ])
 
 
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
@@ -2115,6 +2068,8 @@ project_codemodel = get_cmake_code_model(
     extra_cmake_args
 )
 
+finalize_clang_environment()
+
 # At this point the sdkconfig file should be generated by the underlying build system
 assert os.path.isfile(SDKCONFIG_PATH), (
     "Missing auto-generated SDK configuration file `%s`" % SDKCONFIG_PATH
@@ -2284,7 +2239,7 @@ if "clang" in env.subst("$CC").lower():
     # 6. Library-Gruppierung mit direkten NodeList-Objekten
     clang_linking_flags.append('-Wl,--start-group')
     
-    # Direkte Verwendung der SCons NodeList-Objekte
+    # Direkte Verwendung der SCons Node-Objekte
     libraries_processed = 0
     for lib_node in libs:
         if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
