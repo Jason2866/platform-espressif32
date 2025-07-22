@@ -2437,7 +2437,23 @@ def remove_old_flag_filtering_and_apply_clang_fix():
             print("Warning! Couldn't find the main linker script in the CMake code model.")
 
 # Diese Funktion muss VOR dem env.Prepend() Aufruf platziert werden
-remove_old_flag_filtering_and_apply_clang_fix()
+# remove_old_flag_filtering_and_apply_clang_fix()
+
+
+# Original GCC-Filter unverändert lassen
+if "clang" in env.subst("$CC").lower():
+    # für Clang KEINE weitere Filterung durchführen
+    extra_flags = []
+else:
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u",
+         "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    link_args["LINKFLAGS"] = sorted(
+        set(link_args["LINKFLAGS"]) - set(extra_flags)
+    )
 
 
 #
