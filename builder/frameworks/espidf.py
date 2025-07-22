@@ -1271,13 +1271,10 @@ def finalize_clang_environment():
     if "clang" not in env.subst("$CC").lower():
         return
         
-    # WICHTIG: Clang C++ Library Konfiguration für ESP32
-    # Bestimme die korrekte Ziel-Architektur basierend auf ESP-IDF CMake Konfiguration ZUERST
-    # WICHTIG: Für Compiler-Target verwende ESP-IDF Standard ("xtensa-esp-elf", "riscv32-esp-elf")
-    # ABER für Runtime-Library-Pfade verwende tatsächliche Toolchain-Ordner ("xtensa-esp-unknown-elf", "riscv32-esp-unknown-elf")
+    # Clang C++ Library Konfiguration für ESP32
     if mcu in ("esp32", "esp32s2", "esp32s3"):
         target_arch = "xtensa-esp-elf"  # ESP-IDF Standard für Compiler-Target
-        # Architecture-specific C++ Header-Varianten für Xtensa (sortiert nach Priorität)
+        # Architecture-specific C++ Header-Varianten für Xtensa
         arch_variants = [
             "xtensa",
             "xtensa_no-rtti", 
@@ -1287,7 +1284,7 @@ def finalize_clang_environment():
         cpu_variant = "xtensa-esp-unknown-elf"
     else:
         target_arch = "riscv32-esp-elf"  # ESP-IDF Standard für Compiler-Target
-        # Architecture-specific C++ Header-Varianten für RISC-V (sortiert nach Priorität)
+        # Architecture-specific C++ Header-Varianten für RISC-V
         arch_variants = [
             "rv32imac-zicsr-zifencei_ilp32",
             "rv32imac-zicsr-zifencei_ilp32_no-rtti",
@@ -1308,7 +1305,7 @@ def finalize_clang_environment():
     
     # Assembler-Flags
     esp_idf_asm_flags = []
-    if mcu in ("esp32", "esp32s2", "esp32s3"):  # Xtensa architecture
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
         esp_idf_asm_flags.append("-Xassembler")
         esp_idf_asm_flags.append("--longcalls")
     
@@ -1323,7 +1320,7 @@ def finalize_clang_environment():
         ASFLAGS=esp_idf_asm_flags,
         LINKFLAGS=esp_idf_linker_flags
     )
- 
+# TODO: Bereinigung doppelter bzw. unnötiger Pfade
     # MCU-spezifische Header-Pfade
     cpp_header_paths = []
     
