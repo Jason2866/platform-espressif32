@@ -2335,23 +2335,73 @@ def fix_clang_linking_direct_linkcom():
     return True
 
 
-
 # Diese Funktion ERSETZT die bisherige Flag-Filterung komplett
 def remove_old_flag_filtering_and_apply_clang_fix():
     """Entfernt alte Flag-Filterung und wendet Clang-Fix an"""
+    global extra_flags  # WICHTIG: Greife auf die globale Variable zu
+    
     if "clang" in env.subst("$CC").lower():
         print("CLANG: Applying new SCons-bypass solution")
         
-        # Verwende eine der beiden Lösungen:
-        success = fix_clang_linking_bypass_scons()  # ODER
-        # success = fix_clang_linking_direct_linkcom()
+        # Sammle aktuelle Library-Informationen
+        current_libs = env.get('LIBS', []) + libs  # Verwende auch die libs Variable
+        current_libpath = env.get('LIBPATH', [])
         
-        if success:
-            # Keine weitere Flag-Verarbeitung für Clang
-            extra_flags = []
-        else:
-            print("CLANG: Fallback to original processing")
-            extra_flags = []
+        # Baue Clang-spezifische extra_flags auf
+        clang_extra_flags = []
+        
+        # ROM-Symbole forcieren (muss am Anfang stehen)
+        critical_symbols = [
+            'xt_set_interrupt_handler', 'xt_ints_on', 'xt_ints_off',
+            '_xt_context_save', '_xt_context_restore', '_xt_coproc_init',
+            'esp_random', 'esp_read_mac', 'esp_chip_info'
+        ]
+        
+        for symbol in critical_symbols:
+            clang_extra_flags.extend(['-u', symbol])
+        
+        # Library-Gruppierung mit Whole-Archive
+        clang_extra_flags.append('-Wl,--start-group')
+        
+        # Alle Libraries als direkte Pfade mit Whole-Archive
+        for lib_name in current_libs:
+            if isinstance(lib_name, str) and not lib_name.startswith('-'):
+                lib_found = False
+                # Suche in allen Library-Pfaden
+                all_libpaths = current_libpath + env.get('LIBPATH', [])
+                for lib_dir in all_libpaths:
+                    lib_path = os.path.join(lib_dir, f'lib{lib_name}.a')
+                    if os.path.exists(lib_path):
+                        clang_extra_flags.extend([
+                            '-Wl,--whole-archive',
+                            lib_path,
+                            '-Wl,--no-whole-archive'
+                        ])
+                        lib_found = True
+                        break
+                
+                if not lib_found:
+                    # Fallback: Standard -l Flag
+                    clang_extra_flags.append(f'-l{lib_name}')
+        
+        clang_extra_flags.append('-Wl,--end-group')
+        
+        # Originale extra_flags hinzufügen (für ROM-Scripts etc.)
+        preserved_flags = []
+        for flag in extra_flags:
+            flag_str = str(flag)
+            # Behalte wichtige Flags, filtere Library-Flags heraus
+            if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or
+                flag_str.startswith('--target') or flag_str.startswith('-mcpu') or
+                flag_str.endswith('.ld') or not flag_str.startswith('-')):
+                preserved_flags.append(flag)
+        
+        # Ersetze extra_flags komplett mit unserer Clang-Version
+        extra_flags = preserved_flags + clang_extra_flags
+        
+        print(f"CLANG: Modified extra_flags with {len(clang_extra_flags)} custom flags")
+        print(f"CLANG: Total extra_flags now: {len(extra_flags)}")
+        
     else:
         # Original GCC-Filterung bleibt unverändert
         extra_flags = filter_args(
@@ -2368,7 +2418,7 @@ def remove_old_flag_filtering_and_apply_clang_fix():
         except:
             print("Warning! Couldn't find the main linker script in the CMake code model.")
 
-# WICHTIG: Diese Funktion muss NACH extract_link_args() aber VOR env.Program() platziert werden
+# Diese Funktion muss VOR dem env.Prepend() Aufruf platziert werden
 remove_old_flag_filtering_and_apply_clang_fix()
 
 
