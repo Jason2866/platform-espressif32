@@ -613,67 +613,85 @@ def extract_link_args(target_config):
 
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
 
-    # CLANG: Vollständige Fragment-Verarbeitung
     if "clang" in env.subst("$CC").lower():
         fragments = target_config.get("link", {}).get("commandFragments", [])
-        processed_scripts = set()
-        
         i = 0
         while i < len(fragments):
             fragment = fragments[i].get("fragment", "").strip()
             fragment_role = fragments[i].get("role", "").strip()
-            
             if not fragment or not fragment_role:
                 i += 1
                 continue
-                
+
+            # ---------- FLAGS ----------
             if fragment_role == "flags":
-                # Handle -T flag + linker script pairs
+                # Handle -T flag + linker script pairs (getrennte Schreibweise)
                 if fragment == "-T" and i + 1 < len(fragments):
                     next_fragment = fragments[i + 1].get("fragment", "").strip()
-                    if next_fragment.endswith(".ld"):
-                        if next_fragment not in processed_scripts:
-                            link_args["LINKFLAGS"].append(f"-T{next_fragment}")
-                            processed_scripts.add(next_fragment)
-                        i += 2
-                        continue
-                
+                    if next_fragment.endswith(".ld") and next_fragment != "memory.ld":
+                        link_args["LINKFLAGS"].append(f"-T{next_fragment}")
+                    i += 2
+                    continue
+
+                # Handle -Tscript.ld (zusammengeschrieben)
+                if fragment.startswith("-T") and fragment.endswith(".ld"):
+                    script_name = fragment[2:]  # Remove -T prefix
+                    if script_name != "memory.ld":
+                        link_args["LINKFLAGS"].append(fragment)
+                    i += 1
+                    continue
+
                 # Normal flags
                 args = click.parser.split_arg_string(fragment)
                 link_args["LINKFLAGS"].extend(args)
-                
+
+            # ---------- LIBRARIES / -u / -Wl ----------
             elif fragment_role in ("libraries", "libraryPath"):
                 if fragment.startswith("-u "):
-                    symbol = fragment[3:]
+                    # Undefined symbol flags
+                    symbol = fragment[3:]  # Remove "-u "
                     flag = f"-u{symbol}"
                     if flag not in link_args["LINKFLAGS"]:
                         link_args["LINKFLAGS"].append(flag)
                 elif fragment.startswith("-Wl,"):
+                    # Linker wrapper and special flags
                     if fragment not in link_args["LINKFLAGS"]:
                         link_args["LINKFLAGS"].append(fragment)
                 elif fragment.startswith("-l"):
+                    # Standard library flags
                     link_args["LIBS"].extend(click.parser.split_arg_string(fragment))
                 elif fragment.startswith("-L"):
+                    # Library search paths
                     lib_path = fragment.replace("-L", "").strip(" '\"")
                     _add_to_libpath(lib_path, link_args)
                 elif fragment.startswith("-") and not fragment.startswith("-l"):
+                    # Other flags marked as libraries by CMake
                     link_args["LINKFLAGS"].extend(click.parser.split_arg_string(fragment))
                 elif fragment.endswith(".a"):
+                    # Archive files
                     archive_path = fragment
                     if os.path.isabs(archive_path):
                         _add_archive(archive_path, link_args)
+                        # Restore library dependency tracking
+                        link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
                     else:
                         if archive_path.startswith(".."):
-                            _add_archive(
-                                os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
-                                link_args,
-                            )
+                            normalized_path = os.path.normpath(os.path.join(BUILD_DIR, archive_path))
+                            _add_archive(normalized_path, link_args)
+                            # Restore library dependency tracking
+                            link_args["__LIB_DEPS"].append(os.path.basename(normalized_path))
                         else:
+                            # Direct library dependency (not a full path)
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
+                else:
+                    # Direct library names or other arguments
+                    if not fragment.startswith("-"):
+                        if fragment not in link_args["LIBS"]:
+                            link_args["LIBS"].append(fragment)
             i += 1
-        
+
     else:
-        # Original GCC processing
+        # Original GCC processing - unverändert
         for f in target_config.get("link", {}).get("commandFragments", []):
             fragment = f.get("fragment", "").strip()
             fragment_role = f.get("role", "").strip()
