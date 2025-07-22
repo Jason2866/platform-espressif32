@@ -41,7 +41,7 @@
       "owner": "tasmota",
       "version": "https://github.com/tasmota/esp-idf/releases/download/v5.5.0-rc1clang/esp-idf-v5.5.0-rc1clang.zip"
     },
-   "toolchain-xtensa-esp-elf": {
+    "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
