@@ -1033,13 +1033,43 @@ def create_custom_libraries_list(ldgen_libraries_file, ignore_targets):
     with open(ldgen_libraries_file, "r") as fp:
         lib_paths = fp.readlines()
 
+    # DEBUG: Zeige was gefiltert wird
+    if "clang" in env.subst("$CC").lower():
+        print(f"CLANG DEBUG: ignore_targets = {ignore_targets}")
+        print(f"CLANG DEBUG: Total libraries found: {len(lib_paths)}")
+        
+        filtered_out = []
+        kept_libraries = []
+
     with open(pio_libraries_file, "w") as fp:
         for lib_path in lib_paths:
-            if all(
+            should_keep = all(
                 "lib%s.a" % t.replace("__idf_", "") not in lib_path
                 for t in ignore_targets
-            ):
+            )
+            
+            if should_keep:
                 fp.write(lib_path)
+                if "clang" in env.subst("$CC").lower():
+                    kept_libraries.append(lib_path.strip())
+            else:
+                if "clang" in env.subst("$CC").lower():
+                    filtered_out.append(lib_path.strip())
+
+    # DEBUG: Zeige Resultate
+    if "clang" in env.subst("$CC").lower():
+        print(f"CLANG DEBUG: Kept {len(kept_libraries)} libraries")
+        print(f"CLANG DEBUG: Filtered out {len(filtered_out)} libraries")
+        
+        # Zeige gefilterte Libraries
+        for lib in filtered_out[:10]:  # Nur erste 10
+            print(f"  FILTERED: {lib}")
+        
+        # Prüfe spezifisch nach wichtigen Libraries
+        important_libs = ['nvs_flash', 'esp_netif', 'esp_event', 'freertos']
+        for important in important_libs:
+            found = any(important in lib for lib in kept_libraries)
+            print(f"CLANG DEBUG: {important} library found: {found}")
 
     return pio_libraries_file
 
