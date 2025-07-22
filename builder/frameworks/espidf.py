@@ -1044,7 +1044,6 @@ def create_custom_libraries_list(ldgen_libraries_file, ignore_targets):
     return pio_libraries_file
 
 
-
 def generate_project_ld_script(sdk_config, ignore_targets=None):
     ignore_targets = ignore_targets or []
     linker_script_fragments = extract_linker_script_fragments(
