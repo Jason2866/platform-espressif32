@@ -1335,6 +1335,10 @@ def finalize_clang_environment():
         variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "include")
         if os.path.exists(variant_path):
             potential_header_paths.append(variant_path)
+    for variant in arch_variants:
+        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "include", "c++", "14.2.0")
+        if os.path.exists(variant_path):
+            potential_header_paths.append(variant_path)
 
     # Füge nur existierende Pfade hinzu
     for header_path in potential_header_paths:
