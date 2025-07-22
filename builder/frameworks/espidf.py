@@ -2298,24 +2298,16 @@ if "clang" in env.subst("$CC").lower():
             ])
             libraries_processed += 1
     
-    # 7. NEUE: Explizite C++ Exception-Handling-Libraries hinzufügen
-    # Diese müssen NACH den ESP-IDF-Libraries aber VOR --end-group kommen
-    clang_linking_flags.extend([
-        '-lgcc',          # GNU Compiler Collection Runtime Library
-        '-lunwind',       # Stack Unwinding Library
-        '-lgcc_s'         # GCC Shared Runtime Library
-    ])
-    
     clang_linking_flags.append('-Wl,--end-group')
     
-    # 8. ROM-Scripts UND --wrap flags hinzufügen (WICHTIG!)
+    # 7. ROM-Scripts UND --wrap flags hinzufügen
     for flag in extra_flags:
         flag_str = str(flag)  # Konvertiere zu String
         if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or 
             flag_str.endswith('.ld') or flag_str.startswith('-u')):
             clang_linking_flags.append(flag_str)
     
-    # 9. Ersetze Flags - ALLE als Strings
+    # 8. Ersetze Flags - ALLE als Strings
     extra_flags[:] = clang_linking_flags
     libs[:] = []  # Leere libs, da wir sie direkt in extra_flags verwenden
 
