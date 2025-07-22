@@ -358,7 +358,7 @@ class Espressif32Platform(PlatformBase):
                 result = config.copy()
                 result["ulp_toolchain"] = ["toolchain-esp32ulp"]
                 if mcu != "esp32":
-                    result["ulp_toolchain"].append("toolchain-clang-esp")
+                    result["ulp_toolchain"].append("toolchain-riscv32-esp")
                 self._mcu_config_cache[mcu] = result
                 return result
         return None
