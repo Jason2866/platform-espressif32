@@ -2264,46 +2264,7 @@ if "clang" in env.subst("$CC").lower():
     for symbol in wifi_symbols:
         clang_linking_flags.extend(['-u', symbol])
     
-    # 6. C++ Exception-Handling und Unwinding-Symbole (NEU)
-    exception_symbols = [
-        '__register_frame_info',
-        '__register_frame_info_bases',
-        '__register_frame',
-        '__register_frame_info_table_bases',
-        '__register_frame_info_table',
-        '__register_frame_table',
-        '__deregister_frame_info_bases',
-        '__deregister_frame_info',
-        '_Unwind_Find_FDE',
-        '_Unwind_GetGR',
-        '_Unwind_GetCFA',
-        '_Unwind_GetIP',
-        '_Unwind_GetIPInfo',
-        '_Unwind_GetRegionStart',
-        '_Unwind_GetDataRelBase',
-        '_Unwind_GetTextRelBase',
-        '_Unwind_SetIP',
-        '_Unwind_SetGR',
-        '_Unwind_GetLanguageSpecificData',
-        '_Unwind_FindEnclosingFunction',
-        '_Unwind_Resume',
-        '_Unwind_RaiseException',
-        '_Unwind_DeleteException',
-        '_Unwind_ForcedUnwind',
-        '_Unwind_Resume_or_Rethrow',
-        '_Unwind_Backtrace',
-        '__cxa_call_unexpected',
-        '__gxx_personality_v0',
-        '__cxa_throw',
-        '__cxa_allocate_exception',
-        '__cxa_end_catch',
-        '__cxa_rethrow'
-    ]
-    
-    for symbol in exception_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 7. Library-Gruppierung mit direkten NodeList-Objekten
+    # 6. Library-Gruppierung mit direkten NodeList-Objekten
     clang_linking_flags.append('-Wl,--start-group')
     
     # Direkte Verwendung der SCons NodeList-Objekte
@@ -2339,13 +2300,14 @@ if "clang" in env.subst("$CC").lower():
     
     clang_linking_flags.append('-Wl,--end-group')
     
-    # 8. ROM-Scripts hinzufügen (auch als Strings)
+    # 7. ROM-Scripts UND --wrap flags hinzufügen (WICHTIG!)
     for flag in extra_flags:
         flag_str = str(flag)  # Konvertiere zu String
-        if flag_str.startswith('-T') or flag_str.startswith('-Wl,') or flag_str.endswith('.ld'):
+        if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or 
+            flag_str.endswith('.ld') or flag_str.startswith('-u')):
             clang_linking_flags.append(flag_str)
     
-    # 9. Ersetze Flags - ALLE als Strings
+    # 8. Ersetze Flags - ALLE als Strings
     extra_flags[:] = clang_linking_flags
     libs[:] = []  # Leere libs, da wir sie direkt in extra_flags verwenden
 
