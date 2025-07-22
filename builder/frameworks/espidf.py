@@ -1329,8 +1329,13 @@ def finalize_clang_environment():
         os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "include"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "include"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "include", "c++", "14.2.0"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, arch_variants, "include"),
     ]
+    # Füge Architecture-spezifische C++ Header-Pfade hinzu
+    for variant in arch_variants:
+        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "include"),
+        if os.path.exists(variant_path):
+            potential_header_paths.append(variant_path)
+
     # Füge nur existierende Pfade hinzu
     for header_path in potential_header_paths:
         if os.path.exists(header_path):
@@ -1344,8 +1349,12 @@ def finalize_clang_environment():
     # MCU-spezifische Library-Pfade
     standard_lib_paths = [
         os.path.join(TOOLCHAIN_DIR, "lib"),
-        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, arch_variants, "lib"),
     ]
+    for variant in arch_variants:
+        variant_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "lib"),
+        if os.path.exists(variant_path):
+            standard_lib_paths.append(variant_path)
+
     # Füge alle gefundenen Library-Pfade hinzu
     for lib_path in standard_lib_paths:
         if os.path.exists(lib_path):
