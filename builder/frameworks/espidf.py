@@ -1299,7 +1299,7 @@ def finalize_clang_environment():
             "rv32i-zicsr-zifencei_ilp32",
             "rv32i-zicsr-zifencei_ilp32_no-rtti"
         ]
-        cpu_variant = "rv32imac-zicsr-zifencei_ilp32" 
+        cpu_variant = "rv32imac-zicsr-zifencei_ilp32"
 
     # ESP-IDF CMake-konforme Compiler-Flags hinzufügen
     esp_idf_compiler_flags = [
@@ -1368,6 +1368,15 @@ def finalize_clang_environment():
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, "lib"),
         os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, cpu_variant, "lib"),
+        # Runtime-spezifische Library-Pfade für Exception-Handling
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "lib"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "esp32", "lib"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, "esp32_no-rtti", "lib"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "gcc", "xtensa-esp-elf"),
+        os.path.join(TOOLCHAIN_DIR, "xtensa-esp-elf", "lib"),
+        # Weitere potentielle Exception-Handling-Library-Pfade
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "lib"),
+        os.path.join(TOOLCHAIN_DIR, "lib", "clang", "19", "lib", "esp32"),
     ]
     
     # Füge MCU-spezifische Bibliothekspfade für alle Varianten hinzu
@@ -1375,6 +1384,11 @@ def finalize_clang_environment():
         variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", target_arch, variant, "lib")
         if os.path.exists(variant_lib_path):
             standard_lib_paths.append(variant_lib_path)
+        
+        # Auch cpu_variant-spezifische Varianten-Pfade
+        cpu_variant_lib_path = os.path.join(TOOLCHAIN_DIR, "lib", "clang-runtimes", cpu_variant, variant, "lib")
+        if os.path.exists(cpu_variant_lib_path):
+            standard_lib_paths.append(cpu_variant_lib_path)
     
     # Füge alle gefundenen Library-Pfade hinzu
     for lib_path in standard_lib_paths:
