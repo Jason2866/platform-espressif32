@@ -41,14 +41,14 @@ ESP_BUILTIN_DEBUG_MCUS = frozenset([
 MCU_TOOLCHAIN_CONFIG = {
     "xtensa": {
         "mcus": frozenset(["esp32", "esp32s2", "esp32s3"]),
-        "toolchains": ["toolchain-clang-esp"],
+        "toolchains": ["toolchain-clang-esp", "toolchain-xtensa-esp-elf"],
         "debug_tools": ["tool-xtensa-esp-elf-gdb"]
     },
     "riscv": {
         "mcus": frozenset([
             "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"
         ]),
-        "toolchains": ["toolchain-clang-esp"],
+        "toolchains": ["toolchain-clang-esp", "toolchain-riscv32-esp"],
         "debug_tools": ["tool-riscv32-esp-elf-gdb"]
     }
 }
