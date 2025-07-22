@@ -2485,6 +2485,7 @@ else:
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
 
+
 # Nach dem Flag-Filter, direkt vor env.Prepend():
 if "clang" in env.subst("$CC").lower():
     print("CLANG: Applying Whole-Archive + Library-Grouping for symbol resolution")
@@ -2526,12 +2527,29 @@ if "clang" in env.subst("$CC").lower():
     for symbol in hal_symbols:
         clang_linking_flags.extend(['-u', symbol])
     
-    # 4. Library-Gruppierung mit Whole-Archive
+    # 4. Zusätzliche fehlende Symbole
+    additional_symbols = [
+        'nvs_flash_init', 'nvs_flash_erase', 'nvs_flash_deinit',
+        '_esp_error_check_failed', 'esp_err_to_name',
+        'esp_netif_init', 'esp_netif_deinit',
+        'esp_event_loop_create_default', 'esp_event_loop_delete_default',
+        'xTaskCreatePinnedToCore', 'vTaskDelete', 'vTaskDelay',
+        'esp_log_timestamp', 'esp_log', 'esp_log_write',
+        'call_start_cpu0', 'end'
+    ]
+    
+    for symbol in additional_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 5. Library-Gruppierung mit Whole-Archive
     clang_linking_flags.append('-Wl,--start-group')
     
     # Alle Libraries als Whole-Archive hinzufügen
+    libraries_processed = 0
+    libraries_found = 0
     for lib_name in all_libs:
         if isinstance(lib_name, str) and not lib_name.startswith('-'):
+            libraries_processed += 1
             lib_found = False
             for lib_dir in all_libpaths:
                 lib_path = os.path.join(lib_dir, f'lib{lib_name}.a')
@@ -2542,6 +2560,7 @@ if "clang" in env.subst("$CC").lower():
                         '-Wl,--no-whole-archive'
                     ])
                     lib_found = True
+                    libraries_found += 1
                     break
             
             if not lib_found:
@@ -2550,20 +2569,71 @@ if "clang" in env.subst("$CC").lower():
     
     clang_linking_flags.append('-Wl,--end-group')
     
-    # 5. Originale extra_flags hinzufügen (ROM-Scripts etc.)
+    # 6. Originale extra_flags hinzufügen (ROM-Scripts etc.)
     for flag in extra_flags:
         if str(flag).startswith('-T') or str(flag).startswith('-Wl,') or str(flag).endswith('.ld'):
             clang_linking_flags.append(flag)
     
-    # 6. Ersetze extra_flags mit Clang-optimierten Flags
+    # 7. Ersetze extra_flags mit Clang-optimierten Flags
     extra_flags[:] = clang_linking_flags  # In-place replacement
     
-    # 7. Entfere LIBS von SCons (wir handhaben sie direkt)
+    # 8. Entfere LIBS von SCons (wir handhaben sie direkt)
     libs[:] = []  # Leere die libs Liste
     
     print(f"CLANG: Generated {len(clang_linking_flags)} optimized linking flags")
-    print(f"CLANG: Applied whole-archive linking for {len(all_libs)} libraries")
-
+    print(f"CLANG: Applied whole-archive linking for {libraries_found}/{libraries_processed} libraries")
+    
+    # === DEBUG EXTENSION ===
+    print("\n=== CLANG LIBRARY PATH DEBUG ===")
+    
+    # Zeige wichtige Libraries die wir suchen
+    important_libs = ['nvs_flash', 'esp_netif', 'esp_event', 'freertos', 'protocol_examples_common']
+    
+    print(f"Total LIBPATH directories: {len(all_libpaths)}")
+    for i, path in enumerate(all_libpaths[:5]):  # Erste 5 Pfade
+        print(f"  LIBPATH[{i}]: {path}")
+    
+    print(f"Total LIBS: {len(all_libs)} (processed: {libraries_processed})")
+    for lib in important_libs:
+        if lib in all_libs:
+            print(f"  ✓ {lib} in LIBS")
+            # Suche in allen Pfaden
+            found_path = None
+            for lib_dir in all_libpaths:
+                lib_path = os.path.join(lib_dir, f'lib{lib}.a')
+                if os.path.exists(lib_path):
+                    found_path = lib_path
+                    break
+            
+            if found_path:
+                print(f"    → Found at: {found_path}")
+            else:
+                print(f"    → NOT FOUND in any LIBPATH!")
+                # Zeige wo es wirklich ist
+                for i, lib_dir in enumerate(all_libpaths):
+                    if os.path.isdir(lib_dir):
+                        files = [f for f in os.listdir(lib_dir) if f.startswith('lib') and f.endswith('.a')][:3]
+                        if files:
+                            print(f"      LIBPATH[{i}] {lib_dir} contains: {files}")
+                        if i >= 3:  # Nur erste paar Verzeichnisse zeigen
+                            print(f"      ... and {len(all_libpaths) - i - 1} more directories")
+                            break
+        else:
+            print(f"  ✗ {lib} NOT in LIBS")
+    
+    # Zeige ein paar Libraries die tatsächlich verarbeitet wurden
+    print(f"\nFirst 10 libraries in all_libs:")
+    for i, lib in enumerate(all_libs[:10]):
+        print(f"  all_libs[{i}]: {lib}")
+    
+    # Prüfe ob CoAP-spezifische Libraries vorhanden sind
+    coap_libs = [lib for lib in all_libs if 'coap' in lib.lower()]
+    if coap_libs:
+        print(f"CoAP-related libraries found: {coap_libs}")
+    else:
+        print("No CoAP-related libraries found in all_libs")
+    
+    print("=== END LIBRARY PATH DEBUG ===\n")
 
 
 #
