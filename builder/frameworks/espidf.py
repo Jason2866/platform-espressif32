@@ -2490,8 +2490,38 @@ else:
 if "clang" in env.subst("$CC").lower():
     print("CLANG: Applying Whole-Archive + Library-Grouping for symbol resolution")
     
-    # Sammle alle Libraries
-    all_libs = env.get('LIBS', []) + libs
+    # Sammle alle Libraries - KORREKTE Behandlung von SCons NodeList
+    env_libs = env.get('LIBS', [])
+    all_libs = []
+    
+    # Verarbeite env LIBS (normalerweise Strings)
+    for lib in env_libs:
+        if isinstance(lib, str):
+            all_libs.append(lib)
+        else:
+            all_libs.append(str(lib))
+    
+    # Verarbeite libs Variable (SCons NodeList-Objekte)
+    for lib_node in libs:
+        if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
+            # lib_node ist eine Liste von Pfaden
+            for lib_path in lib_node:
+                if hasattr(lib_path, 'get_path'):
+                    # SCons File-Node
+                    full_path = lib_path.get_path()
+                else:
+                    # String-Pfad
+                    full_path = str(lib_path)
+                
+                # Extrahiere Library-Namen aus vollständigen Pfaden
+                lib_filename = os.path.basename(full_path)
+                if lib_filename.startswith('lib') and lib_filename.endswith('.a'):
+                    lib_name = lib_filename[3:-2]  # Entferne 'lib' und '.a'
+                    all_libs.append(lib_name)
+        else:
+            # Direktes String-Element
+            all_libs.append(str(lib_node))
+    
     all_libpaths = env.get('LIBPATH', [])
     
     # Baue Clang-spezifische extra_flags
@@ -2582,58 +2612,17 @@ if "clang" in env.subst("$CC").lower():
     
     print(f"CLANG: Generated {len(clang_linking_flags)} optimized linking flags")
     print(f"CLANG: Applied whole-archive linking for {libraries_found}/{libraries_processed} libraries")
+    print(f"CLANG: Processed {len(all_libs)} total libraries")
     
-    # === DEBUG EXTENSION ===
-    print("\n=== CLANG LIBRARY PATH DEBUG ===")
-    
-    # Zeige wichtige Libraries die wir suchen
-    important_libs = ['nvs_flash', 'esp_netif', 'esp_event', 'freertos', 'protocol_examples_common']
-    
-    print(f"Total LIBPATH directories: {len(all_libpaths)}")
-    for i, path in enumerate(all_libpaths[:5]):  # Erste 5 Pfade
-        print(f"  LIBPATH[{i}]: {path}")
-    
-    print(f"Total LIBS: {len(all_libs)} (processed: {libraries_processed})")
+    # === DEBUG EXTENSION (optional, kann entfernt werden wenn es funktioniert) ===
+    print("\n=== CLANG LIBRARY DEBUG ===")
+    important_libs = ['nvs_flash', 'esp_netif', 'esp_event', 'freertos']
     for lib in important_libs:
         if lib in all_libs:
-            print(f"  ✓ {lib} in LIBS")
-            # Suche in allen Pfaden
-            found_path = None
-            for lib_dir in all_libpaths:
-                lib_path = os.path.join(lib_dir, f'lib{lib}.a')
-                if os.path.exists(lib_path):
-                    found_path = lib_path
-                    break
-            
-            if found_path:
-                print(f"    → Found at: {found_path}")
-            else:
-                print(f"    → NOT FOUND in any LIBPATH!")
-                # Zeige wo es wirklich ist
-                for i, lib_dir in enumerate(all_libpaths):
-                    if os.path.isdir(lib_dir):
-                        files = [f for f in os.listdir(lib_dir) if f.startswith('lib') and f.endswith('.a')][:3]
-                        if files:
-                            print(f"      LIBPATH[{i}] {lib_dir} contains: {files}")
-                        if i >= 3:  # Nur erste paar Verzeichnisse zeigen
-                            print(f"      ... and {len(all_libpaths) - i - 1} more directories")
-                            break
+            print(f"  ✓ {lib} in processed libraries")
         else:
-            print(f"  ✗ {lib} NOT in LIBS")
-    
-    # Zeige ein paar Libraries die tatsächlich verarbeitet wurden
-    print(f"\nFirst 10 libraries in all_libs:")
-    for i, lib in enumerate(all_libs[:10]):
-        print(f"  all_libs[{i}]: {lib}")
-    
-    # Prüfe ob CoAP-spezifische Libraries vorhanden sind
-    coap_libs = [lib for lib in all_libs if 'coap' in lib.lower()]
-    if coap_libs:
-        print(f"CoAP-related libraries found: {coap_libs}")
-    else:
-        print("No CoAP-related libraries found in all_libs")
-    
-    print("=== END LIBRARY PATH DEBUG ===\n")
+            print(f"  ✗ {lib} NOT in processed libraries")
+    print("=== END DEBUG ===\n")
 
 
 #
