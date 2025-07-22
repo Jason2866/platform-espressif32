@@ -55,6 +55,7 @@ PYTHON_EXE = env.subst("$PYTHONEXE")  # Global Python executable path
 
 # Framework directory path
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+TOOLCHAIN_DIR = platform.get_package_dir("toolchain-clang-esp")
 
 
 def add_to_pythonpath(path):
@@ -504,6 +505,27 @@ def _get_board_flash_mode(env):
     return mode
 
 
+def _get_board_psram(env):
+    """
+    Determine PSRAM support for the board.
+    
+    Args:
+        env: SCons environment object
+        
+    Returns:
+        bool: True if PSRAM is supported, False otherwise
+    """
+    board_config = env.BoardConfig()
+    psram_flags = board_config.get("build.extra_flags", "")
+    if isinstance(psram_flags, list):
+        psram_flags_str = " ".join(str(f) for f in psram_flags)
+    else:
+        psram_flags_str = str(psram_flags)
+    psram_enabled = "psram" in psram_flags_str.lower()
+
+    return psram_enabled
+
+
 def _get_board_boot_mode(env):
     """
     Determine the boot mode for the board.
@@ -756,31 +778,6 @@ if mcu in ("esp32", "esp32s2", "esp32s3"):
     objdump_name = "xtensa-%s-elf-clang-objdump" % mcu
     linker_ld_path = "xtensa-%s-elf-clang-ld" % mcu
 
-# Fix linker emulation for Clang by replacing xtensa linker flags
-def fix_clang_linkflags(linkflags):
-    """Convert GCC linker flags to Clang compatible flags"""
-    if not linkflags:
-        return []
-    
-    result = []
-    for flag in linkflags:
-        if isinstance(flag, str):
-            # Convert cpu=esp32* to elf32xtensa for Clang
-            if "cpu=esp32" in flag:
-                flag = flag.replace("cpu=esp32", "elf32xtensa")
-            elif "cpu=esp32s2" in flag:
-                flag = flag.replace("cpu=esp32s2", "elf32xtensa")
-            elif "cpu=esp32s3" in flag:
-                flag = flag.replace("cpu=esp32s3", "elf32xtensa")
-            # Fix falsely generated elf32xtensas3 -> elf32xtensa
-            elif "elf32xtensas3" in flag:
-                flag = flag.replace("elf32xtensas3", "elf32xtensa")
-            elif "elf32xtensas2" in flag:
-                flag = flag.replace("elf32xtensas2", "elf32xtensa")
-        result.append(flag)
-    
-    return result
-
 
 # Initialize integration extra data if not present
 if "INTEGRATION_EXTRA_DATA" not in env:
@@ -847,41 +844,95 @@ env.Replace(
     PROGSUFFIX=".elf",
 )
 
-def setup_clang_flags():
-    """Setup Clang-specific flags based on MCU architecture"""
+
+def finalize_clang_environment():
+    """Final Clang environment adjustments"""
+    # Architektur und Toolchain-Version ermitteln
+    toolchain_dir = TOOLCHAIN_DIR
+    psram_enabled = _get_board_psram(env)
     if mcu in ("esp32", "esp32s2", "esp32s3"):
-        # Xtensa MCUs
-        target_flags = ["--target=xtensa-esp-elf", f"-mcpu={mcu}"]
-        asm_flags = target_flags + ["-Xassembler", "--longcalls"]
-        
-        env.Append(
-            CCFLAGS=target_flags,
-            CXXFLAGS=target_flags,
-            ASFLAGS=asm_flags
-        )
+        target_arch = "xtensa-esp-elf"
+        if mcu == "esp32" and not psram_enabled:
+            arch_variants = ["esp32", "esp32_no-rtti"]
+        if mcu == "esp32" and psram_enabled:
+            arch_variants = ["esp32_psram", "esp32_psram_no-rtti"]
+        if mcu == "esp32s2":
+            arch_variants = ["esp32s2", "esp32s2_no-rtti"]
+        if mcu == "esp32s3" and not psram_enabled:
+            arch_variants = ["esp32s3", "esp32s3_no-rtti"]
+        if mcu == "esp32s3" and psram_enabled:
+            arch_variants = ["esp32s3_psram", "esp32s3_psram_no-rtti"]
     else:
-        # RISC-V MCUs
-        target_flags = ["--target=riscv32-esp-elf", "-march=rv32imc_zicsr_zifencei", "-mabi=ilp32"]
-        env.Append(
-            CCFLAGS=target_flags,
-            CXXFLAGS=target_flags,
-            ASFLAGS=target_flags
-        )
-    
-    # Common linker flags
-    env.Append(
-        LINKFLAGS=[
-            f"--ld-path={linker_ld_path}",
-            "-z", "noexecstack"
+        target_arch = "riscv32-esp-elf"
+        arch_variants = [
+            "rv32imac-zicsr-zifencei_ilp32",
+            "rv32imac-zicsr-zifencei_ilp32_no-rtti"
         ]
+
+    clang_version = "19"  # ggf. dynamisch ermitteln
+
+    # Compiler- und Assembler-Flags
+    esp_idf_compiler_flags = [
+        f"--target={target_arch}",
+        "-Wno-unknown-warning-option",
+    ]
+    esp_idf_asm_flags = []
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        esp_idf_asm_flags.append("-Xassembler")
+        esp_idf_asm_flags.append("--longcalls")
+    esp_idf_linker_flags = ["-z", "noexecstack"]
+
+    env.Append(
+        CCFLAGS=esp_idf_compiler_flags,
+        CXXFLAGS=esp_idf_compiler_flags,
+        ASFLAGS=esp_idf_asm_flags,
+        LINKFLAGS=esp_idf_linker_flags
     )
 
-setup_clang_flags()
+    # Include-Pfade
+    include_paths = [
+        os.path.join(toolchain_dir, "lib", "clang", clang_version, "include"),
+        os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include"),
+        os.path.join(toolchain_dir, target_arch, "include"),
+    ]
+    # C++ Standard Library Pfade
+    cpp_stdlib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
+    if os.path.exists(cpp_stdlib_path):
+        include_paths.append(cpp_stdlib_path)
+    # Architektur-Varianten
+    for variant in arch_variants:
+        variant_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
+        if os.path.exists(variant_path):
+            include_paths.append(variant_path)
+    # Nur existierende Pfade verwenden
+    include_paths = [p for p in include_paths if os.path.exists(p)]
+    if include_paths:
+        env.Append(CPPPATH=include_paths)
+        for path in include_paths:
+            env.Append(CCFLAGS=[f"-isystem{path}"])
 
-# Remove xtensa linker flags
-initial_linkflags = env.get("LINKFLAGS", [])
-if "clang" in env.subst("$CC").lower():
-    initial_linkflags = fix_clang_linkflags(initial_linkflags)
+    # Library-Pfade
+    lib_paths = [
+        os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "lib"),
+        os.path.join(toolchain_dir, target_arch, "lib"),
+        os.path.join(toolchain_dir, "lib", "clang", clang_version, "lib"),
+    ]
+    for variant in arch_variants:
+        variant_lib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, variant, "lib")
+        if os.path.exists(variant_lib_path):
+            lib_paths.append(variant_lib_path)
+    lib_paths = [p for p in lib_paths if os.path.exists(p)]
+    if lib_paths:
+        env.Append(LIBPATH=lib_paths)
+
+    # Standard-Linker-Flags
+    env.Append(LINKFLAGS=[
+        "-Wl,--gc-sections",
+        "-Wl,--warn-common",
+        "-Wl,--allow-multiple-definition",
+    ])
+
+finalize_clang_environment()
 
 # Check if lib_archive is set in platformio.ini and set it to False
 # if not found. This makes weak defs in framework and libs possible.
