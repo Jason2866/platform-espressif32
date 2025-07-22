@@ -41,12 +41,12 @@
       "owner": "tasmota",
       "version": "https://github.com/tasmota/esp-idf/releases/download/v5.5.0-rc1clang/esp-idf-v5.5.0-rc1clang.zip"
     },
-    "toolchain-clang-esp": {
+   "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "19.1.2+20250312",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/clang-esp-19.1.2_20250312.zip"
+      "package-version": "14.2.0+20241119",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-14.2.0_20241119.zip"
     },
     "toolchain-riscv32-esp": {
       "type": "toolchain",
@@ -54,6 +54,13 @@
       "owner": "pioarduino",
       "package-version": "14.2.0+20241119",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/riscv32-esp-elf-14.2.0_20241119.zip"
+    },
+    "toolchain-clang-esp": {
+      "type": "toolchain",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "19.1.2+20250312",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/clang-esp-19.1.2_20250312.zip"
     },
     "toolchain-esp32ulp": {
       "type": "toolchain",
