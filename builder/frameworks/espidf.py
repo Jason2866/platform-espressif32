@@ -2487,7 +2487,6 @@ else:
 
 
 # Nach dem Flag-Filter, direkt vor env.Prepend():
-# Nach dem Flag-Filter, direkt vor env.Prepend():
 if "clang" in env.subst("$CC").lower():
     print("CLANG: Applying Whole-Archive + Library-Grouping for symbol resolution")
     
@@ -2530,33 +2529,51 @@ if "clang" in env.subst("$CC").lower():
     # 2. Library-Gruppierung mit direkten NodeList-Objekten
     clang_linking_flags.append('-Wl,--start-group')
     
-    # DIREKTE Verwendung der SCons NodeList-Objekte
+    # Direkte Verwendung der SCons NodeList-Objekte
     libraries_processed = 0
     for lib_node in libs:
         if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
             for lib_path in lib_node:
-                if hasattr(lib_path, 'get_path') or hasattr(lib_path, '__str__'):
-                    # SCons Node-Objekt - wird zur Build-Zeit aufgelöst
-                    clang_linking_flags.extend([
-                        '-Wl,--whole-archive',
-                        lib_path,  # SCons Node direkt verwenden!
-                        '-Wl,--no-whole-archive'
-                    ])
-                    libraries_processed += 1
+                # SCons Node-Objekt - als String für LINKFLAGS konvertieren
+                if hasattr(lib_path, 'get_path'):
+                    lib_path_str = lib_path.get_path()
+                else:
+                    lib_path_str = str(lib_path)
+                
+                clang_linking_flags.extend([
+                    '-Wl,--whole-archive',
+                    lib_path_str,  # String verwenden statt SCons Node
+                    '-Wl,--no-whole-archive'
+                ])
+                libraries_processed += 1
+        else:
+            # Einzelnes Node-Objekt
+            if hasattr(lib_node, 'get_path'):
+                lib_path_str = lib_node.get_path()
+            else:
+                lib_path_str = str(lib_node)
+            
+            clang_linking_flags.extend([
+                '-Wl,--whole-archive',
+                lib_path_str,
+                '-Wl,--no-whole-archive'
+            ])
+            libraries_processed += 1
     
     clang_linking_flags.append('-Wl,--end-group')
     
-    # 3. ROM-Scripts hinzufügen
+    # 3. ROM-Scripts hinzufügen (auch als Strings)
     for flag in extra_flags:
-        if str(flag).startswith('-T') or str(flag).startswith('-Wl,') or str(flag).endswith('.ld'):
-            clang_linking_flags.append(flag)
+        flag_str = str(flag)  # Konvertiere zu String
+        if flag_str.startswith('-T') or flag_str.startswith('-Wl,') or flag_str.endswith('.ld'):
+            clang_linking_flags.append(flag_str)
     
-    # 4. Ersetze Flags
+    # 4. Ersetze Flags - ALLE als Strings
     extra_flags[:] = clang_linking_flags
     libs[:] = []  # Leere libs, da wir sie direkt in extra_flags verwenden
     
     print(f"CLANG: Generated {len(clang_linking_flags)} optimized linking flags")
-    print(f"CLANG: Applied whole-archive linking for {libraries_processed} NodeList objects")
+    print(f"CLANG: Applied whole-archive linking for {libraries_processed} libraries")
 
 
 #
