@@ -2490,9 +2490,10 @@ else:
 if "clang" in env.subst("$CC").lower():
     print("CLANG: Applying Whole-Archive + Library-Grouping for symbol resolution")
     
-    # Sammle alle Libraries - KORREKTE Behandlung von SCons NodeList
+    # Sammle alle Libraries - KORREKTE Behandlung von SCons NodeList mit Pfad-Extraktion
     env_libs = env.get('LIBS', [])
     all_libs = []
+    all_libpaths = []  # Starte mit leerer Liste
     
     # Verarbeite env LIBS (normalerweise Strings)
     for lib in env_libs:
@@ -2501,7 +2502,7 @@ if "clang" in env.subst("$CC").lower():
         else:
             all_libs.append(str(lib))
     
-    # Verarbeite libs Variable (SCons NodeList-Objekte)
+    # Verarbeite libs Variable (SCons NodeList-Objekte) und extrahiere Pfade
     for lib_node in libs:
         if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
             # lib_node ist eine Liste von Pfaden
@@ -2513,16 +2514,26 @@ if "clang" in env.subst("$CC").lower():
                     # String-Pfad
                     full_path = str(lib_path)
                 
-                # Extrahiere Library-Namen aus vollständigen Pfaden
+                # Extrahiere Library-Namen UND Pfade
+                lib_dir = os.path.dirname(full_path)
                 lib_filename = os.path.basename(full_path)
+                
                 if lib_filename.startswith('lib') and lib_filename.endswith('.a'):
                     lib_name = lib_filename[3:-2]  # Entferne 'lib' und '.a'
                     all_libs.append(lib_name)
+                    
+                    # Füge Library-Pfad hinzu
+                    if lib_dir not in all_libpaths:
+                        all_libpaths.append(lib_dir)
         else:
             # Direktes String-Element
             all_libs.append(str(lib_node))
     
-    all_libpaths = env.get('LIBPATH', [])
+    # Füge auch env LIBPATH hinzu
+    for path in env.get('LIBPATH', []):
+        expanded_path = env.subst(path)  # Expandiere $BUILD_DIR etc.
+        if expanded_path not in all_libpaths:
+            all_libpaths.append(expanded_path)
     
     # Baue Clang-spezifische extra_flags
     clang_linking_flags = []
@@ -2612,14 +2623,31 @@ if "clang" in env.subst("$CC").lower():
     
     print(f"CLANG: Generated {len(clang_linking_flags)} optimized linking flags")
     print(f"CLANG: Applied whole-archive linking for {libraries_found}/{libraries_processed} libraries")
-    print(f"CLANG: Processed {len(all_libs)} total libraries")
+    print(f"CLANG: Processed {len(all_libs)} total libraries with {len(all_libpaths)} library paths")
     
-    # === DEBUG EXTENSION (optional, kann entfernt werden wenn es funktioniert) ===
-    print("\n=== CLANG LIBRARY DEBUG ===")
+    # === DEBUG EXTENSION ===
+    print("\n=== CLANG LIBRARY PATH DEBUG ===")
+    print(f"Total LIBPATH directories: {len(all_libpaths)}")
+    for i, path in enumerate(all_libpaths[:10]):  # Erste 10 Pfade
+        print(f"  LIBPATH[{i}]: {path}")
+    if len(all_libpaths) > 10:
+        print(f"  ... and {len(all_libpaths) - 10} more paths")
+    
     important_libs = ['nvs_flash', 'esp_netif', 'esp_event', 'freertos']
     for lib in important_libs:
         if lib in all_libs:
             print(f"  ✓ {lib} in processed libraries")
+            # Prüfe ob wir es finden können
+            found_path = None
+            for lib_dir in all_libpaths:
+                lib_path = os.path.join(lib_dir, f'lib{lib}.a')
+                if os.path.exists(lib_path):
+                    found_path = lib_path
+                    break
+            if found_path:
+                print(f"    → Found at: {found_path}")
+            else:
+                print(f"    → NOT FOUND in any LIBPATH!")
         else:
             print(f"  ✗ {lib} NOT in processed libraries")
     print("=== END DEBUG ===\n")
