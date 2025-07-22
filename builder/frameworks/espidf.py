@@ -2455,6 +2455,86 @@ else:
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
 
+# Nach dem Flag-Filter, direkt vor env.Prepend():
+if "clang" in env.subst("$CC").lower():
+    print("CLANG: Applying Whole-Archive + Library-Grouping for symbol resolution")
+    
+    # Sammle alle Libraries
+    all_libs = env.get('LIBS', []) + libs
+    all_libpaths = env.get('LIBPATH', [])
+    
+    # Baue Clang-spezifische extra_flags
+    clang_linking_flags = []
+    
+    # 1. Symbol-Forcing für ROM-Symbole (muss VOR Libraries stehen)
+    critical_rom_symbols = [
+        'xt_set_interrupt_handler', 'xt_ints_on', 'xt_ints_off', 'xt_int_has_handler',
+        '_xt_context_save', '_xt_context_restore', '_xt_coproc_init', '_xt_user_exit',
+        '_xt_coproc_release', '_xt_coproc_savecs', '_invalid_pc_placeholder'
+    ]
+    
+    for symbol in critical_rom_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 2. ESP32-System-Symbole
+    system_symbols = [
+        'esp_random', 'esp_read_mac', 'esp_fill_random', 'esp_chip_info',
+        'esp_cpu_compare_and_set', 'esp_cpu_stall', 'esp_cpu_unstall',
+        'esp_cpu_wait_for_intr', 'esp_cpu_set_breakpoint'
+    ]
+    
+    for symbol in system_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 3. HAL-Symbole
+    hal_symbols = [
+        'spi_flash_hal_init', 'spi_flash_hal_device_config', 'spi_flash_hal_common_command',
+        'aes_hal_setkey', 'aes_hal_transform_block', 'sha_hal_wait_idle', 'sha_hal_read_digest',
+        'mpi_hal_calc_hardware_words', 'esp_heap_adjust_alignment_to_hw'
+    ]
+    
+    for symbol in hal_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 4. Library-Gruppierung mit Whole-Archive
+    clang_linking_flags.append('-Wl,--start-group')
+    
+    # Alle Libraries als Whole-Archive hinzufügen
+    for lib_name in all_libs:
+        if isinstance(lib_name, str) and not lib_name.startswith('-'):
+            lib_found = False
+            for lib_dir in all_libpaths:
+                lib_path = os.path.join(lib_dir, f'lib{lib_name}.a')
+                if os.path.exists(lib_path):
+                    clang_linking_flags.extend([
+                        '-Wl,--whole-archive',
+                        lib_path, 
+                        '-Wl,--no-whole-archive'
+                    ])
+                    lib_found = True
+                    break
+            
+            if not lib_found:
+                # Fallback: Standard -l Flag
+                clang_linking_flags.append(f'-l{lib_name}')
+    
+    clang_linking_flags.append('-Wl,--end-group')
+    
+    # 5. Originale extra_flags hinzufügen (ROM-Scripts etc.)
+    for flag in extra_flags:
+        if str(flag).startswith('-T') or str(flag).startswith('-Wl,') or str(flag).endswith('.ld'):
+            clang_linking_flags.append(flag)
+    
+    # 6. Ersetze extra_flags mit Clang-optimierten Flags
+    extra_flags[:] = clang_linking_flags  # In-place replacement
+    
+    # 7. Entfere LIBS von SCons (wir handhaben sie direkt)
+    libs[:] = []  # Leere die libs Liste
+    
+    print(f"CLANG: Generated {len(clang_linking_flags)} optimized linking flags")
+    print(f"CLANG: Applied whole-archive linking for {len(all_libs)} libraries")
+
+
 
 #
 # Process project sources
