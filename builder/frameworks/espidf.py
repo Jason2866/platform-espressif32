@@ -2500,18 +2500,30 @@ if "clang" in env.subst("$CC").lower():
         '_xt_coproc_release', '_xt_coproc_savecs', '_invalid_pc_placeholder'
     ]
     
+    for symbol in critical_rom_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 2. ESP32-System-Symbole
     system_symbols = [
         'esp_random', 'esp_read_mac', 'esp_fill_random', 'esp_chip_info',
         'esp_cpu_compare_and_set', 'esp_cpu_stall', 'esp_cpu_unstall',
         'esp_cpu_wait_for_intr', 'esp_cpu_set_breakpoint'
     ]
     
+    for symbol in system_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 3. HAL-Symbole
     hal_symbols = [
         'spi_flash_hal_init', 'spi_flash_hal_device_config', 'spi_flash_hal_common_command',
         'aes_hal_setkey', 'aes_hal_transform_block', 'sha_hal_wait_idle', 'sha_hal_read_digest',
         'mpi_hal_calc_hardware_words', 'esp_heap_adjust_alignment_to_hw'
     ]
     
+    for symbol in hal_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 4. Zusätzliche fehlende Symbole
     additional_symbols = [
         'nvs_flash_init', 'nvs_flash_erase', 'nvs_flash_deinit',
         '_esp_error_check_failed', 'esp_err_to_name',
@@ -2522,11 +2534,28 @@ if "clang" in env.subst("$CC").lower():
         'call_start_cpu0', 'end'
     ]
     
-    # Alle Symbole hinzufügen
-    for symbol in critical_rom_symbols + system_symbols + hal_symbols + additional_symbols:
+    for symbol in additional_symbols:
         clang_linking_flags.extend(['-u', symbol])
     
-    # 2. Library-Gruppierung mit direkten NodeList-Objekten
+    # 5. WiFi-spezifische Symbole (für precompiled libnet80211.a)
+    wifi_symbols = [
+        'g_misc_nvs',
+        'misc_nvs_init', 
+        'misc_nvs_deinit',
+        'g_log_level',
+        'g_espnow_user_oui',
+        'esp_wifi_internal_set_fix_rate',
+        'esp_wifi_internal_tx_by_ref',
+        'net80211_printf',
+        'g_wifi_osi_funcs',
+        'esp_wifi_power_domain_on',
+        'esp_wifi_power_domain_off'
+    ]
+    
+    for symbol in wifi_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 6. Library-Gruppierung mit direkten NodeList-Objekten
     clang_linking_flags.append('-Wl,--start-group')
     
     # Direkte Verwendung der SCons NodeList-Objekte
@@ -2562,18 +2591,19 @@ if "clang" in env.subst("$CC").lower():
     
     clang_linking_flags.append('-Wl,--end-group')
     
-    # 3. ROM-Scripts hinzufügen (auch als Strings)
+    # 7. ROM-Scripts hinzufügen (auch als Strings)
     for flag in extra_flags:
         flag_str = str(flag)  # Konvertiere zu String
         if flag_str.startswith('-T') or flag_str.startswith('-Wl,') or flag_str.endswith('.ld'):
             clang_linking_flags.append(flag_str)
     
-    # 4. Ersetze Flags - ALLE als Strings
+    # 8. Ersetze Flags - ALLE als Strings
     extra_flags[:] = clang_linking_flags
     libs[:] = []  # Leere libs, da wir sie direkt in extra_flags verwenden
     
     print(f"CLANG: Generated {len(clang_linking_flags)} optimized linking flags")
     print(f"CLANG: Applied whole-archive linking for {libraries_processed} libraries")
+    print(f"CLANG: Added symbol forcing for ROM, System, HAL, ESP-IDF and WiFi symbols")
 
 
 #
