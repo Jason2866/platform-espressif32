@@ -2088,18 +2088,13 @@ if "clang" in env.subst("$CC").lower():
     for symbol in wifi_symbols:
         clang_linking_flags.extend(['-u', symbol])
     
-    # 6. NEUE: Selektives Library-Gruppierung
+    # 6. Selektives Library-Gruppierung
     clang_linking_flags.append('-Wl,--start-group')
     
     # Libraries die WHOLE-ARCHIVE brauchen (nur die problematischen)
     whole_archive_libs = [
         'esp_hw_support', 'esp_system', 'esp_rom', 'hal', 'soc',
         'esp_phy', 'esp_wifi', 'bootloader_support'
-    ]
-    
-    # Libraries die KEINE whole-archive brauchen (vermeiden Multiple Definitions)
-    no_whole_archive_libs = [
-        'wpa_supplicant', 'freertos', 'lwip', 'mbedtls', 'newlib'
     ]
     
     libraries_processed = 0
@@ -2126,18 +2121,17 @@ if "clang" in env.subst("$CC").lower():
                         '-Wl,--no-whole-archive'
                     ])
                 else:
-                    # Normal-Linking für andere Libraries
+                    # Normal-Linking für alle anderen Libraries
                     clang_linking_flags.append(lib_path_str)
                 
                 libraries_processed += 1
         else:
-            # Einzelnes Node-Objekt
+            # Einzelnes Node-Objekt - Normal-Linking
             if hasattr(lib_node, 'get_path'):
                 lib_path_str = lib_node.get_path()
             else:
                 lib_path_str = str(lib_node)
             
-            # Normal-Linking für einzelne Nodes
             clang_linking_flags.append(lib_path_str)
             libraries_processed += 1
     
