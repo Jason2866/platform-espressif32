@@ -2022,6 +2022,7 @@ else:
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
 
+# Nach dem Flag-Filter, direkt vor env.Prepend():
 if "clang" in env.subst("$CC").lower():
     # Baue Clang-spezifische extra_flags
     clang_linking_flags = []
@@ -2072,44 +2073,60 @@ if "clang" in env.subst("$CC").lower():
     
     # 5. WiFi-spezifische Symbole (für precompiled libnet80211.a)
     wifi_symbols = [
-        'g_misc_nvs',
-        'misc_nvs_init', 
-        'misc_nvs_deinit',
-        'g_log_level',
-        'g_espnow_user_oui',
-        'esp_wifi_internal_set_fix_rate',
-        'esp_wifi_internal_tx_by_ref',
-        'net80211_printf',
-        'g_wifi_osi_funcs',
-        'esp_wifi_power_domain_on',
-        'esp_wifi_power_domain_off'
+        'g_misc_nvs', 'misc_nvs_init', 'misc_nvs_deinit', 'g_log_level',
+        'g_espnow_user_oui', 'esp_wifi_internal_set_fix_rate',
+        'esp_wifi_internal_tx_by_ref', 'net80211_printf', 'g_wifi_osi_funcs',
+        'esp_wifi_power_domain_on', 'esp_wifi_power_domain_off'
     ]
     
     for symbol in wifi_symbols:
         clang_linking_flags.extend(['-u', symbol])
     
-    # 6. Library-Gruppierung mit direkten NodeList-Objekten
+    # 6. PHY-spezifische Symbole (NEU - für libphy.a)
+    phy_symbols = [
+        'phy_printf'
+    ]
+    
+    for symbol in phy_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 7. ZURÜCK ZU: Bewährtes Whole-Archive + intelligente Ausnahmen
     clang_linking_flags.append('-Wl,--start-group')
     
-    # Direkte Verwendung der SCons Node-Objekte
+    # Libraries die DEFINITIV KEINE Multiple Definitions haben dürfen
+    no_whole_archive_libs = {
+        'libwpa_supplicant.a',  # ← Bewiesene Multiple Definitions
+        'libmbedtls.a',         # ← Crypto-Funktionen
+        'libmbedcrypto.a',      # ← Crypto-Funktionen  
+        'libmbedx509.a'         # ← X.509-Funktionen
+    }
+    
     libraries_processed = 0
     for lib_node in libs:
         if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
             for lib_path in lib_node:
-                # SCons Node-Objekt - als String für LINKFLAGS konvertieren
                 if hasattr(lib_path, 'get_path'):
                     lib_path_str = lib_path.get_path()
                 else:
                     lib_path_str = str(lib_path)
                 
-                clang_linking_flags.extend([
-                    '-Wl,--whole-archive',
-                    lib_path_str,  # String verwenden statt SCons Node
-                    '-Wl,--no-whole-archive'
-                ])
+                lib_filename = os.path.basename(lib_path_str)
+                
+                # SMART-Entscheidung: Whole-Archive für fast alle, AUSSER bekannte Problemfälle
+                if lib_filename in no_whole_archive_libs:
+                    # AUSNAHME: Normal-Linking für bekannte Multiple-Definition-Libraries
+                    clang_linking_flags.append(lib_path_str)
+                else:
+                    # DEFAULT: Whole-Archive für Symbol-Resolution
+                    clang_linking_flags.extend([
+                        '-Wl,--whole-archive',
+                        lib_path_str,
+                        '-Wl,--no-whole-archive'
+                    ])
+                
                 libraries_processed += 1
         else:
-            # Einzelnes Node-Objekt
+            # Einzelne Nodes: Whole-Archive
             if hasattr(lib_node, 'get_path'):
                 lib_path_str = lib_node.get_path()
             else:
@@ -2124,16 +2141,16 @@ if "clang" in env.subst("$CC").lower():
     
     clang_linking_flags.append('-Wl,--end-group')
     
-    # 7. ROM-Scripts UND --wrap flags hinzufügen
+    # 8. ROM-Scripts UND --wrap flags hinzufügen
     for flag in extra_flags:
-        flag_str = str(flag)  # Konvertiere zu String
+        flag_str = str(flag)
         if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or 
             flag_str.endswith('.ld') or flag_str.startswith('-u')):
             clang_linking_flags.append(flag_str)
     
-    # 8. Ersetze Flags - ALLE als Strings
+    # 9. Ersetze Flags
     extra_flags[:] = clang_linking_flags
-    libs[:] = []  # Leere libs, da wir sie direkt in extra_flags verwenden
+    libs[:] = []
 
 #
 # Process project sources
