@@ -745,6 +745,7 @@ def filter_args(args, allowed, ignore=None):
 
 def remove_flag(flags):
     """Remove gcc assembler flag"""
+    seen = set()
     result = []
     skip_next = False
     
@@ -756,7 +757,12 @@ def remove_flag(flags):
         flag_str = str(flag).strip()
         if "-mlongcalls" in flag_str:
             continue
-    
+
+        # Duplikat-Entfernung
+        if flag_str not in seen:
+            seen.add(flag_str)
+            result.append(flag_str)
+
     return result
 
 
@@ -778,64 +784,18 @@ def get_app_flags(app_config, default_config):
     app_flags = _extract_flags(app_config)
     default_flags = _extract_flags(default_config)
     
-    # CLANG-SPEZIFISCHE FLAGS basierend auf ESP-IDF CMake und sdkconfig
     if "clang" in env.subst("$CC").lower():
-        sdk_config = get_sdk_configuration()
-        is_riscv = sdk_config.get("CONFIG_IDF_TARGET_ARCH_RISCV", False)
-        # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
+        # Add Clang-specific warning flags
+        # Most of needed flags are set in main.py, maybe the all gets filtered out?!
         clang_warning_flags = [
-            "-Wno-documentation",
-            "-Wno-typedef-redefinition", 
-            "-Wno-char-subscripts",
-            "-Wno-format-security",
-            "-Wno-tautological-overlap-compare",
-            "-Wno-tautological-pointer-compare",
-            "-Wno-pointer-bool-conversion",
-            "-Wno-string-concatenation",
-            "-Wno-enum-conversion",
-            "-Wno-section",
-            "-Wno-unknown-attributes",
-            "-Wno-atomic-alignment",
-            "-Wno-unused-but-set-variable",
-            "-Wno-unused-function",
-            "-Wno-gnu-variable-sized-type-not-at-end",
-            "-Wno-constant-logical-operand",
-            "-Wno-c2x-extensions",
-            "-Wno-extern-c-compat",
-            "-Wno-single-bit-bitfield-constant-conversion"
+            "-Wno-documentation"
         ]
-        # Weitere wichtige Clang-Flags
-        common_clang_flags = [
-            "-fno-common",
-            "-fno-jump-tables",
-        ]
-        # Architektur-spezifische Flags - getrennt für C/C++ und ASM
-        if is_riscv:
-            c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
-            asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
-        else:  # Xtensa
-            c_cxx_flags = ["-mlongcalls"]
-            asm_flags = []
-        
         # Sprachspezifische Flag-Anwendung
         for lang in ["C", "CXX"]:
             if lang not in app_flags:
                 app_flags[lang] = []
-            app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
-        
-        # Assembly separate Behandlung
-        if "ASM" not in app_flags:
-            app_flags["ASM"] = []
-        app_flags["ASM"].extend(asm_flags)
-            
-        # C++-spezifische Clang-Flags
-        if "CXX" not in app_flags:
-            app_flags["CXX"] = []
-            
-        cxx_flags = [
-            "-fno-use-cxa-atexit",
-        ]    
-        app_flags["CXX"].extend(cxx_flags)
+            app_flags[lang].extend(clang_warning_flags)
+
 
     # Flags are sorted because CMake randomly populates build flags in code model
     return {

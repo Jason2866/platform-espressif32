@@ -847,6 +847,9 @@ env.Replace(
 
 def finalize_clang_environment():
     """Clang environment adjustments"""
+    
+    clang_version = "19"  # ggf. dynamisch ermitteln
+        
     # Architektur und Toolchain-Version ermitteln
     toolchain_dir = TOOLCHAIN_DIR
     psram_enabled = _get_board_psram(env)
@@ -869,19 +872,81 @@ def finalize_clang_environment():
             "rv32imac-zicsr-zifencei_ilp32_no-rtti"
         ]
 
-    clang_version = "19"  # ggf. dynamisch ermitteln
 
-    # Compiler-Flags
-    esp_idf_compiler_flags = [
-        f"--target={target_arch}",
-        "-Wno-unknown-warning-option",
-    ]
-    esp_idf_linker_flags = ["-z", "noexecstack"]
+    # CLANG-SPEZIFISCHE FLAGS basierend auf ESP-IDF CMake
+    if "clang" in env.subst("$CC").lower():
+        is_riscv = target_arch.startswith("riscv32")
+        # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
+        clang_warning_flags = [
+#            "-Wno-documentation",  # TODO: Makes error when used here and in espidf.py
+            "-Wno-typedef-redefinition", 
+            "-Wno-char-subscripts",
+            "-Wno-format-security",
+            "-Wno-tautological-overlap-compare",
+            "-Wno-tautological-pointer-compare",
+            "-Wno-pointer-bool-conversion",
+            "-Wno-string-concatenation",
+            "-Wno-enum-conversion",
+            "-Wno-section",
+            "-Wno-unknown-attributes",
+            "-Wno-atomic-alignment",
+            "-Wno-unused-but-set-variable",
+            "-Wno-unused-function",
+            "-Wno-unknown-warning-option",
+            "-Wno-gnu-variable-sized-type-not-at-end",
+            "-Wno-constant-logical-operand",
+            "-Wno-c2x-extensions",
+            "-Wno-extern-c-compat",
+            "-Wno-single-bit-bitfield-constant-conversion"
+        ]
+        # Weitere wichtige Clang-Flags
+        common_clang_flags = [
+            f"--target={target_arch}",
+            "-fno-common",
+            "-fno-jump-tables",
+        ]
+        # Architektur-spezifische Flags - getrennt für C/C++ und ASM
+        if is_riscv:
+            c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
+            asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
+        else:  # Xtensa
+            c_cxx_flags = [] #["-mlongcalls"]
+            asm_flags = []
+        
+        app_flags = {}
+        # Sprachspezifische Flag-Anwendung
+        for lang in ["C", "CXX"]:
+            if lang not in app_flags:
+                app_flags[lang] = []
+            app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
+        
+        # Assembly separate Behandlung
+        if "ASM" not in app_flags:
+            app_flags["ASM"] = []
+        app_flags["ASM"].extend(asm_flags)
+            
+        # C++-spezifische Clang-Flags
+        if "CXX" not in app_flags:
+            app_flags["CXX"] = []
+            
+        cxx_flags = [
+            "-fno-use-cxa-atexit",
+        ]    
+        app_flags["CXX"].extend(cxx_flags)
+
+        # Linker Flags
+        linker_flags = [
+            "-z", "noexecstack",
+            "-Wl,--gc-sections",
+            "-Wl,--warn-common",
+            "-Wl,--allow-multiple-definition"
+        ]
 
     env.Append(
-        CCFLAGS=esp_idf_compiler_flags,
-        CXXFLAGS=esp_idf_compiler_flags,
-        LINKFLAGS=esp_idf_linker_flags
+        CCFLAGS=app_flags["C"],
+        CXXFLAGS=app_flags["CXX"],
+        ASFLAGS=app_flags["ASM"],
+        LINKFLAGS=linker_flags
     )
 
     # Include-Pfade
@@ -919,13 +984,6 @@ def finalize_clang_environment():
     lib_paths = [p for p in lib_paths if os.path.exists(p)]
     if lib_paths:
         env.Append(LIBPATH=lib_paths)
-
-    # Standard-Linker-Flags
-    env.Append(LINKFLAGS=[
-        "-Wl,--gc-sections",
-        "-Wl,--warn-common",
-        "-Wl,--allow-multiple-definition",
-    ])
 
 finalize_clang_environment()
 
