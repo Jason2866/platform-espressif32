@@ -2095,10 +2095,11 @@ if "clang" in env.subst("$CC").lower():
     
     # Libraries die DEFINITIV KEINE Multiple Definitions haben dürfen
     no_whole_archive_libs = {
-        'libwpa_supplicant.a',  # ← Bewiesene Multiple Definitions
+        'libwpa_supplicant.a',  # ← Multiple Definitions
         'libmbedtls.a',         # ← Crypto-Funktionen
         'libmbedcrypto.a',      # ← Crypto-Funktionen  
-        'libmbedx509.a'         # ← X.509-Funktionen
+        'libmbedx509.a',        # ← X.509-Funktionen
+        'libfreertos.a'         # ← NEU: Call-Range-Probleme
     }
     
     libraries_processed = 0
