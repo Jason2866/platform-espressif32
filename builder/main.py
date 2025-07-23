@@ -768,16 +768,13 @@ filesystem = board.get("build.filesystem", "littlefs")
 if mcu in ("esp32", "esp32s2", "esp32s3"):
     toolchain_arch = "xtensa-%s" % mcu
 
-# Set linker name and OBJDUMP name
-linker_name = "clang"  # Use clang as frontend
+# Set linker clang ld and OBJDUMP name
 objdump_name = "riscv32-esp-elf-clang-objdump"
 linker_ld_path = "riscv32-esp-elf-clang-ld"
 
 if mcu in ("esp32", "esp32s2", "esp32s3"):
-    linker_name = "clang"
     objdump_name = "xtensa-%s-elf-clang-objdump" % mcu
     linker_ld_path = "xtensa-%s-elf-clang-ld" % mcu
-
 
 # Initialize integration extra data if not present
 if "INTEGRATION_EXTRA_DATA" not in env:
@@ -872,8 +869,6 @@ def finalize_clang_environment():
             "rv32imac-zicsr-zifencei_ilp32_no-rtti"
         ]
 
-
-    # CLANG-SPEZIFISCHE FLAGS basierend auf ESP-IDF CMake
     if "clang" in env.subst("$CC").lower():
         is_riscv = target_arch.startswith("riscv32")
         # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
@@ -899,7 +894,7 @@ def finalize_clang_environment():
             "-Wno-extern-c-compat",
             "-Wno-single-bit-bitfield-constant-conversion"
         ]
-        # Weitere wichtige Clang-Flags
+        # Common Clang-Flags
         common_clang_flags = [
             f"--target={target_arch}",
             "-fno-common",
@@ -910,22 +905,22 @@ def finalize_clang_environment():
             c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
             asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
         else:  # Xtensa
-            c_cxx_flags = [] #["-mlongcalls"]
+            c_cxx_flags = []
             asm_flags = []
         
         app_flags = {}
-        # Sprachspezifische Flag-Anwendung
+        # C / C++ Flags
         for lang in ["C", "CXX"]:
             if lang not in app_flags:
                 app_flags[lang] = []
             app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
         
-        # Assembly separate Behandlung
+        # Assembly Flags
         if "ASM" not in app_flags:
             app_flags["ASM"] = []
         app_flags["ASM"].extend(asm_flags)
             
-        # C++-spezifische Clang-Flags
+        # C++-specific
         if "CXX" not in app_flags:
             app_flags["CXX"] = []
             
