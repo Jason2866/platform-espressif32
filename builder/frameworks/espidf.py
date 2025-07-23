@@ -755,6 +755,9 @@ def remove_flag(flags):
             continue
 
         flag_str = str(flag).strip()
+        if flag_str.startswith("--longcalls"):
+            continue
+
         # Assembler-Flag-Bereinigung
         if any(gcc_flag in flag_str for gcc_flag in [
             "--longcalls",
