@@ -2088,25 +2088,47 @@ if "clang" in env.subst("$CC").lower():
     for symbol in wifi_symbols:
         clang_linking_flags.extend(['-u', symbol])
     
-    # 6. Library-Gruppierung mit direkten NodeList-Objekten
+    # 6. NEUE: Selektives Library-Gruppierung
     clang_linking_flags.append('-Wl,--start-group')
     
-    # Direkte Verwendung der SCons Node-Objekte
+    # Libraries die WHOLE-ARCHIVE brauchen (nur die problematischen)
+    whole_archive_libs = [
+        'esp_hw_support', 'esp_system', 'esp_rom', 'hal', 'soc',
+        'esp_phy', 'esp_wifi', 'bootloader_support'
+    ]
+    
+    # Libraries die KEINE whole-archive brauchen (vermeiden Multiple Definitions)
+    no_whole_archive_libs = [
+        'wpa_supplicant', 'freertos', 'lwip', 'mbedtls', 'newlib'
+    ]
+    
     libraries_processed = 0
     for lib_node in libs:
         if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
             for lib_path in lib_node:
-                # SCons Node-Objekt - als String für LINKFLAGS konvertieren
                 if hasattr(lib_path, 'get_path'):
                     lib_path_str = lib_path.get_path()
                 else:
                     lib_path_str = str(lib_path)
                 
-                clang_linking_flags.extend([
-                    '-Wl,--whole-archive',
-                    lib_path_str,  # String verwenden statt SCons Node
-                    '-Wl,--no-whole-archive'
-                ])
+                # Bestimme Library-Namen aus Pfad
+                lib_filename = os.path.basename(lib_path_str)
+                lib_name = None
+                if lib_filename.startswith('lib') and lib_filename.endswith('.a'):
+                    lib_name = lib_filename[3:-2]  # Entferne 'lib' und '.a'
+                
+                # Entscheide: Whole-Archive oder Normal-Linking
+                if lib_name and lib_name in whole_archive_libs:
+                    # Whole-Archive für problematische Libraries
+                    clang_linking_flags.extend([
+                        '-Wl,--whole-archive',
+                        lib_path_str,
+                        '-Wl,--no-whole-archive'
+                    ])
+                else:
+                    # Normal-Linking für andere Libraries
+                    clang_linking_flags.append(lib_path_str)
+                
                 libraries_processed += 1
         else:
             # Einzelnes Node-Objekt
@@ -2115,25 +2137,22 @@ if "clang" in env.subst("$CC").lower():
             else:
                 lib_path_str = str(lib_node)
             
-            clang_linking_flags.extend([
-                '-Wl,--whole-archive',
-                lib_path_str,
-                '-Wl,--no-whole-archive'
-            ])
+            # Normal-Linking für einzelne Nodes
+            clang_linking_flags.append(lib_path_str)
             libraries_processed += 1
     
     clang_linking_flags.append('-Wl,--end-group')
     
     # 7. ROM-Scripts UND --wrap flags hinzufügen
     for flag in extra_flags:
-        flag_str = str(flag)  # Konvertiere zu String
+        flag_str = str(flag)
         if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or 
             flag_str.endswith('.ld') or flag_str.startswith('-u')):
             clang_linking_flags.append(flag_str)
     
-    # 8. Ersetze Flags - ALLE als Strings
+    # 8. Ersetze Flags
     extra_flags[:] = clang_linking_flags
-    libs[:] = []  # Leere libs, da wir sie direkt in extra_flags verwenden
+    libs[:] = []
 
 #
 # Process project sources
