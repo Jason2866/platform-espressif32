@@ -846,7 +846,7 @@ env.Replace(
 
 
 def finalize_clang_environment():
-    """Final Clang environment adjustments"""
+    """Clang environment adjustments"""
     # Architektur und Toolchain-Version ermitteln
     toolchain_dir = TOOLCHAIN_DIR
     psram_enabled = _get_board_psram(env)
@@ -871,21 +871,16 @@ def finalize_clang_environment():
 
     clang_version = "19"  # ggf. dynamisch ermitteln
 
-    # Compiler- und Assembler-Flags
+    # Compiler-Flags
     esp_idf_compiler_flags = [
         f"--target={target_arch}",
         "-Wno-unknown-warning-option",
     ]
-    esp_idf_asm_flags = []
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        esp_idf_asm_flags.append("-Xassembler")
-        esp_idf_asm_flags.append("--longcalls")
     esp_idf_linker_flags = ["-z", "noexecstack"]
 
     env.Append(
         CCFLAGS=esp_idf_compiler_flags,
         CXXFLAGS=esp_idf_compiler_flags,
-        ASFLAGS=esp_idf_asm_flags,
         LINKFLAGS=esp_idf_linker_flags
     )
 

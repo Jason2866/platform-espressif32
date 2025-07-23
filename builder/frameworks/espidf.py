@@ -743,12 +743,8 @@ def filter_args(args, allowed, ignore=None):
     return result
 
 
-def remove_duplicate_flags(flags):
-    """Remove duplicate flags und architektur-spezifische problematische flags"""
-    if not flags:
-        return []
-
-    seen = set()
+def remove_flag(flags):
+    """Remove gcc assembler flag"""
     result = []
     skip_next = False
     
@@ -758,37 +754,8 @@ def remove_duplicate_flags(flags):
             continue
             
         flag_str = str(flag).strip()
-        # GCC-zu-Clang Flag-Bereinigung für Assembler
-        if flag_str == "-Xassembler" and i + 1 < len(flags):
-            next_flag = str(flags[i + 1]).strip()
-            if next_flag in ["-ffunction-sections", "-fdata-sections", "--longcalls"]:
-                skip_next = True
-                continue
-        elif flag_str.startswith("-d ") or flag_str == "-d":
+        if "-mlongcalls" in flag_str:
             continue
-        elif flag_str.startswith("-mcpu=esp32"):
-            continue
-        elif flag_str == "--longcalls":
-            continue
-        elif flag_str.startswith("--longcalls"):
-            continue
-        elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
-            continue
-        
-        # Assembler-Flag-Bereinigung
-        # Entferne problematische Assembler-spezifische GCC-Flags
-        if any(gcc_flag in flag_str for gcc_flag in [
-            "--longcalls",
-            "-mlongcalls",
-            "-Wa,--longcalls",
-            "-Xassembler,--longcalls"
-        ]):
-            continue
-        
-        # Duplikat-Entfernung
-        if flag_str not in seen:
-            seen.add(flag_str)
-            result.append(flag_str)
     
     return result
 
@@ -872,9 +839,9 @@ def get_app_flags(app_config, default_config):
 
     # Flags are sorted because CMake randomly populates build flags in code model
     return {
-        "ASPPFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
-        "CFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
-        "CXXFLAGS": remove_duplicate_flags(sorted(set(app_flags.get("CXX", default_flags.get("CXX", []))))),
+        "ASPPFLAGS": remove_flag(sorted(set(app_flags.get("ASM", default_flags.get("ASM", []))))),
+        "CFLAGS": remove_flag(sorted(set(app_flags.get("C", default_flags.get("C", []))))),
+        "CXXFLAGS": remove_flag(sorted(set(app_flags.get("CXX", default_flags.get("CXX", []))))),
     }
 
 
