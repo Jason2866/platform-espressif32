@@ -845,32 +845,27 @@ env.Replace(
 def finalize_clang_environment():
     """Clang environment adjustments"""
     
-    clang_version = "19"  # ggf. dynamisch ermitteln
+    clang_version = "19"
         
     # Architektur und Toolchain-Version ermitteln
     toolchain_dir = TOOLCHAIN_DIR
     psram_enabled = _get_board_psram(env)
     if mcu in ("esp32", "esp32s2", "esp32s3"):
         target_arch = "xtensa-esp-elf"
-        if mcu == "esp32" and not psram_enabled:
-            arch_variants = ["esp32", "esp32_no-rtti"]
-        if mcu == "esp32" and psram_enabled:
-            arch_variants = ["esp32_psram", "esp32_psram_no-rtti"]
-        if mcu == "esp32s2":
-            arch_variants = ["esp32s2", "esp32s2_no-rtti"]
-        if mcu == "esp32s3" and not psram_enabled:
-            arch_variants = ["esp32s3", "esp32s3_no-rtti"]
-        if mcu == "esp32s3" and psram_enabled:
-            arch_variants = ["esp32s3_psram", "esp32s3_psram_no-rtti"]
+        # VEREINFACHT: Nur eine Haupt-Variante bestimmen (nicht alle möglichen)
+        if mcu == "esp32":
+            main_variant = "esp32_psram" if psram_enabled else "esp32"
+        elif mcu == "esp32s2":
+            main_variant = "esp32s2"
+        elif mcu == "esp32s3":
+            main_variant = "esp32s3_psram" if psram_enabled else "esp32s3"
     else:
         target_arch = "riscv32-esp-elf"
-        arch_variants = [
-            "rv32imac-zicsr-zifencei_ilp32",
-            "rv32imac-zicsr-zifencei_ilp32_no-rtti"
-        ]
+        main_variant = "rv32imac-zicsr-zifencei_ilp32"
 
     if "clang" in env.subst("$CC").lower():
         is_riscv = target_arch.startswith("riscv32")
+        
         # Alle Clang Warning-Suppression Flags aus ESP-IDF CMake
         clang_warning_flags = [
 #            "-Wno-documentation",  # TODO: Makes error when used here and in espidf.py
@@ -894,33 +889,30 @@ def finalize_clang_environment():
             "-Wno-extern-c-compat",
             "-Wno-single-bit-bitfield-constant-conversion"
         ]
-        # Common Clang-Flags
+        
         common_clang_flags = [
             f"--target={target_arch}",
             "-fno-common",
             "-fno-jump-tables",
         ]
-        # Architektur-spezifische Flags - getrennt für C/C++ und ASM
+        
         if is_riscv:
             c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
             asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
-        else:  # Xtensa
+        else:
             c_cxx_flags = []
             asm_flags = []
         
         app_flags = {}
-        # C / C++ Flags
         for lang in ["C", "CXX"]:
             if lang not in app_flags:
                 app_flags[lang] = []
             app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
         
-        # Assembly Flags
         if "ASM" not in app_flags:
             app_flags["ASM"] = []
         app_flags["ASM"].extend(asm_flags)
             
-        # C++-specific
         if "CXX" not in app_flags:
             app_flags["CXX"] = []
             
@@ -929,7 +921,6 @@ def finalize_clang_environment():
         ]    
         app_flags["CXX"].extend(cxx_flags)
 
-        # Linker Flags
         linker_flags = [
             "-z", "noexecstack",
             "-Wl,--gc-sections",
@@ -937,48 +928,54 @@ def finalize_clang_environment():
             "-Wl,--allow-multiple-definition"
         ]
 
-    env.Append(
-        CCFLAGS=app_flags["C"],
-        CXXFLAGS=app_flags["CXX"],
-        ASFLAGS=app_flags["ASM"],
-        LINKFLAGS=linker_flags
-    )
+        env.Append(
+            CCFLAGS=app_flags["C"],
+            CXXFLAGS=app_flags["CXX"],
+            ASFLAGS=app_flags["ASM"],
+            LINKFLAGS=linker_flags
+        )
 
-    # Include-Pfade
-    include_paths = [
-        os.path.join(toolchain_dir, "lib", "clang", clang_version, "include"),
-        os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include"),
-        os.path.join(toolchain_dir, target_arch, "include"),
-    ]
-    # C++ Standard Library Pfade
-    cpp_stdlib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
-    if os.path.exists(cpp_stdlib_path):
-        include_paths.append(cpp_stdlib_path)
-    # Architektur-Varianten
-    for variant in arch_variants:
-        variant_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, variant, "include", "c++", "14.2.0")
-        if os.path.exists(variant_path):
-            include_paths.append(variant_path)
-    # Nur existierende Pfade verwenden
-    include_paths = [p for p in include_paths if os.path.exists(p)]
-    if include_paths:
-        env.Append(CPPPATH=include_paths)
-        for path in include_paths:
-            env.Append(CCFLAGS=[f"-isystem{path}"])
+        # VEREINFACHTE Include-Pfade - nur das Notwendige
+        include_paths = [
+            os.path.join(toolchain_dir, "lib", "clang", clang_version, "include"),
+        ]
+        
+        # NUR die spezifische Haupt-Variante für C++ Headers
+        main_cpp_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, main_variant, "include", "c++", "14.2.0")
+        if os.path.exists(main_cpp_path):
+            include_paths.append(main_cpp_path)
+        else:
+            # Fallback auf generische C++ Headers
+            fallback_cpp_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
+            if os.path.exists(fallback_cpp_path):
+                include_paths.append(fallback_cpp_path)
+        
+        # Nur existierende Pfade verwenden
+        include_paths = [p for p in include_paths if os.path.exists(p)]
+        if include_paths:
+            env.Append(CPPPATH=include_paths)
+            for path in include_paths:
+                env.Append(CCFLAGS=[f"-isystem{path}"])
 
-    # Library-Pfade
-    lib_paths = [
-        os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "lib"),
-        os.path.join(toolchain_dir, target_arch, "lib"),
-        os.path.join(toolchain_dir, "lib", "clang", clang_version, "lib"),
-    ]
-    for variant in arch_variants:
-        variant_lib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, variant, "lib")
-        if os.path.exists(variant_lib_path):
-            lib_paths.append(variant_lib_path)
-    lib_paths = [p for p in lib_paths if os.path.exists(p)]
-    if lib_paths:
-        env.Append(LIBPATH=lib_paths)
+        # KRITISCH: MINIMALE Library-Pfade - NUR was absolut notwendig ist
+        lib_paths = []
+        
+        # NUR die spezifische Haupt-Variante
+        main_lib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, main_variant, "lib")
+        if os.path.exists(main_lib_path):
+            lib_paths.append(main_lib_path)
+        else:
+            # Fallback auf generische Library-Pfade
+            fallback_lib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "lib")
+            if os.path.exists(fallback_lib_path):
+                lib_paths.append(fallback_lib_path)
+        
+        # KEINE zusätzlichen Library-Pfade die Konflikte verursachen könnten!
+        # lib_paths.append(os.path.join(toolchain_dir, target_arch, "lib"))            # ← ENTFERNT
+        # lib_paths.append(os.path.join(toolchain_dir, "lib", "clang", clang_version, "lib"))  # ← ENTFERNT
+        
+        if lib_paths:
+            env.Append(LIBPATH=lib_paths)
 
 finalize_clang_environment()
 
