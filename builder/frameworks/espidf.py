@@ -755,7 +755,21 @@ def remove_flag(flags):
             continue
 
         flag_str = str(flag).strip()
-        if flag_str.startswith("--longcalls"):
+        # GCC-zu-Clang Flag-Bereinigung für Assembler
+        if flag_str == "-Xassembler" and i + 1 < len(flags):
+            next_flag = str(flags[i + 1]).strip()
+            if next_flag in ["-ffunction-sections", "-fdata-sections", "--longcalls"]:
+                skip_next = True
+                continue
+        elif flag_str.startswith("-d ") or flag_str == "-d":
+            continue
+        elif flag_str.startswith("-mcpu=esp32"):
+            continue
+        elif flag_str == "--longcalls":
+            continue
+        elif flag_str.startswith("--longcalls"):
+            continue
+        elif flag_str in ["-ffunction-sections", "-fdata-sections"]:
             continue
 
         # Assembler-Flag-Bereinigung
