@@ -770,6 +770,9 @@ def get_app_defines(app_config):
 
 
 def extract_link_args(target_config):
+    import os
+    import click
+    
     def _add_to_libpath(lib_path, link_args):
         if lib_path not in link_args["LIBPATH"]:
             link_args["LIBPATH"].append(lib_path)
@@ -782,11 +785,8 @@ def extract_link_args(target_config):
 
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
     
-    # KRITISCH: Debug-Ausgabe am Anfang
+    # KRITISCH: Prüfe ob Clang verwendet wird
     is_clang = "clang" in env.subst("$CC").lower()
-    print(f"\n{'='*60}")
-    print(f"EXTRACT_LINK_ARGS CALLED - CLANG: {is_clang}")
-    print(f"{'='*60}")
     
     if is_clang:
         print("Using Clang-specific fragment processing...")
@@ -810,7 +810,7 @@ def extract_link_args(target_config):
         for i, fragment, role in linker_script_fragments:
             print(f"  [{i:3d}] {role:12} {fragment}")
         
-        # Standard-Verarbeitung...
+        # Clang-spezifische Verarbeitung
         for f in fragments:
             fragment = f.get("fragment", "").strip()
             fragment_role = f.get("role", "").strip()
@@ -824,6 +824,7 @@ def extract_link_args(target_config):
             elif fragment_role == "libraryPath":
                 if fragment.startswith("-L"):
                     lib_path = fragment.replace("-L", "").strip(" '\"")
+                    # Relative Pfade zu absoluten machen
                     if lib_path and not os.path.isabs(lib_path):
                         lib_path = os.path.join(BUILD_DIR, lib_path)
                     _add_to_libpath(lib_path, link_args)
@@ -833,14 +834,18 @@ def extract_link_args(target_config):
             elif fragment_role == "libraries":
                 if fragment.startswith("-u"):
                     temp_linkflags.append(fragment)
+                    print(f"Adding symbol force: {fragment}")
                 elif fragment.startswith("-Wl,--wrap="):
                     temp_linkflags.append(fragment)
+                    print(f"Adding wrapper flag: {fragment}")
                 elif fragment.startswith("-Wl,"):
                     temp_linkflags.append(fragment)
+                    print(f"Adding linker flag: {fragment}")
                 elif fragment.startswith("-l"):
                     lib_name = fragment[2:]
                     if lib_name not in skip_libraries:
-                        link_args["LIBS"].append(lib_name)
+                        if lib_name not in link_args["LIBS"]:
+                            link_args["LIBS"].append(lib_name)
                 elif fragment.endswith(".a"):
                     archive_name = os.path.basename(fragment)
                     should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
@@ -853,35 +858,49 @@ def extract_link_args(target_config):
                             else:
                                 archive_path = os.path.join(BUILD_DIR, archive_path)
                         
+                        # KRITISCH: Prüfe ob Archive-Datei existiert (für Build-Reihenfolge)
                         if os.path.isfile(archive_path):
                             temp_linkflags.append(archive_path)
+                            print(f"Adding archive: {os.path.basename(archive_path)}")
                         else:
+                            # Archive existiert noch nicht - füge zu __LIB_DEPS hinzu
+                            print(f"Archive not ready, deferring: {os.path.basename(archive_path)}")
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
+                    else:
+                        print(f"Skipping problematic library: {fragment}")
                 else:
+                    # Unbekannte Tokens - wahrscheinlich Symbol-Namen
                     if not any(char in fragment for char in ['/', '.', '-']) and len(fragment) > 0:
                         temp_linkflags.append(f"-u{fragment}")
+                        print(f"Adding symbol flag: -u{fragment}")
                     else:
                         temp_linkflags.append(fragment)
+                        print(f"Adding other: {fragment}")
+            else:
+                temp_linkflags.append(fragment)
         
         # KRITISCH: Debug vor Post-Processing
-        t_flags_before = [f for f in temp_linkflags if f == '-T' or f.endswith('.ld')]
+        t_flags_before = [f for f in temp_linkflags if f == '-T' or (isinstance(f, str) and f.endswith('.ld'))]
         print(f"\nTEMP_LINKFLAGS BEFORE POST-PROCESSING (T-related): {len(t_flags_before)}")
         for i, flag in enumerate(t_flags_before):
             print(f"  [{i:2d}] {flag}")
         
-        # Post-Processing für getrennte Flags, -T und -z Kombinationen
+        # KRITISCH: Post-Processing für getrennte Flags, -T und -z Kombinationen
         processed_linkflags = []
         i = 0
         while i < len(temp_linkflags):
             flag = temp_linkflags[i]
             
+            # KRITISCH: Behandle -z Flag für Clang-Kompatibilität
             if flag == "-z" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
+                # Konvertiere zu Clang-kompatiblem Format
                 clang_z_flag = f"-Wl,-z,{next_flag}"
                 processed_linkflags.append(clang_z_flag)
                 print(f"Converted -z flag for Clang: {clang_z_flag}")
                 i += 2
                 
+            # Behandle -T Flag (für Linker-Scripts)
             elif flag == "-T" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
                 
@@ -891,13 +910,13 @@ def extract_link_args(target_config):
                     
                     print(f"Processing -T flag: {script_name}")
                     
-                    # KRITISCH: Prüfe Duplikate basierend auf Script-Namen
+                    # KRITISCH: Prüfe Duplikate basierend auf Script-Namen, nicht Pfad
                     if script_name in processed_script_names:
                         print(f"  SKIPPED DUPLICATE by name: {script_name}")
                         i += 2
                         continue
                     
-                    # Pfad-Resolution
+                    # Pfad-Resolution für Linker-Scripts
                     if not os.path.isabs(script_path):
                         script_locations = [
                             os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
@@ -915,6 +934,8 @@ def extract_link_args(target_config):
                             print(f"  WARNING: Not found: {script_path}")
                     
                     combined_flag = f"-T{script_path}"
+                    
+                    # Füge zu beiden Sets hinzu
                     processed_linkflags.append(combined_flag)
                     processed_scripts.add(combined_flag)
                     processed_script_names.add(script_name)
@@ -931,10 +952,10 @@ def extract_link_args(target_config):
         link_args["LINKFLAGS"].extend(processed_linkflags)
         
         # KRITISCH: Debug nach Post-Processing
-        final_t_flags = [f for f in link_args["LINKFLAGS"] if f.startswith('-T') and f.endswith('.ld')]
+        final_t_flags = [f for f in link_args["LINKFLAGS"] if isinstance(f, str) and f.startswith('-T') and f.endswith('.ld')]
         print(f"\nFINAL LINKFLAGS (-T scripts): {len(final_t_flags)}")
         for i, flag in enumerate(final_t_flags):
-            script_name = os.path.basename(flag[2:])  # Entferne -T Prefix
+            script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
             print(f"  [{i:2d}] {script_name} -> {flag}")
         
         print(f"\nProcessed unique script names: {list(processed_script_names)}")
@@ -972,9 +993,7 @@ def extract_link_args(target_config):
                         else:
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
 
-    print(f"{'='*60}")
-    print(f"EXTRACT_LINK_ARGS FINISHED")
-    print(f"{'='*60}\n")
+    print(f"extract_link_args completed - LINKFLAGS: {len(link_args['LINKFLAGS'])}, LIBS: {len(link_args['LIBS'])}, LIBPATH: {len(link_args['LIBPATH'])}")
     
     return link_args
 
