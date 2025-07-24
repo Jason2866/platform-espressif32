@@ -425,10 +425,20 @@ def extract_component_dependencies(target_configs, cmake_api_reply_dir):
             dep_id = dep.get("id", "")
             backtrace = dep.get("backtrace", [])
             
+            # Sichere Behandlung von backtrace - kann int, string oder list sein
+            backtrace_strings = []
+            if isinstance(backtrace, (list, tuple)):
+                backtrace_strings = [str(bt) for bt in backtrace]
+            elif isinstance(backtrace, (int, str)):
+                backtrace_strings = [str(backtrace)]
+            else:
+                # Fallback für unbekannte Typen
+                backtrace_strings = []
+            
             # Analysiere Backtrace um Dependency-Type zu bestimmen
-            if any("PRIVATE" in str(bt) for bt in backtrace):
+            if any("PRIVATE" in bt for bt in backtrace_strings):
                 component_deps["private_deps"].append(dep_id)
-            elif any("INTERFACE" in str(bt) for bt in backtrace):
+            elif any("INTERFACE" in bt for bt in backtrace_strings):
                 component_deps["interface_deps"].append(dep_id)
             else:
                 component_deps["public_deps"].append(dep_id)
