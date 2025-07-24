@@ -2265,7 +2265,7 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    # HAL-Libraries hinzufügen
+    # HAL-Libraries hinzufügen (bereits vorhanden)
     mcu = env.get("BOARD_MCU", "esp32")
     additional_hal_libs = []
     
@@ -2292,14 +2292,16 @@ if "clang" in env.subst("$CC").lower():
     
     # KRITISCH: Debug LINKFLAGS vor Standard-Verarbeitung
     print(f"\n{'='*60}")
-    print(f"CLANG BLOCK - LINKFLAGS BEFORE FILTER_ARGS")
+    print(f"CLANG BLOCK - LINKFLAGS ANALYSIS")
     print(f"{'='*60}")
     
     current_t_flags = [f for f in link_args["LINKFLAGS"] if f.startswith('-T')]
     print(f"CURRENT -T FLAGS IN LINK_ARGS ({len(current_t_flags)}):")
     for i, flag in enumerate(current_t_flags):
-        script_name = flag[2:] if flag.startswith('-T') else flag
-        print(f"  [{i:2d}] {script_name}")
+        script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
+        script_path = flag[2:] if flag.startswith('-T') else flag
+        exists = os.path.isfile(script_path) if os.path.isabs(script_path) else "relative"
+        print(f"  [{i:2d}] {script_name:20} -> {script_path} [{exists}]")
     
     # Standard-Verarbeitung
     extra_flags = filter_args(
@@ -2308,11 +2310,12 @@ if "clang" in env.subst("$CC").lower():
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
     
-    print(f"\nEXTRA_FLAGS (-T related): {len([f for f in extra_flags if f.startswith('-T')])}")
+    print(f"\nEXTRA_FLAGS EXTRACTED ({len(extra_flags)}):")
     extra_t_flags = [f for f in extra_flags if f.startswith('-T')]
+    print(f"  -T FLAGS IN EXTRA_FLAGS: {len(extra_t_flags)}")
     for i, flag in enumerate(extra_t_flags):
-        script_name = flag[2:] if flag.startswith('-T') else flag
-        print(f"  [{i:2d}] {script_name}")
+        script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
+        print(f"    [{i:2d}] {script_name}")
     
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
@@ -2320,9 +2323,37 @@ if "clang" in env.subst("$CC").lower():
     
     print(f"\nLINK_ARGS LINKFLAGS AFTER REMOVAL ({len(link_args['LINKFLAGS'])}):")
     remaining_t_flags = [f for f in link_args["LINKFLAGS"] if f.startswith('-T')]
+    print(f"  REMAINING -T FLAGS: {len(remaining_t_flags)}")
     for i, flag in enumerate(remaining_t_flags):
-        script_name = flag[2:] if flag.startswith('-T') else flag
-        print(f"  [{i:2d}] {script_name}")
+        script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
+        print(f"    [{i:2d}] {script_name}")
+    
+    # KRITISCH: Prüfe auf fehlende generierte Scripts
+    missing_generated_scripts = []
+    for flag in extra_t_flags:
+        script_path = flag[2:] if flag.startswith('-T') else flag
+        script_name = os.path.basename(script_path)
+        
+        if script_name in ['memory.ld', 'sections.ld']:
+            if not os.path.isabs(script_path) or not os.path.isfile(script_path):
+                missing_generated_scripts.append((script_name, script_path))
+    
+    if missing_generated_scripts:
+        print(f"\nMISSING GENERATED SCRIPTS ({len(missing_generated_scripts)}):")
+        for script_name, script_path in missing_generated_scripts:
+            print(f"  {script_name} -> {script_path}")
+            
+            # Suche nach existierenden Versionen
+            search_locations = [
+                os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_name),
+                os.path.join(BUILD_DIR, script_name),
+                os.path.join(BUILD_DIR, "esp-idf", script_name),
+            ]
+            
+            print(f"    Searching in:")
+            for location in search_locations:
+                exists = os.path.isfile(location)
+                print(f"      {location} [{exists}]")
     
     print(f"{'='*60}\n")
     
