@@ -2281,7 +2281,7 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    print("Clang: Direct LINKCOM replacement approach")
+    print("Clang: Direct LINKCOM replacement with enhanced path resolution")
     
     # HAL-Libraries für Xtensa-MCUs hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
@@ -2293,7 +2293,7 @@ if "clang" in env.subst("$CC").lower():
             additional_hal_libs.append(xtensa_hal_lib)
             print(f"Added Xtensa HAL: {xtensa_hal_lib}")
     
-    # ESP32-spezifische System-Libraries die oft fehlen
+    # ESP32-spezifische System-Libraries
     esp_hal_candidates = [
         os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
@@ -2308,7 +2308,6 @@ if "clang" in env.subst("$CC").lower():
                 additional_hal_libs.append(candidate_lib)
                 print(f"Added HAL library: {os.path.basename(candidate_lib)}")
     
-    # Füge HAL-Libraries zu LINKFLAGS hinzu
     if additional_hal_libs:
         link_args["LINKFLAGS"].extend(additional_hal_libs)
     
@@ -2323,31 +2322,76 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # EINFACH: Direkte LINKCOM-Ersetzung mit bereits bereinigten Flags
-    extra_flags_str = ' '.join(str(flag) for flag in extra_flags)
+    # KRITISCH: Post-process extra_flags für korrekte Pfad-Resolution
+    resolved_extra_flags = []
+    
+    for flag in extra_flags:
+        flag_str = str(flag)
+        
+        # Behandle -T Flags mit Pfad-Resolution
+        if flag_str.startswith('-T') and flag_str.endswith('.ld'):
+            script_path = flag_str[2:]  # Entferne -T Prefix
+            
+            # Wenn relativer Pfad, versuche Auflösung
+            if not os.path.isabs(script_path):
+                script_name = os.path.basename(script_path)
+                
+                # Erweiterte Suchpfade für memory.ld und sections.ld
+                search_locations = [
+                    os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_name),
+                    os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_name),
+                    os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32", "ld", script_name),
+                    os.path.join(BUILD_DIR, script_name),  # Direkt im BUILD_DIR
+                ]
+                
+                # Suche in Library-Pfaden
+                for libpath in link_args["LIBPATH"]:
+                    search_locations.append(os.path.join(libpath, script_name))
+                
+                resolved_path = None
+                for location in search_locations:
+                    if os.path.isfile(location):
+                        resolved_path = location
+                        print(f"Resolved script: {script_name} -> {resolved_path}")
+                        break
+                
+                if resolved_path:
+                    resolved_extra_flags.append(f"-T{resolved_path}")
+                else:
+                    # Fallback: Verwende relativen Pfad mit Library-Pfad-Unterstützung
+                    print(f"Warning: Could not resolve {script_name}, using relative path")
+                    resolved_extra_flags.append(flag_str)
+            else:
+                # Absoluter Pfad - direkt verwenden
+                resolved_extra_flags.append(flag_str)
+        else:
+            # Nicht-T Flags direkt verwenden
+            resolved_extra_flags.append(flag_str)
+    
+    # String-Erstellung für LINKCOM
+    extra_flags_str = ' '.join(resolved_extra_flags)
     linkflags_str = ' '.join(str(flag) for flag in link_args["LINKFLAGS"])
     libpath_str = ' '.join(f"-L{path}" for path in link_args["LIBPATH"])
     libs_str = ' '.join(f"-l{lib}" for lib in link_args["LIBS"])
     
-    print(f"Extra flags: {len(extra_flags)} flags")
+    print(f"Extra flags: {len(resolved_extra_flags)} flags (resolved)")
     print(f"Link flags: {len(link_args['LINKFLAGS'])} flags") 
     print(f"Library paths: {len(link_args['LIBPATH'])} paths")
     print(f"Libraries: {len(link_args['LIBS'])} libs")
     
-    # Neues LINKCOM ohne SCons-Variable-Expansion-Probleme
+    # LINKCOM mit Library-Pfad-Unterstützung für relative Scripts
     env['LINKCOM'] = (
         f"$LINK -o $TARGET "
-        f"{extra_flags_str} "           # Unsere bereits deduplizierten -T Flags
+        f"{libpath_str} "               # Library-Pfade ZUERST für Linker-Script-Resolution
+        f"{extra_flags_str} "           # Unsere resolved -T Flags
         f"{linkflags_str} "             # Weitere LINKFLAGS
         f"$__RPATH $SOURCES "           # Standard SCons-Variablen
-        f"{libpath_str} "               # Library-Pfade
         f"{libs_str}"                   # Libraries
     )
     
     libs = []
     
-    print(f"Clang: Direct LINKCOM replacement with {len(extra_flags)} deduplicated flags")
-    print("Clang: Custom LINKCOM set successfully")
+    print(f"Clang: Direct LINKCOM with enhanced path resolution")
 
 else:
     # GCC: Standard-Verarbeitung
