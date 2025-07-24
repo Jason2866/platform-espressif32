@@ -382,7 +382,7 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    Extrahiert CMake-Fragmente und kombiniert getrennte -T Flags korrekt.
+    Extrahiert CMake-Fragmente, kombiniert -T Flags und entfernt Duplikate.
     """
     linkflags, libs, libpath = [], [], []
     
@@ -415,7 +415,6 @@ def extract_complete_link_command(target_config):
                 linkflags.append(txt)
                 print(f"Adding symbol force: {txt}")
             elif txt.startswith("-Wl,--wrap="):
-                # KRITISCH: Wrapper-Flags explizit behandeln
                 linkflags.append(txt)
                 print(f"Adding wrapper flag: {txt}")
             elif txt.startswith("-Wl,"):
@@ -426,7 +425,6 @@ def extract_complete_link_command(target_config):
                 if lib_name not in skip_libraries and lib_name not in libs:
                     libs.append(lib_name)
             elif txt.endswith(".a"):
-                # Prüfe auf problematische Libraries
                 archive_name = os.path.basename(txt)
                 should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
                 
@@ -434,7 +432,6 @@ def extract_complete_link_command(target_config):
                     print(f"Skipping problematic library: {txt}")
                     continue
                 
-                # Archive-Pfad absolut machen
                 archive_path = txt
                 if not os.path.isabs(archive_path):
                     archive_path = os.path.join(BUILD_DIR, archive_path)
@@ -442,7 +439,6 @@ def extract_complete_link_command(target_config):
                 linkflags.append(archive_path)
                 print(f"Adding archive: {os.path.basename(archive_path)}")
             else:
-                # Unbekannte Tokens auch zu linkflags
                 linkflags.append(txt)
                 print(f"Adding other: {txt}")
         else:
@@ -455,17 +451,13 @@ def extract_complete_link_command(target_config):
         flag = linkflags[i]
         
         if flag == "-T" and i + 1 < len(linkflags):
-            # Nächstes Element ist wahrscheinlich der Script-Name
             next_flag = linkflags[i + 1]
             
-            # Prüfe ob nächstes Element ein Linker-Script ist
             if next_flag.endswith('.ld') and not next_flag.startswith('-'):
-                # Kombiniere -T mit Script-Namen
                 script_path = next_flag
                 
                 # Pfad-Resolution für Linker-Scripts
                 if not os.path.isabs(script_path):
-                    # Suche in bekannten ESP-IDF Verzeichnissen
                     script_locations = [
                         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
                         os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_path),
@@ -482,7 +474,7 @@ def extract_complete_link_command(target_config):
                         print(f"Warning: Linker script not found: {script_path}")
                 
                 processed_linkflags.append(f"-T{script_path}")
-                i += 2  # Überspringe beide Elemente
+                i += 2
             else:
                 processed_linkflags.append(flag)
                 i += 1
@@ -490,12 +482,29 @@ def extract_complete_link_command(target_config):
             processed_linkflags.append(flag)
             i += 1
     
+    # KRITISCH: Entferne Duplikate bei Linker-Scripts, aber erhalte Reihenfolge
+    final_linkflags = []
+    seen_scripts = set()
+    
+    for flag in processed_linkflags:
+        if flag.startswith("-T") and flag.endswith('.ld'):
+            # Linker-Script: Prüfe auf Duplikate
+            if flag not in seen_scripts:
+                final_linkflags.append(flag)
+                seen_scripts.add(flag)
+                print(f"Added unique linker script: {flag}")
+            else:
+                print(f"Skipped duplicate linker script: {flag}")
+        else:
+            # Andere Flags: Immer hinzufügen
+            final_linkflags.append(flag)
+    
     print(f"\n📊 EXTRACTION SUMMARY:")
-    print(f"  LINKFLAGS: {len(processed_linkflags)}")
+    print(f"  LINKFLAGS: {len(final_linkflags)} (duplicates removed)")
     print(f"  LIBS: {len(libs)}")
     print(f"  LIBPATH: {len(libpath)}")
     
-    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": processed_linkflags}
+    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": final_linkflags}
 
 def comprehensive_cmake_debug(target_config):
     """Debug ALLE verfügbaren CMake-Daten um fehlende Libraries zu finden"""
