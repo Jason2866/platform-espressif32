@@ -2124,11 +2124,6 @@ if "clang" in env.subst("$CC").lower():
     # Vollständige CMake-Fragment-Extraktion
     cmake_data = extract_complete_link_command(elf_config)
     
-    # SCons-Environment mit CMake-Daten erweitern
-    env.AppendUnique(LINKFLAGS=cmake_data["LINKFLAGS"])
-    env.AppendUnique(LIBS=cmake_data["LIBS"])
-    env.AppendUnique(LIBPATH=cmake_data["LIBPATH"])
-    
     # KRITISCH: Fehlende ESP-IDF HAL-Libraries für Clang hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
     
@@ -2157,14 +2152,36 @@ if "clang" in env.subst("$CC").lower():
                 additional_hal_libs.append(candidate_lib)
                 print(f"Adding missing HAL library: {os.path.basename(candidate_lib)}")
     
-    # Füge zusätzliche HAL-Libraries hinzu
-    if additional_hal_libs:
-        env.AppendUnique(LINKFLAGS=additional_hal_libs)
+    # KRITISCH: Alle Linker-Flags kombinieren und Duplikate entfernen
+    all_linkflags = extra_flags + cmake_data["LINKFLAGS"] + additional_hal_libs
+    
+    # Globale Duplikat-Entfernung für Linker-Scripts
+    final_linkflags = []
+    seen_linker_scripts = set()
+    
+    for flag in all_linkflags:
+        if isinstance(flag, str) and flag.startswith("-T") and flag.endswith('.ld'):
+            # Linker-Script: Prüfe auf Duplikate
+            if flag not in seen_linker_scripts:
+                final_linkflags.append(flag)
+                seen_linker_scripts.add(flag)
+                print(f"Added unique linker script: {os.path.basename(flag)}")
+            else:
+                print(f"Skipped duplicate linker script: {os.path.basename(flag)}")
+        else:
+            # Andere Flags: Immer hinzufügen
+            final_linkflags.append(flag)
+    
+    # SCons-Environment mit bereinigten Daten erweitern
+    env.AppendUnique(LINKFLAGS=final_linkflags)
+    env.AppendUnique(LIBS=cmake_data["LIBS"])
+    env.AppendUnique(LIBPATH=cmake_data["LIBPATH"])
     
     # Leere libs da Archive in LINKFLAGS sind
     libs = []
     
     print(f"Clang: Enhanced with {len(additional_hal_libs)} additional HAL libraries")
+    print(f"Clang: Final linking with {len(final_linkflags)} flags, {len(seen_linker_scripts)} unique scripts")
 
 else:
     # GCC: Standard-Verarbeitung
