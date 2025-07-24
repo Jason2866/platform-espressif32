@@ -382,12 +382,13 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    Extrahiert CMake-Fragmente, kombiniert -T Flags und entfernt Duplikate.
+    Extrahiert CMake-Fragmente mit strikter Duplikat-Kontrolle.
     """
     linkflags, libs, libpath = [], [], []
-    
-    # Problematische Libraries die übersprungen werden sollen
     skip_libraries = ["__pio_env", "src"]
+    
+    # Tracking für bereits verarbeitete Linker-Scripts
+    processed_scripts = set()
     
     for frag in target_config.get("link", {}).get("commandFragments", []):
         txt = frag.get("fragment", "").strip()
@@ -413,13 +414,10 @@ def extract_complete_link_command(target_config):
         elif role == "libraries":
             if txt.startswith("-u"):
                 linkflags.append(txt)
-                print(f"Adding symbol force: {txt}")
             elif txt.startswith("-Wl,--wrap="):
                 linkflags.append(txt)
-                print(f"Adding wrapper flag: {txt}")
             elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
-                print(f"Adding linker flag: {txt}")
             elif txt.startswith("-l"):
                 lib_name = txt[2:]
                 if lib_name not in skip_libraries and lib_name not in libs:
@@ -428,25 +426,20 @@ def extract_complete_link_command(target_config):
                 archive_name = os.path.basename(txt)
                 should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
                 
-                if should_skip:
-                    print(f"Skipping problematic library: {txt}")
-                    continue
-                
-                archive_path = txt
-                if not os.path.isabs(archive_path):
-                    archive_path = os.path.join(BUILD_DIR, archive_path)
-                
-                linkflags.append(archive_path)
-                print(f"Adding archive: {os.path.basename(archive_path)}")
+                if not should_skip:
+                    archive_path = txt
+                    if not os.path.isabs(archive_path):
+                        archive_path = os.path.join(BUILD_DIR, archive_path)
+                    linkflags.append(archive_path)
             else:
                 linkflags.append(txt)
-                print(f"Adding other: {txt}")
         else:
             linkflags.append(txt)
     
-    # KRITISCH: Post-Processing für getrennte -T Flags
+    # -T Flag-Kombination mit strikter Duplikat-Kontrolle
     processed_linkflags = []
     i = 0
+    
     while i < len(linkflags):
         flag = linkflags[i]
         
@@ -456,24 +449,26 @@ def extract_complete_link_command(target_config):
             if next_flag.endswith('.ld') and not next_flag.startswith('-'):
                 script_path = next_flag
                 
-                # Pfad-Resolution für Linker-Scripts
+                # Pfad-Resolution
                 if not os.path.isabs(script_path):
                     script_locations = [
                         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
                         os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_path),
                         os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32", "ld", script_path),
-                        os.path.join(BUILD_DIR, script_path)
                     ]
                     
                     for location in script_locations:
                         if os.path.isfile(location):
                             script_path = location
-                            print(f"Resolved linker script: {script_path}")
                             break
-                    else:
-                        print(f"Warning: Linker script not found: {script_path}")
                 
-                processed_linkflags.append(f"-T{script_path}")
+                combined_flag = f"-T{script_path}"
+                
+                # Strikte Duplikat-Kontrolle
+                if combined_flag not in processed_scripts:
+                    processed_linkflags.append(combined_flag)
+                    processed_scripts.add(combined_flag)
+                
                 i += 2
             else:
                 processed_linkflags.append(flag)
@@ -482,29 +477,8 @@ def extract_complete_link_command(target_config):
             processed_linkflags.append(flag)
             i += 1
     
-    # KRITISCH: Entferne Duplikate bei Linker-Scripts, aber erhalte Reihenfolge
-    final_linkflags = []
-    seen_scripts = set()
-    
-    for flag in processed_linkflags:
-        if flag.startswith("-T") and flag.endswith('.ld'):
-            # Linker-Script: Prüfe auf Duplikate
-            if flag not in seen_scripts:
-                final_linkflags.append(flag)
-                seen_scripts.add(flag)
-                print(f"Added unique linker script: {flag}")
-            else:
-                print(f"Skipped duplicate linker script: {flag}")
-        else:
-            # Andere Flags: Immer hinzufügen
-            final_linkflags.append(flag)
-    
-    print(f"\n📊 EXTRACTION SUMMARY:")
-    print(f"  LINKFLAGS: {len(final_linkflags)} (duplicates removed)")
-    print(f"  LIBS: {len(libs)}")
-    print(f"  LIBPATH: {len(libpath)}")
-    
-    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": final_linkflags}
+    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": processed_linkflags}
+
 
 def comprehensive_cmake_debug(target_config):
     """Debug ALLE verfügbaren CMake-Daten um fehlende Libraries zu finden"""
