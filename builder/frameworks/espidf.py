@@ -357,6 +357,120 @@ if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and 
     )
     env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
 
+
+def get_essential_esp_idf_symbols():
+    """Nur wirklich kritische ESP-IDF Symbole - vereinfachte Liste"""
+    
+    return {
+        # Core System (absolut kritisch)
+        'call_start_cpu0', 'app_main', '_esp_error_check_failed',
+        
+        # Memory Management (kritisch für Heap)
+        'heap_caps_malloc', 'esp_heap_caps_init', 
+        
+        # FreeRTOS Integration (kritisch für Tasks)
+        'xTaskCreatePinnedToCore', 'vTaskDelay',
+        
+        # Flash/Boot (kritisch für Startup) 
+        'esp_flash_init', 'spi_flash_hal_init',
+        
+        # Basic System Info
+        'esp_random', 'esp_chip_info', 'esp_get_idf_version',
+        
+        # Error/Log System
+        'esp_log_write', 'esp_err_to_name',
+        
+        # NVS (fast immer benötigt)
+        'nvs_flash_init',
+        
+        # Network Interface (wenn WiFi/Ethernet verwendet)
+        'esp_netif_init', 'esp_event_loop_create_default'
+    }
+
+def get_realistic_whole_archive_requirements(component_name):
+    """Realistische Lösung basierend auf verfügbaren Pre-Build Daten"""
+    
+    lib_name = f"lib{component_name}.a"
+    
+    # EINZIGE verfügbare Information: Bekannte Problemfälle ausschließen
+    problematic_libs = {
+        'libwpa_supplicant.a',  # Multiple definitions
+        'libmbedtls.a',         # Crypto conflicts
+        'libmbedcrypto.a',      # Crypto conflicts  
+        'libmbedx509.a',        # X.509 conflicts
+        'libfreertos.a'         # Task conflicts
+    }
+    
+    # Einfache Entscheidung basierend auf verfügbaren Daten
+    if lib_name in problematic_libs:
+        return {"required": False, "reason": "Known conflicts"}
+    
+    # DEFAULT: Whole-Archive für ESP-IDF Sicherheit
+    return {"required": True, "reason": "ESP-IDF safe default"}
+
+def extract_component_dependencies(target_configs, cmake_api_reply_dir):
+    """Extrahiert REQUIRES/PRIV_REQUIRES aus CMake Code Model"""
+    dependency_graph = {}
+    
+    for target_name, target_config in target_configs.items():
+        component_deps = {
+            "public_deps": [],      # REQUIRES
+            "private_deps": [],     # PRIV_REQUIRES
+            "link_deps": [],        # Link-time dependencies
+            "interface_deps": []    # Interface dependencies
+        }
+        
+        # Aus CMake dependencies extrahieren
+        for dep in target_config.get("dependencies", []):
+            dep_id = dep.get("id", "")
+            backtrace = dep.get("backtrace", [])
+            
+            # Analysiere Backtrace um Dependency-Type zu bestimmen
+            if any("PRIVATE" in str(bt) for bt in backtrace):
+                component_deps["private_deps"].append(dep_id)
+            elif any("INTERFACE" in str(bt) for bt in backtrace):
+                component_deps["interface_deps"].append(dep_id)
+            else:
+                component_deps["public_deps"].append(dep_id)
+        
+        dependency_graph[target_name] = component_deps
+    
+    return dependency_graph
+
+def calculate_dependency_link_order(dependency_graph, libs):
+    """Berechnet optimale Link-Reihenfolge basierend auf Dependencies"""
+    
+    # Topologische Sortierung der Dependencies
+    ordered_components = []
+    visited = set()
+    visiting = set()
+    
+    def visit(component):
+        if component in visiting:
+            # Zirkuläre Abhängigkeit - verwende Gruppierung
+            return
+        if component in visited:
+            return
+            
+        visiting.add(component)
+        
+        # Besuche alle Dependencies zuerst
+        deps_info = dependency_graph.get(component, {})
+        for dep in deps_info.get("public_deps", []) + deps_info.get("private_deps", []):
+            if dep in dependency_graph:
+                visit(dep)
+        
+        visiting.remove(component)
+        visited.add(component)
+        ordered_components.append(component)
+    
+    # Starte Sortierung für alle Komponenten
+    for component in dependency_graph.keys():
+        if component not in visited:
+            visit(component)
+    
+    return ordered_components
+
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
     project.install_dependencies()
@@ -611,17 +725,29 @@ def extract_link_args(target_config):
             _add_to_libpath(os.path.dirname(archive_path), link_args)
             link_args["LIBS"].append(archive_name)
 
-    link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
+    # Erweiterte Link-Args mit zusätzlichen Metadaten für komplexes Linking
+    link_args = {
+        "LINKFLAGS": [], 
+        "LIBS": [], 
+        "LIBPATH": [], 
+        "__LIB_DEPS": [],
+        # Neue Metadaten für komplexes Linking:
+        "__COMPONENT_DEPS": {},      # Component-Abhängigkeiten
+        "__WHOLE_ARCHIVE_DECISION": {},  # Whole-Archive Entscheidung
+        "__LINK_TYPE": "standard"        # Link-Typ
+    }
 
     if "clang" in env.subst("$CC").lower():
         fragments = target_config.get("link", {}).get("commandFragments", [])
         i = 0
+        
         while i < len(fragments):
             fragment = fragments[i].get("fragment", "").strip()
             fragment_role = fragments[i].get("role", "").strip()
             if not fragment or not fragment_role:
                 i += 1
                 continue
+                
             # ---------- FLAGS ----------
             if fragment_role == "flags":
                 # Handle -T flag + linker script pairs (getrennte Schreibweise)
@@ -719,6 +845,22 @@ def extract_link_args(target_config):
                             )
                         else:
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
+
+    # Post-Processing: Component-Abhängigkeiten hinzufügen
+    component_name = target_config["name"].replace("__idf_", "")
+    dependencies = target_config.get("dependencies", [])
+    
+    link_args["__COMPONENT_DEPS"] = {
+        "target": component_name,
+        "depends_on": [dep.get("id", "") for dep in dependencies],
+        "dependency_count": len(dependencies)
+    }
+    
+    # Whole-Archive-Entscheidung für Metadaten
+    link_args["__WHOLE_ARCHIVE_DECISION"] = get_realistic_whole_archive_requirements(component_name)
+    
+    if link_args["__WHOLE_ARCHIVE_DECISION"]["required"]:
+        link_args["__LINK_TYPE"] = "whole_archive"
 
     return link_args
 
