@@ -838,9 +838,14 @@ def extract_link_args(target_config):
                             else:
                                 archive_path = os.path.join(BUILD_DIR, archive_path)
                         
-                        # Für Clang: Archive direkt als Pfade zu LINKFLAGS
-                        temp_linkflags.append(archive_path)
-                        print(f"Adding archive: {os.path.basename(archive_path)}")
+                        # KRITISCH: Prüfe ob Archive-Datei existiert (für Build-Reihenfolge)
+                        if os.path.isfile(archive_path):
+                            temp_linkflags.append(archive_path)
+                            print(f"Adding archive: {os.path.basename(archive_path)}")
+                        else:
+                            # Archive existiert noch nicht - füge zu __LIB_DEPS hinzu
+                            print(f"Archive not ready, deferring: {os.path.basename(archive_path)}")
+                            link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
                     else:
                         print(f"Skipping problematic library: {fragment}")
                 else:
@@ -852,12 +857,22 @@ def extract_link_args(target_config):
                         temp_linkflags.append(fragment)
                         print(f"Adding other: {fragment}")
         
-        # KRITISCH: Post-Processing für getrennte -T Flags (nur für Clang)
+        # KRITISCH: Post-Processing für getrennte Flags und -T Kombinationen
+        processed_linkflags = []
         i = 0
         while i < len(temp_linkflags):
             flag = temp_linkflags[i]
             
-            if flag == "-T" and i + 1 < len(temp_linkflags):
+            # Behandle -z Flag (für noexecstack etc.)
+            if flag == "-z" and i + 1 < len(temp_linkflags):
+                next_flag = temp_linkflags[i + 1]
+                combined_flag = f"-z {next_flag}"
+                processed_linkflags.append(combined_flag)
+                print(f"Combined -z flag: {combined_flag}")
+                i += 2
+                
+            # Behandle -T Flag (für Linker-Scripts)
+            elif flag == "-T" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
                 
                 if next_flag.endswith('.ld') and not next_flag.startswith('-'):
@@ -869,6 +884,7 @@ def extract_link_args(target_config):
                             os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
                             os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_path),
                             os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32", "ld", script_path),
+                            os.path.join(FRAMEWORK_DIR, "components", "bootloader", "subproject", "main", "ld", "esp32", script_path),
                         ]
                         
                         for location in script_locations:
@@ -883,19 +899,20 @@ def extract_link_args(target_config):
                     
                     # Duplikat-Kontrolle für Linker-Scripts
                     if combined_flag not in processed_scripts:
-                        link_args["LINKFLAGS"].append(combined_flag)
+                        processed_linkflags.append(combined_flag)
                         processed_scripts.add(combined_flag)
                     else:
                         print(f"Skipped duplicate linker script: {script_path}")
                     
                     i += 2
                 else:
-                    link_args["LINKFLAGS"].append(flag)
+                    processed_linkflags.append(flag)
                     i += 1
             else:
-                link_args["LINKFLAGS"].append(flag)
+                processed_linkflags.append(flag)
                 i += 1
         
+        link_args["LINKFLAGS"].extend(processed_linkflags)
         print(f"Clang processing complete: {len(link_args['LINKFLAGS'])} flags, {len(link_args['LIBS'])} libs")
     
     else:
