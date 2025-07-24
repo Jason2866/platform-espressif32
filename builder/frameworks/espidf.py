@@ -2283,7 +2283,7 @@ libs = find_lib_deps(
 if "clang" in env.subst("$CC").lower():
     print("Clang: Using enhanced extract_link_args with integrated processing")
     
-    # HAL-Libraries für Xtensa-MCUs hinzufügen (zusätzlich zu extract_link_args)
+    # [HAL-Libraries hinzufügen - bleibt unverändert]
     mcu = env.get("BOARD_MCU", "esp32")
     additional_hal_libs = []
     
@@ -2293,7 +2293,6 @@ if "clang" in env.subst("$CC").lower():
             additional_hal_libs.append(xtensa_hal_lib)
             print(f"Added Xtensa HAL: {xtensa_hal_lib}")
     
-    # ESP32-spezifische System-Libraries die oft fehlen
     esp_hal_candidates = [
         os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
@@ -2306,13 +2305,11 @@ if "clang" in env.subst("$CC").lower():
         if os.path.isfile(candidate_lib):
             if candidate_lib not in link_args["LINKFLAGS"]:
                 additional_hal_libs.append(candidate_lib)
-                print(f"Added HAL library: {os.path.basename(candidate_lib)}")
     
-    # Füge HAL-Libraries zu LINKFLAGS hinzu
     if additional_hal_libs:
         link_args["LINKFLAGS"].extend(additional_hal_libs)
     
-    # Standard-Flag-Filterung (vereinfacht, da extract_link_args bereits viel macht)
+    # Standard-Flag-Filterung
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
@@ -2323,65 +2320,75 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # KRITISCH: Pre-Link SCons Deduplicator (bleibt bestehen für finale Bereinigung)
-    def pre_link_scons_deduplicator(target, source, env):
+    # KRITISCH: Custom LINKCOM mit integrierter Duplikat-Entfernung
+    def create_clang_linkcom():
         """
-        Finale Duplikat-Entfernung aus SCons LINKFLAGS direkt vor dem Linken.
+        Erstelle ein benutzerdefiniertes LINKCOM das Duplikate zur Expansion-Zeit entfernt.
         """
-        print("\n" + "="*70)
-        print("PRE-LINK SCONS DEDUPLICATOR - CLANG")
-        print("="*70)
+        original_linkcom = env.get('LINKCOM', '$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS')
         
-        current_linkflags = env.get('LINKFLAGS', [])
-        t_flags = []
-        other_flags = []
-        
-        for flag in current_linkflags:
-            flag_str = str(flag)
-            if flag_str.startswith('-T') and flag_str.endswith('.ld'):
-                t_flags.append(flag)
-            else:
-                other_flags.append(flag)
-        
-        print(f"Found {len(t_flags)} -T flags in SCons LINKFLAGS:")
-        for i, flag in enumerate(t_flags):
-            flag_str = str(flag)
-            script_name = os.path.basename(flag_str[2:])
-            print(f"  [{i:2d}] {script_name} -> {flag_str}")
-        
-        # Duplikat-Entfernung basierend auf Script-Namen
-        seen_scripts = set()
-        deduplicated_t_flags = []
-        
-        for flag in t_flags:
-            flag_str = str(flag)
-            script_name = os.path.basename(flag_str[2:])
-            
-            if script_name not in seen_scripts:
-                deduplicated_t_flags.append(flag)
-                seen_scripts.add(script_name)
-                print(f"  KEPT: {script_name}")
-            else:
-                print(f"  REMOVED DUPLICATE: {script_name}")
-        
-        # Aktualisiere SCons LINKFLAGS
-        final_linkflags = other_flags + deduplicated_t_flags
-        env['LINKFLAGS'] = final_linkflags
-        
-        print(f"Removed {len(t_flags) - len(deduplicated_t_flags)} duplicate -T flags")
-        print("="*70 + "\n")
-        
-        return None
+        # Python-Script das zur Link-Zeit Duplikate entfernt
+        dedup_script = """
+import os, sys, subprocess
+
+def deduplicate_linker_scripts(args):
+    seen_scripts = set()
+    dedup_args = []
     
-    # Registriere Pre-Link-Hook für finale SCons LINKFLAGS-Bereinigung
-    env.AddPreAction("$PROGPATH", pre_link_scons_deduplicator)
+    for arg in args:
+        if arg.startswith('-T') and arg.endswith('.ld'):
+            script_name = os.path.basename(arg[2:])
+            if script_name not in seen_scripts:
+                dedup_args.append(arg)
+                seen_scripts.add(script_name)
+                print(f"LINKCOM: KEPT {script_name}")
+            else:
+                print(f"LINKCOM: REMOVED DUPLICATE {script_name}")
+        else:
+            dedup_args.append(arg)
+    
+    return dedup_args
+
+# Parse Kommandozeilen-Argumente
+import shlex
+original_cmd = '''""" + original_linkcom + """'''
+expanded_cmd = os.path.expandvars(original_cmd)
+
+# Splitze Command in Argumente
+try:
+    cmd_parts = shlex.split(expanded_cmd)
+except:
+    cmd_parts = expanded_cmd.split()
+
+# Dedupliziere -T Flags
+dedup_cmd_parts = deduplicate_linker_scripts(cmd_parts)
+
+# Führe deduplizierten Command aus
+print(f"LINKCOM: Executing with {len(cmd_parts)} -> {len(dedup_cmd_parts)} args")
+exit_code = subprocess.call(dedup_cmd_parts)
+sys.exit(exit_code)
+"""
+        
+        # Erstelle temporäres Python-Script
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(dedup_script)
+            temp_script = f.name
+            
+        # Custom LINKCOM das das Dedup-Script verwendet
+        custom_linkcom = f'python {temp_script}'
+        
+        return custom_linkcom
+    
+    # Setze das benutzerdefinierte LINKCOM
+    env['LINKCOM'] = create_clang_linkcom()
     
     libs = []
     
-    print("Clang: Enhanced processing with integrated extract_link_args and SCons deduplicator")
+    print("Clang: Using custom LINKCOM with integrated deduplication")
 
 else:
-    # GCC: Standard-Verarbeitung (bleibt unverändert)
+    # GCC: Standard-Verarbeitung
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
