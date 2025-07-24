@@ -2267,7 +2267,7 @@ libs = find_lib_deps(
 if "clang" in env.subst("$CC").lower():
     print("Clang: Enhanced duplicate removal strategy")
     
-    # HAL-Libraries hinzufügen
+    # HAL-Libraries für Xtensa-MCUs hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
     additional_hal_libs = []
     
@@ -2275,7 +2275,9 @@ if "clang" in env.subst("$CC").lower():
         xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
         if os.path.isfile(xtensa_hal_lib):
             additional_hal_libs.append(xtensa_hal_lib)
+            print(f"Added Xtensa HAL: {xtensa_hal_lib}")
     
+    # ESP32-spezifische System-Libraries die oft fehlen
     esp_hal_candidates = [
         os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
@@ -2288,7 +2290,9 @@ if "clang" in env.subst("$CC").lower():
         if os.path.isfile(candidate_lib):
             if candidate_lib not in link_args["LINKFLAGS"]:
                 additional_hal_libs.append(candidate_lib)
+                print(f"Added HAL library: {os.path.basename(candidate_lib)}")
     
+    # Füge HAL-Libraries zu LINKFLAGS hinzu
     if additional_hal_libs:
         link_args["LINKFLAGS"].extend(additional_hal_libs)
     
@@ -2299,7 +2303,7 @@ if "clang" in env.subst("$CC").lower():
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
     
-    # KRITISCH: Aggressive Duplikat-Entfernung für -T Flags in extra_flags
+    # Debug extra_flags vor Duplikat-Entfernung
     print(f"Before deduplication: {len(extra_flags)} extra flags")
     
     # Finde alle -T Flags in extra_flags
@@ -2312,7 +2316,7 @@ if "clang" in env.subst("$CC").lower():
         script_name = os.path.basename(flag_str[2:]) if flag_str.startswith('-T') else flag_str
         print(f"  [{i:2d}] {script_name}")
     
-    # Duplikat-Entfernung basierend auf Script-Namen
+    # Duplikat-Entfernung basierend auf Script-Namen in extra_flags
     seen_scripts = set()
     deduplicated_t_flags = []
     
@@ -2338,7 +2342,69 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
+    # KRITISCH: Hook für finale SCons LINKFLAGS-Bereinigung
+    def pre_link_scons_deduplicator(target, source, env):
+        """
+        Entfernt Duplikate aus finalen SCons LINKFLAGS direkt vor dem Linken.
+        Diese werden durch env.MergeFlags() und env.Prepend() erzeugt.
+        """
+        print("\n" + "="*70)
+        print("PRE-LINK SCONS DEDUPLICATOR - CLANG")
+        print("="*70)
+        
+        # Hole finale SCons LINKFLAGS
+        current_linkflags = env.get('LINKFLAGS', [])
+        print(f"SCons LINKFLAGS before deduplication: {len(current_linkflags)}")
+        
+        # Finde alle -T Flags
+        t_flags = []
+        other_flags = []
+        
+        for flag in current_linkflags:
+            flag_str = str(flag)
+            if flag_str.startswith('-T') and flag_str.endswith('.ld'):
+                t_flags.append(flag)
+            else:
+                other_flags.append(flag)
+        
+        print(f"Found {len(t_flags)} -T flags in SCons LINKFLAGS:")
+        for i, flag in enumerate(t_flags):
+            flag_str = str(flag)
+            script_name = os.path.basename(flag_str[2:])
+            print(f"  [{i:2d}] {script_name} -> {flag_str}")
+        
+        # Duplikat-Entfernung basierend auf Script-Namen
+        seen_scripts = set()
+        deduplicated_t_flags = []
+        
+        for flag in t_flags:
+            flag_str = str(flag)
+            script_name = os.path.basename(flag_str[2:])
+            
+            if script_name not in seen_scripts:
+                deduplicated_t_flags.append(flag)
+                seen_scripts.add(script_name)
+                print(f"  KEPT: {script_name}")
+            else:
+                print(f"  REMOVED DUPLICATE: {script_name}")
+        
+        # Aktualisiere SCons LINKFLAGS
+        final_linkflags = other_flags + deduplicated_t_flags
+        env['LINKFLAGS'] = final_linkflags
+        
+        print(f"SCons LINKFLAGS after deduplication: {len(final_linkflags)}")
+        print(f"Removed {len(t_flags) - len(deduplicated_t_flags)} duplicate -T flags")
+        print(f"Unique scripts: {list(seen_scripts)}")
+        print("="*70 + "\n")
+        
+        return None
+    
+    # Registriere Pre-Link-Hook für SCons LINKFLAGS-Bereinigung
+    env.AddPreAction("$PROGPATH", pre_link_scons_deduplicator)
+    
     libs = []
+    
+    print("Clang: Enhanced with SCons LINKFLAGS deduplicator")
 
 else:
     # GCC: Standard-Verarbeitung
@@ -2350,6 +2416,7 @@ else:
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
+
 
 # remove the main linker script flags '-T memory.ld'
 try:
