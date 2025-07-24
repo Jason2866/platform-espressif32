@@ -397,26 +397,95 @@ def get_essential_esp_idf_symbols():
         'phy_printf'
     }
 
-def get_realistic_whole_archive_requirements(component_name):
-    """Realistische Lösung basierend auf verfügbaren Pre-Build Daten"""
+def get_precise_whole_archive_requirements(component_name, target_config, sdk_config):
+    """Präzise Whole-Archive-Erkennung - nur wo wirklich erforderlich"""
     
     lib_name = f"lib{component_name}.a"
     
-    # EINZIGE verfügbare Information: Bekannte Problemfälle ausschließen
-    problematic_libs = {
-        'libwpa_supplicant.a',  # Multiple definitions
-        'libmbedtls.a',         # Crypto conflicts
-        'libmbedcrypto.a',      # Crypto conflicts  
-        'libmbedx509.a',        # X.509 conflicts
-        'libfreertos.a'         # Task conflicts
+    # REGEL 1: Komponenten die DEFINITIV Whole-Archive benötigen
+    requires_whole_archive = {
+        # System-kritische Initialisierung
+        'libesp_system.a': 'System startup initialization',
+        'libhal.a': 'Hardware abstraction layer functions',
+        'libsoc.a': 'SoC-specific hardware functions',
+        
+        # Event-System (Auto-Registration erforderlich)
+        'libesp_event.a': 'Event handler registration',
+        'libesp_timer.a': 'Timer service registration',
+        
+        # Heap Management (Constructor-basierte Initialisierung)
+        'libheap.a': 'Heap management initialization',
+        
+        # Bootloader Support (Startup-kritisch)
+        'libbootloader_support.a': 'Bootloader interface functions',
+        
+        # Application Framework (OTA Callbacks)
+        'libapp_update.a': 'OTA callback registration',
+        
+        # Console Commands (Auto-Registration)
+        'libconsole.a': 'Console command registration',
+        
+        # Partition Management (Startup-kritisch)
+        'libesp_partition.a': 'Partition table initialization'
     }
     
-    # Einfache Entscheidung basierend auf verfügbaren Daten
-    if lib_name in problematic_libs:
-        return {"required": False, "reason": "Known conflicts"}
+    if lib_name in requires_whole_archive:
+        return {
+            "required": True,
+            "reason": requires_whole_archive[lib_name],
+            "type": "required"
+        }
     
-    # DEFAULT: Whole-Archive für ESP-IDF Sicherheit
-    return {"required": True, "reason": "ESP-IDF safe default"}
+    # REGEL 2: Source-Code-basierte Erkennung für Auto-Registration
+    initialization_patterns = 0
+    
+    for source in target_config.get("sources", []):
+        src_path = source.get("path", "")
+        
+        # Prüfe auf Initialisierungs-Dateien
+        if any(pattern in src_path.lower() for pattern in [
+            'component.c', 'init.c', 'startup.c', 'register.c'
+        ]):
+            initialization_patterns += 1
+    
+    # Prüfe Compile-Definitionen auf Auto-Registration
+    for cg in target_config.get("compileGroups", []):
+        for define in cg.get("defines", []):
+            define_name = define.get("define", "")
+            if any(pattern in define_name for pattern in [
+                "COMPONENT_REGISTER", "EVENT_DEFINE", "TIMER_DECLARE",
+                "ESP_EVENT_DEFINE_BASE", "ESP_TIMER_DECLARE_BASE"
+            ]):
+                initialization_patterns += 1
+                break
+    
+    # Wenn Auto-Registration-Patterns gefunden → Whole-Archive
+    if initialization_patterns > 0:
+        return {
+            "required": True,
+            "reason": f"Auto-registration patterns detected ({initialization_patterns})",
+            "type": "pattern_detected"
+        }
+    
+    # REGEL 3: SDK-Config-bedingte Anforderungen
+    if sdk_config.get("ESP32_WIFI_ENABLED", False):
+        wifi_whole_archive_libs = {
+            'libesp_wifi.a', 'libnet80211.a', 'libpp.a', 'libphy.a'
+        }
+        if lib_name in wifi_whole_archive_libs:
+            return {
+                "required": True,
+                "reason": "WiFi stack requires whole-archive",
+                "type": "wifi_required"
+            }
+    
+    # DEFAULT: Normal linking (umgekehrte Logik!)
+    return {
+        "required": False,
+        "reason": "Normal linking sufficient",
+        "type": "normal_default"
+    }
+
 
 def extract_component_dependencies(target_configs, cmake_api_reply_dir):
     """Extrahiert REQUIRES/PRIV_REQUIRES aus CMake Code Model"""
@@ -2169,7 +2238,7 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Erweiterte Clang/GCC-Behandlung mit Dependency-Awareness
+# Erweiterte Clang/GCC-Behandlung mit Dependency-Awareness und präziser Whole-Archive-Logik
 if "clang" in env.subst("$CC").lower():
     # Extrahiere Dependency-Graph aus allen Target-Konfigurationen
     cmake_api_reply_dir = os.path.join(BUILD_DIR, ".cmake", "api", "v1", "reply")
@@ -2191,7 +2260,7 @@ if "clang" in env.subst("$CC").lower():
     for symbol in essential_symbols:
         clang_linking_flags.extend(['-u', symbol])
     
-    # 2. Standard Library-Gruppierung mit intelligenter Whole-Archive-Entscheidung
+    # 2. Standard Library-Gruppierung mit präziser Whole-Archive-Entscheidung
     clang_linking_flags.append('-Wl,--start-group')
     
     # Berechne optimale Link-Reihenfolge basierend auf Dependencies
@@ -2226,7 +2295,11 @@ if "clang" in env.subst("$CC").lower():
     # Verbleibende Libraries anhängen
     ordered_libs.extend(remaining_libs)
     
+    # Library-Processing mit präziser Whole-Archive-Logik
     libraries_processed = 0
+    whole_archive_count = 0
+    normal_link_count = 0
+    
     for lib_node in ordered_libs:
         if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
             for lib_path in lib_node:
@@ -2234,37 +2307,71 @@ if "clang" in env.subst("$CC").lower():
                 lib_filename = os.path.basename(lib_path_str)
                 component_name = lib_filename.replace('lib', '').replace('.a', '')
                 
-                # Deterministische Whole-Archive-Entscheidung
-                whole_archive_req = get_realistic_whole_archive_requirements(component_name)
+                # Hole entsprechende Target-Config für präzise Whole-Archive-Entscheidung
+                target_config = None
+                for config in target_configs.values():
+                    if config["name"].replace("__idf_", "") == component_name:
+                        target_config = config
+                        break
                 
-                # Dependency-aware Linking-Entscheidung
+                if target_config:
+                    whole_archive_req = get_precise_whole_archive_requirements(
+                        component_name, target_config, sdk_config
+                    )
+                else:
+                    # Fallback: Normal linking für unbekannte Komponenten
+                    whole_archive_req = {"required": False, "type": "unknown_fallback"}
+                
+                # UMGEKEHRTE LOGIK: Whole-Archive nur wenn explizit erforderlich
                 if whole_archive_req["required"]:
                     clang_linking_flags.extend([
                         '-Wl,--whole-archive',
                         lib_path_str,
                         '-Wl,--no-whole-archive'
                     ])
+                    print(f"Whole-Archive: {lib_filename} - {whole_archive_req['reason']}")
+                    whole_archive_count += 1
                 else:
+                    # DEFAULT: Normal linking
                     clang_linking_flags.append(lib_path_str)
+                    normal_link_count += 1
                 
                 libraries_processed += 1
         else:
-            # Einzelne Library-Nodes
+            # Einzelne Library-Nodes - gleiche Logik
             lib_path_str = lib_node.get_path() if hasattr(lib_node, 'get_path') else str(lib_node)
             lib_filename = os.path.basename(lib_path_str)
             component_name = lib_filename.replace('lib', '').replace('.a', '')
             
-            # Deterministische Whole-Archive-Entscheidung
-            whole_archive_req = get_realistic_whole_archive_requirements(component_name)
+            # Hole Target-Config falls verfügbar
+            target_config = None
+            for config in target_configs.values():
+                if config["name"].replace("__idf_", "") == component_name:
+                    target_config = config
+                    break
             
+            if target_config:
+                whole_archive_req = get_precise_whole_archive_requirements(
+                    component_name, target_config, sdk_config
+                )
+            else:
+                # Fallback: Normal linking
+                whole_archive_req = {"required": False, "type": "fallback"}
+            
+            # UMGEKEHRTE LOGIK: Whole-Archive nur wenn explizit erforderlich  
             if whole_archive_req["required"]:
                 clang_linking_flags.extend([
                     '-Wl,--whole-archive',
                     lib_path_str,
                     '-Wl,--no-whole-archive'
                 ])
+                print(f"Whole-Archive: {lib_filename} - {whole_archive_req['reason']}")
+                whole_archive_count += 1
             else:
+                # DEFAULT: Normal linking
                 clang_linking_flags.append(lib_path_str)
+                normal_link_count += 1
+            
             libraries_processed += 1
     
     clang_linking_flags.append('-Wl,--end-group')
@@ -2277,7 +2384,7 @@ if "clang" in env.subst("$CC").lower():
     
     # 4. Bestehende Linker-Scripts übernehmen (nur kritische)
     essential_linker_flags = []
-    for flag in original_extra_flags:  # ← Jetzt verwenden wir original_extra_flags
+    for flag in original_extra_flags:
         flag_str = str(flag)
         # Nur wirklich kritische Linker-Elemente
         if (flag_str.startswith('-T') and flag_str.endswith('.ld') or 
@@ -2296,7 +2403,10 @@ if "clang" in env.subst("$CC").lower():
     extra_flags = clang_linking_flags
     libs = []
     
-    print(f"ESP-IDF 5.5 Clang Linking: Processed {libraries_processed} libraries with dependency-aware configuration")
+    # Debug-Summary
+    print(f"ESP-IDF 5.5 Clang Linking: {libraries_processed} libraries processed")
+    print(f"  Whole-Archive: {whole_archive_count} libraries")
+    print(f"  Normal linking: {normal_link_count} libraries")
 
 else:
     # Original GCC processing - unverändert
