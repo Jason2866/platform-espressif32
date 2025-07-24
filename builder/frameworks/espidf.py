@@ -382,61 +382,106 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    Übernimmt die von CMake generierten commandFragments 1:1 in die drei
-    SCons-Variablen LINKFLAGS, LIBS und LIBPATH, wobei die Reihenfolge
-    – insbesondere um Whole-Archive-Blöcke – exakt erhalten bleibt.
-    Korrekte Behandlung von Symbol-Flags und Pfad-Kontexten.
+    VOLLSTÄNDIGE Extraktion ALLER CMake Link-Daten.
+    Stellt sicher, dass keine Libraries übersehen werden.
     """
     linkflags, libs, libpath = [], [], []
-
-    for frag in target_config.get("link", {}).get("commandFragments", []):
-        txt  = frag.get("fragment", "").strip()
+    
+    print("\n🔄 EXTRACTING ALL CMAKE FRAGMENTS:")
+    
+    # Sammle ALLE Fragmente ohne Ausnahme
+    for i, frag in enumerate(target_config.get("link", {}).get("commandFragments", [])):
+        txt = frag.get("fragment", "").strip()
         role = frag.get("role", "").strip()
-
+        
         if not txt:
             continue
-
-        # 1) Linker-Flags – alles, was nicht Library oder Pfad ist
+            
+        print(f"  [{i:3d}] {role:12} -> {txt}")
+        
+        # Verarbeite ALLE Fragment-Types vollständig
         if role == "flags":
-            linkflags.extend(click.parser.split_arg_string(txt))
-
-        # 2) Library-Pfad  (-L…)
-        elif role == "libraryPath" and txt.startswith("-L"):
-            p = txt[2:].strip(" '\"")
-            if p and p not in libpath:
-                libpath.append(p)
-
-        # 3) Einzelne Tokens aus libraries/libraryPath Role
-        elif role in ("libraries", "libraryPath"):
-            # KRITISCH: Symbol-Flags korrekt behandeln
-            if txt.startswith("-u"):
-                linkflags.append(txt)  # Symbol-Flag, NICHT als Datei behandeln
-                
-            elif txt.startswith("-Wl,") or \
-                 txt in ("-Wl,--whole-archive",
-                          "-Wl,--no-whole-archive",
-                          "-Wl,--start-group",
-                          "-Wl,--end-group"):
+            parsed_flags = click.parser.split_arg_string(txt)
+            linkflags.extend(parsed_flags)
+            print(f"       Added {len(parsed_flags)} flags")
+            
+        elif role == "libraryPath":
+            if txt.startswith("-L"):
+                path = txt[2:].strip()
+                if path and path not in libpath:
+                    libpath.append(path)
+                    print(f"       Added libpath: {path}")
+            else:
                 linkflags.append(txt)
-
-            elif txt.endswith(".a"):                 # statisches Archiv
-                linkflags.append(txt)                # RELATIVE Pfade beibehalten!
+                print(f"       Added as flag: {txt}")
                 
-                # Für SCons trotzdem Name & Pfad eintragen für Dependency-Tracking
+        elif role == "libraries":
+            if txt.startswith("-u"):
+                linkflags.append(txt)
+                print(f"       Added symbol flag: {txt}")
+            elif txt.startswith("-l"):
+                lib_name = txt[2:]
+                if lib_name not in libs:
+                    libs.append(lib_name)
+                    print(f"       Added library: {lib_name}")
+            elif txt.endswith(".a"):
+                linkflags.append(txt)
                 arc_name = os.path.basename(txt)
-                arc_dir  = os.path.dirname(txt)
+                arc_dir = os.path.dirname(txt)
                 if arc_name.startswith("lib") and arc_name.endswith(".a"):
-                    libs.append(arc_name[3:-2])      # libfoo.a → foo
+                    lib_name = arc_name[3:-2]
+                    if lib_name not in libs:
+                        libs.append(lib_name)
+                        print(f"       Added archive lib: {lib_name}")
                 if arc_dir and arc_dir not in libpath:
                     libpath.append(arc_dir)
-
-            elif txt.startswith("-l"):               # -lfoo
-                libs.append(txt[2:])
-
-            else:                                    # sonstiges Token
+                    print(f"       Added archive path: {arc_dir}")
+            elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
-
+                print(f"       Added linker flag: {txt}")
+            else:
+                linkflags.append(txt)
+                print(f"       Added other: {txt}")
+        else:
+            linkflags.append(txt)
+            print(f"       Added unknown role: {txt}")
+    
+    print(f"\n📊 EXTRACTION SUMMARY:")
+    print(f"  LINKFLAGS: {len(linkflags)}")
+    print(f"  LIBS: {len(libs)}")
+    print(f"  LIBPATH: {len(libpath)}")
+    
     return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
+
+def comprehensive_cmake_debug(target_config):
+    """Debug ALLE verfügbaren CMake-Daten um fehlende Libraries zu finden"""
+    
+    print("\n🔍 COMPREHENSIVE CMAKE DATA DEBUG")
+    print("="*60)
+    
+    # Alle Link-Fragmente anzeigen
+    link_info = target_config.get("link", {})
+    fragments = link_info.get("commandFragments", [])
+    
+    print(f"\n📋 ALL COMMAND FRAGMENTS ({len(fragments)}):")
+    for i, frag in enumerate(fragments):
+        txt = frag.get("fragment", "")
+        role = frag.get("role", "")
+        print(f"  [{i:3d}] {role:12} {txt}")
+        
+        # Markiere HAL/ROM Libraries
+        if any(keyword in txt.lower() for keyword in ['hal', 'xt_', 'rom', 'bootloader']):
+            print(f"       ⭐ POTENTIAL HAL/ROM LIBRARY!")
+    
+    # Zeige Dependencies
+    dependencies = target_config.get("dependencies", [])
+    print(f"\n🔗 DEPENDENCIES ({len(dependencies)}):")
+    for dep in dependencies:
+        dep_id = dep.get("id", "")
+        if any(keyword in dep_id.lower() for keyword in ['hal', 'rom', 'xtensa', 'bootloader']):
+            print(f"  ⭐ {dep_id} - POTENTIAL HAL/ROM DEPENDENCY!")
+        else:
+            print(f"    {dep_id}")
 
 
 def get_project_lib_includes(env):
@@ -2013,7 +2058,14 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    # Standard-Verarbeitung (identisch zu GCC)
+    # SCHRITT 1: Umfassende Debug-Analyse
+    print("\n" + "="*60)
+    print("CLANG LINKING DEBUG ANALYSIS")
+    print("="*60)
+    
+    comprehensive_cmake_debug(elf_config)
+    
+    # SCHRITT 2: Standard-Verarbeitung mit erweiteter Extraktion
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
@@ -2022,30 +2074,38 @@ if "clang" in env.subst("$CC").lower():
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
-
-    # EINFACH: Relative Pfade zu absoluten machen (BUILD_DIR relativ)
-    corrected_extra_flags = []
-    for flag in extra_flags:
-        flag_str = str(flag)
-        if flag_str.endswith('.a') and not os.path.isabs(flag_str):
-            # Archive: BUILD_DIR + relativer Pfad
-            abs_flag = os.path.join(BUILD_DIR, flag_str)
-            corrected_extra_flags.append(abs_flag if os.path.isfile(abs_flag) else flag_str)
-        elif flag_str.startswith('-T') and len(flag_str) > 2 and not flag_str[2:].startswith('/'):
-            # Linker-Scripts: BUILD_DIR + relativer Pfad
-            script_name = flag_str[2:]
-            abs_script = os.path.join(BUILD_DIR, script_name)
-            corrected_extra_flags.append(f'-T{abs_script}' if os.path.isfile(abs_script) else flag_str)
-        else:
-            corrected_extra_flags.append(flag_str)
     
-    extra_flags = corrected_extra_flags
+    # SCHRITT 3: Vollständige CMake-Fragment-Extraktion
+    cmake_data = extract_complete_link_command(elf_config)
     
-    print("Clang: Simple BUILD_DIR relative path resolution")
+    # SCHRITT 4: Vergleiche mit bestehenden Daten
+    print(f"\n📊 COMPARISON:")
+    print(f"  Original LIBS: {len(link_args.get('LIBS', []))}")
+    print(f"  CMake LIBS: {len(cmake_data['LIBS'])}")
+    print(f"  Original LIBPATH: {len(link_args.get('LIBPATH', []))}")
+    print(f"  CMake LIBPATH: {len(cmake_data['LIBPATH'])}")
+    
+    # SCHRITT 5: Fehlende Libraries identifizieren
+    original_libs = set(link_args.get('LIBS', []))
+    cmake_libs = set(cmake_data['LIBS'])
+    missing_libs = cmake_libs - original_libs
+    
+    if missing_libs:
+        print(f"\n⚠️  MISSING LIBRARIES DETECTED:")
+        for lib in missing_libs:
+            print(f"  - {lib}")
+        
+        # Füge fehlende Libraries hinzu
+        link_args["LIBS"].extend(list(missing_libs))
+        link_args["LIBPATH"].extend([p for p in cmake_data['LIBPATH'] 
+                                   if p not in link_args.get('LIBPATH', [])])
+    
+    print("\nClang: Enhanced debug analysis complete")
 
 else:
     # GCC: Standard-Verarbeitung
     extra_flags = filter_args(link_args["LINKFLAGS"], [...])
+
 
 
 # remove the main linker script flags '-T memory.ld'
