@@ -1228,16 +1228,16 @@ def extract_link_args(target_config):
     # Post-Processing: Component-Abhängigkeiten hinzufügen
     component_name = target_config["name"].replace("__idf_", "")
     dependencies = target_config.get("dependencies", [])
-    
+
     link_args["__COMPONENT_DEPS"] = {
         "target": component_name,
         "depends_on": [dep.get("id", "") for dep in dependencies],
         "dependency_count": len(dependencies)
     }
-    
-    # Whole-Archive-Entscheidung für Metadaten
-    link_args["__WHOLE_ARCHIVE_DECISION"] = get_precise_whole_archive_requirements(component_name)
-    
+    sdk_config = get_sdk_configuration()
+    link_args["__WHOLE_ARCHIVE_DECISION"] = get_precise_whole_archive_requirements(
+        component_name, target_config, sdk_config
+    )
     if link_args["__WHOLE_ARCHIVE_DECISION"]["required"]:
         link_args["__LINK_TYPE"] = "whole_archive"
 
