@@ -382,13 +382,11 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    Extrahiert CMake-Fragmente mit strikter Duplikat-Kontrolle.
+    Vollständige CMake Fragment-Extraktion mit korrekter -T Flag-Kombination
+    und Symbol-Behandlung.
     """
     linkflags, libs, libpath = [], [], []
     skip_libraries = ["__pio_env", "src"]
-    
-    # Tracking für bereits verarbeitete Linker-Scripts
-    processed_scripts = set()
     
     for frag in target_config.get("link", {}).get("commandFragments", []):
         txt = frag.get("fragment", "").strip()
@@ -414,10 +412,13 @@ def extract_complete_link_command(target_config):
         elif role == "libraries":
             if txt.startswith("-u"):
                 linkflags.append(txt)
+                print(f"Adding symbol force: {txt}")
             elif txt.startswith("-Wl,--wrap="):
                 linkflags.append(txt)
+                print(f"Adding wrapper flag: {txt}")
             elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
+                print(f"Adding linker flag: {txt}")
             elif txt.startswith("-l"):
                 lib_name = txt[2:]
                 if lib_name not in skip_libraries and lib_name not in libs:
@@ -431,13 +432,22 @@ def extract_complete_link_command(target_config):
                     if not os.path.isabs(archive_path):
                         archive_path = os.path.join(BUILD_DIR, archive_path)
                     linkflags.append(archive_path)
+                    print(f"Adding archive: {os.path.basename(archive_path)}")
             else:
-                linkflags.append(txt)
+                # KRITISCH: Unbekannte Tokens sind wahrscheinlich Symbol-Namen
+                # Diese sollten als -u Flags behandelt werden
+                if not any(char in txt for char in ['/', '.', '-']) and len(txt) > 0:
+                    linkflags.append(f"-u{txt}")
+                    print(f"Adding symbol flag: -u{txt}")
+                else:
+                    linkflags.append(txt)
+                    print(f"Adding other: {txt}")
         else:
             linkflags.append(txt)
     
-    # -T Flag-Kombination mit strikter Duplikat-Kontrolle
+    # KRITISCH: Post-Processing für getrennte -T Flags
     processed_linkflags = []
+    processed_scripts = set()
     i = 0
     
     while i < len(linkflags):
@@ -449,7 +459,7 @@ def extract_complete_link_command(target_config):
             if next_flag.endswith('.ld') and not next_flag.startswith('-'):
                 script_path = next_flag
                 
-                # Pfad-Resolution
+                # Pfad-Resolution für Linker-Scripts
                 if not os.path.isabs(script_path):
                     script_locations = [
                         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
@@ -460,14 +470,19 @@ def extract_complete_link_command(target_config):
                     for location in script_locations:
                         if os.path.isfile(location):
                             script_path = location
+                            print(f"Resolved linker script: {script_path}")
                             break
+                    else:
+                        print(f"Warning: Linker script not found: {script_path}")
                 
                 combined_flag = f"-T{script_path}"
                 
-                # Strikte Duplikat-Kontrolle
+                # Duplikat-Kontrolle für Linker-Scripts
                 if combined_flag not in processed_scripts:
                     processed_linkflags.append(combined_flag)
                     processed_scripts.add(combined_flag)
+                else:
+                    print(f"Skipped duplicate linker script: {script_path}")
                 
                 i += 2
             else:
@@ -2100,8 +2115,6 @@ if "clang" in env.subst("$CC").lower():
     
     # KRITISCH: Fehlende ESP-IDF HAL-Libraries für Clang hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
-    
-    # Erweiterte HAL-Library-Liste für verschiedene Problembereiche
     additional_hal_libs = []
     
     if mcu in ("esp32", "esp32s2", "esp32s3"):
@@ -2121,33 +2134,15 @@ if "clang" in env.subst("$CC").lower():
     
     for candidate_lib in esp_hal_candidates:
         if os.path.isfile(candidate_lib):
-            # Prüfe ob bereits in linkflags
             if candidate_lib not in cmake_data["LINKFLAGS"]:
                 additional_hal_libs.append(candidate_lib)
                 print(f"Adding missing HAL library: {os.path.basename(candidate_lib)}")
     
-    # KRITISCH: Alle Linker-Flags kombinieren und Duplikate entfernen
+    # Alle Linker-Flags kombinieren
     all_linkflags = extra_flags + cmake_data["LINKFLAGS"] + additional_hal_libs
     
-    # Globale Duplikat-Entfernung für Linker-Scripts
-    final_linkflags = []
-    seen_linker_scripts = set()
-    
-    for flag in all_linkflags:
-        if isinstance(flag, str) and flag.startswith("-T") and flag.endswith('.ld'):
-            # Linker-Script: Prüfe auf Duplikate
-            if flag not in seen_linker_scripts:
-                final_linkflags.append(flag)
-                seen_linker_scripts.add(flag)
-                print(f"Added unique linker script: {os.path.basename(flag)}")
-            else:
-                print(f"Skipped duplicate linker script: {os.path.basename(flag)}")
-        else:
-            # Andere Flags: Immer hinzufügen
-            final_linkflags.append(flag)
-    
     # SCons-Environment mit bereinigten Daten erweitern
-    env.AppendUnique(LINKFLAGS=final_linkflags)
+    env.AppendUnique(LINKFLAGS=all_linkflags)
     env.AppendUnique(LIBS=cmake_data["LIBS"])
     env.AppendUnique(LIBPATH=cmake_data["LIBPATH"])
     
@@ -2155,7 +2150,6 @@ if "clang" in env.subst("$CC").lower():
     libs = []
     
     print(f"Clang: Enhanced with {len(additional_hal_libs)} additional HAL libraries")
-    print(f"Clang: Final linking with {len(final_linkflags)} flags, {len(seen_linker_scripts)} unique scripts")
 
 else:
     # GCC: Standard-Verarbeitung
