@@ -2351,29 +2351,6 @@ else:
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
 
-    
-    # Registriere Pre-Link-Action für das Firmware-ELF
-    env.AddPreAction("$PROGPATH", post_compile_link_processor)
-    
-    # Leere libs da alles über die Hook verarbeitet wird
-    libs = []
-    
-    print("Clang: Post-compile link processing registered")
-
-else:
-    # GCC: Standard-Verarbeitung (bleibt unverändert)
-    link_args = extract_link_args(elf_config)
-    
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(extra_flags)
-    )
-
-
 # remove the main linker script flags '-T memory.ld'
 try:
     ld_index = extra_flags.index("memory.ld")
