@@ -382,10 +382,12 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    Vollständige CMake Fragment-Extraktion mit korrekter absoluter Pfad-Resolution.
-    Alle relativen Pfade werden zu absoluten Pfaden relativ zum BUILD_DIR aufgelöst.
+    Extrahiert CMake-Fragmente und filtert problematische PlatformIO-Artefakte heraus.
     """
     linkflags, libs, libpath = [], [], []
+    
+    # Problematische Libraries die übersprungen werden sollen
+    skip_libraries = ["__pio_env", "src"]
     
     for frag in target_config.get("link", {}).get("commandFragments", []):
         txt = frag.get("fragment", "").strip()
@@ -400,10 +402,8 @@ def extract_complete_link_command(target_config):
         elif role == "libraryPath":
             if txt.startswith("-L"):
                 path = txt[2:].strip()
-                # Relative Pfade zu absoluten machen
                 if path and not os.path.isabs(path):
                     path = os.path.join(BUILD_DIR, path)
-                
                 if path and path not in libpath:
                     libpath.append(path)
             else:
@@ -412,34 +412,26 @@ def extract_complete_link_command(target_config):
         elif role == "libraries":
             if txt.startswith("-u"):
                 linkflags.append(txt)
-                
             elif txt.startswith("-l"):
                 lib_name = txt[2:]
-                if lib_name not in libs:
+                if lib_name not in skip_libraries and lib_name not in libs:
                     libs.append(lib_name)
-                    
             elif txt.endswith(".a"):
-                # KRITISCH: Archive-Pfad absolut machen
+                # Prüfe ob es eine der problematischen Libraries ist
+                archive_name = os.path.basename(txt)
+                should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
+                
+                if should_skip:
+                    print(f"Skipping problematic library: {txt}")
+                    continue
+                
+                # Normale Archive-Verarbeitung
                 archive_path = txt
                 if not os.path.isabs(archive_path):
                     archive_path = os.path.join(BUILD_DIR, archive_path)
                 
-                # Archive als vollständigen Pfad zu LINKFLAGS
                 linkflags.append(archive_path)
                 
-                # Library-Name und absoluten Pfad für SCons extrahieren
-                arc_name = os.path.basename(archive_path)
-                arc_dir = os.path.dirname(archive_path)
-                
-                if arc_name.startswith("lib") and arc_name.endswith(".a"):
-                    lib_name = arc_name[3:-2]  # libfoo.a → foo
-                    if lib_name not in libs:
-                        libs.append(lib_name)
-                
-                # KRITISCH: Absoluter Pfad zu LIBPATH
-                if arc_dir and arc_dir not in libpath:
-                    libpath.append(arc_dir)
-                    
             elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
             else:
