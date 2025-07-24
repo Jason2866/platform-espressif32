@@ -2056,15 +2056,28 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
+# Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
+# cannot merge them correctly
 extra_flags = filter_args(
     link_args["LINKFLAGS"],
-    ["-T", "-u",
-     "-Wl,--start-group", "-Wl,--end-group",
-     "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    [
+        "-T",
+        "-u",
+        "-Wl,--start-group",
+        "-Wl,--end-group",
+        "-Wl,--whole-archive",
+        "-Wl,--no-whole-archive",
+    ],
 )
-link_args["LINKFLAGS"] = sorted(
-    set(link_args["LINKFLAGS"]) - set(extra_flags)
-)
+link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
+
+# remove the main linker script flags '-T memory.ld'
+try:
+    ld_index = extra_flags.index("memory.ld")
+    extra_flags.pop(ld_index)
+    extra_flags.pop(ld_index - 1)
+except:
+    print("Warning! Couldn't find the main linker script in the CMake code model.")
 
 #
 # Process project sources
