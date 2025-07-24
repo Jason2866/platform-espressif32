@@ -2281,7 +2281,7 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    print("Clang: Direct LINKCOM replacement with enhanced path resolution")
+    print("Clang: LINKCOM with simple deduplication, preserve original paths")
     
     # HAL-Libraries für Xtensa-MCUs hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
@@ -2322,68 +2322,42 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # KRITISCH: Post-process extra_flags für korrekte Pfad-Resolution
-    resolved_extra_flags = []
+    # EINFACH: Dedupliziere nur -T Flags, ändere aber keine Pfade
+    dedup_extra_flags = []
+    seen_scripts = set()
     
     for flag in extra_flags:
         flag_str = str(flag)
         
-        # Behandle -T Flags mit Pfad-Resolution
         if flag_str.startswith('-T') and flag_str.endswith('.ld'):
-            script_path = flag_str[2:]  # Entferne -T Prefix
+            # Extrahiere Script-Namen für Duplikat-Check
+            script_path = flag_str[2:]  # Entferne -T
+            script_name = os.path.basename(script_path)
             
-            # Wenn relativer Pfad, versuche Auflösung
-            if not os.path.isabs(script_path):
-                script_name = os.path.basename(script_path)
-                
-                # Erweiterte Suchpfade für memory.ld und sections.ld
-                search_locations = [
-                    os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_name),
-                    os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_name),
-                    os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32", "ld", script_name),
-                    os.path.join(BUILD_DIR, script_name),  # Direkt im BUILD_DIR
-                ]
-                
-                # Suche in Library-Pfaden
-                for libpath in link_args["LIBPATH"]:
-                    search_locations.append(os.path.join(libpath, script_name))
-                
-                resolved_path = None
-                for location in search_locations:
-                    if os.path.isfile(location):
-                        resolved_path = location
-                        print(f"Resolved script: {script_name} -> {resolved_path}")
-                        break
-                
-                if resolved_path:
-                    resolved_extra_flags.append(f"-T{resolved_path}")
-                else:
-                    # Fallback: Verwende relativen Pfad mit Library-Pfad-Unterstützung
-                    print(f"Warning: Could not resolve {script_name}, using relative path")
-                    resolved_extra_flags.append(flag_str)
+            if script_name not in seen_scripts:
+                dedup_extra_flags.append(flag_str)  # Behalte ORIGINAL-Flag
+                seen_scripts.add(script_name)
+                print(f"Kept linker script: {script_name} ({flag_str})")
             else:
-                # Absoluter Pfad - direkt verwenden
-                resolved_extra_flags.append(flag_str)
+                print(f"Removed duplicate linker script: {script_name}")
         else:
-            # Nicht-T Flags direkt verwenden
-            resolved_extra_flags.append(flag_str)
+            # Alle anderen Flags unverändert
+            dedup_extra_flags.append(flag_str)
     
-    # String-Erstellung für LINKCOM
-    extra_flags_str = ' '.join(resolved_extra_flags)
+    # String-Erstellung mit Original-Pfaden
+    extra_flags_str = ' '.join(dedup_extra_flags)
     linkflags_str = ' '.join(str(flag) for flag in link_args["LINKFLAGS"])
     libpath_str = ' '.join(f"-L{path}" for path in link_args["LIBPATH"])
     libs_str = ' '.join(f"-l{lib}" for lib in link_args["LIBS"])
     
-    print(f"Extra flags: {len(resolved_extra_flags)} flags (resolved)")
-    print(f"Link flags: {len(link_args['LINKFLAGS'])} flags") 
-    print(f"Library paths: {len(link_args['LIBPATH'])} paths")
-    print(f"Libraries: {len(link_args['LIBS'])} libs")
+    print(f"Deduplicated extra flags: {len(dedup_extra_flags)} flags")
+    print(f"Unique scripts: {list(seen_scripts)}")
     
-    # LINKCOM mit Library-Pfad-Unterstützung für relative Scripts
+    # LINKCOM mit Original-Pfaden und Library-Pfad-Unterstützung
     env['LINKCOM'] = (
         f"$LINK -o $TARGET "
-        f"{libpath_str} "               # Library-Pfade ZUERST für Linker-Script-Resolution
-        f"{extra_flags_str} "           # Unsere resolved -T Flags
+        f"{libpath_str} "               # Library-Pfade für relative Script-Resolution
+        f"{extra_flags_str} "           # Deduplizierte Flags mit Original-Pfaden
         f"{linkflags_str} "             # Weitere LINKFLAGS
         f"$__RPATH $SOURCES "           # Standard SCons-Variablen
         f"{libs_str}"                   # Libraries
@@ -2391,7 +2365,7 @@ if "clang" in env.subst("$CC").lower():
     
     libs = []
     
-    print(f"Clang: Direct LINKCOM with enhanced path resolution")
+    print("Clang: Simple deduplication with original paths preserved")
 
 else:
     # GCC: Standard-Verarbeitung
