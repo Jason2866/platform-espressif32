@@ -2234,7 +2234,7 @@ project_config = target_configs.get(project_target_name, {})
 default_config = target_configs.get(default_config_name, {})
 project_defines = get_app_defines(project_config)
 project_flags = get_app_flags(project_config, default_config)
-# link_args = extract_link_args(elf_config)
+link_args = extract_link_args(elf_config)
 app_includes = get_app_includes(elf_config)
 
 #
@@ -2254,19 +2254,6 @@ env.AddPlatformTarget(
     [env.VerboseAction(RunMenuconfig, "Running menuconfig...")],
     "Run Menuconfig",
 )
-
-if "clang" in env.subst("$CC").lower():
-    print("Clang: Will use post-compile link args extraction")
-    # Dummy link_args für find_lib_deps (echte Verarbeitung erfolgt später)
-    link_args = {
-        "LINKFLAGS": [],
-        "LIBS": [],
-        "LIBPATH": [],
-        "__LIB_DEPS": []
-    }
-else:
-    # GCC: Standard extract_link_args Aufruf
-    link_args = extract_link_args(elf_config)
 
 #
 # Process main parts of the framework
