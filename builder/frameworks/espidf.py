@@ -2265,7 +2265,7 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    # HAL-Libraries hinzufügen (da extract_link_args die Fragment-Verarbeitung übernommen hat)
+    # HAL-Libraries hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
     additional_hal_libs = []
     
@@ -2273,9 +2273,7 @@ if "clang" in env.subst("$CC").lower():
         xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
         if os.path.isfile(xtensa_hal_lib):
             additional_hal_libs.append(xtensa_hal_lib)
-            print(f"Added Xtensa HAL library: {xtensa_hal_lib}")
     
-    # ESP32-spezifische System-Libraries die oft fehlen
     esp_hal_candidates = [
         os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
@@ -2288,23 +2286,46 @@ if "clang" in env.subst("$CC").lower():
         if os.path.isfile(candidate_lib):
             if candidate_lib not in link_args["LINKFLAGS"]:
                 additional_hal_libs.append(candidate_lib)
-                print(f"Adding missing HAL library: {os.path.basename(candidate_lib)}")
     
-    # Füge HAL-Libraries zu LINKFLAGS hinzu
     if additional_hal_libs:
         link_args["LINKFLAGS"].extend(additional_hal_libs)
     
-    # Standard-Verarbeitung (bleibt unverändert)
+    # KRITISCH: Debug LINKFLAGS vor Standard-Verarbeitung
+    print(f"\n{'='*60}")
+    print(f"CLANG BLOCK - LINKFLAGS BEFORE FILTER_ARGS")
+    print(f"{'='*60}")
+    
+    current_t_flags = [f for f in link_args["LINKFLAGS"] if f.startswith('-T')]
+    print(f"CURRENT -T FLAGS IN LINK_ARGS ({len(current_t_flags)}):")
+    for i, flag in enumerate(current_t_flags):
+        script_name = flag[2:] if flag.startswith('-T') else flag
+        print(f"  [{i:2d}] {script_name}")
+    
+    # Standard-Verarbeitung
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
+    
+    print(f"\nEXTRA_FLAGS (-T related): {len([f for f in extra_flags if f.startswith('-T')])}")
+    extra_t_flags = [f for f in extra_flags if f.startswith('-T')]
+    for i, flag in enumerate(extra_t_flags):
+        script_name = flag[2:] if flag.startswith('-T') else flag
+        print(f"  [{i:2d}] {script_name}")
+    
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    print(f"Clang: Enhanced linking with {len(additional_hal_libs)} additional HAL libraries")
+    print(f"\nLINK_ARGS LINKFLAGS AFTER REMOVAL ({len(link_args['LINKFLAGS'])}):")
+    remaining_t_flags = [f for f in link_args["LINKFLAGS"] if f.startswith('-T')]
+    for i, flag in enumerate(remaining_t_flags):
+        script_name = flag[2:] if flag.startswith('-T') else flag
+        print(f"  [{i:2d}] {script_name}")
+    
+    print(f"{'='*60}\n")
+    
     libs = []
 
 else:
