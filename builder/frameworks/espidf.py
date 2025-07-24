@@ -359,7 +359,7 @@ if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and 
 
 
 def get_essential_esp_idf_symbols():
-    """Nur wirklich kritische ESP-IDF Symbole - vereinfachte Liste"""
+    """Kritische ESP-IDF Symbole inklusive WiFi-spezifische Symbole"""
     
     return {
         # Core System (absolut kritisch)
@@ -384,7 +384,17 @@ def get_essential_esp_idf_symbols():
         'nvs_flash_init',
         
         # Network Interface (wenn WiFi/Ethernet verwendet)
-        'esp_netif_init', 'esp_event_loop_create_default'
+        'esp_netif_init', 'esp_event_loop_create_default',
+        
+        # WiFi-spezifische Symbole (für precompiled libnet80211.a)
+        'g_misc_nvs', 'misc_nvs_init', 'misc_nvs_deinit',
+        'g_log_level', 'g_espnow_user_oui',
+        'esp_wifi_internal_set_fix_rate', 'esp_wifi_internal_tx_by_ref',
+        'net80211_printf', 'g_wifi_osi_funcs',
+        'esp_wifi_power_domain_on', 'esp_wifi_power_domain_off',
+        
+        # PHY-spezifische Symbole (für libphy.a)
+        'phy_printf'
     }
 
 def get_realistic_whole_archive_requirements(component_name):
