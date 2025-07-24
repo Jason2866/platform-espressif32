@@ -2141,15 +2141,72 @@ if "clang" in env.subst("$CC").lower():
     # Alle Linker-Flags kombinieren
     all_linkflags = extra_flags + cmake_data["LINKFLAGS"] + additional_hal_libs
     
-    # SCons-Environment mit bereinigten Daten erweitern
-    env.AppendUnique(LINKFLAGS=all_linkflags)
-    env.AppendUnique(LIBS=cmake_data["LIBS"])
-    env.AppendUnique(LIBPATH=cmake_data["LIBPATH"])
+    # KRITISCH: Debug-Ausgabe um zu sehen was tatsächlich passiert
+    print("\n" + "="*80)
+    print("CLANG LINKING DEBUG - FINAL STATE")
+    print("="*80)
     
-    # Leere libs da Archive in LINKFLAGS sind
+    print(f"EXTRA FLAGS ({len(extra_flags)}):")
+    for i, flag in enumerate(extra_flags[:10]):
+        print(f"  [{i:2d}] {flag}")
+    
+    print(f"\nCMAKE LINKFLAGS ({len(cmake_data['LINKFLAGS'])}):")
+    for i, flag in enumerate(cmake_data['LINKFLAGS'][:20]):
+        print(f"  [{i:2d}] {flag}")
+    
+    print(f"\nADDITIONAL HAL LIBS ({len(additional_hal_libs)}):")
+    for i, lib in enumerate(additional_hal_libs):
+        print(f"  [{i:2d}] {os.path.basename(lib)}")
+    
+    print(f"\nCMAKE LIBPATH ({len(cmake_data['LIBPATH'])}):")
+    for i, path in enumerate(cmake_data['LIBPATH'][:10]):
+        print(f"  [{i:2d}] {path}")
+    
+    print(f"\nCMAKE LIBS ({len(cmake_data['LIBS'])}):")
+    for i, lib in enumerate(cmake_data['LIBS'][:20]):
+        print(f"  [{i:2d}] -l{lib}")
+    
+    # Erstelle ein benutzerdefiniertes Link-Command das unsere Flags korrekt verwendet
+    def create_clang_linkcom():
+        """Erstelle ein Link-Command das unsere verarbeiteten Flags korrekt verwendet"""
+        
+        # Konvertiere unsere verarbeiteten Flags zu einem String
+        processed_flags_str = ' '.join(str(flag) for flag in all_linkflags)
+        
+        # Füge verarbeitete CMake-Library-Pfade hinzu
+        cmake_libpath_str = ' '.join(f'-L{path}' for path in cmake_data["LIBPATH"])
+        cmake_libs_str = ' '.join(f'-l{lib}' for lib in cmake_data["LIBS"])
+        
+        # Erstelle neues Link-Command das unsere Flags verwendet
+        custom_linkcom = (
+            "$LINK -o $TARGET "
+            f"{processed_flags_str} "  # Unsere verarbeiteten Flags
+            f"{cmake_libpath_str} "    # CMake Library-Pfade
+            "$__RPATH $SOURCES "       # Standard SCons-Variablen
+            f"{cmake_libs_str} "       # CMake Libraries
+            "$_LIBFLAGS"               # Zusätzliche SCons-Libraries
+        )
+        
+        return custom_linkcom
+    
+    # Setze das benutzerdefinierte Link-Command
+    env['LINKCOM'] = create_clang_linkcom()
+    
+    print(f"\nCUSTOM LINKCOM SET:")
+    print(f"  {env['LINKCOM']}")
+    
+    # Zeige finale all_linkflags
+    print(f"\nALL LINKFLAGS COMBINED ({len(all_linkflags)}):")
+    for i, flag in enumerate(all_linkflags[:30]):  # Erste 30
+        print(f"  [{i:2d}] {flag}")
+    
+    print("="*80)
+    
+    # Leere libs da sie im benutzerdefinierten Command enthalten sind
     libs = []
     
-    print(f"Clang: Enhanced with {len(additional_hal_libs)} additional HAL libraries")
+    print(f"Clang: Using custom link command with {len(all_linkflags)} processed flags")
+    print(f"Clang: Added {len(additional_hal_libs)} HAL libraries")
 
 else:
     # GCC: Standard-Verarbeitung
