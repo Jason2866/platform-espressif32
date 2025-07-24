@@ -2255,6 +2255,19 @@ env.AddPlatformTarget(
     "Run Menuconfig",
 )
 
+if "clang" in env.subst("$CC").lower():
+    print("Clang: Will use post-compile link args extraction")
+    # Dummy link_args für find_lib_deps (echte Verarbeitung erfolgt später)
+    link_args = {
+        "LINKFLAGS": [],
+        "LIBS": [],
+        "LIBPATH": [],
+        "__LIB_DEPS": []
+    }
+else:
+    # GCC: Standard extract_link_args Aufruf
+    link_args = extract_link_args(elf_config)
+
 #
 # Process main parts of the framework
 #
