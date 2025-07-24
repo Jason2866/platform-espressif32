@@ -413,8 +413,14 @@ def extract_complete_link_command(target_config):
         elif role == "libraries":
             if txt.startswith("-u"):
                 linkflags.append(txt)
+                print(f"Adding symbol force: {txt}")
+            elif txt.startswith("-Wl,--wrap="):
+                # KRITISCH: Wrapper-Flags explizit behandeln
+                linkflags.append(txt)
+                print(f"Adding wrapper flag: {txt}")
             elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
+                print(f"Adding linker flag: {txt}")
             elif txt.startswith("-l"):
                 lib_name = txt[2:]
                 if lib_name not in skip_libraries and lib_name not in libs:
@@ -434,8 +440,11 @@ def extract_complete_link_command(target_config):
                     archive_path = os.path.join(BUILD_DIR, archive_path)
                 
                 linkflags.append(archive_path)
+                print(f"Adding archive: {os.path.basename(archive_path)}")
             else:
+                # Unbekannte Tokens auch zu linkflags
                 linkflags.append(txt)
+                print(f"Adding other: {txt}")
         else:
             linkflags.append(txt)
     
@@ -480,6 +489,11 @@ def extract_complete_link_command(target_config):
         else:
             processed_linkflags.append(flag)
             i += 1
+    
+    print(f"\n📊 EXTRACTION SUMMARY:")
+    print(f"  LINKFLAGS: {len(processed_linkflags)}")
+    print(f"  LIBS: {len(libs)}")
+    print(f"  LIBPATH: {len(libpath)}")
     
     return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": processed_linkflags}
 
