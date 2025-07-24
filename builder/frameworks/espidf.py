@@ -382,7 +382,7 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    Extrahiert CMake-Fragmente und filtert problematische PlatformIO-Artefakte heraus.
+    Vollständige CMake Fragment-Extraktion mit spezieller Behandlung von Wrapper-Flags.
     """
     linkflags, libs, libpath = [], [], []
     
@@ -397,7 +397,8 @@ def extract_complete_link_command(target_config):
             continue
             
         if role == "flags":
-            linkflags.extend(click.parser.split_arg_string(txt))
+            parsed_flags = click.parser.split_arg_string(txt)
+            linkflags.extend(parsed_flags)
             
         elif role == "libraryPath":
             if txt.startswith("-L"):
@@ -412,12 +413,20 @@ def extract_complete_link_command(target_config):
         elif role == "libraries":
             if txt.startswith("-u"):
                 linkflags.append(txt)
+                print(f"Adding symbol force: {txt}")
+            elif txt.startswith("-Wl,--wrap="):
+                # KRITISCH: Wrapper-Flags explizit behandeln
+                linkflags.append(txt)
+                print(f"Adding wrapper flag: {txt}")
+            elif txt.startswith("-Wl,"):
+                linkflags.append(txt)
+                print(f"Adding linker flag: {txt}")
             elif txt.startswith("-l"):
                 lib_name = txt[2:]
                 if lib_name not in skip_libraries and lib_name not in libs:
                     libs.append(lib_name)
             elif txt.endswith(".a"):
-                # Prüfe ob es eine der problematischen Libraries ist
+                # Prüfe auf problematische Libraries
                 archive_name = os.path.basename(txt)
                 should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
                 
@@ -425,17 +434,18 @@ def extract_complete_link_command(target_config):
                     print(f"Skipping problematic library: {txt}")
                     continue
                 
-                # Normale Archive-Verarbeitung
+                # Archive-Pfad absolut machen
                 archive_path = txt
                 if not os.path.isabs(archive_path):
                     archive_path = os.path.join(BUILD_DIR, archive_path)
                 
                 linkflags.append(archive_path)
+                print(f"Adding archive: {os.path.basename(archive_path)}")
                 
-            elif txt.startswith("-Wl,"):
-                linkflags.append(txt)
             else:
+                # Unbekannte Tokens auch zu linkflags
                 linkflags.append(txt)
+                print(f"Adding other: {txt}")
         else:
             linkflags.append(txt)
     
@@ -2056,30 +2066,50 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # Vollständige CMake-Fragment-Extraktion mit absoluten Pfaden
+    # Vollständige CMake-Fragment-Extraktion
     cmake_data = extract_complete_link_command(elf_config)
     
-    # Merge CMake-Daten mit bestehenden Link-Args
-    for lib in cmake_data['LIBS']:
-        if lib not in link_args.get('LIBS', []):
-            link_args["LIBS"].append(lib)
+    # SCons-Environment mit CMake-Daten erweitern
+    env.AppendUnique(LINKFLAGS=cmake_data["LINKFLAGS"])
+    env.AppendUnique(LIBS=cmake_data["LIBS"])
+    env.AppendUnique(LIBPATH=cmake_data["LIBPATH"])
     
-    for path in cmake_data['LIBPATH']:
-        if path not in link_args.get('LIBPATH', []):
-            link_args["LIBPATH"].append(path)
+    # KRITISCH: Fehlende ESP-IDF HAL-Libraries für Clang hinzufügen
+    mcu = env.get("BOARD_MCU", "esp32")
     
-    # Xtensa HAL für Xtensa-MCUs hinzufügen
-    board_mcu = board.get("build.mcu", "esp32")
-    if board_mcu in ("esp32", "esp32s2", "esp32s3"):
-        xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", board_mcu, "libxt_hal.a")
-        xtensa_hal_dir = os.path.dirname(xtensa_hal_lib)
-        
-        if "xt_hal" not in link_args["LIBS"]:
-            link_args["LIBS"].append("xt_hal")
-            link_args["LIBPATH"].append(xtensa_hal_dir)
-            print(f"Clang: Added Xtensa HAL for {board_mcu}")
+    # Erweiterte HAL-Library-Liste für verschiedene Problembereiche
+    additional_hal_libs = []
     
-    print(f"Clang: Enhanced linking with {len(cmake_data['LIBS'])} libraries and {len(cmake_data['LIBPATH'])} paths")
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        # Xtensa HAL
+        xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
+        if os.path.isfile(xtensa_hal_lib):
+            additional_hal_libs.append(xtensa_hal_lib)
+    
+    # ESP32-spezifische System-Libraries die oft fehlen
+    esp_hal_candidates = [
+        os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
+        os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
+        os.path.join(BUILD_DIR, "esp-idf", "hal", "libhal.a"),
+        os.path.join(BUILD_DIR, "esp-idf", "soc", "libsoc.a"),
+        os.path.join(BUILD_DIR, "esp-idf", "esp_common", "libesp_common.a"),
+    ]
+    
+    for candidate_lib in esp_hal_candidates:
+        if os.path.isfile(candidate_lib):
+            # Prüfe ob bereits in linkflags
+            if candidate_lib not in cmake_data["LINKFLAGS"]:
+                additional_hal_libs.append(candidate_lib)
+                print(f"Adding missing HAL library: {os.path.basename(candidate_lib)}")
+    
+    # Füge zusätzliche HAL-Libraries hinzu
+    if additional_hal_libs:
+        env.AppendUnique(LINKFLAGS=additional_hal_libs)
+    
+    # Leere libs da Archive in LINKFLAGS sind
+    libs = []
+    
+    print(f"Clang: Enhanced with {len(additional_hal_libs)} additional HAL libraries")
 
 else:
     # GCC: Standard-Verarbeitung
