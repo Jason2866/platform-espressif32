@@ -360,19 +360,42 @@ if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and 
 
 def extract_complete_link_command(target_config):
     """
-    Extrahiert das vollständige CMake-Link-Kommando ohne Whole-Archive-Interpretation.
-    Gibt alle Link-Fragmente in der von CMake generierten Reihenfolge zurück.
+    Parst die von CMake erzeugten commandFragments und bereitet
+    drei getrennte Listen für SCons vor: LINKFLAGS, LIBS, LIBPATH.
     """
-    
-    link_info = target_config.get("link", {})
-    complete_command = []
-    
-    for fragment in link_info.get("commandFragments", []):
-        fragment_text = fragment.get("fragment", "").strip()
-        if fragment_text:
-            complete_command.append(fragment_text)
-    
-    return complete_command
+    flags, libs, libpath = [], [], []
+
+    for frag in target_config.get("link", {}).get("commandFragments", []):
+        txt   = frag.get("fragment", "").strip()
+        role  = frag.get("role",     "").strip()
+
+        if role == "flags":
+            flags.extend(click.parser.split_arg_string(txt))
+
+        elif role in ("libraries", "libraryPath"):
+            if txt.startswith("-L"):
+                p = txt[2:].strip(" '\"")
+                if p and p not in libpath:
+                    libpath.append(p)
+
+            elif txt.startswith("-l"):
+                n = txt[2:]
+                if n and n not in libs:
+                    libs.append(n)
+
+            elif txt.endswith(".a"):
+                # CMake liefert hier den _Vollpfad_;
+                # SCons akzeptiert Vollpfad ebenfalls in LIBS.
+                if txt not in libs:
+                    libs.append(txt)
+                d = os.path.dirname(txt)
+                if d and d not in libpath:
+                    libpath.append(d)
+
+            else:           # sonstiges (-uSym, -Wl,…) als Flag
+                flags.append(txt)
+
+    return {"LINKFLAGS": flags, "LIBS": libs, "LIBPATH": libpath}
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
@@ -1946,19 +1969,32 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Vereinfachtes Clang-Linking - direkte CMake-Kommando-Übernahme
+# ------------------------------------------------------------------
+# Native CMake-Link – direkte Übernahme in das SCons-Environment
+# ------------------------------------------------------------------
 if "clang" in env.subst("$CC").lower():
-    # Extrahiere das komplette CMake-Link-Kommando direkt aus dem ELF-Target
-    cmake_link_command = extract_complete_link_command(elf_config)
-    
-    # Verwende exakt das von CMake generierte Kommando ohne Modifikation
-    extra_flags = cmake_link_command
-    libs = []  # Alle Libraries sind bereits in extra_flags enthalten
-    
-    print(f"Native CMake linking: Using {len(cmake_link_command)} link arguments from CMake")
+
+    cm_flags = extract_complete_link_command(elf_config)
+
+    # a) vorhandene Link-Flags um CMake-Flags erweitern
+    env.AppendUnique(LINKFLAGS = cm_flags["LINKFLAGS"])
+
+    # b) Library-Suchpfade in LIBPATH übernehmen
+    env.PrependUnique(LIBPATH   = cm_flags["LIBPATH"])
+
+    # c) Bibliotheken 1-zu-1 (Reihenfolge beibehalten) in LIBS übernehmen
+    #    Vollpfade (.a) UND -l-Namen sind erlaubt.
+    env.Append(LIBS = cm_flags["LIBS"])
+
+    # d) keine zusätzliche manuelle Bearbeitung mehr nötig
+    extra_flags = []   # vollständig im Environment
+    libs        = []   # bereits in env['LIBS']
+
+    print(f"[CMake-native] {len(cm_flags['LIBS'])} libs, "
+          f"{len(cm_flags['LIBPATH'])} paths → SCons Environment")
 
 else:
-    # Original GCC processing - unverändert
+    # unverändert für GCC
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u",
