@@ -2281,9 +2281,9 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    print("Clang: Using enhanced extract_link_args with integrated processing")
+    print("Clang: Direct LINKCOM replacement approach")
     
-    # [HAL-Libraries hinzufügen - bleibt unverändert]
+    # HAL-Libraries für Xtensa-MCUs hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
     additional_hal_libs = []
     
@@ -2293,6 +2293,7 @@ if "clang" in env.subst("$CC").lower():
             additional_hal_libs.append(xtensa_hal_lib)
             print(f"Added Xtensa HAL: {xtensa_hal_lib}")
     
+    # ESP32-spezifische System-Libraries die oft fehlen
     esp_hal_candidates = [
         os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
@@ -2305,7 +2306,9 @@ if "clang" in env.subst("$CC").lower():
         if os.path.isfile(candidate_lib):
             if candidate_lib not in link_args["LINKFLAGS"]:
                 additional_hal_libs.append(candidate_lib)
+                print(f"Added HAL library: {os.path.basename(candidate_lib)}")
     
+    # Füge HAL-Libraries zu LINKFLAGS hinzu
     if additional_hal_libs:
         link_args["LINKFLAGS"].extend(additional_hal_libs)
     
@@ -2320,72 +2323,31 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # KRITISCH: Custom LINKCOM mit integrierter Duplikat-Entfernung
-    def create_clang_linkcom():
-        """
-        Erstelle ein benutzerdefiniertes LINKCOM das Duplikate zur Expansion-Zeit entfernt.
-        """
-        original_linkcom = env.get('LINKCOM', '$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS')
-        
-        # Python-Script das zur Link-Zeit Duplikate entfernt
-        dedup_script = """
-import os, sys, subprocess
-
-def deduplicate_linker_scripts(args):
-    seen_scripts = set()
-    dedup_args = []
+    # EINFACH: Direkte LINKCOM-Ersetzung mit bereits bereinigten Flags
+    extra_flags_str = ' '.join(str(flag) for flag in extra_flags)
+    linkflags_str = ' '.join(str(flag) for flag in link_args["LINKFLAGS"])
+    libpath_str = ' '.join(f"-L{path}" for path in link_args["LIBPATH"])
+    libs_str = ' '.join(f"-l{lib}" for lib in link_args["LIBS"])
     
-    for arg in args:
-        if arg.startswith('-T') and arg.endswith('.ld'):
-            script_name = os.path.basename(arg[2:])
-            if script_name not in seen_scripts:
-                dedup_args.append(arg)
-                seen_scripts.add(script_name)
-                print(f"LINKCOM: KEPT {script_name}")
-            else:
-                print(f"LINKCOM: REMOVED DUPLICATE {script_name}")
-        else:
-            dedup_args.append(arg)
+    print(f"Extra flags: {len(extra_flags)} flags")
+    print(f"Link flags: {len(link_args['LINKFLAGS'])} flags") 
+    print(f"Library paths: {len(link_args['LIBPATH'])} paths")
+    print(f"Libraries: {len(link_args['LIBS'])} libs")
     
-    return dedup_args
-
-# Parse Kommandozeilen-Argumente
-import shlex
-original_cmd = '''""" + original_linkcom + """'''
-expanded_cmd = os.path.expandvars(original_cmd)
-
-# Splitze Command in Argumente
-try:
-    cmd_parts = shlex.split(expanded_cmd)
-except:
-    cmd_parts = expanded_cmd.split()
-
-# Dedupliziere -T Flags
-dedup_cmd_parts = deduplicate_linker_scripts(cmd_parts)
-
-# Führe deduplizierten Command aus
-print(f"LINKCOM: Executing with {len(cmd_parts)} -> {len(dedup_cmd_parts)} args")
-exit_code = subprocess.call(dedup_cmd_parts)
-sys.exit(exit_code)
-"""
-        
-        # Erstelle temporäres Python-Script
-        import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-            f.write(dedup_script)
-            temp_script = f.name
-            
-        # Custom LINKCOM das das Dedup-Script verwendet
-        custom_linkcom = f'python {temp_script}'
-        
-        return custom_linkcom
-    
-    # Setze das benutzerdefinierte LINKCOM
-    env['LINKCOM'] = create_clang_linkcom()
+    # Neues LINKCOM ohne SCons-Variable-Expansion-Probleme
+    env['LINKCOM'] = (
+        f"$LINK -o $TARGET "
+        f"{extra_flags_str} "           # Unsere bereits deduplizierten -T Flags
+        f"{linkflags_str} "             # Weitere LINKFLAGS
+        f"$__RPATH $SOURCES "           # Standard SCons-Variablen
+        f"{libpath_str} "               # Library-Pfade
+        f"{libs_str}"                   # Libraries
+    )
     
     libs = []
     
-    print("Clang: Using custom LINKCOM with integrated deduplication")
+    print(f"Clang: Direct LINKCOM replacement with {len(extra_flags)} deduplicated flags")
+    print("Clang: Custom LINKCOM set successfully")
 
 else:
     # GCC: Standard-Verarbeitung
