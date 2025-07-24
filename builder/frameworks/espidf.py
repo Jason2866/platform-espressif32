@@ -2058,14 +2058,7 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    # SCHRITT 1: Umfassende Debug-Analyse
-    print("\n" + "="*60)
-    print("CLANG LINKING DEBUG ANALYSIS")
-    print("="*60)
-    
-    comprehensive_cmake_debug(elf_config)
-    
-    # SCHRITT 2: Standard-Verarbeitung mit erweiteter Extraktion
+    # Standard-Verarbeitung
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
@@ -2074,36 +2067,33 @@ if "clang" in env.subst("$CC").lower():
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
+
+    # KRITISCH: Xtensa-spezifische HAL-Library hinzufügen
+    # Diese ist NICHT in den CMake-Fragmenten, aber erforderlich für Clang
     
-    # SCHRITT 3: Vollständige CMake-Fragment-Extraktion
-    cmake_data = extract_complete_link_command(elf_config)
+    mcu = env.get("BOARD_MCU", "esp32")
     
-    # SCHRITT 4: Vergleiche mit bestehenden Daten
-    print(f"\n📊 COMPARISON:")
-    print(f"  Original LIBS: {len(link_args.get('LIBS', []))}")
-    print(f"  CMake LIBS: {len(cmake_data['LIBS'])}")
-    print(f"  Original LIBPATH: {len(link_args.get('LIBPATH', []))}")
-    print(f"  CMake LIBPATH: {len(cmake_data['LIBPATH'])}")
-    
-    # SCHRITT 5: Fehlende Libraries identifizieren
-    original_libs = set(link_args.get('LIBS', []))
-    cmake_libs = set(cmake_data['LIBS'])
-    missing_libs = cmake_libs - original_libs
-    
-    if missing_libs:
-        print(f"\n⚠️  MISSING LIBRARIES DETECTED:")
-        for lib in missing_libs:
-            print(f"  - {lib}")
+    # Nur für Xtensa-basierte MCUs (ESP32, ESP32-S2, ESP32-S3)
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        xtensa_hal_lib = os.path.join(
+            FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a"
+        )
         
-        # Füge fehlende Libraries hinzu
-        link_args["LIBS"].extend(list(missing_libs))
-        link_args["LIBPATH"].extend([p for p in cmake_data['LIBPATH'] 
-                                   if p not in link_args.get('LIBPATH', [])])
+        if os.path.isfile(xtensa_hal_lib):
+            # Füge Xtensa HAL-Library explizit hinzu
+            if "xt_hal" not in link_args["LIBS"]:
+                link_args["LIBS"].append("xt_hal")
+                xtensa_hal_dir = os.path.dirname(xtensa_hal_lib)
+                if xtensa_hal_dir not in link_args["LIBPATH"]:
+                    link_args["LIBPATH"].append(xtensa_hal_dir)
+                print(f"Clang: Added Xtensa HAL library for {mcu}")
+        else:
+            print(f"Warning: Xtensa HAL library not found: {xtensa_hal_lib}")
     
-    print("\nClang: Enhanced debug analysis complete")
+    print(f"Clang: Xtensa-specific linking for {mcu}")
 
 else:
-    # GCC: Standard-Verarbeitung
+    # GCC: Standard-Verarbeitung (hat implizite Xtensa HAL-Verlinkung)
     extra_flags = filter_args(link_args["LINKFLAGS"], [...])
 
 
