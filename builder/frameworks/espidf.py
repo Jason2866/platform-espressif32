@@ -857,18 +857,19 @@ def extract_link_args(target_config):
                         temp_linkflags.append(fragment)
                         print(f"Adding other: {fragment}")
         
-        # KRITISCH: Post-Processing für getrennte Flags und -T Kombinationen
+        # KRITISCH: Post-Processing für getrennte Flags, -T und -z Kombinationen
         processed_linkflags = []
         i = 0
         while i < len(temp_linkflags):
             flag = temp_linkflags[i]
             
-            # Behandle -z Flag (für noexecstack etc.)
+            # KRITISCH: Behandle -z Flag für Clang-Kompatibilität
             if flag == "-z" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
-                combined_flag = f"-z {next_flag}"
-                processed_linkflags.append(combined_flag)
-                print(f"Combined -z flag: {combined_flag}")
+                # Konvertiere zu Clang-kompatiblem Format
+                clang_z_flag = f"-Wl,-z,{next_flag}"
+                processed_linkflags.append(clang_z_flag)
+                print(f"Converted -z flag for Clang: {clang_z_flag}")
                 i += 2
                 
             # Behandle -T Flag (für Linker-Scripts)
@@ -928,7 +929,7 @@ def extract_link_args(target_config):
             elif fragment_role in ("libraries", "libraryPath"):
                 if fragment.startswith("-l"):
                     link_args["LIBS"].extend(args)
-                elif fragment.startswith("-L"):
+                elif fragment.startsWith("-L"):
                     lib_path = fragment.replace("-L", "").strip(" '\"")
                     _add_to_libpath(lib_path, link_args)
                 elif fragment.startswith("-") and not fragment.startswith("-l"):
