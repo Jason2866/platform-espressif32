@@ -2056,38 +2056,15 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# ---------------
-if "clang" in env.subst("$CC").lower():
-    cm_flags = extract_complete_link_command(elf_config)
-
-    # Debug: Zeige was gefunden wurde
-    print(f"[CMake-native] Parsed {len(cm_flags['LINKFLAGS'])} flags, "
-          f"{len(cm_flags['LIBS'])} libs, {len(cm_flags['LIBPATH'])} paths")
-    
-    # Debug: Zeige problematische Fragmente
-    missing_files = []
-    for flag in cm_flags['LINKFLAGS']:
-        if flag.startswith('-T'):
-            script_path = flag[2:]
-            if not os.path.isfile(script_path):
-                missing_files.append(f"Linker script: {script_path}")
-    
-    for lib in cm_flags['LIBS']:
-        if lib.endswith('.a') and not os.path.isfile(lib):
-            missing_files.append(f"Library: {lib}")
-    
-    if missing_files:
-        print("⚠️  Missing files detected:")
-        for missing in missing_files[:5]:  # Erste 5 anzeigen
-            print(f"   {missing}")
-
-    # SCons Environment befüllen
-    env.AppendUnique(LINKFLAGS=cm_flags["LINKFLAGS"])
-    env.PrependUnique(LIBPATH=cm_flags["LIBPATH"])
-    env.Append(LIBS=cm_flags["LIBS"])
-
-    extra_flags = []
-    libs = []
+extra_flags = filter_args(
+    link_args["LINKFLAGS"],
+    ["-T", "-u",
+     "-Wl,--start-group", "-Wl,--end-group",
+     "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+)
+link_args["LINKFLAGS"] = sorted(
+    set(link_args["LINKFLAGS"]) - set(extra_flags)
+)
 
 #
 # Process project sources
