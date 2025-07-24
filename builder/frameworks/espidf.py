@@ -382,7 +382,7 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    Vollständige CMake Fragment-Extraktion mit spezieller Behandlung von Wrapper-Flags.
+    Extrahiert CMake-Fragmente und kombiniert getrennte -T Flags korrekt.
     """
     linkflags, libs, libpath = [], [], []
     
@@ -413,14 +413,8 @@ def extract_complete_link_command(target_config):
         elif role == "libraries":
             if txt.startswith("-u"):
                 linkflags.append(txt)
-                print(f"Adding symbol force: {txt}")
-            elif txt.startswith("-Wl,--wrap="):
-                # KRITISCH: Wrapper-Flags explizit behandeln
-                linkflags.append(txt)
-                print(f"Adding wrapper flag: {txt}")
             elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
-                print(f"Adding linker flag: {txt}")
             elif txt.startswith("-l"):
                 lib_name = txt[2:]
                 if lib_name not in skip_libraries and lib_name not in libs:
@@ -440,16 +434,54 @@ def extract_complete_link_command(target_config):
                     archive_path = os.path.join(BUILD_DIR, archive_path)
                 
                 linkflags.append(archive_path)
-                print(f"Adding archive: {os.path.basename(archive_path)}")
-                
             else:
-                # Unbekannte Tokens auch zu linkflags
                 linkflags.append(txt)
-                print(f"Adding other: {txt}")
         else:
             linkflags.append(txt)
     
-    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
+    # KRITISCH: Post-Processing für getrennte -T Flags
+    processed_linkflags = []
+    i = 0
+    while i < len(linkflags):
+        flag = linkflags[i]
+        
+        if flag == "-T" and i + 1 < len(linkflags):
+            # Nächstes Element ist wahrscheinlich der Script-Name
+            next_flag = linkflags[i + 1]
+            
+            # Prüfe ob nächstes Element ein Linker-Script ist
+            if next_flag.endswith('.ld') and not next_flag.startswith('-'):
+                # Kombiniere -T mit Script-Namen
+                script_path = next_flag
+                
+                # Pfad-Resolution für Linker-Scripts
+                if not os.path.isabs(script_path):
+                    # Suche in bekannten ESP-IDF Verzeichnissen
+                    script_locations = [
+                        os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
+                        os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_path),
+                        os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32", "ld", script_path),
+                        os.path.join(BUILD_DIR, script_path)
+                    ]
+                    
+                    for location in script_locations:
+                        if os.path.isfile(location):
+                            script_path = location
+                            print(f"Resolved linker script: {script_path}")
+                            break
+                    else:
+                        print(f"Warning: Linker script not found: {script_path}")
+                
+                processed_linkflags.append(f"-T{script_path}")
+                i += 2  # Überspringe beide Elemente
+            else:
+                processed_linkflags.append(flag)
+                i += 1
+        else:
+            processed_linkflags.append(flag)
+            i += 1
+    
+    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": processed_linkflags}
 
 def comprehensive_cmake_debug(target_config):
     """Debug ALLE verfügbaren CMake-Daten um fehlende Libraries zu finden"""
