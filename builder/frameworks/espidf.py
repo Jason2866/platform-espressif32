@@ -385,7 +385,7 @@ def extract_complete_link_command(target_config):
     Übernimmt die von CMake generierten commandFragments 1:1 in die drei
     SCons-Variablen LINKFLAGS, LIBS und LIBPATH, wobei die Reihenfolge
     – insbesondere um Whole-Archive-Blöcke – exakt erhalten bleibt.
-    MIT korrekter Pfad-Resolution für relative Pfade.
+    Korrekte Behandlung von Symbol-Flags und Pfad-Kontexten.
     """
     linkflags, libs, libpath = [], [], []
 
@@ -398,87 +398,43 @@ def extract_complete_link_command(target_config):
 
         # 1) Linker-Flags – alles, was nicht Library oder Pfad ist
         if role == "flags":
-            flags = click.parser.split_arg_string(txt)
-            for flag in flags:
-                # Spezielle Behandlung für -T Flags (Linker-Scripts)
-                if flag.startswith("-T"):
-                    script_name = flag[2:]  # Entferne -T prefix
-                    if script_name and not os.path.isabs(script_name):
-                        # Suche Linker-Script in bekannten Verzeichnissen
-                        script_locations = [
-                            os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_name),
-                            os.path.join(BUILD_DIR, script_name),
-                            script_name  # Fallback: relativer Pfad beibehalten
-                        ]
-                        for location in script_locations:
-                            if os.path.isfile(location):
-                                linkflags.append(f"-T{location}")
-                                break
-                        else:
-                            linkflags.append(flag)  # Original beibehalten
-                    else:
-                        linkflags.append(flag)
-                else:
-                    linkflags.append(flag)
+            linkflags.extend(click.parser.split_arg_string(txt))
 
         # 2) Library-Pfad  (-L…)
         elif role == "libraryPath" and txt.startswith("-L"):
             p = txt[2:].strip(" '\"")
             if p and p not in libpath:
-                # Relative Pfade zu absoluten machen
-                if not os.path.isabs(p):
-                    abs_p = os.path.join(BUILD_DIR, p)
-                    if os.path.isdir(abs_p):
-                        p = abs_p
                 libpath.append(p)
 
-        # 3) Einzelne Tokens, die zwingend in exakter Reihenfolge bleiben müssen
+        # 3) Einzelne Tokens aus libraries/libraryPath Role
         elif role in ("libraries", "libraryPath"):
-            if txt.startswith("-Wl,") or \
-               txt in ("-Wl,--whole-archive",
-                        "-Wl,--no-whole-archive",
-                        "-Wl,--start-group",
-                        "-Wl,--end-group"):
+            # KRITISCH: Symbol-Flags korrekt behandeln
+            if txt.startswith("-u"):
+                linkflags.append(txt)  # Symbol-Flag, NICHT als Datei behandeln
+                
+            elif txt.startswith("-Wl,") or \
+                 txt in ("-Wl,--whole-archive",
+                          "-Wl,--no-whole-archive",
+                          "-Wl,--start-group",
+                          "-Wl,--end-group"):
                 linkflags.append(txt)
 
             elif txt.endswith(".a"):                 # statisches Archiv
-                # KRITISCH: Pfad-Resolution für Archive
-                archive_path = txt
-                if not os.path.isabs(archive_path):
-                    # Versuche relative Pfade zu absoluten zu machen
-                    abs_archive_path = os.path.join(BUILD_DIR, archive_path)
-                    if os.path.isfile(abs_archive_path):
-                        archive_path = abs_archive_path
-                    # Fallback: relativer Pfad beibehalten für SCons-Resolution
+                linkflags.append(txt)                # RELATIVE Pfade beibehalten!
                 
-                linkflags.append(archive_path)       # Absoluter oder relativer Pfad
-                
-                # Für SCons trotzdem Name & Pfad eintragen
-                arc_name = os.path.basename(archive_path)
-                arc_dir  = os.path.dirname(archive_path)
+                # Für SCons trotzdem Name & Pfad eintragen für Dependency-Tracking
+                arc_name = os.path.basename(txt)
+                arc_dir  = os.path.dirname(txt)
                 if arc_name.startswith("lib") and arc_name.endswith(".a"):
                     libs.append(arc_name[3:-2])      # libfoo.a → foo
                 if arc_dir and arc_dir not in libpath:
-                    # Stelle sicher, dass arc_dir absolut ist
-                    if not os.path.isabs(arc_dir):
-                        abs_arc_dir = os.path.join(BUILD_DIR, arc_dir)
-                        if os.path.isdir(abs_arc_dir):
-                            arc_dir = abs_arc_dir
                     libpath.append(arc_dir)
 
             elif txt.startswith("-l"):               # -lfoo
                 libs.append(txt[2:])
 
-            elif txt.startswith("-u"):               # Symbol-Forcing
-                linkflags.append(txt)
-
             else:                                    # sonstiges Token
-                # Prüfe ob es ein Symbol-Name ist (keine Datei)
-                if not any(char in txt for char in ['/', '.']) and len(txt) > 0:
-                    # Wahrscheinlich Symbol-Name für -u Flag
-                    linkflags.append(f"-u{txt}")
-                else:
-                    linkflags.append(txt)
+                linkflags.append(txt)
 
     return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
 
@@ -2055,29 +2011,68 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-if "clang" in env.subst("$CC").lower():
 
+if "clang" in env.subst("$CC").lower():
     # Debug-Ausgabe: zeigt die echten CMake-Fragmente
     debug_link_command_fragments(elf_config)
 
-    # 1) komplette Daten holen
-    cmake_link = extract_complete_link_command(elf_config)
+    # Standard-Verarbeitung wie GCC für Link-Args
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u",
+         "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    link_args["LINKFLAGS"] = sorted(
+        set(link_args["LINKFLAGS"]) - set(extra_flags)
+    )
 
-    # 2) SCons-Environment exakt befüllen
-    env.AppendUnique(LIBS     = cmake_link["LIBS"])
-    env.AppendUnique(LIBPATH  = cmake_link["LIBPATH"])
-    env.AppendUnique(LINKFLAGS= cmake_link["LINKFLAGS"])
+    # KRITISCH: Working Directory Problem lösen
+    # CMake-native Pfade sind relativ zum BUILD_DIR, aber PlatformIO 
+    # führt Linker vom PROJECT_DIR aus
+    
+    # Speichere Original Working Directory
+    original_cwd = os.getcwd()
+    original_link_command = env.get('LINKCOM', '')
+    
+    # Erstelle Working-Directory-aware Link-Command
+    def create_build_dir_linkcom():
+        """Erstelle LINKCOM das im BUILD_DIR ausgeführt wird"""
+        base_linkcom = original_link_command or "$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS"
+        
+        # Wrapper-Command das Working Directory wechselt
+        wrapped_linkcom = f"""python -c "
+import os, subprocess, sys
+original_cwd = os.getcwd()
+os.chdir('{BUILD_DIR}')
+try:
+    # Führe Original-Link-Command aus mit relativem Kontext
+    cmd = '{base_linkcom}'
+    result = os.system(cmd)
+    sys.exit(result >> 8)  # Exit code extrahieren
+finally:
+    os.chdir(original_cwd)
+" """
+        return wrapped_linkcom
+    
+    # Setze modifiziertes LINKCOM für Clang
+    env['LINKCOM'] = create_build_dir_linkcom()
+    
+    print(f"Clang: Using BUILD_DIR working directory for native CMake compatibility")
+    print(f"  Build Dir: {BUILD_DIR}")
+    print(f"  Project Dir: {original_cwd}")
 
-    # libs-Liste synchron halten, damit PlatformIO-Hilfsfunktionen
-    # (size, OTA-Image etc.) weiterhin funktionieren
-    libs[:] = []   # alle Archive liegen nun in LINKFLAGS in Original-Reihenfolge
-    extra_flags = []  # nichts zusätzlich
-
-    print(f"✅  CMake-native linking activated "
-          f"({len(cmake_link['LINKFLAGS'])} LINKFLAGS, "
-          f"{len(cmake_link['LIBS'])} LIBS, "
-          f"{len(cmake_link['LIBPATH'])} LIBPATH)")
-
+else:
+    # GCC: Standard-Verarbeitung
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u",
+         "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    link_args["LINKFLAGS"] = sorted(
+        set(link_args["LINKFLAGS"]) - set(extra_flags)
+    )
 
 
 # remove the main linker script flags '-T memory.ld'
