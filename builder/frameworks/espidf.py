@@ -723,49 +723,66 @@ def get_app_defines(app_config):
     return extract_defines(app_config["compileGroups"][0])
 
 
-def extract_link_args(target_config):
-    def _add_to_libpath(lib_path, link_args):
-        if lib_path not in link_args["LIBPATH"]:
-            link_args["LIBPATH"].append(lib_path)
-
-    def _add_archive(archive_path, link_args):
-        archive_name = os.path.basename(archive_path)
-        if archive_name not in link_args["LIBS"]:
-            _add_to_libpath(os.path.dirname(archive_path), link_args)
-            link_args["LIBS"].append(archive_name)
-
-    link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
-
-    for f in target_config.get("link", {}).get("commandFragments", []):
-        fragment = f.get("fragment", "").strip()
-        fragment_role = f.get("role", "").strip()
-        if not fragment or not fragment_role:
+def extract_complete_link_command(target_config):
+    """
+    Extrahiert CMake-Fragmente und filtert problematische PlatformIO-Artefakte heraus.
+    """
+    linkflags, libs, libpath = [], [], []
+    
+    # Problematische Libraries die übersprungen werden sollen
+    skip_libraries = ["__pio_env", "src"]
+    
+    for frag in target_config.get("link", {}).get("commandFragments", []):
+        txt = frag.get("fragment", "").strip()
+        role = frag.get("role", "").strip()
+        
+        if not txt:
             continue
-        args = click.parser.split_arg_string(fragment)
-        if fragment_role == "flags":
-            link_args["LINKFLAGS"].extend(args)
-        elif fragment_role in ("libraries", "libraryPath"):
-            if fragment.startswith("-l"):
-                link_args["LIBS"].extend(args)
-            elif fragment.startswith("-L"):
-                lib_path = fragment.replace("-L", "").strip(" '\"")
-                _add_to_libpath(lib_path, link_args)
-            elif fragment.startswith("-") and not fragment.startswith("-l"):
-                link_args["LINKFLAGS"].extend(args)
-            elif fragment.endswith(".a"):
-                archive_path = fragment
-                if os.path.isabs(archive_path):
-                    _add_archive(archive_path, link_args)
-                else:
-                    if archive_path.startswith(".."):
-                        _add_archive(
-                            os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
-                            link_args,
-                        )
-                    else:
-                        link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
-
-    return link_args
+            
+        if role == "flags":
+            linkflags.extend(click.parser.split_arg_string(txt))
+            
+        elif role == "libraryPath":
+            if txt.startswith("-L"):
+                path = txt[2:].strip()
+                if path and not os.path.isabs(path):
+                    path = os.path.join(BUILD_DIR, path)
+                if path and path not in libpath:
+                    libpath.append(path)
+            else:
+                linkflags.append(txt)
+                
+        elif role == "libraries":
+            if txt.startswith("-u"):
+                linkflags.append(txt)
+            elif txt.startswith("-l"):
+                lib_name = txt[2:]
+                if lib_name not in skip_libraries and lib_name not in libs:
+                    libs.append(lib_name)
+            elif txt.endswith(".a"):
+                # Prüfe ob es eine der problematischen Libraries ist
+                archive_name = os.path.basename(txt)
+                should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
+                
+                if should_skip:
+                    print(f"Skipping problematic library: {txt}")
+                    continue
+                
+                # Normale Archive-Verarbeitung
+                archive_path = txt
+                if not os.path.isabs(archive_path):
+                    archive_path = os.path.join(BUILD_DIR, archive_path)
+                
+                linkflags.append(archive_path)
+                
+            elif txt.startswith("-Wl,"):
+                linkflags.append(txt)
+            else:
+                linkflags.append(txt)
+        else:
+            linkflags.append(txt)
+    
+    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
 
 
 def filter_args(args, allowed, ignore=None):
