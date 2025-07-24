@@ -560,6 +560,296 @@ def calculate_dependency_link_order(dependency_graph, libs):
     
     return ordered_components
 
+
+def debug_cmake_target_properties(target_configs):
+    """Analysiert alle verfügbaren CMake Target Properties"""
+    
+    print("\n" + "="*80)
+    print("CMAKE TARGET PROPERTIES ANALYSIS")
+    print("="*80)
+    
+    for target_name, target_config in target_configs.items():
+        component_name = target_name.replace("__idf_", "")
+        print(f"\n🔍 Target: {target_name} (Component: {component_name})")
+        print(f"   Type: {target_config.get('type', 'UNKNOWN')}")
+        
+        # Analysiere Properties
+        properties = target_config.get("properties", [])
+        print(f"   Properties ({len(properties)}): ", end="")
+        
+        relevant_props = []
+        for prop in properties:
+            prop_name = prop.get("name", "")
+            prop_value = prop.get("value", "")
+            
+            # Suche nach Archive/Link-relevanten Properties
+            if any(keyword in prop_name.upper() for keyword in [
+                'ARCHIVE', 'LINK', 'WHOLE', 'STATIC', 'SHARED'
+            ]):
+                relevant_props.append(f"{prop_name}={prop_value}")
+        
+        if relevant_props:
+            print("FOUND!")
+            for prop in relevant_props:
+                print(f"      ✓ {prop}")
+        else:
+            print("none relevant")
+        
+        # Analysiere Link-Interface
+        link_interface = target_config.get("linkInterface", {})
+        if link_interface:
+            print(f"   LinkInterface: {list(link_interface.keys())}")
+            for key, value in link_interface.items():
+                if 'archive' in key.lower() or 'whole' in key.lower():
+                    print(f"      ✓ {key}: {value}")
+        
+        # Analysiere Install-Informationen
+        install_info = target_config.get("install", {})
+        if install_info:
+            destinations = install_info.get("destinations", [])
+            if destinations:
+                print(f"   Install destinations: {len(destinations)}")
+
+def debug_ninja_build_commands(ninja_buildfile):
+    """Extrahiert Whole-Archive-Informationen aus build.ninja"""
+    
+    print("\n" + "="*80)
+    print("NINJA BUILD COMMANDS ANALYSIS")
+    print("="*80)
+    
+    if not os.path.isfile(ninja_buildfile):
+        print("❌ build.ninja not found!")
+        return {}
+    
+    whole_archive_libs = {}
+    link_commands = []
+    
+    try:
+        with open(ninja_buildfile, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+            # Suche nach Link-Commands
+            import re
+            
+            # Pattern für Whole-Archive
+            whole_archive_pattern = r'--whole-archive\s+([^\s]+)(?:\s+--no-whole-archive)?'
+            matches = re.findall(whole_archive_pattern, content)
+            
+            for match in matches:
+                lib_name = os.path.basename(match)
+                lib_path = match
+                if lib_name not in whole_archive_libs:
+                    whole_archive_libs[lib_name] = []
+                whole_archive_libs[lib_name].append(lib_path)
+            
+            # Suche nach kompletten Link-Commands
+            link_command_pattern = r'build.*?\.elf.*?:\s*LINK.*?\n(.*?)(?=\nbuild|\ndefault|\n\n|$)'
+            link_matches = re.findall(link_command_pattern, content, re.DOTALL)
+            
+            print(f"📋 Found {len(matches)} --whole-archive flags")
+            print(f"📋 Found {len(link_matches)} link commands")
+            
+            if whole_archive_libs:
+                print("\n🎯 WHOLE-ARCHIVE LIBRARIES FOUND:")
+                for lib_name, paths in whole_archive_libs.items():
+                    print(f"   ✓ {lib_name}")
+                    for path in paths:
+                        print(f"      → {path}")
+            else:
+                print("\n❌ No --whole-archive flags found in build.ninja")
+            
+            # Analysiere erste Link-Command im Detail
+            if link_matches:
+                print(f"\n🔍 FIRST LINK COMMAND ANALYSIS:")
+                first_command = link_matches[0].strip()
+                command_parts = first_command.split()
+                
+                whole_archive_active = False
+                current_whole_archive_libs = []
+                
+                for i, part in enumerate(command_parts):
+                    if part == '--whole-archive':
+                        whole_archive_active = True
+                    elif part == '--no-whole-archive':
+                        whole_archive_active = False
+                    elif part.endswith('.a') and whole_archive_active:
+                        current_whole_archive_libs.append(os.path.basename(part))
+                
+                if current_whole_archive_libs:
+                    print(f"   Libraries in whole-archive mode: {len(current_whole_archive_libs)}")
+                    for lib in current_whole_archive_libs[:10]:  # Erste 10 anzeigen
+                        print(f"      ✓ {lib}")
+                    if len(current_whole_archive_libs) > 10:
+                        print(f"      ... and {len(current_whole_archive_libs) - 10} more")
+                
+    except Exception as e:
+        print(f"❌ Error reading build.ninja: {e}")
+    
+    return whole_archive_libs
+
+def debug_cmake_generated_files(build_dir):
+    """Durchsucht alle CMake-generierten Dateien nach Whole-Archive-Hinweisen"""
+    
+    print("\n" + "="*80)
+    print("CMAKE GENERATED FILES ANALYSIS")
+    print("="*80)
+    
+    search_patterns = [
+        'whole.archive', 'WHOLE_ARCHIVE', '--whole-archive',
+        'LINK_WHOLE_ARCHIVE', 'component_register'
+    ]
+    
+    cmake_files = []
+    
+    # Sammle alle relevanten Dateien
+    for root, dirs, files in os.walk(build_dir):
+        for file in files:
+            if any(file.endswith(ext) for ext in ['.cmake', '.txt', '.ninja', '.json']):
+                cmake_files.append(os.path.join(root, file))
+    
+    print(f"📂 Analyzing {len(cmake_files)} files...")
+    
+    findings = {}
+    
+    for file_path in cmake_files:
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                
+                file_findings = []
+                for pattern in search_patterns:
+                    if pattern.lower() in content.lower():
+                        # Finde Context um das Pattern
+                        lines = content.split('\n')
+                        for i, line in enumerate(lines):
+                            if pattern.lower() in line.lower():
+                                context = lines[max(0, i-1):i+2]  # Line before, current, line after
+                                file_findings.append({
+                                    'pattern': pattern,
+                                    'line': i+1,
+                                    'context': context
+                                })
+                
+                if file_findings:
+                    rel_path = os.path.relpath(file_path, build_dir)
+                    findings[rel_path] = file_findings
+                    
+        except Exception as e:
+            continue
+    
+    if findings:
+        print(f"\n🎯 WHOLE-ARCHIVE REFERENCES FOUND in {len(findings)} files:")
+        for file_path, file_findings in findings.items():
+            print(f"\n📄 {file_path}:")
+            for finding in file_findings[:3]:  # Max 3 per file
+                print(f"   Pattern '{finding['pattern']}' at line {finding['line']}:")
+                for ctx_line in finding['context']:
+                    if ctx_line.strip():
+                        print(f"      {ctx_line.strip()}")
+    else:
+        print("\n❌ No whole-archive references found in generated files")
+    
+    return findings
+
+def debug_component_cmake_files(framework_dir):
+    """Analysiert die Original ESP-IDF Component CMakeLists.txt Dateien"""
+    
+    print("\n" + "="*80)
+    print("ESP-IDF COMPONENT CMAKE FILES ANALYSIS")
+    print("="*80)
+    
+    components_dir = os.path.join(framework_dir, "components")
+    if not os.path.isdir(components_dir):
+        print("❌ Components directory not found!")
+        return {}
+    
+    whole_archive_components = {}
+    
+    for component_name in os.listdir(components_dir):
+        component_path = os.path.join(components_dir, component_name)
+        cmake_file = os.path.join(component_path, "CMakeLists.txt")
+        
+        if os.path.isfile(cmake_file):
+            try:
+                with open(cmake_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    
+                    # Suche nach WHOLE_ARCHIVE flags
+                    if 'WHOLE_ARCHIVE' in content:
+                        # Extrahiere Context
+                        lines = content.split('\n')
+                        contexts = []
+                        for i, line in enumerate(lines):
+                            if 'WHOLE_ARCHIVE' in line:
+                                context = lines[max(0, i-2):i+3]
+                                contexts.append(context)
+                        
+                        whole_archive_components[component_name] = contexts
+                        
+            except Exception as e:
+                continue
+    
+    if whole_archive_components:
+        print(f"\n🎯 COMPONENTS WITH WHOLE_ARCHIVE FLAG: {len(whole_archive_components)}")
+        for comp_name, contexts in whole_archive_components.items():
+            print(f"\n📦 {comp_name}:")
+            for context in contexts[:1]:  # Erste Context pro Component
+                for line in context:
+                    if line.strip():
+                        print(f"   {line.strip()}")
+    else:
+        print("\n❌ No WHOLE_ARCHIVE flags found in component CMakeLists.txt files")
+    
+    return whole_archive_components
+
+
+def comprehensive_debug_analysis(target_configs, build_dir, framework_dir):
+    """Führt alle Debug-Analysen durch"""
+    
+    print("\n" + "🚀 " + "="*78)
+    print("🚀 COMPREHENSIVE ESP-IDF WHOLE-ARCHIVE DEBUG ANALYSIS")
+    print("🚀 " + "="*78)
+    
+    # 1. CMake Target Properties
+    debug_cmake_target_properties(target_configs)
+    
+    # 2. Ninja Build Commands
+    ninja_file = os.path.join(build_dir, "build.ninja")
+    ninja_results = debug_ninja_build_commands(ninja_file)
+    
+    # 3. CMake Generated Files
+    cmake_results = debug_cmake_generated_files(build_dir)
+    
+    # 4. Original Component Files
+    component_results = debug_component_cmake_files(framework_dir)
+    
+    # 5. Summary
+    print("\n" + "📊 " + "="*78)
+    print("📊 SUMMARY")
+    print("📊 " + "="*78)
+    
+    print(f"✓ CMake Targets analyzed: {len(target_configs)}")
+    print(f"✓ Ninja whole-archive libs found: {len(ninja_results)}")
+    print(f"✓ CMake files with whole-archive refs: {len(cmake_results)}")
+    print(f"✓ Components with WHOLE_ARCHIVE flag: {len(component_results)}")
+    
+    if ninja_results:
+        print("\n🎯 RECOMMENDED APPROACH: Use ninja build.ninja analysis")
+        print("   The whole-archive information is available in the generated ninja file")
+    elif component_results:
+        print("\n🎯 RECOMMENDED APPROACH: Use component CMakeLists.txt analysis")
+        print("   The whole-archive flags are defined in component source files")
+    else:
+        print("\n⚠️  FALLBACK NEEDED: No deterministic whole-archive data found")
+        print("   May need to use minimal hardcoded list based on ESP-IDF documentation")
+    
+    return {
+        'ninja': ninja_results,
+        'cmake_files': cmake_results,
+        'components': component_results
+    }
+
+
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
     project.install_dependencies()
