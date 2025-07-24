@@ -382,14 +382,13 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    VOLLSTÄNDIGE Extraktion ALLER CMake Link-Daten.
-    Stellt sicher, dass keine Libraries übersehen werden.
+    VOLLSTÄNDIGE CMake Fragment-Extraktion mit korrekter Pfad-Resolution
+    für Archive-Dateien relativ zum BUILD_DIR.
     """
     linkflags, libs, libpath = [], [], []
     
-    print("\n🔄 EXTRACTING ALL CMAKE FRAGMENTS:")
+    print("\n🔄 EXTRACTING ALL CMAKE FRAGMENTS WITH PATH RESOLUTION:")
     
-    # Sammle ALLE Fragmente ohne Ausnahme
     for i, frag in enumerate(target_config.get("link", {}).get("commandFragments", [])):
         txt = frag.get("fragment", "").strip()
         role = frag.get("role", "").strip()
@@ -399,21 +398,23 @@ def extract_complete_link_command(target_config):
             
         print(f"  [{i:3d}] {role:12} -> {txt}")
         
-        # Verarbeite ALLE Fragment-Types vollständig
         if role == "flags":
             parsed_flags = click.parser.split_arg_string(txt)
             linkflags.extend(parsed_flags)
-            print(f"       Added {len(parsed_flags)} flags")
             
         elif role == "libraryPath":
             if txt.startswith("-L"):
                 path = txt[2:].strip()
+                # Relative Pfade zu absoluten machen
+                if path and not os.path.isabs(path):
+                    abs_path = os.path.join(BUILD_DIR, path)
+                    if os.path.isdir(abs_path):
+                        path = abs_path
                 if path and path not in libpath:
                     libpath.append(path)
                     print(f"       Added libpath: {path}")
             else:
                 linkflags.append(txt)
-                print(f"       Added as flag: {txt}")
                 
         elif role == "libraries":
             if txt.startswith("-u"):
@@ -425,17 +426,39 @@ def extract_complete_link_command(target_config):
                     libs.append(lib_name)
                     print(f"       Added library: {lib_name}")
             elif txt.endswith(".a"):
-                linkflags.append(txt)
-                arc_name = os.path.basename(txt)
-                arc_dir = os.path.dirname(txt)
+                # KRITISCH: Archive-Pfad-Resolution
+                archive_path = txt
+                
+                # Relative Pfade zu absoluten machen
+                if not os.path.isabs(archive_path):
+                    abs_archive_path = os.path.join(BUILD_DIR, archive_path)
+                    if os.path.isfile(abs_archive_path):
+                        archive_path = abs_archive_path
+                        print(f"       Resolved archive: {archive_path}")
+                    else:
+                        print(f"       ⚠️  Archive not found: {abs_archive_path}")
+                
+                # Zu LINKFLAGS für direkte Verlinkung
+                linkflags.append(archive_path)
+                
+                # Extrahiere Library-Namen und -Pfade für SCons
+                arc_name = os.path.basename(archive_path)
+                arc_dir = os.path.dirname(archive_path)
+                
                 if arc_name.startswith("lib") and arc_name.endswith(".a"):
-                    lib_name = arc_name[3:-2]
+                    lib_name = arc_name[3:-2]  # libfoo.a → foo
                     if lib_name not in libs:
                         libs.append(lib_name)
-                        print(f"       Added archive lib: {lib_name}")
-                if arc_dir and arc_dir not in libpath:
-                    libpath.append(arc_dir)
-                    print(f"       Added archive path: {arc_dir}")
+                        print(f"       Added lib name: {lib_name}")
+                
+                # KRITISCH: Stelle sicher, dass arc_dir absolut und in LIBPATH ist
+                if arc_dir:
+                    if not os.path.isabs(arc_dir):
+                        arc_dir = os.path.join(BUILD_DIR, arc_dir)
+                    if os.path.isdir(arc_dir) and arc_dir not in libpath:
+                        libpath.append(arc_dir)
+                        print(f"       Added archive path: {arc_dir}")
+                        
             elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
                 print(f"       Added linker flag: {txt}")
@@ -444,11 +467,10 @@ def extract_complete_link_command(target_config):
                 print(f"       Added other: {txt}")
         else:
             linkflags.append(txt)
-            print(f"       Added unknown role: {txt}")
     
     print(f"\n📊 EXTRACTION SUMMARY:")
     print(f"  LINKFLAGS: {len(linkflags)}")
-    print(f"  LIBS: {len(libs)}")
+    print(f"  LIBS: {len(libs)}")  
     print(f"  LIBPATH: {len(libpath)}")
     
     return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
@@ -2058,6 +2080,9 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
+    # Debug-Analyse
+    comprehensive_cmake_debug(elf_config)
+    
     # Standard-Verarbeitung
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
@@ -2067,33 +2092,50 @@ if "clang" in env.subst("$CC").lower():
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
-
-    # KRITISCH: Xtensa-spezifische HAL-Library hinzufügen
-    # Diese ist NICHT in den CMake-Fragmenten, aber erforderlich für Clang
     
-    mcu = env.get("BOARD_MCU", "esp32")
+    # Vollständige CMake-Fragment-Extraktion
+    cmake_data = extract_complete_link_command(elf_config)
     
-    # Nur für Xtensa-basierte MCUs (ESP32, ESP32-S2, ESP32-S3)
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        xtensa_hal_lib = os.path.join(
-            FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a"
-        )
+    # KRITISCH: Validiere Library-Pfade
+    print(f"\n🔍 LIBRARY PATH VALIDATION:")
+    missing_libs = []
+    for lib_name in cmake_data['LIBS']:
+        lib_found = False
+        for lib_dir in cmake_data['LIBPATH']:
+            lib_file = os.path.join(lib_dir, f"lib{lib_name}.a")
+            if os.path.isfile(lib_file):
+                lib_found = True
+                print(f"  ✅ {lib_name} found in {lib_dir}")
+                break
         
+        if not lib_found:
+            missing_libs.append(lib_name)
+            print(f"  ❌ {lib_name} NOT FOUND in any LIBPATH")
+    
+    if missing_libs:
+        print(f"\n⚠️  MISSING LIBRARIES: {missing_libs}")
+        print("Libraries will be searched in default system paths")
+    
+    # Merge CMake-Daten mit bestehenden Link-Args
+    link_args["LIBS"].extend([lib for lib in cmake_data['LIBS'] 
+                             if lib not in link_args.get('LIBS', [])])
+    link_args["LIBPATH"].extend([path for path in cmake_data['LIBPATH'] 
+                                if path not in link_args.get('LIBPATH', [])])
+    
+    # Xtensa HAL für Xtensa-MCUs hinzufügen
+    mcu = env.get("BOARD_MCU", "esp32")
+    if mcu in ("esp32", "esp32s2", "esp32s3"):
+        xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
         if os.path.isfile(xtensa_hal_lib):
-            # Füge Xtensa HAL-Library explizit hinzu
             if "xt_hal" not in link_args["LIBS"]:
                 link_args["LIBS"].append("xt_hal")
-                xtensa_hal_dir = os.path.dirname(xtensa_hal_lib)
-                if xtensa_hal_dir not in link_args["LIBPATH"]:
-                    link_args["LIBPATH"].append(xtensa_hal_dir)
-                print(f"Clang: Added Xtensa HAL library for {mcu}")
-        else:
-            print(f"Warning: Xtensa HAL library not found: {xtensa_hal_lib}")
+                link_args["LIBPATH"].append(os.path.dirname(xtensa_hal_lib))
+                print(f"Added Xtensa HAL library for {mcu}")
     
-    print(f"Clang: Xtensa-specific linking for {mcu}")
+    print("Clang: Enhanced CMake integration with path validation")
 
 else:
-    # GCC: Standard-Verarbeitung (hat implizite Xtensa HAL-Verlinkung)
+    # GCC: Standard-Verarbeitung
     extra_flags = filter_args(link_args["LINKFLAGS"], [...])
 
 
