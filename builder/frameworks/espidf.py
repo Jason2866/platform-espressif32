@@ -360,8 +360,8 @@ if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and 
 
 def extract_complete_link_command(target_config):
     """
-    Parst CMake commandFragments und bereitet sie korrekt für SCons vor,
-    mit vollständiger Pfad-Resolution und Fragment-Typ-Erkennung.
+    Parst CMake commandFragments mit korrekter Fragment-Typ-Erkennung
+    und trennt Linker-Scripts, Symbol-Namen und Libraries sauber.
     """
     flags, libs, libpath = [], [], []
 
@@ -370,19 +370,19 @@ def extract_complete_link_command(target_config):
         role = frag.get("role", "").strip()
 
         if role == "flags":
-            # Parse flags korrekt - können mehrere Argumente enthalten
+            # Echte Linker-Flags verarbeiten
             parsed_flags = click.parser.split_arg_string(txt)
             for flag in parsed_flags:
-                # -T Linker-Scripts brauchen vollständige Pfade
                 if flag.startswith("-T"):
-                    script_name = flag[2:]  # Entferne -T prefix
+                    # Linker-Script mit Pfad-Resolution
+                    script_name = flag[2:]
                     if not os.path.isabs(script_name):
-                        # Suche Script in ESP-IDF Framework-Verzeichnissen
                         script_path = find_linker_script(script_name)
                         if script_path:
                             flags.append(f"-T{script_path}")
                         else:
-                            flags.append(flag)  # Fallback: Original verwenden
+                            print(f"⚠️  Linker script not found: {script_name}")
+                            flags.append(flag)  # Fallback
                     else:
                         flags.append(flag)
                 else:
@@ -393,7 +393,6 @@ def extract_complete_link_command(target_config):
                 # Library-Suchpfad
                 path = txt[2:].strip(" '\"")
                 if path:
-                    # Relative Pfade zu absoluten machen
                     if not os.path.isabs(path):
                         abs_path = os.path.join(BUILD_DIR, path)
                         if os.path.isdir(abs_path):
@@ -402,22 +401,13 @@ def extract_complete_link_command(target_config):
                         libpath.append(path)
 
             elif txt.startswith("-"):
-                # Andere Flags (wie -u Symbol)
-                if txt.startswith("-u"):
-                    # Symbol-Forcing - direkt übernehmen
-                    flags.append(txt)
-                elif txt.startswith("-Wl,"):
-                    # Linker-Wrapper-Flags
-                    flags.append(txt)
-                else:
-                    # Andere Flags
-                    flags.append(txt)
+                # Bereits formatierte Flags (wie -u, -Wl,)
+                flags.append(txt)
 
             elif txt.endswith(".a"):
-                # Archive-Dateien - Pfade korrekt auflösen
+                # Archive-Dateien
                 lib_path = txt
                 if not os.path.isabs(lib_path):
-                    # Relative Pfade zu absoluten machen
                     abs_lib_path = os.path.join(BUILD_DIR, lib_path)
                     if os.path.isfile(abs_lib_path):
                         lib_path = abs_lib_path
@@ -425,28 +415,65 @@ def extract_complete_link_command(target_config):
                 if lib_path not in libs:
                     libs.append(lib_path)
                 
-                # Library-Verzeichnis zu Suchpfaden hinzufügen
                 lib_dir = os.path.dirname(lib_path)
                 if lib_dir and lib_dir not in libpath:
                     libpath.append(lib_dir)
 
             else:
-                # Unbekannte Fragmente als Libraries behandeln
-                if txt and txt not in libs:
-                    libs.append(txt)
+                # KRITISCH: Unklare Fragmente - Symbol-Erkennung
+                if is_likely_symbol(txt):
+                    # Symbol-Namen für -u Flags
+                    flags.append(f"-u{txt}")
+                elif txt.endswith(".ld"):
+                    # Linker-Script ohne -T Prefix
+                    script_path = find_linker_script(txt)
+                    if script_path:
+                        flags.append(f"-T{script_path}")
+                    else:
+                        print(f"⚠️  Linker script not found: {txt}")
+                else:
+                    # Fallback: Als Library behandeln
+                    if txt not in libs:
+                        libs.append(txt)
 
     return {"LINKFLAGS": flags, "LIBS": libs, "LIBPATH": libpath}
 
-def find_linker_script(script_name):
-    """Findet ESP-IDF Linker-Scripts in den Framework-Verzeichnissen"""
+def is_likely_symbol(name):
+    """
+    Heuristik zur Erkennung von Symbol-Namen vs. Dateinamen
+    """
+    # Eindeutige Symbol-Patterns
+    symbol_patterns = [
+        'app_main', '__assert_func', 'start_app', '__ubsan_include',
+        'esp_', 'nvs_', 'pthread_', '__cxa_', '__cxx_',
+        'ld_include_', '_include_', '_init_', '_impl'
+    ]
     
-    # Mögliche Verzeichnisse für Linker-Scripts
+    # Definitiv Symbole (keine Dateierweiterung + bekannte Patterns)
+    if not '.' in name and not '/' in name:
+        if any(pattern in name for pattern in symbol_patterns):
+            return True
+        # Zusätzlich: Namen die mit __ beginnen oder enden
+        if name.startswith('__') or name.endswith('_impl') or name.endswith('_func'):
+            return True
+    
+    return False
+
+def find_linker_script(script_name):
+    """Erweiterte Suche für ESP-IDF Linker-Scripts"""
+    
     search_dirs = [
+        # ESP32-spezifische ROM-Scripts
         os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32"),
+        # SoC-spezifische Scripts  
         os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld"),
+        # Generated Scripts im Build-Verzeichnis
         os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld"),
-        BUILD_DIR,
-        os.path.join(BUILD_DIR, "esp-idf")
+        os.path.join(BUILD_DIR),
+        os.path.join(BUILD_DIR, "esp-idf"),
+        # Zusätzliche ESP-IDF Verzeichnisse
+        os.path.join(FRAMEWORK_DIR, "components", "esp_system", "ld"),
+        os.path.join(FRAMEWORK_DIR, "tools", "ldgen")
     ]
     
     for search_dir in search_dirs:
@@ -456,7 +483,6 @@ def find_linker_script(script_name):
                 return script_path
     
     return None
-
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
