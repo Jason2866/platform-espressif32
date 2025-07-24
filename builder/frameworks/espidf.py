@@ -789,6 +789,7 @@ def extract_link_args(target_config):
         print("Using Clang-specific fragment processing...")
         skip_libraries = ["__pio_env", "src"]
         processed_scripts = set()
+        processed_script_names = set()  # KRITISCH: Neue Set für Script-Namen
         temp_linkflags = []
         
         # Clang-spezifische Verarbeitung
@@ -878,6 +879,13 @@ def extract_link_args(target_config):
                 
                 if next_flag.endswith('.ld') and not next_flag.startswith('-'):
                     script_path = next_flag
+                    script_name = os.path.basename(script_path)  # KRITISCH: Extrahiere Script-Namen
+                    
+                    # KRITISCH: Prüfe Duplikate basierend auf Script-Namen, nicht Pfad
+                    if script_name in processed_script_names:
+                        print(f"Skipped duplicate linker script by name: {script_name}")
+                        i += 2
+                        continue
                     
                     # Pfad-Resolution für Linker-Scripts
                     if not os.path.isabs(script_path):
@@ -898,12 +906,11 @@ def extract_link_args(target_config):
                     
                     combined_flag = f"-T{script_path}"
                     
-                    # Duplikat-Kontrolle für Linker-Scripts
-                    if combined_flag not in processed_scripts:
-                        processed_linkflags.append(combined_flag)
-                        processed_scripts.add(combined_flag)
-                    else:
-                        print(f"Skipped duplicate linker script: {script_path}")
+                    # Füge zu beiden Sets hinzu
+                    processed_linkflags.append(combined_flag)
+                    processed_scripts.add(combined_flag)
+                    processed_script_names.add(script_name)  # KRITISCH: Merke Script-Namen
+                    print(f"Added unique linker script: {script_name}")
                     
                     i += 2
                 else:
@@ -915,6 +922,7 @@ def extract_link_args(target_config):
         
         link_args["LINKFLAGS"].extend(processed_linkflags)
         print(f"Clang processing complete: {len(link_args['LINKFLAGS'])} flags, {len(link_args['LIBS'])} libs")
+        print(f"Processed {len(processed_script_names)} unique linker scripts: {list(processed_script_names)}")
     
     else:
         # GCC: Original-Verarbeitung (unverändert)
@@ -929,7 +937,7 @@ def extract_link_args(target_config):
             elif fragment_role in ("libraries", "libraryPath"):
                 if fragment.startswith("-l"):
                     link_args["LIBS"].extend(args)
-                elif fragment.startsWith("-L"):
+                elif fragment.startswith("-L"):
                     lib_path = fragment.replace("-L", "").strip(" '\"")
                     _add_to_libpath(lib_path, link_args)
                 elif fragment.startswith("-") and not fragment.startswith("-l"):
