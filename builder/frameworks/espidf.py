@@ -946,7 +946,7 @@ def extract_link_args(target_config):
     }
     
     # Whole-Archive-Entscheidung für Metadaten
-    link_args["__WHOLE_ARCHIVE_DECISION"] = get_realistic_whole_archive_requirements(component_name)
+    link_args["__WHOLE_ARCHIVE_DECISION"] = get_precise_whole_archive_requirements(component_name)
     
     if link_args["__WHOLE_ARCHIVE_DECISION"]["required"]:
         link_args["__LINK_TYPE"] = "whole_archive"
