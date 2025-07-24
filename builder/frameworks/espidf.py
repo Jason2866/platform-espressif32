@@ -385,6 +385,7 @@ def extract_complete_link_command(target_config):
     Übernimmt die von CMake generierten commandFragments 1:1 in die drei
     SCons-Variablen LINKFLAGS, LIBS und LIBPATH, wobei die Reihenfolge
     – insbesondere um Whole-Archive-Blöcke – exakt erhalten bleibt.
+    MIT korrekter Pfad-Resolution für relative Pfade.
     """
     linkflags, libs, libpath = [], [], []
 
@@ -397,18 +398,43 @@ def extract_complete_link_command(target_config):
 
         # 1) Linker-Flags – alles, was nicht Library oder Pfad ist
         if role == "flags":
-            linkflags.extend(click.parser.split_arg_string(txt))
+            flags = click.parser.split_arg_string(txt)
+            for flag in flags:
+                # Spezielle Behandlung für -T Flags (Linker-Scripts)
+                if flag.startswith("-T"):
+                    script_name = flag[2:]  # Entferne -T prefix
+                    if script_name and not os.path.isabs(script_name):
+                        # Suche Linker-Script in bekannten Verzeichnissen
+                        script_locations = [
+                            os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_name),
+                            os.path.join(BUILD_DIR, script_name),
+                            script_name  # Fallback: relativer Pfad beibehalten
+                        ]
+                        for location in script_locations:
+                            if os.path.isfile(location):
+                                linkflags.append(f"-T{location}")
+                                break
+                        else:
+                            linkflags.append(flag)  # Original beibehalten
+                    else:
+                        linkflags.append(flag)
+                else:
+                    linkflags.append(flag)
 
         # 2) Library-Pfad  (-L…)
         elif role == "libraryPath" and txt.startswith("-L"):
             p = txt[2:].strip(" '\"")
             if p and p not in libpath:
+                # Relative Pfade zu absoluten machen
+                if not os.path.isabs(p):
+                    abs_p = os.path.join(BUILD_DIR, p)
+                    if os.path.isdir(abs_p):
+                        p = abs_p
                 libpath.append(p)
 
         # 3) Einzelne Tokens, die zwingend in exakter Reihenfolge bleiben müssen
-        #    ( --whole-archive / --no-whole-archive / start/end-group / .a-Dateien )
         elif role in ("libraries", "libraryPath"):
-            if txt.startswith("-Wl,")          or \
+            if txt.startswith("-Wl,") or \
                txt in ("-Wl,--whole-archive",
                         "-Wl,--no-whole-archive",
                         "-Wl,--start-group",
@@ -416,24 +442,45 @@ def extract_complete_link_command(target_config):
                 linkflags.append(txt)
 
             elif txt.endswith(".a"):                 # statisches Archiv
-                linkflags.append(txt)                # NICHT aufsplitten!
-                # Für SCons trotzdem Name & Pfad eintragen,
-                # damit Dependency-Tracking und Incremental Builds funktionieren.
-                arc_name = os.path.basename(txt)
-                arc_dir  = os.path.dirname(txt)
+                # KRITISCH: Pfad-Resolution für Archive
+                archive_path = txt
+                if not os.path.isabs(archive_path):
+                    # Versuche relative Pfade zu absoluten zu machen
+                    abs_archive_path = os.path.join(BUILD_DIR, archive_path)
+                    if os.path.isfile(abs_archive_path):
+                        archive_path = abs_archive_path
+                    # Fallback: relativer Pfad beibehalten für SCons-Resolution
+                
+                linkflags.append(archive_path)       # Absoluter oder relativer Pfad
+                
+                # Für SCons trotzdem Name & Pfad eintragen
+                arc_name = os.path.basename(archive_path)
+                arc_dir  = os.path.dirname(archive_path)
                 if arc_name.startswith("lib") and arc_name.endswith(".a"):
                     libs.append(arc_name[3:-2])      # libfoo.a → foo
                 if arc_dir and arc_dir not in libpath:
+                    # Stelle sicher, dass arc_dir absolut ist
+                    if not os.path.isabs(arc_dir):
+                        abs_arc_dir = os.path.join(BUILD_DIR, arc_dir)
+                        if os.path.isdir(abs_arc_dir):
+                            arc_dir = abs_arc_dir
                     libpath.append(arc_dir)
 
             elif txt.startswith("-l"):               # -lfoo
                 libs.append(txt[2:])
 
-            else:                                    # sonstiges Token
+            elif txt.startswith("-u"):               # Symbol-Forcing
                 linkflags.append(txt)
 
-    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
+            else:                                    # sonstiges Token
+                # Prüfe ob es ein Symbol-Name ist (keine Datei)
+                if not any(char in txt for char in ['/', '.']) and len(txt) > 0:
+                    # Wahrscheinlich Symbol-Name für -u Flag
+                    linkflags.append(f"-u{txt}")
+                else:
+                    linkflags.append(txt)
 
+    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
 
 
 def get_project_lib_includes(env):
