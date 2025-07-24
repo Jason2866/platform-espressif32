@@ -2234,7 +2234,7 @@ project_config = target_configs.get(project_target_name, {})
 default_config = target_configs.get(default_config_name, {})
 project_defines = get_app_defines(project_config)
 project_flags = get_app_flags(project_config, default_config)
-link_args = extract_link_args(elf_config)
+# link_args = extract_link_args(elf_config)
 app_includes = get_app_includes(elf_config)
 
 #
@@ -2265,102 +2265,94 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    # HAL-Libraries hinzufügen (bereits vorhanden)
-    mcu = env.get("BOARD_MCU", "esp32")
-    additional_hal_libs = []
+    print("Clang: Using post-compile link args extraction")
     
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
-        if os.path.isfile(xtensa_hal_lib):
-            additional_hal_libs.append(xtensa_hal_lib)
-    
-    esp_hal_candidates = [
-        os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "hal", "libhal.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "soc", "libsoc.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "esp_common", "libesp_common.a"),
-    ]
-    
-    for candidate_lib in esp_hal_candidates:
-        if os.path.isfile(candidate_lib):
-            if candidate_lib not in link_args["LINKFLAGS"]:
-                additional_hal_libs.append(candidate_lib)
-    
-    if additional_hal_libs:
-        link_args["LINKFLAGS"].extend(additional_hal_libs)
-    
-    # KRITISCH: Debug LINKFLAGS vor Standard-Verarbeitung
-    print(f"\n{'='*60}")
-    print(f"CLANG BLOCK - LINKFLAGS ANALYSIS")
-    print(f"{'='*60}")
-    
-    current_t_flags = [f for f in link_args["LINKFLAGS"] if f.startswith('-T')]
-    print(f"CURRENT -T FLAGS IN LINK_ARGS ({len(current_t_flags)}):")
-    for i, flag in enumerate(current_t_flags):
-        script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
-        script_path = flag[2:] if flag.startswith('-T') else flag
-        exists = os.path.isfile(script_path) if os.path.isabs(script_path) else "relative"
-        print(f"  [{i:2d}] {script_name:20} -> {script_path} [{exists}]")
-    
-    # Standard-Verarbeitung
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    
-    print(f"\nEXTRA_FLAGS EXTRACTED ({len(extra_flags)}):")
-    extra_t_flags = [f for f in extra_flags if f.startswith('-T')]
-    print(f"  -T FLAGS IN EXTRA_FLAGS: {len(extra_t_flags)}")
-    for i, flag in enumerate(extra_t_flags):
-        script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
-        print(f"    [{i:2d}] {script_name}")
-    
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(extra_flags)
-    )
-    
-    print(f"\nLINK_ARGS LINKFLAGS AFTER REMOVAL ({len(link_args['LINKFLAGS'])}):")
-    remaining_t_flags = [f for f in link_args["LINKFLAGS"] if f.startswith('-T')]
-    print(f"  REMAINING -T FLAGS: {len(remaining_t_flags)}")
-    for i, flag in enumerate(remaining_t_flags):
-        script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
-        print(f"    [{i:2d}] {script_name}")
-    
-    # KRITISCH: Prüfe auf fehlende generierte Scripts
-    missing_generated_scripts = []
-    for flag in extra_t_flags:
-        script_path = flag[2:] if flag.startswith('-T') else flag
-        script_name = os.path.basename(script_path)
+    # KRITISCH: Post-Compile Link-Args-Extraktion
+    def post_compile_link_processor(target, source, env):
+        """
+        Führe extract_link_args NACH dem Compile, aber VOR dem Link aus.
+        Zu diesem Zeitpunkt existieren alle generierten Dateien und 
+        keine Duplikate entstehen durch Build-Phasen-Überschneidungen.
+        """
+        print("\n" + "="*70)
+        print("POST-COMPILE LINK PROCESSOR - CLANG")
+        print("="*70)
         
-        if script_name in ['memory.ld', 'sections.ld']:
-            if not os.path.isabs(script_path) or not os.path.isfile(script_path):
-                missing_generated_scripts.append((script_name, script_path))
+        # Jetzt extract_link_args mit vollständigen Daten ausführen
+        print("Extracting link args with complete build data...")
+        processed_link_args = extract_link_args(elf_config)
+        
+        print(f"Extracted: {len(processed_link_args['LINKFLAGS'])} flags, "
+              f"{len(processed_link_args['LIBS'])} libs, "
+              f"{len(processed_link_args['LIBPATH'])} paths")
+        
+        # HAL-Libraries für Xtensa-MCUs hinzufügen
+        mcu = env.get("BOARD_MCU", "esp32")
+        additional_hal_libs = []
+        
+        if mcu in ("esp32", "esp32s2", "esp32s3"):
+            xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
+            if os.path.isfile(xtensa_hal_lib):
+                additional_hal_libs.append(xtensa_hal_lib)
+                print(f"Added Xtensa HAL: {xtensa_hal_lib}")
+        
+        # ESP32-spezifische System-Libraries
+        esp_hal_candidates = [
+            os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
+            os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
+            os.path.join(BUILD_DIR, "esp-idf", "hal", "libhal.a"),
+            os.path.join(BUILD_DIR, "esp-idf", "soc", "libsoc.a"),
+            os.path.join(BUILD_DIR, "esp-idf", "esp_common", "libesp_common.a"),
+        ]
+        
+        for candidate_lib in esp_hal_candidates:
+            if os.path.isfile(candidate_lib):
+                if candidate_lib not in processed_link_args["LINKFLAGS"]:
+                    additional_hal_libs.append(candidate_lib)
+                    print(f"Added HAL library: {os.path.basename(candidate_lib)}")
+        
+        # Kombiniere alle LINKFLAGS
+        all_linkflags = processed_link_args["LINKFLAGS"] + additional_hal_libs
+        
+        # Filter bekannte Flags für extra_flags
+        extra_flags = filter_args(
+            all_linkflags,
+            ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
+             "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+        )
+        
+        # Debug: Zeige -T Flags
+        t_flags = [f for f in extra_flags if str(f).startswith('-T')]
+        print(f"Final -T flags ({len(t_flags)}):")
+        for i, flag in enumerate(t_flags):
+            flag_str = str(flag)
+            script_name = os.path.basename(flag_str[2:]) if flag_str.startswith('-T') else flag_str
+            script_path = flag_str[2:] if flag_str.startswith('-T') else flag_str
+            exists = "✓" if (os.path.isabs(script_path) and os.path.isfile(script_path)) else ("relative" if not os.path.isabs(script_path) else "✗")
+            print(f"  [{i:2d}] {script_name:20} -> {script_path} [{exists}]")
+        
+        # Aktualisiere SCons Environment
+        env.AppendUnique(LINKFLAGS=extra_flags)
+        env.AppendUnique(LIBS=processed_link_args["LIBS"])
+        env.AppendUnique(LIBPATH=processed_link_args["LIBPATH"])
+        
+        print(f"Updated SCons environment with processed link data")
+        print("="*70 + "\n")
+        
+        return None
     
-    if missing_generated_scripts:
-        print(f"\nMISSING GENERATED SCRIPTS ({len(missing_generated_scripts)}):")
-        for script_name, script_path in missing_generated_scripts:
-            print(f"  {script_name} -> {script_path}")
-            
-            # Suche nach existierenden Versionen
-            search_locations = [
-                os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_name),
-                os.path.join(BUILD_DIR, script_name),
-                os.path.join(BUILD_DIR, "esp-idf", script_name),
-            ]
-            
-            print(f"    Searching in:")
-            for location in search_locations:
-                exists = os.path.isfile(location)
-                print(f"      {location} [{exists}]")
+    # Registriere Pre-Link-Action für das Firmware-ELF
+    env.AddPreAction("$PROGPATH", post_compile_link_processor)
     
-    print(f"{'='*60}\n")
-    
+    # Leere libs da alles über die Hook verarbeitet wird
     libs = []
+    
+    print("Clang: Post-compile link processing registered")
 
 else:
-    # GCC: Standard-Verarbeitung
+    # GCC: Standard-Verarbeitung (bleibt unverändert)
+    link_args = extract_link_args(elf_config)
+    
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
