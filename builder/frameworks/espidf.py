@@ -382,66 +382,52 @@ def debug_link_command_fragments(target_config):
 
 def extract_complete_link_command(target_config):
     """
-    VOLLSTÄNDIGE CMake Fragment-Extraktion mit korrekter Pfad-Resolution
-    für Archive-Dateien relativ zum BUILD_DIR.
+    Vollständige CMake Fragment-Extraktion mit korrekter absoluter Pfad-Resolution.
+    Alle relativen Pfade werden zu absoluten Pfaden relativ zum BUILD_DIR aufgelöst.
     """
     linkflags, libs, libpath = [], [], []
     
-    print("\n🔄 EXTRACTING ALL CMAKE FRAGMENTS WITH PATH RESOLUTION:")
-    
-    for i, frag in enumerate(target_config.get("link", {}).get("commandFragments", [])):
+    for frag in target_config.get("link", {}).get("commandFragments", []):
         txt = frag.get("fragment", "").strip()
         role = frag.get("role", "").strip()
         
         if not txt:
             continue
             
-        print(f"  [{i:3d}] {role:12} -> {txt}")
-        
         if role == "flags":
-            parsed_flags = click.parser.split_arg_string(txt)
-            linkflags.extend(parsed_flags)
+            linkflags.extend(click.parser.split_arg_string(txt))
             
         elif role == "libraryPath":
             if txt.startswith("-L"):
                 path = txt[2:].strip()
                 # Relative Pfade zu absoluten machen
                 if path and not os.path.isabs(path):
-                    abs_path = os.path.join(BUILD_DIR, path)
-                    if os.path.isdir(abs_path):
-                        path = abs_path
+                    path = os.path.join(BUILD_DIR, path)
+                
                 if path and path not in libpath:
                     libpath.append(path)
-                    print(f"       Added libpath: {path}")
             else:
                 linkflags.append(txt)
                 
         elif role == "libraries":
             if txt.startswith("-u"):
                 linkflags.append(txt)
-                print(f"       Added symbol flag: {txt}")
+                
             elif txt.startswith("-l"):
                 lib_name = txt[2:]
                 if lib_name not in libs:
                     libs.append(lib_name)
-                    print(f"       Added library: {lib_name}")
+                    
             elif txt.endswith(".a"):
-                # KRITISCH: Archive-Pfad-Resolution
+                # KRITISCH: Archive-Pfad absolut machen
                 archive_path = txt
-                
-                # Relative Pfade zu absoluten machen
                 if not os.path.isabs(archive_path):
-                    abs_archive_path = os.path.join(BUILD_DIR, archive_path)
-                    if os.path.isfile(abs_archive_path):
-                        archive_path = abs_archive_path
-                        print(f"       Resolved archive: {archive_path}")
-                    else:
-                        print(f"       ⚠️  Archive not found: {abs_archive_path}")
+                    archive_path = os.path.join(BUILD_DIR, archive_path)
                 
-                # Zu LINKFLAGS für direkte Verlinkung
+                # Archive als vollständigen Pfad zu LINKFLAGS
                 linkflags.append(archive_path)
                 
-                # Extrahiere Library-Namen und -Pfade für SCons
+                # Library-Name und absoluten Pfad für SCons extrahieren
                 arc_name = os.path.basename(archive_path)
                 arc_dir = os.path.dirname(archive_path)
                 
@@ -449,29 +435,17 @@ def extract_complete_link_command(target_config):
                     lib_name = arc_name[3:-2]  # libfoo.a → foo
                     if lib_name not in libs:
                         libs.append(lib_name)
-                        print(f"       Added lib name: {lib_name}")
                 
-                # KRITISCH: Stelle sicher, dass arc_dir absolut und in LIBPATH ist
-                if arc_dir:
-                    if not os.path.isabs(arc_dir):
-                        arc_dir = os.path.join(BUILD_DIR, arc_dir)
-                    if os.path.isdir(arc_dir) and arc_dir not in libpath:
-                        libpath.append(arc_dir)
-                        print(f"       Added archive path: {arc_dir}")
-                        
+                # KRITISCH: Absoluter Pfad zu LIBPATH
+                if arc_dir and arc_dir not in libpath:
+                    libpath.append(arc_dir)
+                    
             elif txt.startswith("-Wl,"):
                 linkflags.append(txt)
-                print(f"       Added linker flag: {txt}")
             else:
                 linkflags.append(txt)
-                print(f"       Added other: {txt}")
         else:
             linkflags.append(txt)
-    
-    print(f"\n📊 EXTRACTION SUMMARY:")
-    print(f"  LINKFLAGS: {len(linkflags)}")
-    print(f"  LIBS: {len(libs)}")  
-    print(f"  LIBPATH: {len(libpath)}")
     
     return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
 
@@ -2080,9 +2054,6 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    # Debug-Analyse
-    comprehensive_cmake_debug(elf_config)
-    
     # Standard-Verarbeitung
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
@@ -2093,51 +2064,41 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # Vollständige CMake-Fragment-Extraktion
+    # Vollständige CMake-Fragment-Extraktion mit absoluten Pfaden
     cmake_data = extract_complete_link_command(elf_config)
     
-    # KRITISCH: Validiere Library-Pfade
-    print(f"\n🔍 LIBRARY PATH VALIDATION:")
-    missing_libs = []
-    for lib_name in cmake_data['LIBS']:
-        lib_found = False
-        for lib_dir in cmake_data['LIBPATH']:
-            lib_file = os.path.join(lib_dir, f"lib{lib_name}.a")
-            if os.path.isfile(lib_file):
-                lib_found = True
-                print(f"  ✅ {lib_name} found in {lib_dir}")
-                break
-        
-        if not lib_found:
-            missing_libs.append(lib_name)
-            print(f"  ❌ {lib_name} NOT FOUND in any LIBPATH")
-    
-    if missing_libs:
-        print(f"\n⚠️  MISSING LIBRARIES: {missing_libs}")
-        print("Libraries will be searched in default system paths")
-    
     # Merge CMake-Daten mit bestehenden Link-Args
-    link_args["LIBS"].extend([lib for lib in cmake_data['LIBS'] 
-                             if lib not in link_args.get('LIBS', [])])
-    link_args["LIBPATH"].extend([path for path in cmake_data['LIBPATH'] 
-                                if path not in link_args.get('LIBPATH', [])])
+    for lib in cmake_data['LIBS']:
+        if lib not in link_args.get('LIBS', []):
+            link_args["LIBS"].append(lib)
+    
+    for path in cmake_data['LIBPATH']:
+        if path not in link_args.get('LIBPATH', []):
+            link_args["LIBPATH"].append(path)
     
     # Xtensa HAL für Xtensa-MCUs hinzufügen
-    mcu = env.get("BOARD_MCU", "esp32")
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
-        if os.path.isfile(xtensa_hal_lib):
-            if "xt_hal" not in link_args["LIBS"]:
-                link_args["LIBS"].append("xt_hal")
-                link_args["LIBPATH"].append(os.path.dirname(xtensa_hal_lib))
-                print(f"Added Xtensa HAL library for {mcu}")
+    board_mcu = board.get("build.mcu", "esp32")
+    if board_mcu in ("esp32", "esp32s2", "esp32s3"):
+        xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", board_mcu, "libxt_hal.a")
+        xtensa_hal_dir = os.path.dirname(xtensa_hal_lib)
+        
+        if "xt_hal" not in link_args["LIBS"]:
+            link_args["LIBS"].append("xt_hal")
+            link_args["LIBPATH"].append(xtensa_hal_dir)
+            print(f"Clang: Added Xtensa HAL for {board_mcu}")
     
-    print("Clang: Enhanced CMake integration with path validation")
+    print(f"Clang: Enhanced linking with {len(cmake_data['LIBS'])} libraries and {len(cmake_data['LIBPATH'])} paths")
 
 else:
     # GCC: Standard-Verarbeitung
-    extra_flags = filter_args(link_args["LINKFLAGS"], [...])
-
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    link_args["LINKFLAGS"] = sorted(
+        set(link_args["LINKFLAGS"]) - set(extra_flags)
+    )
 
 
 # remove the main linker script flags '-T memory.ld'
