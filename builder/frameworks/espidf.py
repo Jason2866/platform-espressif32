@@ -2530,6 +2530,40 @@ libs = find_lib_deps(
 
 # Erweiterte Clang/GCC-Behandlung mit Dependency-Awareness und präziser Whole-Archive-Logik
 if "clang" in env.subst("$CC").lower():
+    # 🔍 COMPREHENSIVE DEBUG ANALYSIS
+    debug_results = comprehensive_debug_analysis(
+        target_configs, 
+        BUILD_DIR, 
+        FRAMEWORK_DIR
+    )
+    
+    # Basierend auf den Debug-Ergebnissen die beste Strategie wählen
+    if debug_results['ninja']:
+        print("\n✅ Using ninja-based whole-archive detection")
+        whole_archive_libs = set(debug_results['ninja'].keys())
+        
+        def should_use_whole_archive(component_name):
+            lib_name = f"lib{component_name}.a"
+            return lib_name in whole_archive_libs
+            
+    elif debug_results['components']:
+        print("\n✅ Using component-based whole-archive detection")
+        whole_archive_components = set(debug_results['components'].keys())
+        
+        def should_use_whole_archive(component_name):
+            return component_name in whole_archive_components
+            
+    else:
+        print("\n⚠️  Using fallback whole-archive detection")
+        
+        def should_use_whole_archive(component_name):
+            # Fallback: Nur absolut notwendige, dokumentierte Fälle
+            critical_components = {'esp_system', 'bootloader_support', 'hal'}
+            return component_name in critical_components
+    
+    # Rest der Clang-Linking-Logik...
+    # [Existing code continues here]
+
     # Extrahiere Dependency-Graph aus allen Target-Konfigurationen
     cmake_api_reply_dir = os.path.join(BUILD_DIR, ".cmake", "api", "v1", "reply")
     dependency_graph = extract_component_dependencies(target_configs, cmake_api_reply_dir)
