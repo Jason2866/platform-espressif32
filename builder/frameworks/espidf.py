@@ -2013,66 +2013,39 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    # Debug-Ausgabe: zeigt die echten CMake-Fragmente
-    debug_link_command_fragments(elf_config)
-
-    # Standard-Verarbeitung wie GCC für Link-Args
+    # Standard-Verarbeitung (identisch zu GCC)
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
-        ["-T", "-u",
-         "-Wl,--start-group", "-Wl,--end-group",
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
 
-    # KRITISCH: Working Directory Problem lösen
-    # CMake-native Pfade sind relativ zum BUILD_DIR, aber PlatformIO 
-    # führt Linker vom PROJECT_DIR aus
+    # EINFACH: Relative Pfade zu absoluten machen (BUILD_DIR relativ)
+    corrected_extra_flags = []
+    for flag in extra_flags:
+        flag_str = str(flag)
+        if flag_str.endswith('.a') and not os.path.isabs(flag_str):
+            # Archive: BUILD_DIR + relativer Pfad
+            abs_flag = os.path.join(BUILD_DIR, flag_str)
+            corrected_extra_flags.append(abs_flag if os.path.isfile(abs_flag) else flag_str)
+        elif flag_str.startswith('-T') and len(flag_str) > 2 and not flag_str[2:].startswith('/'):
+            # Linker-Scripts: BUILD_DIR + relativer Pfad
+            script_name = flag_str[2:]
+            abs_script = os.path.join(BUILD_DIR, script_name)
+            corrected_extra_flags.append(f'-T{abs_script}' if os.path.isfile(abs_script) else flag_str)
+        else:
+            corrected_extra_flags.append(flag_str)
     
-    # Speichere Original Working Directory
-    original_cwd = os.getcwd()
-    original_link_command = env.get('LINKCOM', '')
+    extra_flags = corrected_extra_flags
     
-    # Erstelle Working-Directory-aware Link-Command
-    def create_build_dir_linkcom():
-        """Erstelle LINKCOM das im BUILD_DIR ausgeführt wird"""
-        base_linkcom = original_link_command or "$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS $_LIBFLAGS"
-        
-        # Wrapper-Command das Working Directory wechselt
-        wrapped_linkcom = f"""python -c "
-import os, subprocess, sys
-original_cwd = os.getcwd()
-os.chdir('{BUILD_DIR}')
-try:
-    # Führe Original-Link-Command aus mit relativem Kontext
-    cmd = '{base_linkcom}'
-    result = os.system(cmd)
-    sys.exit(result >> 8)  # Exit code extrahieren
-finally:
-    os.chdir(original_cwd)
-" """
-        return wrapped_linkcom
-    
-    # Setze modifiziertes LINKCOM für Clang
-    env['LINKCOM'] = create_build_dir_linkcom()
-    
-    print(f"Clang: Using BUILD_DIR working directory for native CMake compatibility")
-    print(f"  Build Dir: {BUILD_DIR}")
-    print(f"  Project Dir: {original_cwd}")
+    print("Clang: Simple BUILD_DIR relative path resolution")
 
 else:
     # GCC: Standard-Verarbeitung
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u",
-         "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(extra_flags)
-    )
+    extra_flags = filter_args(link_args["LINKFLAGS"], [...])
 
 
 # remove the main linker script flags '-T memory.ld'
