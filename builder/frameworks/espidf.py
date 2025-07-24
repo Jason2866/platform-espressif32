@@ -2149,11 +2149,124 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Original GCC-Filter unverändert lassen
+# Erweiterte Clang/GCC-Behandlung mit Dependency-Awareness
 if "clang" in env.subst("$CC").lower():
-    # für Clang KEINE weitere Filterung durchführen
-    extra_flags = []
+    # Extrahiere Dependency-Graph aus allen Target-Konfigurationen
+    cmake_api_reply_dir = os.path.join(BUILD_DIR, ".cmake", "api", "v1", "reply")
+    dependency_graph = extract_component_dependencies(target_configs, cmake_api_reply_dir)
+    
+    # Vereinfachte Clang-Linking-Logik
+    clang_linking_flags = []
+    
+    # 1. Nur essenzielle Symbole forcieren
+    essential_symbols = get_essential_esp_idf_symbols()
+    for symbol in essential_symbols:
+        clang_linking_flags.extend(['-u', symbol])
+    
+    # 2. Standard Library-Gruppierung mit intelligenter Whole-Archive-Entscheidung
+    clang_linking_flags.append('-Wl,--start-group')
+    
+    # Berechne optimale Link-Reihenfolge basierend auf Dependencies
+    optimal_order = calculate_dependency_link_order(dependency_graph, libs)
+    
+    # Sortiere Libraries nach Dependency-Order
+    ordered_libs = []
+    remaining_libs = libs[:]
+    
+    for component_order in optimal_order:
+        for lib_node in remaining_libs[:]:
+            if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
+                for lib_path in lib_node:
+                    lib_path_str = lib_path.get_path() if hasattr(lib_path, 'get_path') else str(lib_path)
+                    lib_filename = os.path.basename(lib_path_str)
+                    component_name = lib_filename.replace('lib', '').replace('.a', '')
+                    
+                    if component_order.endswith(component_name):
+                        ordered_libs.append(lib_node)
+                        remaining_libs.remove(lib_node)
+                        break
+            else:
+                lib_path_str = lib_node.get_path() if hasattr(lib_node, 'get_path') else str(lib_node)
+                lib_filename = os.path.basename(lib_path_str)
+                component_name = lib_filename.replace('lib', '').replace('.a', '')
+                
+                if component_order.endswith(component_name):
+                    ordered_libs.append(lib_node)
+                    remaining_libs.remove(lib_node)
+                    break
+    
+    # Verbleibende Libraries anhängen
+    ordered_libs.extend(remaining_libs)
+    
+    libraries_processed = 0
+    for lib_node in ordered_libs:
+        if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
+            for lib_path in lib_node:
+                lib_path_str = lib_path.get_path() if hasattr(lib_path, 'get_path') else str(lib_path)
+                lib_filename = os.path.basename(lib_path_str)
+                component_name = lib_filename.replace('lib', '').replace('.a', '')
+                
+                # Deterministische Whole-Archive-Entscheidung
+                whole_archive_req = get_realistic_whole_archive_requirements(component_name)
+                
+                # Dependency-aware Linking-Entscheidung
+                if whole_archive_req["required"]:
+                    clang_linking_flags.extend([
+                        '-Wl,--whole-archive',
+                        lib_path_str,
+                        '-Wl,--no-whole-archive'
+                    ])
+                else:
+                    clang_linking_flags.append(lib_path_str)
+                
+                libraries_processed += 1
+        else:
+            # Einzelne Library-Nodes
+            lib_path_str = lib_node.get_path() if hasattr(lib_node, 'get_path') else str(lib_node)
+            lib_filename = os.path.basename(lib_path_str)
+            component_name = lib_filename.replace('lib', '').replace('.a', '')
+            
+            # Deterministische Whole-Archive-Entscheidung
+            whole_archive_req = get_realistic_whole_archive_requirements(component_name)
+            
+            if whole_archive_req["required"]:
+                clang_linking_flags.extend([
+                    '-Wl,--whole-archive',
+                    lib_path_str,
+                    '-Wl,--no-whole-archive'
+                ])
+            else:
+                clang_linking_flags.append(lib_path_str)
+            libraries_processed += 1
+    
+    clang_linking_flags.append('-Wl,--end-group')
+    
+    # 3. Standard Linker-Optimierungen
+    clang_linking_flags.extend([
+        '-Wl,--gc-sections',
+        '-Wl,--cref'
+    ])
+    
+    # 4. Bestehende Linker-Scripts übernehmen (nur kritische)
+    essential_linker_flags = []
+    for flag in extra_flags:
+        flag_str = str(flag)
+        # Nur wirklich kritische Linker-Elemente
+        if (flag_str.startswith('-T') and flag_str.endswith('.ld') or 
+            flag_str.startswith('-Wl,') and ('wrap' in flag_str or 'defsym' in flag_str) or
+            flag_str.startswith('-u')):
+            essential_linker_flags.append(flag_str)
+
+    clang_linking_flags.extend(essential_linker_flags)
+    
+    # Ersetze die ursprünglichen Flags
+    extra_flags[:] = clang_linking_flags
+    libs[:] = []
+    
+    print(f"ESP-IDF 5.5 Clang Linking: Processed {libraries_processed} libraries with dependency-aware configuration")
+
 else:
+    # Original GCC processing - unverändert
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u",
@@ -2163,137 +2276,6 @@ else:
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
-
-# Nach dem Flag-Filter, direkt vor env.Prepend():
-if "clang" in env.subst("$CC").lower():
-    # Baue Clang-spezifische extra_flags
-    clang_linking_flags = []
-    
-    # 1. Symbol-Forcing für ROM-Symbole (muss VOR Libraries stehen)
-    critical_rom_symbols = [
-        'xt_set_interrupt_handler', 'xt_ints_on', 'xt_ints_off', 'xt_int_has_handler',
-        '_xt_context_save', '_xt_context_restore', '_xt_coproc_init', '_xt_user_exit',
-        '_xt_coproc_release', '_xt_coproc_savecs', '_invalid_pc_placeholder'
-    ]
-    
-    for symbol in critical_rom_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 2. ESP32-System-Symbole
-    system_symbols = [
-        'esp_random', 'esp_read_mac', 'esp_fill_random', 'esp_chip_info',
-        'esp_cpu_compare_and_set', 'esp_cpu_stall', 'esp_cpu_unstall',
-        'esp_cpu_wait_for_intr', 'esp_cpu_set_breakpoint'
-    ]
-    
-    for symbol in system_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 3. HAL-Symbole
-    hal_symbols = [
-        'spi_flash_hal_init', 'spi_flash_hal_device_config', 'spi_flash_hal_common_command',
-        'aes_hal_setkey', 'aes_hal_transform_block', 'sha_hal_wait_idle', 'sha_hal_read_digest',
-        'mpi_hal_calc_hardware_words', 'esp_heap_adjust_alignment_to_hw'
-    ]
-    
-    for symbol in hal_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 4. Zusätzliche fehlende Symbole
-    additional_symbols = [
-        'nvs_flash_init', 'nvs_flash_erase', 'nvs_flash_deinit',
-        '_esp_error_check_failed', 'esp_err_to_name',
-        'esp_netif_init', 'esp_netif_deinit',
-        'esp_event_loop_create_default', 'esp_event_loop_delete_default',
-        'xTaskCreatePinnedToCore', 'vTaskDelete', 'vTaskDelay',
-        'esp_log_timestamp', 'esp_log', 'esp_log_write',
-        'call_start_cpu0', 'end'
-    ]
-    
-    for symbol in additional_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 5. WiFi-spezifische Symbole (für precompiled libnet80211.a)
-    wifi_symbols = [
-        'g_misc_nvs', 'misc_nvs_init', 'misc_nvs_deinit', 'g_log_level',
-        'g_espnow_user_oui', 'esp_wifi_internal_set_fix_rate',
-        'esp_wifi_internal_tx_by_ref', 'net80211_printf', 'g_wifi_osi_funcs',
-        'esp_wifi_power_domain_on', 'esp_wifi_power_domain_off'
-    ]
-    
-    for symbol in wifi_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 6. PHY-spezifische Symbole (NEU - für libphy.a)
-    phy_symbols = [
-        'phy_printf'
-    ]
-    
-    for symbol in phy_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 7. ZURÜCK ZU: Bewährtes Whole-Archive + intelligente Ausnahmen
-    clang_linking_flags.append('-Wl,--start-group')
-    
-    # Libraries die DEFINITIV KEINE Multiple Definitions haben dürfen
-    no_whole_archive_libs = {
-        'libwpa_supplicant.a',  # ← Multiple Definitions
-        'libmbedtls.a',         # ← Crypto-Funktionen
-        'libmbedcrypto.a',      # ← Crypto-Funktionen  
-        'libmbedx509.a',        # ← X.509-Funktionen
-        'libfreertos.a'         # ← NEU: Call-Range-Probleme
-    }
-    
-    libraries_processed = 0
-    for lib_node in libs:
-        if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
-            for lib_path in lib_node:
-                if hasattr(lib_path, 'get_path'):
-                    lib_path_str = lib_path.get_path()
-                else:
-                    lib_path_str = str(lib_path)
-                
-                lib_filename = os.path.basename(lib_path_str)
-                
-                # SMART-Entscheidung: Whole-Archive für fast alle, AUSSER bekannte Problemfälle
-                if lib_filename in no_whole_archive_libs:
-                    # AUSNAHME: Normal-Linking für bekannte Multiple-Definition-Libraries
-                    clang_linking_flags.append(lib_path_str)
-                else:
-                    # DEFAULT: Whole-Archive für Symbol-Resolution
-                    clang_linking_flags.extend([
-                        '-Wl,--whole-archive',
-                        lib_path_str,
-                        '-Wl,--no-whole-archive'
-                    ])
-                
-                libraries_processed += 1
-        else:
-            # Einzelne Nodes: Whole-Archive
-            if hasattr(lib_node, 'get_path'):
-                lib_path_str = lib_node.get_path()
-            else:
-                lib_path_str = str(lib_node)
-            
-            clang_linking_flags.extend([
-                '-Wl,--whole-archive',
-                lib_path_str,
-                '-Wl,--no-whole-archive'
-            ])
-            libraries_processed += 1
-    
-    clang_linking_flags.append('-Wl,--end-group')
-    
-    # 8. ROM-Scripts UND --wrap flags hinzufügen
-    for flag in extra_flags:
-        flag_str = str(flag)
-        if (flag_str.startswith('-T') or flag_str.startswith('-Wl,') or 
-            flag_str.endswith('.ld') or flag_str.startswith('-u')):
-            clang_linking_flags.append(flag_str)
-    
-    # 9. Ersetze Flags
-    extra_flags[:] = clang_linking_flags
-    libs[:] = []
 
 #
 # Process project sources
