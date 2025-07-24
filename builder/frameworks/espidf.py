@@ -360,42 +360,103 @@ if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and 
 
 def extract_complete_link_command(target_config):
     """
-    Parst die von CMake erzeugten commandFragments und bereitet
-    drei getrennte Listen für SCons vor: LINKFLAGS, LIBS, LIBPATH.
+    Parst CMake commandFragments und bereitet sie korrekt für SCons vor,
+    mit vollständiger Pfad-Resolution und Fragment-Typ-Erkennung.
     """
     flags, libs, libpath = [], [], []
 
     for frag in target_config.get("link", {}).get("commandFragments", []):
-        txt   = frag.get("fragment", "").strip()
-        role  = frag.get("role",     "").strip()
+        txt = frag.get("fragment", "").strip()
+        role = frag.get("role", "").strip()
 
         if role == "flags":
-            flags.extend(click.parser.split_arg_string(txt))
+            # Parse flags korrekt - können mehrere Argumente enthalten
+            parsed_flags = click.parser.split_arg_string(txt)
+            for flag in parsed_flags:
+                # -T Linker-Scripts brauchen vollständige Pfade
+                if flag.startswith("-T"):
+                    script_name = flag[2:]  # Entferne -T prefix
+                    if not os.path.isabs(script_name):
+                        # Suche Script in ESP-IDF Framework-Verzeichnissen
+                        script_path = find_linker_script(script_name)
+                        if script_path:
+                            flags.append(f"-T{script_path}")
+                        else:
+                            flags.append(flag)  # Fallback: Original verwenden
+                    else:
+                        flags.append(flag)
+                else:
+                    flags.append(flag)
 
         elif role in ("libraries", "libraryPath"):
             if txt.startswith("-L"):
-                p = txt[2:].strip(" '\"")
-                if p and p not in libpath:
-                    libpath.append(p)
+                # Library-Suchpfad
+                path = txt[2:].strip(" '\"")
+                if path:
+                    # Relative Pfade zu absoluten machen
+                    if not os.path.isabs(path):
+                        abs_path = os.path.join(BUILD_DIR, path)
+                        if os.path.isdir(abs_path):
+                            path = abs_path
+                    if path not in libpath:
+                        libpath.append(path)
 
-            elif txt.startswith("-l"):
-                n = txt[2:]
-                if n and n not in libs:
-                    libs.append(n)
+            elif txt.startswith("-"):
+                # Andere Flags (wie -u Symbol)
+                if txt.startswith("-u"):
+                    # Symbol-Forcing - direkt übernehmen
+                    flags.append(txt)
+                elif txt.startswith("-Wl,"):
+                    # Linker-Wrapper-Flags
+                    flags.append(txt)
+                else:
+                    # Andere Flags
+                    flags.append(txt)
 
             elif txt.endswith(".a"):
-                # CMake liefert hier den _Vollpfad_;
-                # SCons akzeptiert Vollpfad ebenfalls in LIBS.
-                if txt not in libs:
-                    libs.append(txt)
-                d = os.path.dirname(txt)
-                if d and d not in libpath:
-                    libpath.append(d)
+                # Archive-Dateien - Pfade korrekt auflösen
+                lib_path = txt
+                if not os.path.isabs(lib_path):
+                    # Relative Pfade zu absoluten machen
+                    abs_lib_path = os.path.join(BUILD_DIR, lib_path)
+                    if os.path.isfile(abs_lib_path):
+                        lib_path = abs_lib_path
+                
+                if lib_path not in libs:
+                    libs.append(lib_path)
+                
+                # Library-Verzeichnis zu Suchpfaden hinzufügen
+                lib_dir = os.path.dirname(lib_path)
+                if lib_dir and lib_dir not in libpath:
+                    libpath.append(lib_dir)
 
-            else:           # sonstiges (-uSym, -Wl,…) als Flag
-                flags.append(txt)
+            else:
+                # Unbekannte Fragmente als Libraries behandeln
+                if txt and txt not in libs:
+                    libs.append(txt)
 
     return {"LINKFLAGS": flags, "LIBS": libs, "LIBPATH": libpath}
+
+def find_linker_script(script_name):
+    """Findet ESP-IDF Linker-Scripts in den Framework-Verzeichnissen"""
+    
+    # Mögliche Verzeichnisse für Linker-Scripts
+    search_dirs = [
+        os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32"),
+        os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld"),
+        os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld"),
+        BUILD_DIR,
+        os.path.join(BUILD_DIR, "esp-idf")
+    ]
+    
+    for search_dir in search_dirs:
+        if os.path.isdir(search_dir):
+            script_path = os.path.join(search_dir, script_name)
+            if os.path.isfile(script_path):
+                return script_path
+    
+    return None
+
 
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
@@ -1969,41 +2030,38 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# ------------------------------------------------------------------
-# Native CMake-Link – direkte Übernahme in das SCons-Environment
-# ------------------------------------------------------------------
+# ---------------
 if "clang" in env.subst("$CC").lower():
-
     cm_flags = extract_complete_link_command(elf_config)
 
-    # a) vorhandene Link-Flags um CMake-Flags erweitern
-    env.AppendUnique(LINKFLAGS = cm_flags["LINKFLAGS"])
+    # Debug: Zeige was gefunden wurde
+    print(f"[CMake-native] Parsed {len(cm_flags['LINKFLAGS'])} flags, "
+          f"{len(cm_flags['LIBS'])} libs, {len(cm_flags['LIBPATH'])} paths")
+    
+    # Debug: Zeige problematische Fragmente
+    missing_files = []
+    for flag in cm_flags['LINKFLAGS']:
+        if flag.startswith('-T'):
+            script_path = flag[2:]
+            if not os.path.isfile(script_path):
+                missing_files.append(f"Linker script: {script_path}")
+    
+    for lib in cm_flags['LIBS']:
+        if lib.endswith('.a') and not os.path.isfile(lib):
+            missing_files.append(f"Library: {lib}")
+    
+    if missing_files:
+        print("⚠️  Missing files detected:")
+        for missing in missing_files[:5]:  # Erste 5 anzeigen
+            print(f"   {missing}")
 
-    # b) Library-Suchpfade in LIBPATH übernehmen
-    env.PrependUnique(LIBPATH   = cm_flags["LIBPATH"])
+    # SCons Environment befüllen
+    env.AppendUnique(LINKFLAGS=cm_flags["LINKFLAGS"])
+    env.PrependUnique(LIBPATH=cm_flags["LIBPATH"])
+    env.Append(LIBS=cm_flags["LIBS"])
 
-    # c) Bibliotheken 1-zu-1 (Reihenfolge beibehalten) in LIBS übernehmen
-    #    Vollpfade (.a) UND -l-Namen sind erlaubt.
-    env.Append(LIBS = cm_flags["LIBS"])
-
-    # d) keine zusätzliche manuelle Bearbeitung mehr nötig
-    extra_flags = []   # vollständig im Environment
-    libs        = []   # bereits in env['LIBS']
-
-    print(f"[CMake-native] {len(cm_flags['LIBS'])} libs, "
-          f"{len(cm_flags['LIBPATH'])} paths → SCons Environment")
-
-else:
-    # unverändert für GCC
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u",
-         "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(extra_flags)
-    )
+    extra_flags = []
+    libs = []
 
 #
 # Process project sources
