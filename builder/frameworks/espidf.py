@@ -2342,21 +2342,71 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # KRITISCH: Hook für finale SCons LINKFLAGS-Bereinigung
+    # KRITISCH: Hook für finale SCons LINKFLAGS-Bereinigung mit umfassender Debug-Analyse
     def pre_link_scons_deduplicator(target, source, env):
         """
-        Entfernt Duplikate aus finalen SCons LINKFLAGS direkt vor dem Linken.
-        Diese werden durch env.MergeFlags() und env.Prepend() erzeugt.
+        Umfassende SCons Environment Debug und Duplikat-Entfernung.
         """
-        print("\n" + "="*70)
-        print("PRE-LINK SCONS DEDUPLICATOR - CLANG")
-        print("="*70)
+        print("\n" + "="*80)
+        print("COMPREHENSIVE SCONS LINKFLAGS DEBUG - CLANG")
+        print("="*80)
         
-        # Hole finale SCons LINKFLAGS
+        # Debug ALLE SCons Link-relevanten Variablen
+        link_vars = ['LINKFLAGS', '_LIBDIRFLAGS', '_LIBFLAGS', '__RPATH', 'LIBPATH', 'LIBS']
+        
+        for var_name in link_vars:
+            var_value = env.get(var_name, [])
+            if var_value:
+                print(f"\n{var_name} ({len(var_value) if isinstance(var_value, list) else 'scalar'}):")
+                if isinstance(var_value, list):
+                    for i, item in enumerate(var_value):
+                        item_str = str(item)
+                        if item_str.startswith('-T') and item_str.endswith('.ld'):
+                            script_name = os.path.basename(item_str[2:])
+                            print(f"  [{i:2d}] {script_name} -> {item_str}")
+                        else:
+                            print(f"  [{i:2d}] {item_str}")
+                else:
+                    print(f"  {var_value}")
+        
+        # Debug das komplette LINKCOM Command
+        linkcom = env.get('LINKCOM', '')
+        print(f"\nLINKCOM:")
+        print(f"  {linkcom}")
+        
+        # Expandiere LINKCOM mit aktuellen Variablen (simuliert)
+        try:
+            expanded_linkcom = env.subst(linkcom, target=target, source=source)
+            print(f"\nEXPANDED LINKCOM:")
+            print(f"  {expanded_linkcom}")
+            
+            # Suche nach -T Flags im expandierten Command
+            expanded_parts = expanded_linkcom.split()
+            t_flags_in_linkcom = [part for part in expanded_parts if part.startswith('-T') and part.endswith('.ld')]
+            
+            if t_flags_in_linkcom:
+                print(f"\n-T FLAGS IN EXPANDED LINKCOM ({len(t_flags_in_linkcom)}):")
+                script_counts = {}
+                for i, flag in enumerate(t_flags_in_linkcom):
+                    script_name = os.path.basename(flag[2:])
+                    script_counts[script_name] = script_counts.get(script_name, 0) + 1
+                    print(f"  [{i:2d}] {script_name} -> {flag}")
+                
+                # Zeige Duplikate im LINKCOM
+                duplicates = {name: count for name, count in script_counts.items() if count > 1}
+                if duplicates:
+                    print(f"\nDUPLICATES IN LINKCOM:")
+                    for script_name, count in duplicates.items():
+                        print(f"  {script_name}: {count} times")
+                else:
+                    print(f"\nNO DUPLICATES IN LINKCOM")
+            else:
+                print(f"\nNO -T FLAGS IN EXPANDED LINKCOM")
+        except Exception as e:
+            print(f"\nERROR expanding LINKCOM: {e}")
+        
+        # Versuche Duplikate in LINKFLAGS zu entfernen (bestehender Code)
         current_linkflags = env.get('LINKFLAGS', [])
-        print(f"SCons LINKFLAGS before deduplication: {len(current_linkflags)}")
-        
-        # Finde alle -T Flags
         t_flags = []
         other_flags = []
         
@@ -2367,11 +2417,8 @@ if "clang" in env.subst("$CC").lower():
             else:
                 other_flags.append(flag)
         
-        print(f"Found {len(t_flags)} -T flags in SCons LINKFLAGS:")
-        for i, flag in enumerate(t_flags):
-            flag_str = str(flag)
-            script_name = os.path.basename(flag_str[2:])
-            print(f"  [{i:2d}] {script_name} -> {flag_str}")
+        print(f"\nLINKFLAGS DEDUPLICATION:")
+        print(f"  Original LINKFLAGS -T flags: {len(t_flags)}")
         
         # Duplikat-Entfernung basierend auf Script-Namen
         seen_scripts = set()
@@ -2384,18 +2431,18 @@ if "clang" in env.subst("$CC").lower():
             if script_name not in seen_scripts:
                 deduplicated_t_flags.append(flag)
                 seen_scripts.add(script_name)
-                print(f"  KEPT: {script_name}")
+                print(f"    KEPT: {script_name}")
             else:
-                print(f"  REMOVED DUPLICATE: {script_name}")
+                print(f"    REMOVED DUPLICATE: {script_name}")
         
-        # Aktualisiere SCons LINKFLAGS
+        # Aktualisiere LINKFLAGS
         final_linkflags = other_flags + deduplicated_t_flags
         env['LINKFLAGS'] = final_linkflags
         
-        print(f"SCons LINKFLAGS after deduplication: {len(final_linkflags)}")
-        print(f"Removed {len(t_flags) - len(deduplicated_t_flags)} duplicate -T flags")
-        print(f"Unique scripts: {list(seen_scripts)}")
-        print("="*70 + "\n")
+        print(f"  Final LINKFLAGS -T flags: {len(deduplicated_t_flags)}")
+        print(f"  Removed {len(t_flags) - len(deduplicated_t_flags)} duplicates from LINKFLAGS")
+        
+        print("="*80 + "\n")
         
         return None
     
@@ -2404,7 +2451,7 @@ if "clang" in env.subst("$CC").lower():
     
     libs = []
     
-    print("Clang: Enhanced with SCons LINKFLAGS deduplicator")
+    print("Clang: Enhanced with comprehensive SCons debug and deduplication")
 
 else:
     # GCC: Standard-Verarbeitung
