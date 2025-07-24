@@ -357,6 +357,85 @@ if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and 
     )
     env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
 
+
+def debug_link_command_fragments(target_config):
+    """
+    Gibt alle commandFragments in der Reihenfolge aus und markiert
+    Whole-Archive-Abschnitte.
+    """
+    print("\n🔎 LINK COMMAND FRAGMENTS DEBUG "
+          f"({target_config['name']})".ljust(60, "="))
+
+    wa_active = False
+    for frag in target_config.get("link", {}).get("commandFragments", []):
+        text  = frag.get("fragment", "").strip()
+        role  = frag.get("role", "")
+        if text == "-Wl,--whole-archive":
+            wa_active = True
+            marker = "▶ START WHOLE"
+        elif text == "-Wl,--no-whole-archive":
+            wa_active = False
+            marker = "■ END  WHOLE"
+        else:
+            marker = "●" if wa_active else " "
+        print(f"{marker:11} {role:<12} {text}")
+
+def extract_complete_link_command(target_config):
+    """
+    Übernimmt die von CMake generierten commandFragments 1:1 in die drei
+    SCons-Variablen LINKFLAGS, LIBS und LIBPATH, wobei die Reihenfolge
+    – insbesondere um Whole-Archive-Blöcke – exakt erhalten bleibt.
+    """
+    linkflags, libs, libpath = [], [], []
+
+    for frag in target_config.get("link", {}).get("commandFragments", []):
+        txt  = frag.get("fragment", "").strip()
+        role = frag.get("role", "").strip()
+
+        if not txt:
+            continue
+
+        # 1) Linker-Flags – alles, was nicht Library oder Pfad ist
+        if role == "flags":
+            linkflags.extend(click.parser.split_arg_string(txt))
+
+        # 2) Library-Pfad  (-L…)
+        elif role == "libraryPath" and txt.startswith("-L"):
+            p = txt[2:].strip(" '\"")
+            if p and p not in libpath:
+                libpath.append(p)
+
+        # 3) Einzelne Tokens, die zwingend in exakter Reihenfolge bleiben müssen
+        #    ( --whole-archive / --no-whole-archive / start/end-group / .a-Dateien )
+        elif role in ("libraries", "libraryPath"):
+            if txt.startswith("-Wl,")          or \
+               txt in ("-Wl,--whole-archive",
+                        "-Wl,--no-whole-archive",
+                        "-Wl,--start-group",
+                        "-Wl,--end-group"):
+                linkflags.append(txt)
+
+            elif txt.endswith(".a"):                 # statisches Archiv
+                linkflags.append(txt)                # NICHT aufsplitten!
+                # Für SCons trotzdem Name & Pfad eintragen,
+                # damit Dependency-Tracking und Incremental Builds funktionieren.
+                arc_name = os.path.basename(txt)
+                arc_dir  = os.path.dirname(txt)
+                if arc_name.startswith("lib") and arc_name.endswith(".a"):
+                    libs.append(arc_name[3:-2])      # libfoo.a → foo
+                if arc_dir and arc_dir not in libpath:
+                    libpath.append(arc_dir)
+
+            elif txt.startswith("-l"):               # -lfoo
+                libs.append(txt[2:])
+
+            else:                                    # sonstiges Token
+                linkflags.append(txt)
+
+    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": linkflags}
+
+
+
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
     project.install_dependencies()
@@ -1929,20 +2008,30 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
-# cannot merge them correctly
-extra_flags = filter_args(
-    link_args["LINKFLAGS"],
-    [
-        "-T",
-        "-u",
-        "-Wl,--start-group",
-        "-Wl,--end-group",
-        "-Wl,--whole-archive",
-        "-Wl,--no-whole-archive",
-    ],
-)
-link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags)))
+if "clang" in env.subst("$CC").lower():
+
+    # Debug-Ausgabe: zeigt die echten CMake-Fragmente
+    debug_link_command_fragments(elf_config)
+
+    # 1) komplette Daten holen
+    cmake_link = extract_complete_link_command(elf_config)
+
+    # 2) SCons-Environment exakt befüllen
+    env.AppendUnique(LIBS     = cmake_link["LIBS"])
+    env.AppendUnique(LIBPATH  = cmake_link["LIBPATH"])
+    env.AppendUnique(LINKFLAGS= cmake_link["LINKFLAGS"])
+
+    # libs-Liste synchron halten, damit PlatformIO-Hilfsfunktionen
+    # (size, OTA-Image etc.) weiterhin funktionieren
+    libs[:] = []   # alle Archive liegen nun in LINKFLAGS in Original-Reihenfolge
+    extra_flags = []  # nichts zusätzlich
+
+    print(f"✅  CMake-native linking activated "
+          f"({len(cmake_link['LINKFLAGS'])} LINKFLAGS, "
+          f"{len(cmake_link['LIBS'])} LIBS, "
+          f"{len(cmake_link['LIBPATH'])} LIBPATH)")
+
+
 
 # remove the main linker script flags '-T memory.ld'
 try:
