@@ -2165,6 +2165,14 @@ if "clang" in env.subst("$CC").lower():
     cmake_api_reply_dir = os.path.join(BUILD_DIR, ".cmake", "api", "v1", "reply")
     dependency_graph = extract_component_dependencies(target_configs, cmake_api_reply_dir)
     
+    # WICHTIG: Erst extra_flags aus link_args extrahieren
+    original_extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u",
+         "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    
     # Vereinfachte Clang-Linking-Logik
     clang_linking_flags = []
     
@@ -2259,7 +2267,7 @@ if "clang" in env.subst("$CC").lower():
     
     # 4. Bestehende Linker-Scripts übernehmen (nur kritische)
     essential_linker_flags = []
-    for flag in extra_flags:
+    for flag in original_extra_flags:  # ← Jetzt verwenden wir original_extra_flags
         flag_str = str(flag)
         # Nur wirklich kritische Linker-Elemente
         if (flag_str.startswith('-T') and flag_str.endswith('.ld') or 
@@ -2269,9 +2277,14 @@ if "clang" in env.subst("$CC").lower():
 
     clang_linking_flags.extend(essential_linker_flags)
     
-    # Ersetze die ursprünglichen Flags
-    extra_flags[:] = clang_linking_flags
-    libs[:] = []
+    # Bereinige original LINKFLAGS
+    link_args["LINKFLAGS"] = sorted(
+        set(link_args["LINKFLAGS"]) - set(original_extra_flags)
+    )
+    
+    # Setze die finalen Flags
+    extra_flags = clang_linking_flags
+    libs = []
     
     print(f"ESP-IDF 5.5 Clang Linking: Processed {libraries_processed} libraries with dependency-aware configuration")
 
