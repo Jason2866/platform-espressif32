@@ -2268,11 +2268,11 @@ if "clang" in env.subst("$CC").lower():
     if additional_hal_libs:
         link_args["LINKFLAGS"].extend(additional_hal_libs)
     
-    # Standard-Flag-Filterung
+    # Flag-Filterung
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
+        # ENTFERNT: "-Wl,--whole-archive", "-Wl,--no-whole-archive"
     )
     
     link_args["LINKFLAGS"] = sorted(
