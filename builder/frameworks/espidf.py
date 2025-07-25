@@ -2311,6 +2311,11 @@ def clean_clang_linkflags_espidf(target, source, env):
         print("LINKCOM substitution successful")
         print("Command length: " + str(len(linkcom)))
         
+        # NEU: Zeige den vollständigen Befehl
+        print("=== FULL LINKCOM COMMAND ===")
+        print(linkcom)
+        print("=== END FULL LINKCOM COMMAND ===")
+        
         # Prüfe auf % Zeichen in der finalen Befehlszeile
         if '%' in linkcom:
             print("*** WARNING: Final LINKCOM contains % characters ***")
