@@ -2191,7 +2191,7 @@ libs = find_lib_deps(
 def clean_clang_linkflags_espidf(target, source, env):
     """
     Vor dem Linken alle -T, -u und -z Flags für Clang konvertieren
-    und finale LINKCOM-Befehlszeile für Debugging ausgeben.
+    und problematische CPU-Flags entfernen.
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2215,6 +2215,13 @@ def clean_clang_linkflags_espidf(target, source, env):
     while i < len(original):
         flag = str(original[i])
         
+        # KRITISCH: Entferne problematische CPU-Flags für den Linker
+        if flag.startswith('-mcpu='):
+            print("ESP-IDF: Removed linker-incompatible flag: " + flag)
+            converted_count += 1
+            i += 1
+            continue
+            
         # Behandle getrennte -z Flags
         if flag == "-z" and i + 1 < len(original):
             arg = str(original[i+1])
@@ -2263,7 +2270,7 @@ def clean_clang_linkflags_espidf(target, source, env):
                 print("ESP-IDF: Skipped duplicate script: " + script_name)
             i += 1
             
-        # KORRIGIERT: Bereits kombinierte -u Flags mit Leerzeichen-Behandlung
+        # Bereits kombinierte -u Flags mit Leerzeichen-Behandlung
         elif str(flag).startswith('-u') and not str(flag).startswith('-Wl,'):
             if len(str(flag)) > 2:  # Kombiniertes Format: "-usymbol" oder "-u symbol"
                 symbol_with_space = str(flag)[2:]  # Entferne '-u' Prefix
@@ -2311,19 +2318,18 @@ def clean_clang_linkflags_espidf(target, source, env):
         print("LINKCOM substitution successful")
         print("Command length: " + str(len(linkcom)))
         
-        # NEU: Zeige den vollständigen Befehl
         print("=== FULL LINKCOM COMMAND ===")
         print("Command starts with: " + linkcom[:100])
         print("Command ends with: " + linkcom[-100:])
         print("Full command length: " + str(len(linkcom)))
-
+        
         # Check if command is actually truncated
         if len(linkcom) < 8000:  # Expected to be much longer
             print("*** WARNING: Command appears truncated! ***")
             print("Expected length should be >8000 characters")
         else:
             print("Command length appears normal")
-
+        
         # Try to write command to file for full analysis
         try:
             with open("/tmp/linkcom_debug.txt", "w") as f:
@@ -2331,8 +2337,6 @@ def clean_clang_linkflags_espidf(target, source, env):
             print("Full command written to /tmp/linkcom_debug.txt")
         except:
             print("Could not write command to file")
-
-        print("=== END FULL LINKCOM COMMAND ===")
         
         # Prüfe auf % Zeichen in der finalen Befehlszeile
         if '%' in linkcom:
