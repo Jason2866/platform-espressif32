@@ -774,7 +774,7 @@ def extract_link_args(target_config):
     import click
 
     def _add_to_libpath(lib_path, link_args):
-        if lib_path and lib_path not in link_args["LIBPATH"]:
+        if lib_path not in link_args["LIBPATH"]:
             link_args["LIBPATH"].append(lib_path)
 
     def _add_archive(archive_path, link_args):
@@ -784,13 +784,12 @@ def extract_link_args(target_config):
             link_args["LIBS"].append(archive_name)
 
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
-
-    # KRITISCH: fragments Definition HIER für alle Verwendungen
-    fragments = target_config.get("link", {}).get("commandFragments", [])
     
+    # KRITISCH: Prüfe ob Clang verwendet wird
     is_clang = "clang" in env.subst("$CC").lower()
-
-    # Mehrfache Bootloader-Erkennung
+    
+    # Verbesserte Bootloader-Erkennung
+    fragments = target_config.get("link", {}).get("commandFragments", [])
     cmake_target = target_config.get("name", "").lower()
     
     has_bootloader_fragments = any(
@@ -798,7 +797,6 @@ def extract_link_args(target_config):
         for fragment in fragments
         for indicator in ["bootloader.ld", "bootloader.rom.ld", "bootloader_support"]
     )
-    
     has_bootloader_define = "__BOOTLOADER_BUILD" in str(env.get("CPPDEFINES", []))
     has_bootloader_in_path = "bootloader" in BUILD_DIR
     
@@ -808,121 +806,189 @@ def extract_link_args(target_config):
         has_bootloader_define or
         has_bootloader_in_path
     )
-
-    print(f"DEBUG: is_clang={is_clang}, is_bootloader={is_bootloader}")
-
+    
     if is_clang and not is_bootloader:
-        print("FIRMWARE BUILD: Using Clang-specific -Wl, formatting...")
-        
-        skip_libraries = {"__pio_env", "src"}
-        temp_linkflags = []
+        print("Using Clang-specific fragment processing for FIRMWARE...")
+        skip_libraries = ["__pio_env", "src"]
+        processed_scripts = set()
         processed_script_names = set()
-
-        for fragment in fragments:
-            fragment_text = fragment.get("fragment", "").strip()
-            fragment_role = fragment.get("role", "").strip()
-            if not fragment_text or not fragment_role:
+        temp_linkflags = []
+        
+        # Debug: Zeige alle eingehenden Fragmente
+        print(f"FIRMWARE: Processing {len(fragments)} fragments")
+        
+        linker_script_fragments = []
+        for i, f in enumerate(fragments):
+            fragment = f.get("fragment", "").strip()
+            fragment_role = f.get("role", "").strip()
+            if fragment.endswith('.ld') or fragment == '-T':
+                linker_script_fragments.append((i, fragment, fragment_role))
+        
+        print(f"LINKER SCRIPT RELATED FRAGMENTS ({len(linker_script_fragments)}):")
+        for i, fragment, role in linker_script_fragments:
+            print(f"  [{i:3d}] {role:12} {fragment}")
+        
+        # Clang-spezifische Verarbeitung für Firmware
+        for f in fragments:
+            fragment = f.get("fragment", "").strip()
+            fragment_role = f.get("role", "").strip()
+            if not fragment or not fragment_role:
                 continue
-
+                
             if fragment_role == "flags":
-                args = click.parser.split_arg_string(fragment_text)
+                args = click.parser.split_arg_string(fragment)
                 temp_linkflags.extend(args)
-
+                
             elif fragment_role == "libraryPath":
-                if fragment_text.startswith("-L"):
-                    lib_path = fragment_text.replace("-L", "").strip(" '\"")
+                if fragment.startswith("-L"):
+                    lib_path = fragment.replace("-L", "").strip(" '\"")
+                    # Relative Pfade zu absoluten machen
                     if lib_path and not os.path.isabs(lib_path):
                         lib_path = os.path.join(BUILD_DIR, lib_path)
                     _add_to_libpath(lib_path, link_args)
                 else:
-                    temp_linkflags.append(fragment_text)
-
+                    temp_linkflags.append(fragment)
+                    
             elif fragment_role == "libraries":
-                if fragment_text.startswith("-u"):
-                    symbol = fragment_text[2:]
+                if fragment.startswith("-u"):
+                    symbol = fragment[2:]
                     temp_linkflags.append(f"-Wl,-u,{symbol}")
-                elif fragment_text.startswith("-Wl,--wrap="):
-                    temp_linkflags.append(fragment_text)
-                elif fragment_text.startswith("-Wl,"):
-                    temp_linkflags.append(fragment_text)
-                elif fragment_text.startswith("-l"):
-                    lib_name = fragment_text[2:]
-                    if lib_name not in skip_libraries and lib_name not in link_args["LIBS"]:
-                        link_args["LIBS"].append(lib_name)
-                elif fragment_text.endswith(".a"):
-                    archive_name = os.path.basename(fragment_text)
+                    print(f"Adding Clang symbol force: -Wl,-u,{symbol}")
+                elif fragment.startswith("-Wl,--wrap="):
+                    temp_linkflags.append(fragment)
+                    print(f"Adding wrapper flag: {fragment}")
+                elif fragment.startswith("-Wl,"):
+                    temp_linkflags.append(fragment)
+                    print(f"Adding linker flag: {fragment}")
+                elif fragment.startswith("-l"):
+                    lib_name = fragment[2:]
+                    if lib_name not in skip_libraries:
+                        if lib_name not in link_args["LIBS"]:
+                            link_args["LIBS"].append(lib_name)
+                elif fragment.endswith(".a"):
+                    archive_name = os.path.basename(fragment)
                     should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
                     
                     if not should_skip:
-                        archive_path = fragment_text
+                        archive_path = fragment
                         if not os.path.isabs(archive_path):
                             if archive_path.startswith(".."):
                                 archive_path = os.path.normpath(os.path.join(BUILD_DIR, archive_path))
                             else:
                                 archive_path = os.path.join(BUILD_DIR, archive_path)
                         
+                        # KRITISCH: Prüfe ob Archive-Datei existiert (für Build-Reihenfolge)
                         if os.path.isfile(archive_path):
                             temp_linkflags.append(archive_path)
+                            print(f"Adding archive: {os.path.basename(archive_path)}")
                         else:
+                            # Archive existiert noch nicht - füge zu __LIB_DEPS hinzu
+                            print(f"Archive not ready, deferring: {os.path.basename(archive_path)}")
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
-                else:
-                    if not any(char in fragment_text for char in ['/', '.', '-']) and len(fragment_text) > 0:
-                        temp_linkflags.append(f"-Wl,-u,{fragment_text}")
                     else:
-                        temp_linkflags.append(fragment_text)
+                        print(f"Skipping problematic library: {fragment}")
+                else:
+                    # Unbekannte Tokens - wahrscheinlich Symbol-Namen
+                    if not any(char in fragment for char in ['/', '.', '-']) and len(fragment) > 0:
+                        temp_linkflags.append(f"-Wl,-u,{fragment}")
+                        print(f"Adding Clang symbol flag: -Wl,-u,{fragment}")
+                    else:
+                        temp_linkflags.append(fragment)
+                        print(f"Adding other: {fragment}")
             else:
-                temp_linkflags.append(fragment_text)
-
-        # Clang-Flag-Konvertierung
+                temp_linkflags.append(fragment)
+        
+        # KRITISCH: Debug vor Post-Processing
+        t_flags_before = [f for f in temp_linkflags if f == '-T' or (isinstance(f, str) and f.endswith('.ld'))]
+        print(f"\nTEMP_LINKFLAGS BEFORE POST-PROCESSING (T-related): {len(t_flags_before)}")
+        for i, flag in enumerate(t_flags_before):
+            print(f"  [{i:2d}] {flag}")
+        
+        # KRITISCH: Post-Processing für getrennte Flags, -T und -z Kombinationen
         processed_linkflags = []
         i = 0
         while i < len(temp_linkflags):
             flag = temp_linkflags[i]
-
+            
+            # KRITISCH: Behandle -z Flag für Clang-Kompatibilität
             if flag == "-z" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
-                processed_linkflags.append(f"-Wl,-z,{next_flag}")
+                # Konvertiere zu Clang-kompatiblem Format
+                clang_z_flag = f"-Wl,-z,{next_flag}"
+                processed_linkflags.append(clang_z_flag)
+                print(f"Converted -z flag for Clang: {clang_z_flag}")
                 i += 2
+                
+            # Behandle -T Flag (für Linker-Scripts)
             elif flag == "-T" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
+                
                 if next_flag.endswith('.ld') and not next_flag.startswith('-'):
-                    script_name = os.path.basename(next_flag)
-                    if script_name not in processed_script_names:
-                        processed_linkflags.append(f"-Wl,-T,{next_flag}")
-                        processed_script_names.add(script_name)
+                    script_path = next_flag
+                    script_name = os.path.basename(script_path)
+                    
+                    print(f"Processing -T flag: {script_name}")
+                    
+                    # KRITISCH: Prüfe Duplikate basierend auf Script-Namen, nicht Pfad
+                    if script_name in processed_script_names:
+                        print(f"  SKIPPED DUPLICATE by name: {script_name}")
+                        i += 2
+                        continue
+                    
+                    # Clang-Format: -Wl,-T,script
+                    combined_flag = f"-Wl,-T,{script_path}"
+                    
+                    # Füge zu beiden Sets hinzu
+                    processed_linkflags.append(combined_flag)
+                    processed_scripts.add(combined_flag)
+                    processed_script_names.add(script_name)
+                    print(f"  ADDED UNIQUE: {script_name}")
+                    
                     i += 2
-                    continue
-            processed_linkflags.append(flag)
-            i += 1
-
+                else:
+                    processed_linkflags.append(flag)
+                    i += 1
+            else:
+                processed_linkflags.append(flag)
+                i += 1
+        
         link_args["LINKFLAGS"].extend(processed_linkflags)
-
+        
+        # KRITISCH: Debug nach Post-Processing
+        final_t_flags = [f for f in link_args["LINKFLAGS"] if isinstance(f, str) and f.startswith('-Wl,-T') and f.endswith('.ld')]
+        print(f"\nFINAL LINKFLAGS (-T scripts): {len(final_t_flags)}")
+        for i, flag in enumerate(final_t_flags):
+            script_name = os.path.basename(flag[7:]) if flag.startswith('-Wl,-T') else flag  # 7 = len('-Wl,-T')
+            print(f"  [{i:2d}] {script_name} -> {flag}")
+        
+        print(f"\nProcessed unique script names: {list(processed_script_names)}")
+        print(f"Clang processing complete: {len(link_args['LINKFLAGS'])} total flags")
+    
     else:
+        # GCC: Standard-Verarbeitung (für Bootloader und GCC)
         if is_bootloader:
-            print("BOOTLOADER BUILD DETECTED: Using standard formatting...")
+            print("BOOTLOADER BUILD DETECTED: Using standard GCC formatting...")
         else:
-            print("GCC BUILD: Using standard formatting...")
-
-        # KORREKTE Standard-Verarbeitung (wie ursprünglich)
-        for fragment in fragments:
-            fragment_text = fragment.get("fragment", "").strip()
-            fragment_role = fragment.get("role", "").strip()
-            if not fragment_text or not fragment_role:
-                continue
-            args = click.parser.split_arg_string(fragment_text)
+            print("GCC BUILD: Using standard GCC formatting...")
             
+        for f in fragments:
+            fragment = f.get("fragment", "").strip()
+            fragment_role = f.get("role", "").strip()
+            if not fragment or not fragment_role:
+                continue
+            args = click.parser.split_arg_string(fragment)
             if fragment_role == "flags":
                 link_args["LINKFLAGS"].extend(args)
             elif fragment_role in ("libraries", "libraryPath"):
-                if fragment_text.startswith("-l"):
+                if fragment.startswith("-l"):
                     link_args["LIBS"].extend(args)
-                elif fragment_text.startswith("-L"):
-                    lib_path = fragment_text.replace("-L", "").strip(" '\"")
+                elif fragment.startswith("-L"):
+                    lib_path = fragment.replace("-L", "").strip(" '\"")
                     _add_to_libpath(lib_path, link_args)
-                elif fragment_text.startswith("-") and not fragment_text.startswith("-l"):
+                elif fragment.startswith("-") and not fragment.startswith("-l"):
                     link_args["LINKFLAGS"].extend(args)
-                elif fragment_text.endswith(".a"):
-                    archive_path = fragment_text
+                elif fragment.endswith(".a"):
+                    archive_path = fragment
                     if os.path.isabs(archive_path):
                         _add_archive(archive_path, link_args)
                     else:
