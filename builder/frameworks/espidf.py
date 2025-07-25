@@ -2190,10 +2190,16 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Vor dem Linken alle getrennt übergebenen „-z <arg>“ 
-    für Clang in „-Wl,-z,<arg>“ umwandeln.
+    Vor dem Linken alle getrennt übergebenen „-z <arg>" 
+    für Clang in „-Wl,-z,<arg>" umwandeln.
     """
     original = env.get("LINKFLAGS", [])
+    
+    # DEBUG: Zeige die exakten LINKFLAGS
+    print("ESP-IDF: Original LINKFLAGS before cleaning:")
+    for i, flag in enumerate(original):
+        print(f"  [{i:2d}] {type(flag).__name__}: {repr(flag)}")
+    
     cleaned = []
     i = 0
     while i < len(original):
@@ -2201,12 +2207,19 @@ def clean_clang_linkflags_espidf(target, source, env):
         if flag == "-z" and i + 1 < len(original):
             arg = original[i+1]
             cleaned.append(f"-Wl,-z,{arg}")
+            print(f"ESP-IDF: Converted -z {repr(arg)} to -Wl,-z,{arg}")
             i += 2
         else:
             cleaned.append(flag)
             i += 1
 
     env.Replace(LINKFLAGS=cleaned)
+    
+    # DEBUG: Zeige die bereinigten LINKFLAGS
+    print("ESP-IDF: Cleaned LINKFLAGS:")
+    for i, flag in enumerate(cleaned):
+        print(f"  [{i:2d}] {type(flag).__name__}: {repr(flag)}")
+    
     return (target, source)
 
 if "clang" in env.subst("$CC").lower():
@@ -2246,18 +2259,13 @@ if "clang" in env.subst("$CC").lower():
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
-        # ENTFERNT: "-Wl,--whole-archive", "-Wl,--no-whole-archive"
     )
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(extra_flags)
-    )
-    # Entferne extra_flags aus LINKFLAGS, behalte Reihenfolge
     extra_flags_set = set(extra_flags)
     link_args["LINKFLAGS"] = [
         flag for flag in link_args["LINKFLAGS"] 
         if flag not in extra_flags_set
     ]
-    # Füge extra_flags am Ende hinzu (bereits von extract_link_args konvertiert)
+    # Füge extra_flags am Ende hinzu
     link_args["LINKFLAGS"].extend(extra_flags)
     print("Clang: Using Clang linker argument format")
 
@@ -2268,10 +2276,11 @@ else:
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(extra_flags)
-    )
-
+    extra_flags_set = set(extra_flags)
+    link_args["LINKFLAGS"] = [
+        flag for flag in link_args["LINKFLAGS"] 
+        if flag not in extra_flags_set
+    ]
 
 # remove the main linker script flags '-T memory.ld'
 try:
