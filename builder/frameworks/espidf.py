@@ -2195,7 +2195,8 @@ def clean_clang_linkflags_espidf(target, source, env):
     original = env.get("LINKFLAGS", [])
     cleaned = []
     converted_count = 0
-    seen_scripts = set()  # Exakte Script-Namen
+    seen_scripts = set()
+    seen_symbols = set()  # NEU: Für -u Symbol-Duplikate
     
     i = 0
     while i < len(original):
@@ -2213,32 +2214,33 @@ def clean_clang_linkflags_espidf(target, source, env):
         # Behandle getrennte -T Flags
         elif flag == "-T" and i + 1 < len(original):
             script = str(original[i+1])
-            if script.endswith('.ld'):
-                # KORRIGIERT: Exakte Script-Namen verwenden
-                if script not in seen_scripts:
-                    clang_flag = "-Wl,-T," + script
-                    cleaned.append(clang_flag)
-                    seen_scripts.add(script)
-                    print("ESP-IDF: Converted -T " + script + " to " + clang_flag)
-                    converted_count += 1
-                else:
-                    print("ESP-IDF: Skipped duplicate -T " + script)
+            if script.endswith('.ld') and script not in seen_scripts:
+                clang_flag = "-Wl,-T," + script
+                cleaned.append(clang_flag)
+                seen_scripts.add(script)
+                print("ESP-IDF: Converted -T " + script + " to " + clang_flag)
+                converted_count += 1
+            elif script in seen_scripts:
+                print("ESP-IDF: Skipped duplicate -T " + script)
             i += 2
             
         # Behandle getrennte -u Flags  
         elif flag == "-u" and i + 1 < len(original):
             symbol = str(original[i+1])
-            clang_flag = "-Wl,-u," + symbol
-            cleaned.append(clang_flag)
-            print("ESP-IDF: Converted -u " + symbol + " to " + clang_flag)
-            converted_count += 1
+            if symbol not in seen_symbols:
+                # KORRIGIERT: Kein Leerzeichen nach Komma
+                clang_flag = "-Wl,-u," + symbol
+                cleaned.append(clang_flag)
+                seen_symbols.add(symbol)
+                print("ESP-IDF: Converted -u " + symbol + " to " + clang_flag)
+                converted_count += 1
+            else:
+                print("ESP-IDF: Skipped duplicate -u " + symbol)
             i += 2
             
-        # KORRIGIERT: Bereits kombinierte -T Flags mit präziser Duplikat-Erkennung
+        # Bereits kombinierte -T Flags
         elif str(flag).startswith('-T') and str(flag).endswith('.ld'):
-            script_name = str(flag)[2:]  # Entferne '-T' Prefix → "esp32.peripherals.ld"
-            
-            # KORRIGIERT: Exakte Script-Namen prüfen
+            script_name = str(flag)[2:]
             if script_name not in seen_scripts:
                 clang_flag = "-Wl,-T," + script_name
                 cleaned.append(clang_flag)
@@ -2249,13 +2251,18 @@ def clean_clang_linkflags_espidf(target, source, env):
                 print("ESP-IDF: Skipped duplicate script: " + script_name)
             i += 1
             
-        # Bereits kombinierte -u Flags konvertieren
+        # KORRIGIERT: Bereits kombinierte -u Flags
         elif str(flag).startswith('-u') and not str(flag).startswith('-Wl,'):
-            symbol = str(flag)[2:]  # Entferne '-u' Prefix
-            clang_flag = "-Wl,-u," + symbol
-            cleaned.append(clang_flag)
-            print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
-            converted_count += 1
+            symbol = str(flag)[2:]
+            if symbol not in seen_symbols:
+                # KORRIGIERT: Kein Leerzeichen nach Komma
+                clang_flag = "-Wl,-u," + symbol
+                cleaned.append(clang_flag)
+                seen_symbols.add(symbol)
+                print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
+                converted_count += 1
+            else:
+                print("ESP-IDF: Skipped duplicate symbol: " + symbol)
             i += 1
             
         # Alle anderen Flags unverändert
