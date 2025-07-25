@@ -2248,73 +2248,18 @@ if "clang" in env.subst("$CC").lower()
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
         # ENTFERNT: "-Wl,--whole-archive", "-Wl,--no-whole-archive"
     )
-    
     link_args["LINKFLAGS"] = sorted(
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
-    
-    # KRITISCH: Konvertiere verbleibende GCC-Style Flags zu Clang-Format
-    def convert_gcc_to_clang_flags(flags):
-        """
-        Konvertiert GCC-Style Flags zu Clang-kompatiblen -Wl, oder -Xlinker Formaten.
-        """
-        clang_flags = []
-        i = 0
-        
-        while i < len(flags):
-            flag = str(flags[i])
-            
-            # Behandle getrennte -T Flags
-            if flag == "-T" and i + 1 < len(flags):
-                script = str(flags[i + 1])
-                if script.endswith('.ld'):
-                    # Clang bevorzugt -Wl,-T,script Format
-                    clang_flags.append(f"-Wl,-T,{script}")
-                    print(f"Converted: -T {script} → -Wl,-T,{script}")
-                    i += 2
-                    continue
-            
-            # Behandle getrennte -u Flags
-            elif flag == "-u" and i + 1 < len(flags):
-                symbol = str(flags[i + 1])
-                # Clang: -Wl,-u,symbol
-                clang_flags.append(f"-Wl,-u,{symbol}")
-                print(f"Converted: -u {symbol} → -Wl,-u,{symbol}")
-                i += 2
-                continue
-            
-#            # Behandle -z Flags
-#            elif flag == "-z" and i + 1 < len(flags):
-#                z_arg = str(flags[i + 1])
-#                clang_flags.append(f"-Wl,-z,{z_arg}")
-#                print(f"Converted: -z {z_arg} → -Wl,-z,{z_arg}")
-#                i += 2
-#                continue
-            
-            # Bereits korrekt formatierte -Wl, Flags beibehalten
-            elif flag.startswith("-Wl,"):
-                clang_flags.append(flag)
-                i += 1
-            
-            # Andere Flags unverändert
-            else:
-                clang_flags.append(flag)
-                i += 1
-        
-        return clang_flags
-    
-    # Konvertiere extra_flags zu Clang-Format
-    clang_extra_flags = convert_gcc_to_clang_flags(extra_flags)
-    
-    print(f"Converted {len(extra_flags)} → {len(clang_extra_flags)} Clang-compatible flags")
-    
-    # Verbose-Output für Debugging aktivieren
-    env.AppendUnique(LINKFLAGS=["-v"])
-    print("Added -v flag for verbose linker output")
-    
-    libs = []
-    
-    print("Clang: Using documented Clang linker argument format")
+    # Entferne extra_flags aus LINKFLAGS, behalte Reihenfolge
+    extra_flags_set = set(extra_flags)
+    link_args["LINKFLAGS"] = [
+        flag for flag in link_args["LINKFLAGS"] 
+        if flag not in extra_flags_set
+    ]
+    # Füge extra_flags am Ende hinzu (bereits von extract_link_args konvertiert)
+    link_args["LINKFLAGS"].extend(extra_flags)
+    print("Clang: Using Clang linker argument format")
 
 else:
     # GCC: Standard-Verarbeitung (unverändert)
