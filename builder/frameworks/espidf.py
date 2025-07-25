@@ -2236,7 +2236,8 @@ if "clang" in env.subst("$CC").lower():
     print("Clang: Using documented -Wl, and -Xlinker approaches")
 
     # Registriere Flag-Bereinigung als Pre-Link-Action
-    env.AddPreAction(target_elf, clean_clang_linkflags_espidf)
+    target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
+    env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
     print("ESP-IDF: Registered Clang flag cleaning for firmware linking")
 
     # HAL-Libraries für Xtensa-MCUs hinzufügen
