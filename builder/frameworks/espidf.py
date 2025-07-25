@@ -2501,13 +2501,13 @@ if "clang" in env.subst("$CC").lower():
                 i += 2
                 continue
             
-            # Behandle -z Flags
-            elif flag == "-z" and i + 1 < len(flags):
-                z_arg = str(flags[i + 1])
-                clang_flags.append(f"-Wl,-z,{z_arg}")
-                print(f"Converted: -z {z_arg} → -Wl,-z,{z_arg}")
-                i += 2
-                continue
+#            # Behandle -z Flags
+#            elif flag == "-z" and i + 1 < len(flags):
+#                z_arg = str(flags[i + 1])
+#                clang_flags.append(f"-Wl,-z,{z_arg}")
+#                print(f"Converted: -z {z_arg} → -Wl,-z,{z_arg}")
+#                i += 2
+#                continue
             
             # Bereits korrekt formatierte -Wl, Flags beibehalten
             elif flag.startswith("-Wl,"):
