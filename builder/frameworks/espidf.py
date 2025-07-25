@@ -1458,6 +1458,49 @@ def build_bootloader(sdk_config):
         env.Exit(1)
 
     bootloader_env = env.Clone()
+
+    # HINZUGEFÜGT: Debug-Funktion für Bootloader LINKCOM
+    def debug_bootloader_linkcom(target, source, env):
+        print("=== BOOTLOADER LINKCOM DEBUG START ===")
+        # LINKFLAGS ausgeben
+        linkflags = env.get("LINKFLAGS", [])
+        print(f"Bootloader LINKFLAGS count: {len(linkflags)}")
+        
+        with open("/tmp/bootloader_linkflags.log", "w") as f:
+            f.write("=== BOOTLOADER LINKFLAGS ===\n")
+            for i, flag in enumerate(linkflags):
+                line = f"[{i:3d}] {repr(flag)}\n"
+                f.write(line)
+                print(f"  {line.strip()}")
+        
+        # LINKCOM generieren und ausgeben
+        try:
+            linkcom = env.subst('$LINKCOM', target=target, source=source)
+            
+            with open("/tmp/bootloader_linkcom.log", "w") as f:
+                f.write(linkcom)
+            
+            print(f"Bootloader LINKCOM length: {len(linkcom)}")
+            print(f"Bootloader LINKCOM starts: {linkcom[:100]}")
+            print(f"Bootloader LINKCOM ends: {linkcom[-100:]}")
+            print("Full bootloader LINKCOM written to /tmp/bootloader_linkcom.log")
+            
+            # Prüfe auf problematische Zeichen
+            if '%' in linkcom:
+                print("*** WARNING: Bootloader LINKCOM contains % characters ***")
+            else:
+                print("Bootloader LINKCOM is clean (no % characters)")
+                
+        except Exception as e:
+            print(f"*** ERROR: Bootloader LINKCOM failed: {e}")
+        
+        print("=== BOOTLOADER LINKCOM DEBUG END ===")
+        return (target, source)
+    
+    # Registriere Debug-Funktion für Bootloader ELF
+    bootloader_elf_target = os.path.join("$BUILD_DIR", "bootloader.elf")
+    bootloader_env.AddPreAction(bootloader_elf_target, debug_bootloader_linkcom)
+
     components_map = get_components_map(
         target_configs, ["STATIC_LIBRARY", "OBJECT_LIBRARY"]
     )
