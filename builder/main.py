@@ -925,7 +925,7 @@ def finalize_clang_environment():
         app_flags["CXX"].extend(cxx_flags)
 
         linker_flags = [
-            "-Wl,-z,noexecstack",
+#            "-Wl,-z,noexecstack",
             "-Wl,--gc-sections",
             "-Wl,--warn-common", 
             "-Wl,--allow-multiple-definition",
