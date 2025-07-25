@@ -2197,7 +2197,15 @@ def clean_clang_linkflags_espidf(target, source, env):
     converted_count = 0
     seen_symbols = set()
     
-    print("=== ESP-IDF FLAG CLEANING DEBUG START ===")
+    # NEUE: Bootloader-Erkennung für Debug-Unterscheidung
+    is_bootloader = any([
+        "bootloader" in str(target[0]).lower() if target else False,
+        "bootloader" in env.get("BUILD_DIR", "").lower(),
+        "__BOOTLOADER_BUILD" in str(env.get("CPPDEFINES", [])),
+    ])
+    
+    build_type = "BOOTLOADER" if is_bootloader else "FIRMWARE"
+    print(f"=== ESP-IDF FLAG CLEANING DEBUG START ({build_type}) ===")
     print("Original LINKFLAGS count: " + str(len(original)))
     
     i = 0
@@ -2206,7 +2214,7 @@ def clean_clang_linkflags_espidf(target, source, env):
         
         # KRITISCH: Entferne problematische CPU-Flags für den Linker
         if flag.startswith('-mcpu='):
-            print("ESP-IDF: Removed linker-incompatible flag: " + flag)
+            print(f"ESP-IDF ({build_type}): Removed linker-incompatible flag: " + flag)
             converted_count += 1
             i += 1
             continue
@@ -2216,7 +2224,7 @@ def clean_clang_linkflags_espidf(target, source, env):
             arg = str(original[i+1])
             clang_flag = "-Wl,-z," + arg
             cleaned.append(clang_flag)
-            print("ESP-IDF: Converted -z " + arg + " to " + clang_flag)
+            print(f"ESP-IDF ({build_type}): Converted -z " + arg + " to " + clang_flag)
             converted_count += 1
             i += 2
             continue
@@ -2227,14 +2235,14 @@ def clean_clang_linkflags_espidf(target, source, env):
             if script.endswith('.ld'):
                 gcc_flag = "-T" + script
                 cleaned.append(gcc_flag)
-                print("ESP-IDF: Combined -T " + script + " to " + gcc_flag + " (GCC format)")
+                print(f"ESP-IDF ({build_type}): Combined -T " + script + " to " + gcc_flag + " (GCC format)")
                 i += 2
                 continue
             
         # Bereits kombinierte -T Flags unverändert lassen
         elif str(flag).startswith('-T') and str(flag).endswith('.ld'):
             cleaned.append(flag)
-            print("ESP-IDF: Kept linker script in GCC format: " + str(flag))
+            print(f"ESP-IDF ({build_type}): Kept linker script in GCC format: " + str(flag))
             i += 1
             continue
             
@@ -2245,7 +2253,7 @@ def clean_clang_linkflags_espidf(target, source, env):
                 clang_flag = "-Wl,-u," + symbol
                 cleaned.append(clang_flag)
                 seen_symbols.add(symbol)
-                print("ESP-IDF: Converted -u " + symbol + " to " + clang_flag)
+                print(f"ESP-IDF ({build_type}): Converted -u " + symbol + " to " + clang_flag)
                 converted_count += 1
             i += 2
             continue
@@ -2258,7 +2266,7 @@ def clean_clang_linkflags_espidf(target, source, env):
                     clang_flag = "-Wl,-u," + symbol
                     cleaned.append(clang_flag)
                     seen_symbols.add(symbol)
-                    print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
+                    print(f"ESP-IDF ({build_type}): Converted " + str(flag) + " to " + clang_flag)
                     converted_count += 1
             i += 1
             continue
@@ -2270,33 +2278,52 @@ def clean_clang_linkflags_espidf(target, source, env):
 
     if converted_count > 0:
         env.Replace(LINKFLAGS=cleaned)
-        print("ESP-IDF: Flag cleaning completed: " + str(converted_count) + " flags converted")
+        print(f"ESP-IDF ({build_type}): Flag cleaning completed: " + str(converted_count) + " flags converted")
     
-    # KRITISCH: LINKCOM-Test wiederherstellen
+    # KRITISCH: LINKCOM-Test für beide Build-Typen
     try:
-        print("=== FINAL LINKCOM SUBSTITUTION TEST ===")
+        print(f"=== FINAL LINKCOM SUBSTITUTION TEST ({build_type}) ===")
         linkcom = env.subst('$LINKCOM', target=target, source=source)
-        print("LINKCOM substitution successful")
-        print("Command length: " + str(len(linkcom)))
+        print(f"LINKCOM substitution successful ({build_type})")
+        print(f"Command length: {len(linkcom)}")
         
-        # Schreibe Command in Datei für Analyse
+        # Verschiedene Debug-Dateien für Bootloader vs Firmware
+        debug_file = f"/tmp/linkcom_debug_{build_type.lower()}.txt"
         try:
-            with open("/tmp/linkcom_debug.txt", "w") as f:
+            with open(debug_file, "w") as f:
                 f.write(linkcom)
-            print("Full command written to /tmp/linkcom_debug.txt")
+            print(f"Full {build_type} command written to {debug_file}")
         except:
-            print("Could not write command to file")
+            print(f"Could not write {build_type} command to file")
+        
+        # Zeige Unterschiede in der Befehlsstruktur
+        print(f"=== {build_type} LINKCOM ANALYSIS ===")
+        print(f"Command starts: {linkcom[:150]}")
+        print(f"Command ends: {linkcom[-150:]}")
+        
+        # Zähle verschiedene Flag-Typen
+        parts = linkcom.split()
+        wl_flags = [p for p in parts if p.startswith('-Wl,')]
+        t_flags = [p for p in parts if p.startswith('-T') and p.endswith('.ld')]
+        u_flags = [p for p in parts if p.startswith('-Wl,-u,')]
+        libs = [p for p in parts if p.endswith('.a')]
+        
+        print(f"{build_type} Flag counts:")
+        print(f"  -Wl, flags: {len(wl_flags)}")
+        print(f"  -T scripts: {len(t_flags)}")
+        print(f"  -u symbols: {len(u_flags)}")
+        print(f"  Libraries: {len(libs)}")
         
         if '%' in linkcom:
-            print("*** WARNING: Final LINKCOM contains % characters ***")
+            print(f"*** WARNING: {build_type} LINKCOM contains % characters ***")
         else:
-            print("Final LINKCOM is clean (no % characters)")
+            print(f"{build_type} LINKCOM is clean (no % characters)")
             
     except Exception as e:
-        print("*** CRITICAL ERROR during LINKCOM substitution: " + str(e))
+        print(f"*** CRITICAL ERROR during {build_type} LINKCOM substitution: " + str(e))
         print("This is the source of the TypeError!")
     
-    print("=== ESP-IDF FLAG CLEANING DEBUG END ===")
+    print(f"=== ESP-IDF FLAG CLEANING DEBUG END ({build_type}) ===")
     return (target, source)
 
 if "clang" in env.subst("$CC").lower():
