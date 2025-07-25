@@ -318,7 +318,6 @@ def HandleArduinoIDFsettings(env):
     write_sdkconfig_file(idf_config_list, custom_sdk_config_flags)
 
 
-
 def HandleCOMPONENTsettings(env):
     from component_manager import ComponentManager
     component_manager = ComponentManager(env)
@@ -358,174 +357,6 @@ if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and 
     env["INTEGRATION_EXTRA_DATA"].update({"arduino_lib_compile_flag": env.subst("$ARDUINO_LIB_COMPILE_FLAG")})
 
 
-def debug_link_command_fragments(target_config):
-    """
-    Gibt alle commandFragments in der Reihenfolge aus und markiert
-    Whole-Archive-Abschnitte.
-    """
-    print("\n🔎 LINK COMMAND FRAGMENTS DEBUG "
-          f"({target_config['name']})".ljust(60, "="))
-
-    wa_active = False
-    for frag in target_config.get("link", {}).get("commandFragments", []):
-        text  = frag.get("fragment", "").strip()
-        role  = frag.get("role", "")
-        if text == "-Wl,--whole-archive":
-            wa_active = True
-            marker = "▶ START WHOLE"
-        elif text == "-Wl,--no-whole-archive":
-            wa_active = False
-            marker = "■ END  WHOLE"
-        else:
-            marker = "●" if wa_active else " "
-        print(f"{marker:11} {role:<12} {text}")
-
-def extract_complete_link_command(target_config):
-    """
-    Vollständige CMake Fragment-Extraktion mit korrekter -T Flag-Kombination
-    und Symbol-Behandlung.
-    """
-    linkflags, libs, libpath = [], [], []
-    skip_libraries = ["__pio_env", "src"]
-    
-    for frag in target_config.get("link", {}).get("commandFragments", []):
-        txt = frag.get("fragment", "").strip()
-        role = frag.get("role", "").strip()
-        
-        if not txt:
-            continue
-            
-        if role == "flags":
-            parsed_flags = click.parser.split_arg_string(txt)
-            linkflags.extend(parsed_flags)
-            
-        elif role == "libraryPath":
-            if txt.startswith("-L"):
-                path = txt[2:].strip()
-                if path and not os.path.isabs(path):
-                    path = os.path.join(BUILD_DIR, path)
-                if path and path not in libpath:
-                    libpath.append(path)
-            else:
-                linkflags.append(txt)
-                
-        elif role == "libraries":
-            if txt.startswith("-u"):
-                linkflags.append(txt)
-                print(f"Adding symbol force: {txt}")
-            elif txt.startswith("-Wl,--wrap="):
-                linkflags.append(txt)
-                print(f"Adding wrapper flag: {txt}")
-            elif txt.startswith("-Wl,"):
-                linkflags.append(txt)
-                print(f"Adding linker flag: {txt}")
-            elif txt.startswith("-l"):
-                lib_name = txt[2:]
-                if lib_name not in skip_libraries and lib_name not in libs:
-                    libs.append(lib_name)
-            elif txt.endswith(".a"):
-                archive_name = os.path.basename(txt)
-                should_skip = any(f"lib{skip_lib}.a" in archive_name for skip_lib in skip_libraries)
-                
-                if not should_skip:
-                    archive_path = txt
-                    if not os.path.isabs(archive_path):
-                        archive_path = os.path.join(BUILD_DIR, archive_path)
-                    linkflags.append(archive_path)
-                    print(f"Adding archive: {os.path.basename(archive_path)}")
-            else:
-                # KRITISCH: Unbekannte Tokens sind wahrscheinlich Symbol-Namen
-                # Diese sollten als -u Flags behandelt werden
-                if not any(char in txt for char in ['/', '.', '-']) and len(txt) > 0:
-                    linkflags.append(f"-u{txt}")
-                    print(f"Adding symbol flag: -u{txt}")
-                else:
-                    linkflags.append(txt)
-                    print(f"Adding other: {txt}")
-        else:
-            linkflags.append(txt)
-    
-    # KRITISCH: Post-Processing für getrennte -T Flags
-    processed_linkflags = []
-    processed_scripts = set()
-    i = 0
-    
-    while i < len(linkflags):
-        flag = linkflags[i]
-        
-        if flag == "-T" and i + 1 < len(linkflags):
-            next_flag = linkflags[i + 1]
-            
-            if next_flag.endswith('.ld') and not next_flag.startswith('-'):
-                script_path = next_flag
-                
-                # Pfad-Resolution für Linker-Scripts
-                if not os.path.isabs(script_path):
-                    script_locations = [
-                        os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
-                        os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_path),
-                        os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32", "ld", script_path),
-                    ]
-                    
-                    for location in script_locations:
-                        if os.path.isfile(location):
-                            script_path = location
-                            print(f"Resolved linker script: {script_path}")
-                            break
-                    else:
-                        print(f"Warning: Linker script not found: {script_path}")
-                
-                combined_flag = f"-T{script_path}"
-                
-                # Duplikat-Kontrolle für Linker-Scripts
-                if combined_flag not in processed_scripts:
-                    processed_linkflags.append(combined_flag)
-                    processed_scripts.add(combined_flag)
-                else:
-                    print(f"Skipped duplicate linker script: {script_path}")
-                
-                i += 2
-            else:
-                processed_linkflags.append(flag)
-                i += 1
-        else:
-            processed_linkflags.append(flag)
-            i += 1
-    
-    return {"LIBS": libs, "LIBPATH": libpath, "LINKFLAGS": processed_linkflags}
-
-
-def comprehensive_cmake_debug(target_config):
-    """Debug ALLE verfügbaren CMake-Daten um fehlende Libraries zu finden"""
-    
-    print("\n🔍 COMPREHENSIVE CMAKE DATA DEBUG")
-    print("="*60)
-    
-    # Alle Link-Fragmente anzeigen
-    link_info = target_config.get("link", {})
-    fragments = link_info.get("commandFragments", [])
-    
-    print(f"\n📋 ALL COMMAND FRAGMENTS ({len(fragments)}):")
-    for i, frag in enumerate(fragments):
-        txt = frag.get("fragment", "")
-        role = frag.get("role", "")
-        print(f"  [{i:3d}] {role:12} {txt}")
-        
-        # Markiere HAL/ROM Libraries
-        if any(keyword in txt.lower() for keyword in ['hal', 'xt_', 'rom', 'bootloader']):
-            print(f"       ⭐ POTENTIAL HAL/ROM LIBRARY!")
-    
-    # Zeige Dependencies
-    dependencies = target_config.get("dependencies", [])
-    print(f"\n🔗 DEPENDENCIES ({len(dependencies)}):")
-    for dep in dependencies:
-        dep_id = dep.get("id", "")
-        if any(keyword in dep_id.lower() for keyword in ['hal', 'rom', 'xtensa', 'bootloader']):
-            print(f"  ⭐ {dep_id} - POTENTIAL HAL/ROM DEPENDENCY!")
-        else:
-            print(f"    {dep_id}")
-
-
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
     project.install_dependencies()
@@ -541,6 +372,7 @@ def get_project_lib_includes(env):
     DefaultEnvironment().Replace(__PIO_LIB_BUILDERS=None)
 
     return paths
+
 
 def is_cmake_reconfigure_required(cmake_api_reply_dir):
     cmake_cache_file = os.path.join(BUILD_DIR, "CMakeCache.txt")
@@ -904,39 +736,14 @@ def extract_link_args(target_config):
         for i, flag in enumerate(t_flags_before):
             print(f"  [{i:2d}] {flag}")
         
-        # ====== -z FLAGS DEBUG ======
-        z_flags_found = []
-        for i, flag in enumerate(temp_linkflags):
-            if str(flag) == "-z" and i + 1 < len(temp_linkflags):
-                z_flags_found.append((flag, temp_linkflags[i + 1]))
-            elif str(flag).startswith("-z"):
-                z_flags_found.append((flag, ""))
-
-        print(f"\nDEBUG: Found {len(z_flags_found)} -z related flags in temp_linkflags:")
-        for z_flag, z_arg in z_flags_found:
-            print(f"  '{z_flag}' '{z_arg}'")
-
-        if len(z_flags_found) == 0:
-            print("  No -z flags found in temp_linkflags")
-        # ====== ENDE -z FLAGS DEBUG ======
-        
         # KRITISCH: Post-Processing für getrennte Flags, -T und -z Kombinationen
         processed_linkflags = []
         i = 0
         while i < len(temp_linkflags):
             flag = temp_linkflags[i]
-            
-            # KRITISCH: Behandle -z Flag für Clang-Kompatibilität
-            if flag == "-z" and i + 1 < len(temp_linkflags):
-                next_flag = temp_linkflags[i + 1]
-                # Konvertiere zu Clang-kompatiblem Format
-                clang_z_flag = f"-Wl,-z,{next_flag}"
-                processed_linkflags.append(clang_z_flag)
-                print(f"Converted -z flag for Clang: {clang_z_flag}")
-                i += 2
                 
             # Behandle -T Flag (für Linker-Scripts)
-            elif flag == "-T" and i + 1 < len(temp_linkflags):
+            if flag == "-T" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
                 
                 if next_flag.endswith('.ld') and not next_flag.startswith('-'):
