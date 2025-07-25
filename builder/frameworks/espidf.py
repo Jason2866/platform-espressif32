@@ -2190,37 +2190,58 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Vor dem Linken alle getrennt übergebenen „-z <arg>" 
-    für Clang in „-Wl,-z,<arg>" umwandeln.
+    Vor dem Linken alle getrennt übergebenen Flags für Clang konvertieren:
+    - "-z <arg>" → "-Wl,-z,<arg>"
+    - "-T <script>" → "-Wl,-T,<script>"
+    - "-u <symbol>" → "-Wl,-u,<symbol>"
     """
     original = env.get("LINKFLAGS", [])
-    
-    # DEBUG: Zeige die exakten LINKFLAGS
-    print("ESP-IDF: Original LINKFLAGS before cleaning:")
-    for i, flag in enumerate(original):
-        print(f"  [{i:2d}] {type(flag).__name__}: {repr(flag)}")
-    
     cleaned = []
+    converted_count = 0
+    
     i = 0
     while i < len(original):
-        flag = original[i]
+        flag = str(original[i])
+        
+        # Behandle getrennte -z Flags
         if flag == "-z" and i + 1 < len(original):
-            arg = original[i+1]
+            arg = str(original[i+1])
             cleaned.append(f"-Wl,-z,{arg}")
-            print(f"ESP-IDF: Converted -z {repr(arg)} to -Wl,-z,{arg}")
+            print(f"ESP-IDF: Converted -z {arg} → -Wl,-z,{arg}")
+            converted_count += 1
             i += 2
+            
+        # Behandle getrennte -T Flags
+        elif flag == "-T" and i + 1 < len(original):
+            script = str(original[i+1])
+            if script.endswith('.ld'):
+                cleaned.append(f"-Wl,-T,{script}")
+                print(f"ESP-IDF: Converted -T {script} → -Wl,-T,{script}")
+                converted_count += 1
+            else:
+                # Fallback für non-.ld Files
+                cleaned.extend([flag, script])
+            i += 2
+            
+        # Behandle getrennte -u Flags  
+        elif flag == "-u" and i + 1 < len(original):
+            symbol = str(original[i+1])
+            cleaned.append(f"-Wl,-u,{symbol}")
+            print(f"ESP-IDF: Converted -u {symbol} → -Wl,-u,{symbol}")
+            converted_count += 1
+            i += 2
+            
+        # Alle anderen Flags unverändert
         else:
             cleaned.append(flag)
             i += 1
 
-    env.Replace(LINKFLAGS=cleaned)
-    
-    # DEBUG: Zeige die bereinigten LINKFLAGS
-    print("ESP-IDF: Cleaned LINKFLAGS:")
-    for i, flag in enumerate(cleaned):
-        print(f"  [{i:2d}] {type(flag).__name__}: {repr(flag)}")
+    if converted_count > 0:
+        env.Replace(LINKFLAGS=cleaned)
+        print(f"ESP-IDF: Flag cleaning completed: {converted_count} flags converted")
     
     return (target, source)
+
 
 if "clang" in env.subst("$CC").lower():
     # Registriere Flag-Bereinigung als Pre-Link-Action
