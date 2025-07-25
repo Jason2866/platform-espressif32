@@ -904,6 +904,22 @@ def extract_link_args(target_config):
         for i, flag in enumerate(t_flags_before):
             print(f"  [{i:2d}] {flag}")
         
+        # ====== -z FLAGS DEBUG (NEU HINZUGEFÜGT) ======
+        z_flags_found = []
+        for i, flag in enumerate(temp_linkflags):
+            if str(flag) == "-z" and i + 1 < len(temp_linkflags):
+                z_flags_found.append((flag, temp_linkflags[i + 1]))
+            elif str(flag).startswith("-z"):
+                z_flags_found.append((flag, ""))
+
+        print(f"\nDEBUG: Found {len(z_flags_found)} -z related flags in temp_linkflags:")
+        for z_flag, z_arg in z_flags_found:
+            print(f"  '{z_flag}' '{z_arg}'")
+
+        if len(z_flags_found) == 0:
+            print("  No -z flags found in temp_linkflags")
+        # ====== ENDE -z FLAGS DEBUG ======
+        
         # KRITISCH: Post-Processing für getrennte Flags, -T und -z Kombinationen
         processed_linkflags = []
         i = 0
