@@ -2195,7 +2195,7 @@ def clean_clang_linkflags_espidf(target, source, env):
     original = env.get("LINKFLAGS", [])
     cleaned = []
     converted_count = 0
-    seen_scripts = set()
+    seen_scripts = set()  # Exakte Script-Namen
     
     i = 0
     while i < len(original):
@@ -2214,11 +2214,11 @@ def clean_clang_linkflags_espidf(target, source, env):
         elif flag == "-T" and i + 1 < len(original):
             script = str(original[i+1])
             if script.endswith('.ld'):
-                script_name = script
-                if script_name not in seen_scripts:
+                # KORRIGIERT: Exakte Script-Namen verwenden
+                if script not in seen_scripts:
                     clang_flag = "-Wl,-T," + script
                     cleaned.append(clang_flag)
-                    seen_scripts.add(script_name)
+                    seen_scripts.add(script)
                     print("ESP-IDF: Converted -T " + script + " to " + clang_flag)
                     converted_count += 1
                 else:
@@ -2234,21 +2234,22 @@ def clean_clang_linkflags_espidf(target, source, env):
             converted_count += 1
             i += 2
             
-        # KORRIGIERT: Bereits kombinierte -T Flags AUCH konvertieren
+        # KORRIGIERT: Bereits kombinierte -T Flags mit präziser Duplikat-Erkennung
         elif str(flag).startswith('-T') and str(flag).endswith('.ld'):
             script_name = str(flag)[2:]  # Entferne '-T' Prefix → "esp32.peripherals.ld"
+            
+            # KORRIGIERT: Exakte Script-Namen prüfen
             if script_name not in seen_scripts:
-                # KONVERTIERE zu Clang-Format
                 clang_flag = "-Wl,-T," + script_name
                 cleaned.append(clang_flag)
                 seen_scripts.add(script_name)
                 print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
                 converted_count += 1
             else:
-                print("ESP-IDF: Skipped duplicate " + str(flag))
+                print("ESP-IDF: Skipped duplicate script: " + script_name)
             i += 1
             
-        # KORRIGIERT: Bereits kombinierte -u Flags AUCH konvertieren
+        # Bereits kombinierte -u Flags konvertieren
         elif str(flag).startswith('-u') and not str(flag).startswith('-Wl,'):
             symbol = str(flag)[2:]  # Entferne '-u' Prefix
             clang_flag = "-Wl,-u," + symbol
