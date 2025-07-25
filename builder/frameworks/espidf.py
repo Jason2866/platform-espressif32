@@ -785,18 +785,22 @@ def extract_link_args(target_config):
 
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
     
-    # KRITISCH: Prüfe ob Clang verwendet wird
+    # KRITISCH: Clang-Anpassungen nur für Firmware-Builds
     is_clang = "clang" in env.subst("$CC").lower()
+    is_bootloader_build = "bootloader" in BUILD_DIR
     
-    if is_clang:
-        print("Using Clang-specific fragment processing with -Wl, formatting...")
+    if is_clang and not is_bootloader_build:
+        print("Using Clang-specific fragment processing for FIRMWARE...")
         skip_libraries = ["__pio_env", "src"]
-        processed_scripts = set()
         processed_script_names = set()
         temp_linkflags = []
         
-        # Clang-spezifische Verarbeitung
-        for f in target_config.get("link", {}).get("commandFragments", []):
+        # Debug: Zeige alle eingehenden Fragmente
+        fragments = target_config.get("link", {}).get("commandFragments", [])
+        print(f"FIRMWARE: Processing {len(fragments)} fragments")
+        
+        # Clang-spezifische Verarbeitung für Firmware
+        for f in fragments:
             fragment = f.get("fragment", "").strip()
             fragment_role = f.get("role", "").strip()
             if not fragment or not fragment_role:
@@ -823,10 +827,8 @@ def extract_link_args(target_config):
                     print(f"Adding Clang symbol force: -Wl,-u,{symbol}")
                 elif fragment.startswith("-Wl,--wrap="):
                     temp_linkflags.append(fragment)
-                    print(f"Adding wrapper flag: {fragment}")
                 elif fragment.startswith("-Wl,"):
                     temp_linkflags.append(fragment)
-                    print(f"Adding linker flag: {fragment}")
                 elif fragment.startswith("-l"):
                     lib_name = fragment[2:]
                     if lib_name not in skip_libraries:
@@ -857,7 +859,7 @@ def extract_link_args(target_config):
                     else:
                         temp_linkflags.append(fragment)
         
-        # KRITISCH: Post-Processing für Clang-spezifische Flag-Konvertierung
+        # KRITISCH: Post-Processing für Clang-spezifische Flag-Konvertierung (nur Firmware)
         processed_linkflags = []
         i = 0
         while i < len(temp_linkflags):
@@ -876,7 +878,7 @@ def extract_link_args(target_config):
                 next_flag = temp_linkflags[i + 1]
                 
                 if next_flag.endswith('.ld') and not next_flag.startswith('-'):
-                    script_path = next_flag
+                    script_path = next_flag  # BEHALTE ORIGINAL-PFAD (keine Pfad-Resolution)
                     script_name = os.path.basename(script_path)
                     
                     print(f"Processing -T flag for Clang: {script_name}")
@@ -887,7 +889,7 @@ def extract_link_args(target_config):
                         i += 2
                         continue
                     
-                    # Clang-Format: -Wl,-T,script
+                    # Clang-Format: -Wl,-T,script (OHNE Pfad-Änderung)
                     clang_t_flag = f"-Wl,-T,{script_path}"
                     processed_linkflags.append(clang_t_flag)
                     processed_script_names.add(script_name)
@@ -902,12 +904,15 @@ def extract_link_args(target_config):
                 i += 1
         
         link_args["LINKFLAGS"].extend(processed_linkflags)
-        print(f"Clang processing complete: {len(link_args['LINKFLAGS'])} total flags")
+        print(f"Clang FIRMWARE processing complete: {len(link_args['LINKFLAGS'])} total flags")
         print(f"Processed unique script names: {list(processed_script_names)}")
     
     else:
-        # GCC: Original-Verarbeitung (unverändert)
-        print("Using GCC-specific fragment processing...")
+        print("Using standard fragment processing (GCC or Bootloader)...")
+        if is_bootloader_build:
+            print("BOOTLOADER build detected - using proven standard processing")
+        
+        # Standard-Verarbeitung für GCC oder Bootloader
         for f in target_config.get("link", {}).get("commandFragments", []):
             fragment = f.get("fragment", "").strip()
             fragment_role = f.get("role", "").strip()
@@ -937,6 +942,8 @@ def extract_link_args(target_config):
                         else:
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
 
+    print(f"extract_link_args completed - LINKFLAGS: {len(link_args['LINKFLAGS'])}, LIBS: {len(link_args['LIBS'])}, LIBPATH: {len(link_args['LIBPATH'])}")
+    
     return link_args
 
 
