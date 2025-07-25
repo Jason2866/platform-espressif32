@@ -2313,7 +2313,25 @@ def clean_clang_linkflags_espidf(target, source, env):
         
         # NEU: Zeige den vollständigen Befehl
         print("=== FULL LINKCOM COMMAND ===")
-        print(linkcom)
+        print("Command starts with: " + linkcom[:100])
+        print("Command ends with: " + linkcom[-100:])
+        print("Full command length: " + str(len(linkcom)))
+
+        # Check if command is actually truncated
+        if len(linkcom) < 8000:  # Expected to be much longer
+            print("*** WARNING: Command appears truncated! ***")
+            print("Expected length should be >8000 characters")
+        else:
+            print("Command length appears normal")
+
+        # Try to write command to file for full analysis
+        try:
+            with open("/tmp/linkcom_debug.txt", "w") as f:
+                f.write(linkcom)
+            print("Full command written to /tmp/linkcom_debug.txt")
+        except:
+            print("Could not write command to file")
+
         print("=== END FULL LINKCOM COMMAND ===")
         
         # Prüfe auf % Zeichen in der finalen Befehlszeile
