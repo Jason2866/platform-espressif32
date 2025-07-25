@@ -2187,58 +2187,32 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
+
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    ESP-IDF spezifische Bereinigung der LINKFLAGS für Clang-Kompatibilität.
-    Konvertiert problematische getrennte Flags zu Clang-Format vor dem Linking.
+    Vor dem Linken alle getrennt übergebenen „-z <arg>“ 
+    für Clang in „-Wl,-z,<arg>“ umwandeln.
     """
-    if not ("clang" in env.subst("$CC").lower()):
-        return (target, source)
-    
-    print("ESP-IDF: Cleaning LINKFLAGS for Clang compatibility...")
-    
-    original_flags = env.get("LINKFLAGS", [])
-    cleaned_flags = []
-    converted_count = 0
-    
+    original = env.get("LINKFLAGS", [])
+    cleaned = []
     i = 0
-    while i < len(original_flags):
-        flag = str(original_flags[i])
-        
-        # KRITISCH: Konvertiere getrennte -z Flags für Clang
-        if flag == "-z" and i + 1 < len(original_flags):
-            next_flag = str(original_flags[i + 1])
-            clang_z_flag = f"-Wl,-z,{next_flag}"
-            cleaned_flags.append(clang_z_flag)
-            print(f"ESP-IDF: Converted problematic flag: -z {next_flag} → {clang_z_flag}")
-            converted_count += 1
+    while i < len(original):
+        flag = original[i]
+        if flag == "-z" and i + 1 < len(original):
+            arg = original[i+1]
+            cleaned.append(f"-Wl,-z,{arg}")
             i += 2
-            
-        # Weitere problematische Flag-Kombinationen hier hinzufügen falls nötig
-        # elif flag == "-other" and i + 1 < len(original_flags):
-        #     # Behandlung für andere problematische Flags
-        
         else:
-            cleaned_flags.append(flag)
+            cleaned.append(flag)
             i += 1
-    
-    # Aktualisiere LINKFLAGS nur wenn Änderungen vorgenommen wurden
-    if converted_count > 0:
-        env.Replace(LINKFLAGS=cleaned_flags)
-        print(f"ESP-IDF: Flag cleaning completed: {converted_count} flags converted, {len(cleaned_flags)} total flags")
-    else:
-        print("ESP-IDF: No problematic flags found, no conversion needed")
-    
+
+    env.Replace(LINKFLAGS=cleaned)
     return (target, source)
 
-
-if "clang" in env.subst("$CC").lower():
-    print("Clang: Using documented -Wl, and -Xlinker approaches")
-
+if "clang" in env.subst("$CC").lower()
     # Registriere Flag-Bereinigung als Pre-Link-Action
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
-    print("ESP-IDF: Registered Clang flag cleaning for firmware linking")
 
     # HAL-Libraries für Xtensa-MCUs hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
