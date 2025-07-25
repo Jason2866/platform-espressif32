@@ -2209,7 +2209,7 @@ def clean_clang_linkflags_espidf(target, source, env):
     env.Replace(LINKFLAGS=cleaned)
     return (target, source)
 
-if "clang" in env.subst("$CC").lower()
+if "clang" in env.subst("$CC").lower():
     # Registriere Flag-Bereinigung als Pre-Link-Action
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
