@@ -2263,17 +2263,21 @@ def clean_clang_linkflags_espidf(target, source, env):
                 print("ESP-IDF: Skipped duplicate script: " + script_name)
             i += 1
             
-        # Bereits kombinierte -u Flags
+        # KORRIGIERT: Bereits kombinierte -u Flags mit Leerzeichen-Behandlung
         elif str(flag).startswith('-u') and not str(flag).startswith('-Wl,'):
-            symbol = str(flag)[2:]
-            if symbol not in seen_symbols:
-                clang_flag = "-Wl,-u," + symbol
-                cleaned.append(clang_flag)
-                seen_symbols.add(symbol)
-                print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
-                converted_count += 1
-            else:
-                print("ESP-IDF: Skipped duplicate symbol: " + symbol)
+            if len(str(flag)) > 2:  # Kombiniertes Format: "-usymbol" oder "-u symbol"
+                symbol_with_space = str(flag)[2:]  # Entferne '-u' Prefix
+                # KRITISCH: Entferne führende Leerzeichen
+                symbol = symbol_with_space.lstrip()
+                
+                if symbol and symbol not in seen_symbols:
+                    clang_flag = "-Wl,-u," + symbol  # Jetzt ohne Leerzeichen!
+                    cleaned.append(clang_flag)
+                    seen_symbols.add(symbol)
+                    print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
+                    converted_count += 1
+                else:
+                    print("ESP-IDF: Skipped duplicate symbol: " + symbol)
             i += 1
             
         # Alle anderen Flags unverändert
