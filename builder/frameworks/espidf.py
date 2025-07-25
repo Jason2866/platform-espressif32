@@ -2191,12 +2191,12 @@ libs = find_lib_deps(
 def clean_clang_linkflags_espidf(target, source, env):
     """
     Vor dem Linken alle getrennt übergebenen Flags für Clang konvertieren
-    und Duplikate vermeiden.
+    und SCons-sicher machen.
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     converted_count = 0
-    seen_scripts = set()  # Für Duplikat-Erkennung
+    seen_scripts = set()
     
     i = 0
     while i < len(original):
@@ -2205,8 +2205,10 @@ def clean_clang_linkflags_espidf(target, source, env):
         # Behandle getrennte -z Flags
         if flag == "-z" and i + 1 < len(original):
             arg = str(original[i+1])
-            cleaned.append(f"-Wl,-z,{arg}")
-            print(f"ESP-IDF: Converted -z {arg} → -Wl,-z,{arg}")
+            # SCons-sichere Erstellung
+            clang_flag = "-Wl,-z," + arg
+            cleaned.append(clang_flag)
+            print("ESP-IDF: Converted -z " + arg + " to " + clang_flag)
             converted_count += 1
             i += 2
             
@@ -2214,51 +2216,57 @@ def clean_clang_linkflags_espidf(target, source, env):
         elif flag == "-T" and i + 1 < len(original):
             script = str(original[i+1])
             if script.endswith('.ld'):
-                script_name = script  # Einfacher Name oder os.path.basename(script)
+                script_name = script
                 
-                # Prüfe ob bereits ein -T Flag für dieses Script existiert
+                # Prüfe auf Duplikate
                 script_already_exists = any(
-                    (existing_flag.startswith('-T') and script_name in existing_flag) or
-                    (existing_flag.startswith('-Wl,-T,') and script_name in existing_flag)
+                    (str(existing_flag).startswith('-T') and script_name in str(existing_flag)) or
+                    (str(existing_flag).startswith('-Wl,-T,') and script_name in str(existing_flag))
                     for existing_flag in cleaned
                 )
                 
                 if not script_already_exists and script_name not in seen_scripts:
-                    cleaned.append(f"-Wl,-T,{script}")
+                    # SCons-sichere Erstellung
+                    clang_flag = "-Wl,-T," + script
+                    cleaned.append(clang_flag)
                     seen_scripts.add(script_name)
-                    print(f"ESP-IDF: Converted -T {script} → -Wl,-T,{script}")
+                    print("ESP-IDF: Converted -T " + script + " to " + clang_flag)
                     converted_count += 1
                 else:
-                    print(f"ESP-IDF: Skipped duplicate -T {script}")
+                    print("ESP-IDF: Skipped duplicate -T " + script)
             i += 2
             
         # Behandle getrennte -u Flags  
         elif flag == "-u" and i + 1 < len(original):
             symbol = str(original[i+1])
-            cleaned.append(f"-Wl,-u,{symbol}")
-            print(f"ESP-IDF: Converted -u {symbol} → -Wl,-u,{symbol}")
+            # SCons-sichere Erstellung
+            clang_flag = "-Wl,-u," + symbol
+            cleaned.append(clang_flag)
+            print("ESP-IDF: Converted -u " + symbol + " to " + clang_flag)
             converted_count += 1
             i += 2
             
         # Bereits kombinierte -T Flags: Duplikat-Check
-        elif flag.startswith('-T') and flag.endswith('.ld'):
-            script_name = flag[2:]  # Entferne '-T' Prefix
+        elif str(flag).startswith('-T') and str(flag).endswith('.ld'):
+            script_name = str(flag)[2:]  # Entferne '-T' Prefix
             if script_name not in seen_scripts:
                 cleaned.append(flag)
                 seen_scripts.add(script_name)
-                print(f"ESP-IDF: Kept existing combined flag: {flag}")
+                print("ESP-IDF: Kept existing combined flag: " + str(flag))
             else:
-                print(f"ESP-IDF: Skipped duplicate combined flag: {flag}")
+                print("ESP-IDF: Skipped duplicate combined flag: " + str(flag))
             i += 1
             
-        # Alle anderen Flags unverändert
+        # Alle anderen Flags unverändert - aber SCons-sicher konvertieren
         else:
-            cleaned.append(flag)
+            # Stelle sicher, dass es ein String ist und keine problematischen Zeichen hat
+            safe_flag = str(flag)
+            cleaned.append(safe_flag)
             i += 1
 
     if converted_count > 0:
         env.Replace(LINKFLAGS=cleaned)
-        print(f"ESP-IDF: Flag cleaning completed: {converted_count} flags converted, duplicates removed")
+        print("ESP-IDF: Flag cleaning completed: " + str(converted_count) + " flags converted, duplicates removed")
     
     return (target, source)
 
