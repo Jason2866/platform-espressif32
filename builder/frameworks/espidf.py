@@ -2190,13 +2190,26 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Vor dem Linken alle -T, -u und -z Flags für Clang konvertieren.
+    Vor dem Linken alle -T, -u und -z Flags für Clang konvertieren
+    und finale LINKCOM-Befehlszeile für Debugging ausgeben.
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     converted_count = 0
     seen_scripts = set()
-    seen_symbols = set()  # NEU: Für -u Symbol-Duplikate
+    seen_symbols = set()
+    
+    print("=== ESP-IDF FLAG CLEANING DEBUG START ===")
+    print("Original LINKFLAGS count: " + str(len(original)))
+    
+    # Debug: Zeige alle Original-Flags
+    print("Original LINKFLAGS:")
+    for i, flag in enumerate(original):
+        flag_str = str(flag)
+        if '%' in flag_str:
+            print("  [" + str(i) + "] *** CONTAINS % *** " + repr(flag))
+        else:
+            print("  [" + str(i) + "] " + repr(flag))
     
     i = 0
     while i < len(original):
@@ -2228,7 +2241,6 @@ def clean_clang_linkflags_espidf(target, source, env):
         elif flag == "-u" and i + 1 < len(original):
             symbol = str(original[i+1])
             if symbol not in seen_symbols:
-                # KORRIGIERT: Kein Leerzeichen nach Komma
                 clang_flag = "-Wl,-u," + symbol
                 cleaned.append(clang_flag)
                 seen_symbols.add(symbol)
@@ -2251,11 +2263,10 @@ def clean_clang_linkflags_espidf(target, source, env):
                 print("ESP-IDF: Skipped duplicate script: " + script_name)
             i += 1
             
-        # KORRIGIERT: Bereits kombinierte -u Flags
+        # Bereits kombinierte -u Flags
         elif str(flag).startswith('-u') and not str(flag).startswith('-Wl,'):
             symbol = str(flag)[2:]
             if symbol not in seen_symbols:
-                # KORRIGIERT: Kein Leerzeichen nach Komma
                 clang_flag = "-Wl,-u," + symbol
                 cleaned.append(clang_flag)
                 seen_symbols.add(symbol)
@@ -2267,12 +2278,51 @@ def clean_clang_linkflags_espidf(target, source, env):
             
         # Alle anderen Flags unverändert
         else:
-            cleaned.append(str(flag))
+            flag_str = str(flag)
+            if '%' in flag_str:
+                print("ESP-IDF: WARNING: Keeping flag with % character: " + repr(flag))
+            cleaned.append(flag_str)
             i += 1
 
     if converted_count > 0:
         env.Replace(LINKFLAGS=cleaned)
         print("ESP-IDF: Flag cleaning completed: " + str(converted_count) + " flags converted")
+    else:
+        print("ESP-IDF: No flags needed conversion")
+    
+    # Debug: Zeige alle bereinigten Flags
+    print("Cleaned LINKFLAGS count: " + str(len(cleaned)))
+    print("Cleaned LINKFLAGS:")
+    for i, flag in enumerate(cleaned):
+        flag_str = str(flag)
+        if '%' in flag_str:
+            print("  [" + str(i) + "] *** CONTAINS % *** " + repr(flag))
+        else:
+            print("  [" + str(i) + "] " + repr(flag))
+    
+    # Debug: Zeige die finale Linker-Befehlszeile
+    try:
+        print("=== FINAL LINKCOM SUBSTITUTION TEST ===")
+        linkcom = env.subst('$LINKCOM', target=target, source=source)
+        print("LINKCOM substitution successful")
+        print("Command length: " + str(len(linkcom)))
+        
+        # Prüfe auf % Zeichen in der finalen Befehlszeile
+        if '%' in linkcom:
+            print("*** WARNING: Final LINKCOM contains % characters ***")
+            # Zeige Teile der Befehlszeile mit % Zeichen
+            parts = linkcom.split()
+            for i, part in enumerate(parts):
+                if '%' in part:
+                    print("  Part [" + str(i) + "] with %: " + repr(part))
+        else:
+            print("Final LINKCOM is clean (no % characters)")
+            
+    except Exception as e:
+        print("*** ERROR during LINKCOM substitution: " + str(e))
+        print("This is likely the source of the TypeError")
+    
+    print("=== ESP-IDF FLAG CLEANING DEBUG END ===")
     
     return (target, source)
 
