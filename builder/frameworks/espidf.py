@@ -2190,26 +2190,15 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Vor dem Linken alle -T, -u und -z Flags für Clang konvertieren
-    und problematische CPU-Flags entfernen.
+    Vor dem Linken problematische Flags für Clang bereinigen.
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     converted_count = 0
-    seen_scripts = set()
     seen_symbols = set()
     
     print("=== ESP-IDF FLAG CLEANING DEBUG START ===")
     print("Original LINKFLAGS count: " + str(len(original)))
-    
-    # Debug: Zeige alle Original-Flags
-    print("Original LINKFLAGS:")
-    for i, flag in enumerate(original):
-        flag_str = str(flag)
-        if '%' in flag_str:
-            print("  [" + str(i) + "] *** CONTAINS % *** " + repr(flag))
-        else:
-            print("  [" + str(i) + "] " + repr(flag))
     
     i = 0
     while i < len(original):
@@ -2230,21 +2219,27 @@ def clean_clang_linkflags_espidf(target, source, env):
             print("ESP-IDF: Converted -z " + arg + " to " + clang_flag)
             converted_count += 1
             i += 2
+            continue
             
-        # Behandle getrennte -T Flags
+        # -T Flags NICHT konvertieren (GCC-Format beibehalten)
         elif flag == "-T" and i + 1 < len(original):
             script = str(original[i+1])
-            if script.endswith('.ld') and script not in seen_scripts:
-                clang_flag = "-Wl,-T," + script
-                cleaned.append(clang_flag)
-                seen_scripts.add(script)
-                print("ESP-IDF: Converted -T " + script + " to " + clang_flag)
-                converted_count += 1
-            elif script in seen_scripts:
-                print("ESP-IDF: Skipped duplicate -T " + script)
-            i += 2
+            if script.endswith('.ld'):
+                # Kombiniere zu GCC-Format
+                gcc_flag = "-T" + script
+                cleaned.append(gcc_flag)
+                print("ESP-IDF: Combined -T " + script + " to " + gcc_flag + " (GCC format)")
+                i += 2
+                continue
             
-        # Behandle getrennte -u Flags  
+        # Bereits kombinierte -T Flags unverändert lassen
+        elif str(flag).startswith('-T') and str(flag).endswith('.ld'):
+            cleaned.append(flag)
+            print("ESP-IDF: Kept linker script in GCC format: " + str(flag))
+            i += 1
+            continue
+            
+        # -u Flags können konvertiert werden (funktioniert mit ESP32-Linker)
         elif flag == "-u" and i + 1 < len(original):
             symbol = str(original[i+1])
             if symbol not in seen_symbols:
@@ -2253,108 +2248,32 @@ def clean_clang_linkflags_espidf(target, source, env):
                 seen_symbols.add(symbol)
                 print("ESP-IDF: Converted -u " + symbol + " to " + clang_flag)
                 converted_count += 1
-            else:
-                print("ESP-IDF: Skipped duplicate -u " + symbol)
             i += 2
+            continue
             
-        # Bereits kombinierte -T Flags
-        elif str(flag).startswith('-T') and str(flag).endswith('.ld'):
-            script_name = str(flag)[2:]
-            if script_name not in seen_scripts:
-                clang_flag = "-Wl,-T," + script_name
-                cleaned.append(clang_flag)
-                seen_scripts.add(script_name)
-                print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
-                converted_count += 1
-            else:
-                print("ESP-IDF: Skipped duplicate script: " + script_name)
-            i += 1
-            
-        # Bereits kombinierte -u Flags mit Leerzeichen-Behandlung
+        # Bereits kombinierte -u Flags
         elif str(flag).startswith('-u') and not str(flag).startswith('-Wl,'):
-            if len(str(flag)) > 2:  # Kombiniertes Format: "-usymbol" oder "-u symbol"
-                symbol_with_space = str(flag)[2:]  # Entferne '-u' Prefix
-                # KRITISCH: Entferne führende Leerzeichen
-                symbol = symbol_with_space.lstrip()
-                
+            if len(str(flag)) > 2:
+                symbol = str(flag)[2:].lstrip()
                 if symbol and symbol not in seen_symbols:
-                    clang_flag = "-Wl,-u," + symbol  # Jetzt ohne Leerzeichen!
+                    clang_flag = "-Wl,-u," + symbol
                     cleaned.append(clang_flag)
                     seen_symbols.add(symbol)
                     print("ESP-IDF: Converted " + str(flag) + " to " + clang_flag)
                     converted_count += 1
-                else:
-                    print("ESP-IDF: Skipped duplicate symbol: " + symbol)
             i += 1
+            continue
             
         # Alle anderen Flags unverändert
         else:
-            flag_str = str(flag)
-            if '%' in flag_str:
-                print("ESP-IDF: WARNING: Keeping flag with % character: " + repr(flag))
-            cleaned.append(flag_str)
+            cleaned.append(flag)
             i += 1
 
     if converted_count > 0:
         env.Replace(LINKFLAGS=cleaned)
         print("ESP-IDF: Flag cleaning completed: " + str(converted_count) + " flags converted")
-    else:
-        print("ESP-IDF: No flags needed conversion")
-    
-    # Debug: Zeige alle bereinigten Flags
-    print("Cleaned LINKFLAGS count: " + str(len(cleaned)))
-    print("Cleaned LINKFLAGS:")
-    for i, flag in enumerate(cleaned):
-        flag_str = str(flag)
-        if '%' in flag_str:
-            print("  [" + str(i) + "] *** CONTAINS % *** " + repr(flag))
-        else:
-            print("  [" + str(i) + "] " + repr(flag))
-    
-    # Debug: Zeige die finale Linker-Befehlszeile
-    try:
-        print("=== FINAL LINKCOM SUBSTITUTION TEST ===")
-        linkcom = env.subst('$LINKCOM', target=target, source=source)
-        print("LINKCOM substitution successful")
-        print("Command length: " + str(len(linkcom)))
-        
-        print("=== FULL LINKCOM COMMAND ===")
-        print("Command starts with: " + linkcom[:100])
-        print("Command ends with: " + linkcom[-100:])
-        print("Full command length: " + str(len(linkcom)))
-        
-        # Check if command is actually truncated
-        if len(linkcom) < 8000:  # Expected to be much longer
-            print("*** WARNING: Command appears truncated! ***")
-            print("Expected length should be >8000 characters")
-        else:
-            print("Command length appears normal")
-        
-        # Try to write command to file for full analysis
-        try:
-            with open("/tmp/linkcom_debug.txt", "w") as f:
-                f.write(linkcom)
-            print("Full command written to /tmp/linkcom_debug.txt")
-        except:
-            print("Could not write command to file")
-        
-        # Prüfe auf % Zeichen in der finalen Befehlszeile
-        if '%' in linkcom:
-            print("*** WARNING: Final LINKCOM contains % characters ***")
-            # Zeige Teile der Befehlszeile mit % Zeichen
-            parts = linkcom.split()
-            for i, part in enumerate(parts):
-                if '%' in part:
-                    print("  Part [" + str(i) + "] with %: " + repr(part))
-        else:
-            print("Final LINKCOM is clean (no % characters)")
-            
-    except Exception as e:
-        print("*** ERROR during LINKCOM substitution: " + str(e))
-        print("This is likely the source of the TypeError")
     
     print("=== ESP-IDF FLAG CLEANING DEBUG END ===")
-    
     return (target, source)
 
 if "clang" in env.subst("$CC").lower():
