@@ -2211,7 +2211,7 @@ def clean_clang_linkflags_espidf(target, source, env):
             i += 1
             continue
             
-        # Behandle getrennte -z Flags
+        # Behandle getrennte -z Flags (MUSS konvertiert werden)
         if flag == "-z" and i + 1 < len(original):
             arg = str(original[i+1])
             clang_flag = "-Wl,-z," + arg
@@ -2225,7 +2225,6 @@ def clean_clang_linkflags_espidf(target, source, env):
         elif flag == "-T" and i + 1 < len(original):
             script = str(original[i+1])
             if script.endswith('.ld'):
-                # Kombiniere zu GCC-Format
                 gcc_flag = "-T" + script
                 cleaned.append(gcc_flag)
                 print("ESP-IDF: Combined -T " + script + " to " + gcc_flag + " (GCC format)")
@@ -2239,7 +2238,7 @@ def clean_clang_linkflags_espidf(target, source, env):
             i += 1
             continue
             
-        # -u Flags können konvertiert werden (funktioniert mit ESP32-Linker)
+        # -u Flags konvertieren
         elif flag == "-u" and i + 1 < len(original):
             symbol = str(original[i+1])
             if symbol not in seen_symbols:
@@ -2272,6 +2271,30 @@ def clean_clang_linkflags_espidf(target, source, env):
     if converted_count > 0:
         env.Replace(LINKFLAGS=cleaned)
         print("ESP-IDF: Flag cleaning completed: " + str(converted_count) + " flags converted")
+    
+    # KRITISCH: LINKCOM-Test wiederherstellen
+    try:
+        print("=== FINAL LINKCOM SUBSTITUTION TEST ===")
+        linkcom = env.subst('$LINKCOM', target=target, source=source)
+        print("LINKCOM substitution successful")
+        print("Command length: " + str(len(linkcom)))
+        
+        # Schreibe Command in Datei für Analyse
+        try:
+            with open("/tmp/linkcom_debug.txt", "w") as f:
+                f.write(linkcom)
+            print("Full command written to /tmp/linkcom_debug.txt")
+        except:
+            print("Could not write command to file")
+        
+        if '%' in linkcom:
+            print("*** WARNING: Final LINKCOM contains % characters ***")
+        else:
+            print("Final LINKCOM is clean (no % characters)")
+            
+    except Exception as e:
+        print("*** CRITICAL ERROR during LINKCOM substitution: " + str(e))
+        print("This is the source of the TypeError!")
     
     print("=== ESP-IDF FLAG CLEANING DEBUG END ===")
     return (target, source)
