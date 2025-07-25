@@ -2188,6 +2188,87 @@ libs = find_lib_deps(
 )
 
 
+def debug_all_linkflags(target, source, env):
+    """
+    Debug-Ausgabe für alle ELF-Targets (Bootloader + Firmware)
+    """
+    target_name = str(target[0]) if target else "unknown"
+    build_dir = env.get("BUILD_DIR", "")
+    
+    # Bestimme Build-Typ
+    is_bootloader = (
+        "bootloader" in target_name.lower() or 
+        "bootloader" in build_dir.lower()
+    )
+    build_type = "BOOTLOADER" if is_bootloader else "FIRMWARE"
+    
+    print(f"=== {build_type} LINKFLAGS ANALYSIS ===")
+    print(f"Target: {target_name}")
+    print(f"Build Dir: {build_dir}")
+    print(f"CC: {env.get('CC', 'not set')}")
+    print(f"LINK: {env.get('LINK', 'not set')}")
+    
+    # Analysiere LINKFLAGS
+    linkflags = env.get("LINKFLAGS", [])
+    print(f"LINKFLAGS count: {len(linkflags)}")
+    
+    # Kategorisiere Flags
+    cpu_flags = [f for f in linkflags if str(f).startswith('-mcpu=')]
+    z_flags = []
+    t_flags = []
+    u_flags = []
+    wl_flags = []
+    
+    i = 0
+    while i < len(linkflags):
+        flag = str(linkflags[i])
+        if flag == "-z" and i + 1 < len(linkflags):
+            z_flags.append((flag, str(linkflags[i+1])))
+            i += 2
+        elif flag.startswith('-T') and flag.endswith('.ld'):
+            t_flags.append(flag)
+            i += 1
+        elif flag.startswith('-u'):
+            u_flags.append(flag)
+            i += 1
+        elif flag.startswith('-Wl,'):
+            wl_flags.append(flag)
+            i += 1
+        else:
+            i += 1
+    
+    print(f"{build_type} Flag categories:")
+    print(f"  CPU flags (-mcpu=): {len(cpu_flags)} -> {cpu_flags}")
+    print(f"  Z flags (-z): {len(z_flags)} -> {z_flags}")
+    print(f"  T scripts (-T): {len(t_flags)} -> {t_flags[:5]}...")  # Erste 5
+    print(f"  U symbols (-u): {len(u_flags)} -> {u_flags[:5]}...")  # Erste 5
+    print(f"  Wl flags (-Wl,): {len(wl_flags)} -> {wl_flags[:5]}...")  # Erste 5
+    
+    # Teste LINKCOM für beide Build-Typen
+    try:
+        linkcom = env.subst('$LINKCOM', target=target, source=source)
+        debug_file = f"/tmp/{build_type.lower()}_linkcom.txt"
+        with open(debug_file, "w") as f:
+            f.write(linkcom)
+        print(f"{build_type} LINKCOM written to {debug_file}")
+        print(f"LINKCOM length: {len(linkcom)}")
+        
+        # Prüfe auf problematische Zeichen
+        if '%' in linkcom:
+            print(f"*** WARNING: {build_type} LINKCOM contains % characters ***")
+        else:
+            print(f"{build_type} LINKCOM is clean")
+            
+    except Exception as e:
+        print(f"*** ERROR: {build_type} LINKCOM failed: {e}")
+    
+    print(f"=== END {build_type} ANALYSIS ===\n")
+    return (target, source)
+
+# Registriere für ALLE ELF-Targets in espidf.py
+env.AddPreAction("$BUILD_DIR/*.elf", debug_all_linkflags)
+
+
 def clean_clang_linkflags_espidf(target, source, env):
     """
     Vor dem Linken problematische Flags für Clang bereinigen.
