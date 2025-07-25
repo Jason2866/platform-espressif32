@@ -770,6 +770,9 @@ def get_app_defines(app_config):
 
 
 def extract_link_args(target_config):
+    import os
+    import click
+    
     def _add_to_libpath(lib_path, link_args):
         if lib_path not in link_args["LIBPATH"]:
             link_args["LIBPATH"].append(lib_path)
@@ -786,29 +789,14 @@ def extract_link_args(target_config):
     is_clang = "clang" in env.subst("$CC").lower()
     
     if is_clang:
-        print("Using Clang-specific fragment processing...")
+        print("Using Clang-specific fragment processing with -Wl, formatting...")
         skip_libraries = ["__pio_env", "src"]
         processed_scripts = set()
         processed_script_names = set()
         temp_linkflags = []
         
-        # Debug: Zeige alle eingehenden Fragmente
-        fragments = target_config.get("link", {}).get("commandFragments", [])
-        print(f"TOTAL FRAGMENTS TO PROCESS: {len(fragments)}")
-        
-        linker_script_fragments = []
-        for i, f in enumerate(fragments):
-            fragment = f.get("fragment", "").strip()
-            fragment_role = f.get("role", "").strip()
-            if fragment.endswith('.ld') or fragment == '-T':
-                linker_script_fragments.append((i, fragment, fragment_role))
-        
-        print(f"LINKER SCRIPT RELATED FRAGMENTS ({len(linker_script_fragments)}):")
-        for i, fragment, role in linker_script_fragments:
-            print(f"  [{i:3d}] {role:12} {fragment}")
-        
         # Clang-spezifische Verarbeitung
-        for f in fragments:
+        for f in target_config.get("link", {}).get("commandFragments", []):
             fragment = f.get("fragment", "").strip()
             fragment_role = f.get("role", "").strip()
             if not fragment or not fragment_role:
@@ -821,7 +809,6 @@ def extract_link_args(target_config):
             elif fragment_role == "libraryPath":
                 if fragment.startswith("-L"):
                     lib_path = fragment.replace("-L", "").strip(" '\"")
-                    # Relative Pfade zu absoluten machen
                     if lib_path and not os.path.isabs(lib_path):
                         lib_path = os.path.join(BUILD_DIR, lib_path)
                     _add_to_libpath(lib_path, link_args)
@@ -830,8 +817,10 @@ def extract_link_args(target_config):
                     
             elif fragment_role == "libraries":
                 if fragment.startswith("-u"):
-                    temp_linkflags.append(fragment)
-                    print(f"Adding symbol force: {fragment}")
+                    # Clang: Force-Symbole als -Wl,-u,symbol
+                    symbol = fragment[2:]
+                    temp_linkflags.append(f"-Wl,-u,{symbol}")
+                    print(f"Adding Clang symbol force: -Wl,-u,{symbol}")
                 elif fragment.startswith("-Wl,--wrap="):
                     temp_linkflags.append(fragment)
                     print(f"Adding wrapper flag: {fragment}")
@@ -855,34 +844,20 @@ def extract_link_args(target_config):
                             else:
                                 archive_path = os.path.join(BUILD_DIR, archive_path)
                         
-                        # KRITISCH: Prüfe ob Archive-Datei existiert (für Build-Reihenfolge)
                         if os.path.isfile(archive_path):
                             temp_linkflags.append(archive_path)
                             print(f"Adding archive: {os.path.basename(archive_path)}")
                         else:
-                            # Archive existiert noch nicht - füge zu __LIB_DEPS hinzu
-                            print(f"Archive not ready, deferring: {os.path.basename(archive_path)}")
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
-                    else:
-                        print(f"Skipping problematic library: {fragment}")
                 else:
-                    # Unbekannte Tokens - wahrscheinlich Symbol-Namen
+                    # Symbol-Namen als -Wl,-u,symbol
                     if not any(char in fragment for char in ['/', '.', '-']) and len(fragment) > 0:
-                        temp_linkflags.append(f"-u{fragment}")
-                        print(f"Adding symbol flag: -u{fragment}")
+                        temp_linkflags.append(f"-Wl,-u,{fragment}")
+                        print(f"Adding Clang symbol flag: -Wl,-u,{fragment}")
                     else:
                         temp_linkflags.append(fragment)
-                        print(f"Adding other: {fragment}")
-            else:
-                temp_linkflags.append(fragment)
         
-        # KRITISCH: Debug vor Post-Processing
-        t_flags_before = [f for f in temp_linkflags if f == '-T' or (isinstance(f, str) and f.endswith('.ld'))]
-        print(f"\nTEMP_LINKFLAGS BEFORE POST-PROCESSING (T-related): {len(t_flags_before)}")
-        for i, flag in enumerate(t_flags_before):
-            print(f"  [{i:2d}] {flag}")
-        
-        # KRITISCH: Post-Processing für getrennte Flags, -T und -z Kombinationen
+        # KRITISCH: Post-Processing für Clang-spezifische Flag-Konvertierung
         processed_linkflags = []
         i = 0
         while i < len(temp_linkflags):
@@ -891,13 +866,12 @@ def extract_link_args(target_config):
             # KRITISCH: Behandle -z Flag für Clang-Kompatibilität
             if flag == "-z" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
-                # Konvertiere zu Clang-kompatiblem Format
                 clang_z_flag = f"-Wl,-z,{next_flag}"
                 processed_linkflags.append(clang_z_flag)
                 print(f"Converted -z flag for Clang: {clang_z_flag}")
                 i += 2
                 
-            # Behandle -T Flag (für Linker-Scripts)
+            # KRITISCH: Behandle -T Flag für Clang (verwende -Wl,-T,script)
             elif flag == "-T" and i + 1 < len(temp_linkflags):
                 next_flag = temp_linkflags[i + 1]
                 
@@ -905,38 +879,19 @@ def extract_link_args(target_config):
                     script_path = next_flag
                     script_name = os.path.basename(script_path)
                     
-                    print(f"Processing -T flag: {script_name}")
+                    print(f"Processing -T flag for Clang: {script_name}")
                     
-                    # KRITISCH: Prüfe Duplikate basierend auf Script-Namen, nicht Pfad
+                    # Duplikat-Kontrolle basierend auf Script-Namen
                     if script_name in processed_script_names:
                         print(f"  SKIPPED DUPLICATE by name: {script_name}")
                         i += 2
                         continue
                     
-                    # Pfad-Resolution für Linker-Scripts
-                    if not os.path.isabs(script_path):
-                        script_locations = [
-                            os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld", script_path),
-                            os.path.join(FRAMEWORK_DIR, "components", "soc", "esp32", "ld", script_path),
-                            os.path.join(FRAMEWORK_DIR, "components", "esp_rom", "esp32", "ld", script_path),
-                            os.path.join(FRAMEWORK_DIR, "components", "bootloader", "subproject", "main", "ld", "esp32", script_path),
-                        ]
-                        
-                        for location in script_locations:
-                            if os.path.isfile(location):
-                                script_path = location
-                                print(f"  RESOLVED: {script_path}")
-                                break
-                        else:
-                            print(f"  WARNING: Not found: {script_path}")
-                    
-                    combined_flag = f"-T{script_path}"
-                    
-                    # Füge zu beiden Sets hinzu
-                    processed_linkflags.append(combined_flag)
-                    processed_scripts.add(combined_flag)
+                    # Clang-Format: -Wl,-T,script
+                    clang_t_flag = f"-Wl,-T,{script_path}"
+                    processed_linkflags.append(clang_t_flag)
                     processed_script_names.add(script_name)
-                    print(f"  ADDED UNIQUE: {script_name}")
+                    print(f"  ADDED CLANG FORMAT: {clang_t_flag}")
                     
                     i += 2
                 else:
@@ -947,16 +902,8 @@ def extract_link_args(target_config):
                 i += 1
         
         link_args["LINKFLAGS"].extend(processed_linkflags)
-        
-        # KRITISCH: Debug nach Post-Processing
-        final_t_flags = [f for f in link_args["LINKFLAGS"] if isinstance(f, str) and f.startswith('-T') and f.endswith('.ld')]
-        print(f"\nFINAL LINKFLAGS (-T scripts): {len(final_t_flags)}")
-        for i, flag in enumerate(final_t_flags):
-            script_name = os.path.basename(flag[2:]) if flag.startswith('-T') else flag
-            print(f"  [{i:2d}] {script_name} -> {flag}")
-        
-        print(f"\nProcessed unique script names: {list(processed_script_names)}")
         print(f"Clang processing complete: {len(link_args['LINKFLAGS'])} total flags")
+        print(f"Processed unique script names: {list(processed_script_names)}")
     
     else:
         # GCC: Original-Verarbeitung (unverändert)
@@ -990,8 +937,6 @@ def extract_link_args(target_config):
                         else:
                             link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
 
-    print(f"extract_link_args completed - LINKFLAGS: {len(link_args['LINKFLAGS'])}, LIBS: {len(link_args['LIBS'])}, LIBPATH: {len(link_args['LIBPATH'])}")
-    
     return link_args
 
 
@@ -2281,7 +2226,7 @@ libs = find_lib_deps(
 
 
 if "clang" in env.subst("$CC").lower():
-    print("Clang: LINKCOM with simple deduplication, preserve original paths")
+    print("Clang: Using documented -Wl, and -Xlinker approaches")
     
     # HAL-Libraries für Xtensa-MCUs hinzufügen
     mcu = env.get("BOARD_MCU", "esp32")
@@ -2322,53 +2267,71 @@ if "clang" in env.subst("$CC").lower():
         set(link_args["LINKFLAGS"]) - set(extra_flags)
     )
     
-    # EINFACH: Dedupliziere nur -T Flags, ändere aber keine Pfade
-    dedup_extra_flags = []
-    seen_scripts = set()
-    
-    for flag in extra_flags:
-        flag_str = str(flag)
+    # KRITISCH: Konvertiere verbleibende GCC-Style Flags zu Clang-Format
+    def convert_gcc_to_clang_flags(flags):
+        """
+        Konvertiert GCC-Style Flags zu Clang-kompatiblen -Wl, oder -Xlinker Formaten.
+        """
+        clang_flags = []
+        i = 0
         
-        if flag_str.startswith('-T') and flag_str.endswith('.ld'):
-            # Extrahiere Script-Namen für Duplikat-Check
-            script_path = flag_str[2:]  # Entferne -T
-            script_name = os.path.basename(script_path)
+        while i < len(flags):
+            flag = str(flags[i])
             
-            if script_name not in seen_scripts:
-                dedup_extra_flags.append(flag_str)  # Behalte ORIGINAL-Flag
-                seen_scripts.add(script_name)
-                print(f"Kept linker script: {script_name} ({flag_str})")
+            # Behandle getrennte -T Flags
+            if flag == "-T" and i + 1 < len(flags):
+                script = str(flags[i + 1])
+                if script.endswith('.ld'):
+                    # Clang bevorzugt -Wl,-T,script Format
+                    clang_flags.append(f"-Wl,-T,{script}")
+                    print(f"Converted: -T {script} → -Wl,-T,{script}")
+                    i += 2
+                    continue
+            
+            # Behandle getrennte -u Flags
+            elif flag == "-u" and i + 1 < len(flags):
+                symbol = str(flags[i + 1])
+                # Clang: -Wl,-u,symbol
+                clang_flags.append(f"-Wl,-u,{symbol}")
+                print(f"Converted: -u {symbol} → -Wl,-u,{symbol}")
+                i += 2
+                continue
+            
+            # Behandle -z Flags
+            elif flag == "-z" and i + 1 < len(flags):
+                z_arg = str(flags[i + 1])
+                clang_flags.append(f"-Wl,-z,{z_arg}")
+                print(f"Converted: -z {z_arg} → -Wl,-z,{z_arg}")
+                i += 2
+                continue
+            
+            # Bereits korrekt formatierte -Wl, Flags beibehalten
+            elif flag.startswith("-Wl,"):
+                clang_flags.append(flag)
+                i += 1
+            
+            # Andere Flags unverändert
             else:
-                print(f"Removed duplicate linker script: {script_name}")
-        else:
-            # Alle anderen Flags unverändert
-            dedup_extra_flags.append(flag_str)
+                clang_flags.append(flag)
+                i += 1
+        
+        return clang_flags
     
-    # String-Erstellung mit Original-Pfaden
-    extra_flags_str = ' '.join(dedup_extra_flags)
-    linkflags_str = ' '.join(str(flag) for flag in link_args["LINKFLAGS"])
-    libpath_str = ' '.join(f"-L{path}" for path in link_args["LIBPATH"])
-    libs_str = ' '.join(f"-l{lib}" for lib in link_args["LIBS"])
+    # Konvertiere extra_flags zu Clang-Format
+    clang_extra_flags = convert_gcc_to_clang_flags(extra_flags)
     
-    print(f"Deduplicated extra flags: {len(dedup_extra_flags)} flags")
-    print(f"Unique scripts: {list(seen_scripts)}")
+    print(f"Converted {len(extra_flags)} → {len(clang_extra_flags)} Clang-compatible flags")
     
-    # LINKCOM mit Original-Pfaden und Library-Pfad-Unterstützung
-    env['LINKCOM'] = (
-        f"$LINK -o $TARGET "
-        f"{libpath_str} "               # Library-Pfade für relative Script-Resolution
-        f"{extra_flags_str} "           # Deduplizierte Flags mit Original-Pfaden
-        f"{linkflags_str} "             # Weitere LINKFLAGS
-        f"$__RPATH $SOURCES "           # Standard SCons-Variablen
-        f"{libs_str}"                   # Libraries
-    )
+    # Verbose-Output für Debugging aktivieren
+    env.AppendUnique(LINKFLAGS=["-v"])
+    print("Added -v flag for verbose linker output")
     
     libs = []
     
-    print("Clang: Simple deduplication with original paths preserved")
+    print("Clang: Using documented Clang linker argument format")
 
 else:
-    # GCC: Standard-Verarbeitung
+    # GCC: Standard-Verarbeitung (unverändert)
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
