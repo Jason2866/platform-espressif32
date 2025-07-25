@@ -2197,15 +2197,55 @@ def clean_clang_linkflags_espidf(target, source, env):
     converted_count = 0
     seen_symbols = set()
     
-    # NEUE: Bootloader-Erkennung für Debug-Unterscheidung
-    is_bootloader = any([
-        "bootloader" in str(target[0]).lower() if target else False,
-        "bootloader" in env.get("BUILD_DIR", "").lower(),
-        "__BOOTLOADER_BUILD" in str(env.get("CPPDEFINES", [])),
-    ])
+    # VERBESSERTE: Multi-Ansatz Bootloader-Erkennung
+    BUILD_DIR = env.get("BUILD_DIR", "")
+    
+    # 1. Target-basierte Erkennung
+    target_name = str(target[0]).lower() if target else ""
+    has_bootloader_in_target = "bootloader" in target_name
+    
+    # 2. Build-Pfad-Erkennung
+    has_bootloader_in_path = "bootloader" in BUILD_DIR.lower()
+    
+    # 3. Compiler-Define-Erkennung
+    cppdefines = env.get("CPPDEFINES", [])
+    has_bootloader_define = "__BOOTLOADER_BUILD" in str(cppdefines)
+    
+    # 4. Environment-Variable-Erkennung
+    env_vars = env.Dictionary()
+    has_bootloader_env = any(
+        "bootloader" in str(key).lower() or "bootloader" in str(value).lower()
+        for key, value in env_vars.items()
+        if key in ["PROGNAME", "TARGET", "BUILD_TYPE"]
+    )
+    
+    # 5. LINKFLAGS-Analyse für Bootloader-spezifische Flags
+    has_bootloader_flags = any(
+        indicator in str(flag).lower()
+        for flag in original
+        for indicator in ["bootloader.ld", "bootloader.rom.ld", "bootloader_support"]
+    )
+    
+    # Kombinierte Bootloader-Erkennung
+    is_bootloader = (
+        has_bootloader_in_target or
+        has_bootloader_in_path or
+        has_bootloader_define or
+        has_bootloader_env or
+        has_bootloader_flags
+    )
     
     build_type = "BOOTLOADER" if is_bootloader else "FIRMWARE"
+    
+    # Debug: Zeige Erkennungsdetails
     print(f"=== ESP-IDF FLAG CLEANING DEBUG START ({build_type}) ===")
+    print(f"Bootloader detection details:")
+    print(f"  Target name: {target_name} -> {has_bootloader_in_target}")
+    print(f"  Build path: {BUILD_DIR} -> {has_bootloader_in_path}")
+    print(f"  Defines: {has_bootloader_define}")
+    print(f"  Env vars: {has_bootloader_env}")
+    print(f"  LINKFLAGS: {has_bootloader_flags}")
+    print(f"  Final result: {build_type}")
     print("Original LINKFLAGS count: " + str(len(original)))
     
     i = 0
