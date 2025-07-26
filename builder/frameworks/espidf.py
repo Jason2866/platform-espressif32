@@ -2114,51 +2114,70 @@ def clean_clang_linkflags_espidf(target, source, env):
 
 
 if "clang" in env.subst("$CC").lower():
-    # Standard Flag-Extraktion (minimal)
+    # Standard Flag-Extraktion
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
     )
     
-    # ÜBERNOMMEN: Library-Kontrolle wie im heuristischen Ansatz
-    controlled_linking_flags = []
-    
-    # Sammle alle Libraries aus dem SCons-System
+    # KORRIGIERTE Library-Sammlung
     all_libraries = []
     
-    # Libraries aus libs Array sammeln
+    # Libraries aus libs Array sammeln (korrekte Behandlung von Listen)
     for lib_node in libs:
-        if hasattr(lib_node, 'get_path'):
-            all_libraries.append(lib_node.get_path())
+        if isinstance(lib_node, (list, tuple)):
+            # lib_node ist eine Liste von SCons-Nodes
+            for individual_lib in lib_node:
+                if hasattr(individual_lib, 'get_path'):
+                    lib_path = individual_lib.get_path()
+                    all_libraries.append(lib_path)
+                    print(f"Added lib from list: {lib_path}")
+                else:
+                    lib_path = str(individual_lib)
+                    all_libraries.append(lib_path)
+                    print(f"Added lib from list (str): {lib_path}")
         else:
-            all_libraries.append(str(lib_node))
+            # lib_node ist ein einzelner SCons-Node
+            if hasattr(lib_node, 'get_path'):
+                lib_path = lib_node.get_path()
+                all_libraries.append(lib_path)
+                print(f"Added single lib: {lib_path}")
+            else:
+                lib_path = str(lib_node)
+                all_libraries.append(lib_path)
+                print(f"Added single lib (str): {lib_path}")
     
     # Libraries aus LIBS sammeln 
     for lib_name in link_args.get("LIBS", []):
-        # Finde vollständigen Pfad basierend auf LIBPATH
         for lib_path in link_args.get("LIBPATH", []):
             full_lib_path = os.path.join(lib_path, f"lib{lib_name}.a")
             if os.path.isfile(full_lib_path):
                 all_libraries.append(full_lib_path)
+                print(f"Added LIBS entry: {full_lib_path}")
                 break
     
-    # ÜBERNOMMEN: --start-group Behandlung
+    # Controlled Library Flags generieren
+    controlled_linking_flags = []
     controlled_linking_flags.append("-Wl,--start-group")
     
-    # ÜBERNOMMEN: Alle Libraries mit --whole-archive hinzufügen
+    # KORRIGIERT: Jede Library einzeln mit --whole-archive wrappen
     for lib_path in all_libraries:
+        # Stelle sicher, dass lib_path ein String ist
+        lib_path_str = str(lib_path).strip("[]'\"")  # Entferne Liste-Zeichen falls vorhanden
+        
         controlled_linking_flags.extend([
             "-Wl,--whole-archive",
-            lib_path,
+            lib_path_str,  # ← Nur der reine String-Pfad
             "-Wl,--no-whole-archive"
         ])
+        print(f"Added with --whole-archive: {lib_path_str}")
     
     controlled_linking_flags.append("-Wl,--end-group")
     
-    # ÜBERNOMMEN: Kombiniere mit anderen essentiellen Flags
+    # Kombiniere mit anderen Flags
     extra_flags.extend(controlled_linking_flags)
     
-    # KRITISCH: Leere das libs Array (wie im heuristischen Ansatz)
+    # KRITISCH: Leere das libs Array (verhindert doppelte Verarbeitung)
     libs = []
     
     # Standard LINKFLAGS-Bereinigung
@@ -2169,7 +2188,7 @@ if "clang" in env.subst("$CC").lower():
     ]
     link_args["LINKFLAGS"].extend(extra_flags)
     
-    # Nur -mcpu= Flag-Entfernung
+    # Flag-Bereinigung
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
     
