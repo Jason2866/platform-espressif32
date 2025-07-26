@@ -844,15 +844,13 @@ env.Replace(
 
 def finalize_clang_environment():
     """Clang environment adjustments"""
-    
     clang_version = "19"
-        
-    # Architektur und Toolchain-Version ermitteln
+
     toolchain_dir = TOOLCHAIN_DIR
     psram_enabled = _get_board_psram(env)
     if mcu in ("esp32", "esp32s2", "esp32s3"):
         target_arch = "xtensa-esp-elf"
-        # IMMER no-rtti für minimale Firmware-Größe
+        # Alyways no-rtti
         if mcu == "esp32":
             main_variant = "esp32_psram_no-rtti" if psram_enabled else "esp32_no-rtti"
         elif mcu == "esp32s2":
@@ -861,7 +859,7 @@ def finalize_clang_environment():
             main_variant = "esp32s3_psram_no-rtti" if psram_enabled else "esp32s3_no-rtti"
     else:
         target_arch = "riscv32-esp-elf"
-        # IMMER no-rtti für RISC-V auch
+        # Always no-rtti
         main_variant = "rv32imac-zicsr-zifencei_ilp32_no-rtti"
 
     if "clang" in env.subst("$CC").lower():
@@ -890,8 +888,16 @@ def finalize_clang_environment():
             "-Wno-single-bit-bitfield-constant-conversion"
         ]
         
-        common_clang_flags = [
+        # Separate Compiler and Linker Flags
+        compiler_clang_flags = [
             f"--target={target_arch}",
+            "-fno-common",
+            "-fno-jump-tables",
+            "-fno-rtti",
+        ]
+        
+        # Linker specific Flags
+        linker_specific_flags = [
             "-fno-common",
             "-fno-jump-tables",
             "-fno-rtti",
@@ -908,7 +914,7 @@ def finalize_clang_environment():
         for lang in ["C", "CXX"]:
             if lang not in app_flags:
                 app_flags[lang] = []
-            app_flags[lang].extend(clang_warning_flags + common_clang_flags + c_cxx_flags)
+            app_flags[lang].extend(clang_warning_flags + compiler_clang_flags + c_cxx_flags)
         
         if "ASM" not in app_flags:
             app_flags["ASM"] = []
@@ -919,19 +925,19 @@ def finalize_clang_environment():
             
         cxx_flags = [
             "-fno-use-cxa-atexit",
-            # Zusätzliche C++ Size-Optimierungen
             "-fno-threadsafe-statics",
         ]    
         app_flags["CXX"].extend(cxx_flags)
 
+        # Linker-Flags
         linker_flags = [
-#            "-Wl,-z,noexecstack",
             "-Wl,--gc-sections",
             "-Wl,--warn-common", 
             "-Wl,--allow-multiple-definition",
-            # Size-Optimierung für Linker
             "-Wl,--strip-debug",
         ]
+        # Only Linker specific Flags
+        linker_flags.extend(linker_specific_flags)
 
         env.Append(
             CCFLAGS=app_flags["C"],
@@ -940,17 +946,17 @@ def finalize_clang_environment():
             LINKFLAGS=linker_flags
         )
 
-        # Include-Pfade - priorität auf no-rtti
+        # Include-Path - prio no-rtti
         include_paths = [
             os.path.join(toolchain_dir, "lib", "clang", clang_version, "include"),
         ]
         
-        # NUR die no-rtti Variante für C++ Headers
+        # Only no-rtti Variants for C++ Headers
         main_cpp_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, main_variant, "include", "c++", "14.2.0")
         if os.path.exists(main_cpp_path):
             include_paths.append(main_cpp_path)
         else:
-            # Fallback: Versuche generische no-rtti
+            # Fallback: Try generic no-rtti
             fallback_cpp_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "include", "c++", "14.2.0")
             if os.path.exists(fallback_cpp_path):
                 include_paths.append(fallback_cpp_path)
@@ -961,15 +967,15 @@ def finalize_clang_environment():
             for path in include_paths:
                 env.Append(CCFLAGS=[f"-isystem{path}"])
 
-        # Library-Pfade - NUR no-rtti Variante
+        # Library-Path - Only no-rtti Variant
         lib_paths = []
         
-        # Priorität: no-rtti Variante
+        # Priority: no-rtti Variant
         main_lib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, main_variant, "lib")
         if os.path.exists(main_lib_path):
             lib_paths.append(main_lib_path)
         else:
-            # Fallback auf generische Library-Pfade
+            # Fallback to generic Library-Path
             fallback_lib_path = os.path.join(toolchain_dir, "lib", "clang-runtimes", target_arch, "lib")
             if os.path.exists(fallback_lib_path):
                 lib_paths.append(fallback_lib_path)
