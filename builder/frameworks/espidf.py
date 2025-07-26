@@ -711,24 +711,89 @@ def extract_link_args(target_config):
     return link_args
 
 
-def filter_args(args, allowed, ignore=None):
-    if not allowed:
-        return []
-
-    ignore = ignore or []
-    result = []
+def filter_args(flags, allowed_prefixes):
+    """
+    Extrahiert Flags basierend auf Prefixes und behandelt mehrteilige Flags korrekt.
+    
+    Args:
+        flags: Liste der zu filternden Flags
+        allowed_prefixes: Liste der erlaubten Flag-Prefixes (z.B. ["-T", "-u"])
+    
+    Returns:
+        Liste der extrahierten Flags (mehrteilige Flags werden kombiniert)
+    """
+    extracted = []
     i = 0
-    length = len(args)
-    while i < length:
-        if any(args[i].startswith(f) for f in allowed) and not any(
-            args[i].startswith(f) for f in ignore
-        ):
-            result.append(args[i])
-            if i + 1 < length and not args[i + 1].startswith("-"):
-                i += 1
-                result.append(args[i])
-        i += 1
-    return result
+    
+    while i < len(flags):
+        flag = str(flags[i])
+        
+        # Prüfe gegen alle erlaubten Prefixes
+        matched = False
+        
+        for prefix in allowed_prefixes:
+            # Mehrteilige Flags: -T script.ld oder -u symbol
+            if flag == prefix and i + 1 < len(flags):
+                next_arg = str(flags[i + 1])
+                
+                # Für -T: Nur .ld Dateien kombinieren
+                if prefix == "-T" and next_arg.endswith('.ld'):
+                    combined_flag = f"{prefix}{next_arg}"
+                    extracted.append(combined_flag)
+                    print(f"filter_args: Combined {prefix} {next_arg} → {combined_flag}")
+                    i += 2
+                    matched = True
+                    break
+                
+                # Für -u: Symbole kombinieren (keine Dateiendung)
+                elif prefix == "-u" and not next_arg.endswith('.ld') and not next_arg.startswith('-'):
+                    combined_flag = f"{prefix}{next_arg}"
+                    extracted.append(combined_flag)
+                    print(f"filter_args: Combined {prefix} {next_arg} → {combined_flag}")
+                    i += 2
+                    matched = True
+                    break
+            
+            # Bereits kombinierte Flags: -Tscript.ld oder -usymbol
+            elif flag.startswith(prefix):
+                # Für -T: Muss mit .ld enden
+                if prefix == "-T" and flag.endswith('.ld'):
+                    extracted.append(flag)
+                    print(f"filter_args: Found combined T-flag: {flag}")
+                    i += 1
+                    matched = True
+                    break
+                
+                # Für -u: Darf nicht mit .ld enden und muss mehr als nur "-u" sein
+                elif prefix == "-u" and len(flag) > 2 and not flag.endswith('.ld'):
+                    extracted.append(flag)
+                    print(f"filter_args: Found combined u-flag: {flag}")
+                    i += 1
+                    matched = True
+                    break
+                
+                # Für andere Prefixes (z.B. -Wl,): Direkte Übereinstimmung
+                elif prefix.startswith('-Wl,') and flag == prefix:
+                    extracted.append(flag)
+                    print(f"filter_args: Found Wl-flag: {flag}")
+                    i += 1
+                    matched = True
+                    break
+                
+                # Für andere einteilige Flags
+                elif not prefix.startswith('-Wl,') and len(prefix) > 2 and flag == prefix:
+                    extracted.append(flag)
+                    print(f"filter_args: Found single flag: {flag}")
+                    i += 1
+                    matched = True
+                    break
+        
+        # Flag nicht gefunden, weitermachen
+        if not matched:
+            i += 1
+    
+    print(f"filter_args: Extracted {len(extracted)} flags from {len(flags)} total flags")
+    return extracted
 
 
 def remove_flag(flags):
