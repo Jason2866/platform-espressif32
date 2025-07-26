@@ -2065,7 +2065,7 @@ if "clang" in env.subst("$CC").lower():
         f for f in link_args["LINKFLAGS"] if not str(f).startswith("-mcpu=")
     ]
     
-    # Standard Flag-Extraktion
+    # KORRIGIERT: Standard Flag-Extraktion
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group", 
@@ -2094,12 +2094,6 @@ else:
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
-    
-    extra_flags_set = set(extra_flags)
-    link_args["LINKFLAGS"] = [
-        flag for flag in link_args["LINKFLAGS"] 
-        if flag not in extra_flags_set
-    ]
 
 # remove the main linker script flags '-T memory.ld'
 try:
