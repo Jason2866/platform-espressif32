@@ -2007,130 +2007,141 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Minimale Flag-Bereinigung: Nur -mcpu= entfernen + erweiterte Debug-Ausgabe
+    Erweiterte Analyse der LINKFLAGS-Duplikate
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     removed_count = 0
     
-    print("=== ESP-IDF MINIMAL FLAG CLEANING ===")
+    print("=== ESP-IDF EXTENDED FLAG ANALYSIS ===")
+    print(f"Original LINKFLAGS count: {len(original)}")
+    
+    # Analysiere die LINKFLAGS im Detail
+    t_scripts = []
+    u_symbols = []
+    libraries = []
+    other_flags = []
+    
+    for i, flag in enumerate(original):
+        flag_str = str(flag)
+        
+        if flag_str.startswith('-T') and flag_str.endswith('.ld'):
+            t_scripts.append((i, flag_str))
+        elif flag_str.startswith('-u'):
+            u_symbols.append((i, flag_str))
+        elif flag_str.endswith('.a'):
+            libraries.append((i, flag_str))
+        elif flag_str.endswith('.ld') and not flag_str.startswith('-T'):
+            # PROBLEM: Nackte .ld Dateien ohne -T Prefix
+            print(f"*** FOUND NAKED LINKER SCRIPT: [{i}] {repr(flag_str)}")
+            t_scripts.append((i, f"NAKED: {flag_str}"))
+        elif flag_str in ['esp_system_include_coredump_init', 'nvs_sec_provider_include_impl', 
+                         'esp_timer_init_include_func', 'esp_app_desc']:
+            # PROBLEM: Nackte Symbol-Namen ohne -u Prefix
+            print(f"*** FOUND NAKED SYMBOL: [{i}] {repr(flag_str)}")
+            u_symbols.append((i, f"NAKED: {flag_str}"))
+        else:
+            other_flags.append((i, flag_str))
+    
+    print(f"Analysis results:")
+    print(f"  T-Scripts: {len(t_scripts)}")
+    print(f"  U-Symbols: {len(u_symbols)}")
+    print(f"  Libraries: {len(libraries)}")
+    print(f"  Other flags: {len(other_flags)}")
+    
+    # Zeige Duplikate
+    print("\n=== DUPLICATE ANALYSIS ===")
+    
+    # T-Script Duplikate
+    t_names = [flag.replace('-T', '').replace('NAKED: ', '') for _, flag in t_scripts]
+    t_duplicates = [name for name in set(t_names) if t_names.count(name) > 1]
+    if t_duplicates:
+        print(f"DUPLICATE T-Scripts: {t_duplicates}")
+        for dup in t_duplicates:
+            positions = [i for i, (_, flag) in enumerate(t_scripts) 
+                        if dup in flag]
+            print(f"  {dup}: positions {positions}")
+    
+    # U-Symbol Duplikate
+    u_names = [flag.replace('-u', '').replace('NAKED: ', '') for _, flag in u_symbols]
+    u_duplicates = [name for name in set(u_names) if u_names.count(name) > 1]
+    if u_duplicates:
+        print(f"DUPLICATE U-Symbols: {u_duplicates}")
+        for dup in u_duplicates:
+            positions = [i for i, (_, flag) in enumerate(u_symbols) 
+                        if dup in flag]
+            print(f"  {dup}: positions {positions}")
+    
+    # KORREKTUR: Entferne Duplikate und nackte Flags
+    seen_scripts = set()
+    seen_symbols = set()
     
     for flag in original:
         flag_str = str(flag)
         
-        # Entferne problematische Flags
-        if (flag_str.startswith('-mcpu=') or 
-            flag_str.startswith('-mtune=') or
-            flag_str.startswith('-march=')):
-            print(f"ESP-IDF: Removed problematic flag: {flag_str}")
+        # Entferne problematische CPU-Flags
+        if flag_str.startswith('-mcpu='):
+            print(f"Removed: {flag_str}")
             removed_count += 1
             continue
-            
+        
+        # Linker-Scripts: Nur korrekte -T Flags behalten
+        if flag_str.startswith('-T') and flag_str.endswith('.ld'):
+            script_name = flag_str[2:]  # Entferne -T
+            if script_name not in seen_scripts:
+                cleaned.append(flag_str)
+                seen_scripts.add(script_name)
+            else:
+                print(f"Removed duplicate T-script: {flag_str}")
+                removed_count += 1
+            continue
+        
+        # Nackte .ld Dateien entfernen
+        if flag_str.endswith('.ld') and not flag_str.startswith('-T'):
+            print(f"Removed naked linker script: {flag_str}")
+            removed_count += 1
+            continue
+        
+        # U-Symbole: Nur korrekte -u Flags behalten
+        if flag_str.startswith('-u'):
+            symbol_name = flag_str[2:]
+            if symbol_name not in seen_symbols:
+                cleaned.append(flag_str)
+                seen_symbols.add(symbol_name)
+            else:
+                print(f"Removed duplicate U-symbol: {flag_str}")
+                removed_count += 1
+            continue
+        
+        # Nackte Symbol-Namen entfernen
+        naked_symbols = ['esp_system_include_coredump_init', 'nvs_sec_provider_include_impl', 
+                        'esp_timer_init_include_func', 'esp_app_desc', 'esp_efuse_startup_include_func',
+                        'ld_include_highint_hdl', 'start_app', 'start_app_other_cores']
+        
+        if flag_str in naked_symbols:
+            print(f"Removed naked symbol: {flag_str}")
+            removed_count += 1
+            continue
+        
+        # Alle anderen Flags beibehalten
         cleaned.append(flag)
     
     if removed_count > 0:
         env.Replace(LINKFLAGS=cleaned)
-        print(f"ESP-IDF: Removed {removed_count} problematic flags")
-    else:
-        print("ESP-IDF: No problematic flags found")
+        print(f"ESP-IDF: Cleaned {removed_count} problematic/duplicate flags")
+        print(f"Cleaned LINKFLAGS count: {len(cleaned)}")
     
-    # Debug: Teste LINKCOM mit erweiterte Ausgabe
+    # Test LINKCOM nach Bereinigung
     try:
         linkcom = env.subst('$LINKCOM', target=target, source=source)
+        print(f"Cleaned LINKCOM length: {len(linkcom)}")
         
-        # Schreibe in Datei
-        with open("/tmp/firmware_linkcom.log", "w") as f:
+        with open("/tmp/firmware_linkcom_cleaned.log", "w") as f:
             f.write(linkcom)
+        print("Cleaned LINKCOM written to /tmp/firmware_linkcom_cleaned.log")
         
-        print("Firmware LINKCOM written to /tmp/firmware_linkcom.log")
-        print(f"LINKCOM length: {len(linkcom)}")
-        
-        # NEU: Ausgabe der LINKCOM in der Konsole mit Zeilenumbrüchen
-        print("=== LINKCOM COMMAND (formatted) ===")
-        
-        # Teile den Befehl in Wörter
-        parts = linkcom.split()
-        current_line = ""
-        
-        for part in parts:
-            # Wenn das hinzufügen des nächsten Teils die Zeile zu lang macht
-            if len(current_line + " " + part) > 80:
-                if current_line:
-                    print(current_line + " \\")
-                    current_line = "  " + part  # Einrückung für Fortsetzungszeilen
-                else:
-                    print("  " + part + " \\")
-                    current_line = ""
-            else:
-                if current_line:
-                    current_line += " " + part
-                else:
-                    current_line = part
-        
-        # Letzte Zeile ausgeben
-        if current_line:
-            print(current_line)
-        
-        print("=== END LINKCOM COMMAND ===")
-        
-        # Analysiere auf verdächtige Teile
-        suspicious_parts = []
-        for part in parts:
-            if '%' in part or '${' in part or '$(' in part:
-                suspicious_parts.append(part)
-        
-        if suspicious_parts:
-            print("*** SUSPICIOUS PARTS FOUND ***")
-            for part in suspicious_parts:
-                print(f"  SUSPICIOUS: {repr(part)}")
-        
-        if '%' in linkcom:
-            print("*** WARNING: LINKCOM contains % characters ***")
-        else:
-            print("LINKCOM is clean (no % characters)")
-            
     except Exception as e:
-        print(f"*** ERROR: LINKCOM failed: {e}")
-        import traceback
-        print("Full traceback:")
-        traceback.print_exc()
-    
-    # NEU: Teste den Linker-Befehl direkt
-    try:
-        print("=== TESTING ACTUAL LINKER EXECUTION ===")
-        import subprocess
-        
-        # Extrahiere nur den Linker-Befehl (ohne Ausgabedatei)
-        parts = linkcom.split()
-        if len(parts) > 3:
-            # Finde die Position der Ausgabedatei (-o ...)
-            try:
-                o_index = parts.index('-o')
-                if o_index + 1 < len(parts):
-                    # Teste nur bis zur -o Option
-                    test_parts = parts[:o_index]
-                    test_cmd = " ".join(test_parts) + " --help"
-                    
-                    result = subprocess.run(
-                        test_cmd, 
-                        shell=True, 
-                        capture_output=True, 
-                        text=True, 
-                        timeout=5
-                    )
-                    
-                    if result.returncode == 0:
-                        print("Linker executable seems accessible")
-                    else:
-                        print(f"Linker test failed with code: {result.returncode}")
-                        if result.stderr:
-                            print(f"Linker stderr: {result.stderr[:200]}")
-                        
-            except (ValueError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-                print(f"Linker test failed: {e}")
-                
-    except Exception as e:
-        print(f"Could not test linker: {e}")
+        print(f"ERROR: Cleaned LINKCOM failed: {e}")
     
     print("=== ESP-IDF FLAG CLEANING END ===")
     return (target, source)
