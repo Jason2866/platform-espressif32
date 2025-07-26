@@ -2002,218 +2002,74 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Erweiterte Analyse der LINKFLAGS-Duplikate + formatierte LINKCOM-Ausgabe
+    Nur -mcpu= entfernen
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     removed_count = 0
     
-    print("=== ESP-IDF EXTENDED FLAG ANALYSIS ===")
-    print(f"Original LINKFLAGS count: {len(original)}")
-    
-    # Analysiere die LINKFLAGS im Detail
-    t_scripts = []
-    u_symbols = []
-    libraries = []
-    other_flags = []
-    
-    for i, flag in enumerate(original):
-        flag_str = str(flag)
-        
-        if flag_str.startswith('-T') and flag_str.endswith('.ld'):
-            t_scripts.append((i, flag_str))
-        elif flag_str.startswith('-u'):
-            u_symbols.append((i, flag_str))
-        elif flag_str.endswith('.a'):
-            libraries.append((i, flag_str))
-        elif flag_str.endswith('.ld') and not flag_str.startswith('-T'):
-            # PROBLEM: Nackte .ld Dateien ohne -T Prefix
-            print(f"*** FOUND NAKED LINKER SCRIPT: [{i}] {repr(flag_str)}")
-            t_scripts.append((i, f"NAKED: {flag_str}"))
-        elif flag_str in ['esp_system_include_coredump_init', 'nvs_sec_provider_include_impl', 
-                         'esp_timer_init_include_func', 'esp_app_desc']:
-            # PROBLEM: Nackte Symbol-Namen ohne -u Prefix
-            print(f"*** FOUND NAKED SYMBOL: [{i}] {repr(flag_str)}")
-            u_symbols.append((i, f"NAKED: {flag_str}"))
-        else:
-            other_flags.append((i, flag_str))
-    
-    print(f"Analysis results:")
-    print(f"  T-Scripts: {len(t_scripts)}")
-    print(f"  U-Symbols: {len(u_symbols)}")
-    print(f"  Libraries: {len(libraries)}")
-    print(f"  Other flags: {len(other_flags)}")
-    
-    # Zeige Duplikate
-    print("\n=== DUPLICATE ANALYSIS ===")
-    
-    # T-Script Duplikate
-    t_names = [flag.replace('-T', '').replace('NAKED: ', '') for _, flag in t_scripts]
-    t_duplicates = [name for name in set(t_names) if t_names.count(name) > 1]
-    if t_duplicates:
-        print(f"DUPLICATE T-Scripts: {t_duplicates}")
-        for dup in t_duplicates:
-            positions = [i for i, (_, flag) in enumerate(t_scripts) 
-                        if dup in flag]
-            print(f"  {dup}: positions {positions}")
-    
-    # U-Symbol Duplikate
-    u_names = [flag.replace('-u', '').replace('NAKED: ', '') for _, flag in u_symbols]
-    u_duplicates = [name for name in set(u_names) if u_names.count(name) > 1]
-    if u_duplicates:
-        print(f"DUPLICATE U-Symbols: {u_duplicates}")
-        for dup in u_duplicates:
-            positions = [i for i, (_, flag) in enumerate(u_symbols) 
-                        if dup in flag]
-            print(f"  {dup}: positions {positions}")
-    
-    # KORREKTUR: Entferne Duplikate und nackte Flags
-    seen_scripts = set()
-    seen_symbols = set()
-    
     for flag in original:
-        flag_str = str(flag)
-        
-        # Entferne problematische CPU-Flags
-        if flag_str.startswith('-mcpu='):
-            print(f"Removed: {flag_str}")
+        if str(flag).startswith('-mcpu='):
             removed_count += 1
             continue
-        
-        # Linker-Scripts: Nur korrekte -T Flags behalten
-        if flag_str.startswith('-T') and flag_str.endswith('.ld'):
-            script_name = flag_str[2:]  # Entferne -T
-            if script_name not in seen_scripts:
-                cleaned.append(flag_str)
-                seen_scripts.add(script_name)
-            else:
-                print(f"Removed duplicate T-script: {flag_str}")
-                removed_count += 1
-            continue
-        
-        # Nackte .ld Dateien entfernen
-        if flag_str.endswith('.ld') and not flag_str.startswith('-T'):
-            print(f"Removed naked linker script: {flag_str}")
-            removed_count += 1
-            continue
-        
-        # U-Symbole: Nur korrekte -u Flags behalten
-        if flag_str.startswith('-u'):
-            symbol_name = flag_str[2:]
-            if symbol_name not in seen_symbols:
-                cleaned.append(flag_str)
-                seen_symbols.add(symbol_name)
-            else:
-                print(f"Removed duplicate U-symbol: {flag_str}")
-                removed_count += 1
-            continue
-        
-        # Nackte Symbol-Namen entfernen
-        naked_symbols = ['esp_system_include_coredump_init', 'nvs_sec_provider_include_impl', 
-                        'esp_timer_init_include_func', 'esp_app_desc', 'esp_efuse_startup_include_func',
-                        'ld_include_highint_hdl', 'start_app', 'start_app_other_cores',
-                        '__ubsan_include', 'esp_system_include_startup_funcs', '__assert_func',
-                        'esp_dport_access_reg_read', 'esp_security_init_include_impl', 'app_main',
-                        'esp_libc_include_heap_impl', 'esp_libc_include_reent_syscalls_impl',
-                        'esp_libc_include_syscalls_impl', 'esp_libc_include_pthread_impl',
-                        'esp_libc_include_assert_impl', 'esp_libc_include_getentropy_impl',
-                        'esp_libc_include_init_funcs', 'esp_libc_init_funcs',
-                        'pthread_include_pthread_impl', 'pthread_include_pthread_cond_var_impl',
-                        'pthread_include_pthread_local_storage_impl', 'pthread_include_pthread_rwlock_impl',
-                        'pthread_include_pthread_semaphore_impl', '__cxa_guard_dummy', '__cxx_init_dummy',
-                        '__cxx_fatal_exception', 'uart_vfs_include_dev_init', 'include_esp_phy_override',
-                        'esp_vfs_include_console_register', 'vfs_include_syscalls_impl',
-                        'esp_vfs_include_nullfs_register']
-        
-        if flag_str in naked_symbols:
-            print(f"Removed naked symbol: {flag_str}")
-            removed_count += 1
-            continue
-        
-        # Alle anderen Flags beibehalten
         cleaned.append(flag)
     
     if removed_count > 0:
         env.Replace(LINKFLAGS=cleaned)
-        print(f"ESP-IDF: Cleaned {removed_count} problematic/duplicate flags")
-        print(f"Cleaned LINKFLAGS count: {len(cleaned)}")
+        print(f"ESP-IDF: Removed {removed_count} -mcpu flags")
     
-    # HINZUGEFÜGT: Formatierte LINKCOM-Ausgabe
-    try:
-        linkcom = env.subst('$LINKCOM', target=target, source=source)
-        
-        # Schreibe in Datei
-        with open("/tmp/firmware_linkcom_cleaned.log", "w") as f:
-            f.write(linkcom)
-        
-        print("Firmware LINKCOM written to /tmp/firmware_linkcom_cleaned.log")
-        print(f"Cleaned LINKCOM length: {len(linkcom)}")
-        
-        # FORMATIERTE AUSGABE: LINKCOM in der Konsole mit Zeilenumbrüchen
-        print("=== CLEANED LINKCOM COMMAND (formatted) ===")
-        
-        # Teile den Befehl in Wörter
-        parts = linkcom.split()
-        current_line = ""
-        
-        for part in parts:
-            # Wenn das hinzufügen des nächsten Teils die Zeile zu lang macht
-            if len(current_line + " " + part) > 80:
-                if current_line:
-                    print(current_line + " \\")
-                    current_line = "  " + part  # Einrückung für Fortsetzungszeilen
-                else:
-                    print("  " + part + " \\")
-                    current_line = ""
-            else:
-                if current_line:
-                    current_line += " " + part
-                else:
-                    current_line = part
-        
-        # Letzte Zeile ausgeben
-        if current_line:
-            print(current_line)
-        
-        print("=== END CLEANED LINKCOM COMMAND ===")
-        
-        # Analysiere auf verdächtige Teile
-        suspicious_parts = []
-        for part in parts:
-            if '%' in part or '${' in part or '$(' in part:
-                suspicious_parts.append(part)
-        
-        if suspicious_parts:
-            print("*** SUSPICIOUS PARTS FOUND ***")
-            for part in suspicious_parts:
-                print(f"  SUSPICIOUS: {repr(part)}")
-        
-        if '%' in linkcom:
-            print("*** WARNING: LINKCOM contains % characters ***")
-        else:
-            print("LINKCOM is clean (no % characters)")
-        
-    except Exception as e:
-        print(f"ERROR: Cleaned LINKCOM failed: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    print("=== ESP-IDF FLAG CLEANING END ===")
     return (target, source)
 
 
 if "clang" in env.subst("$CC").lower():
-    # Minimale Änderungen - nur Hook registrieren
-    target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
-    env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
-    
-    # Standard Flag-Extraktion (mit korrigierter filter_args)
+    # Standard Flag-Extraktion (minimal)
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
     )
     
-    # Standard Bereinigung
+    # ÜBERNOMMEN: Library-Kontrolle wie im heuristischen Ansatz
+    controlled_linking_flags = []
+    
+    # Sammle alle Libraries aus dem SCons-System
+    all_libraries = []
+    
+    # Libraries aus libs Array sammeln
+    for lib_node in libs:
+        if hasattr(lib_node, 'get_path'):
+            all_libraries.append(lib_node.get_path())
+        else:
+            all_libraries.append(str(lib_node))
+    
+    # Libraries aus LIBS sammeln 
+    for lib_name in link_args.get("LIBS", []):
+        # Finde vollständigen Pfad basierend auf LIBPATH
+        for lib_path in link_args.get("LIBPATH", []):
+            full_lib_path = os.path.join(lib_path, f"lib{lib_name}.a")
+            if os.path.isfile(full_lib_path):
+                all_libraries.append(full_lib_path)
+                break
+    
+    # ÜBERNOMMEN: --start-group Behandlung
+    controlled_linking_flags.append("-Wl,--start-group")
+    
+    # ÜBERNOMMEN: Alle Libraries mit --whole-archive hinzufügen
+    for lib_path in all_libraries:
+        controlled_linking_flags.extend([
+            "-Wl,--whole-archive",
+            lib_path,
+            "-Wl,--no-whole-archive"
+        ])
+    
+    controlled_linking_flags.append("-Wl,--end-group")
+    
+    # ÜBERNOMMEN: Kombiniere mit anderen essentiellen Flags
+    extra_flags.extend(controlled_linking_flags)
+    
+    # KRITISCH: Leere das libs Array (wie im heuristischen Ansatz)
+    libs = []
+    
+    # Standard LINKFLAGS-Bereinigung
     extra_flags_set = set(extra_flags)
     link_args["LINKFLAGS"] = [
         flag for flag in link_args["LINKFLAGS"] 
@@ -2221,7 +2077,11 @@ if "clang" in env.subst("$CC").lower():
     ]
     link_args["LINKFLAGS"].extend(extra_flags)
     
-    print("ESP-IDF: Using corrected Clang flag processing")
+    # Nur -mcpu= Flag-Entfernung
+    target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
+    env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
+    
+    print(f"ESP-IDF: Using controlled library linking with {len(all_libraries)} libraries")
 
 else:
     # Standard GCC-Verarbeitung (unverändert)
