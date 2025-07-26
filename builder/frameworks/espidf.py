@@ -2004,6 +2004,43 @@ def clean_clang_linkflags_espidf(target, source, env):
     print("=== ESP-IDF FLAG CLEANING END ===")
     return (target, source)
 
+
+if "clang" in env.subst("$CC").lower():
+    # Target-ELF-Pfad definieren
+    target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
+    
+    # Registriere minimale Flag-Bereinigung
+    env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
+    print("ESP-IDF: Registered minimal Clang flag cleaning for firmware linking")
+    
+    # Vereinfachte Flag-Filterung
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
+    )
+    
+    extra_flags_set = set(extra_flags)
+    link_args["LINKFLAGS"] = [
+        flag for flag in link_args["LINKFLAGS"] 
+        if flag not in extra_flags_set
+    ]
+    link_args["LINKFLAGS"].extend(extra_flags)
+    print("Clang: Using simplified flag processing")
+
+else:
+    # GCC: Standard-Verarbeitung (unverändert)
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    extra_flags_set = set(extra_flags)
+    link_args["LINKFLAGS"] = [
+        flag for flag in link_args["LINKFLAGS"] 
+        if flag not in extra_flags_set
+    ]
+
+
 # remove the main linker script flags '-T memory.ld'
 try:
     ld_index = extra_flags.index("memory.ld")
