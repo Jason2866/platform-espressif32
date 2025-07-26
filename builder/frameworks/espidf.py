@@ -2056,36 +2056,41 @@ if "clang" in env.subst("$CC").lower():
     # Target-ELF-Pfad definieren
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     
-    # Registriere minimale Flag-Bereinigung (nur -mcpu= entfernen)
+    # Registriere minimale Flag-Bereinigung
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
-    print("ESP-IDF: Registered Clang flag cleaning for firmware linking")
     
     # Vorsichtsmaßnahme: Entferne -mcpu= bereits hier
     link_args["LINKFLAGS"] = [
         f for f in link_args["LINKFLAGS"] if not str(f).startswith("-mcpu=")
     ]
     
-    # KORRIGIERT: Standard Flag-Extraktion
+    # KORRIGIERT: Extrahiere nur Standard-Flags, NICHT --whole-archive
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group", 
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
     )
     
-    # NEU: Intelligente --whole-archive Verarbeitung
-    processed_extra_flags = process_whole_archive_flags_intelligently(extra_flags)
+    # SEPARAT: Extrahiere --whole-archive Flags für intelligente Verarbeitung
+    whole_archive_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
     
-    # Bereinige LINKFLAGS
-    extra_flags_set = set(extra_flags)
+    # Intelligente --whole-archive Verarbeitung
+    processed_whole_archive_flags = process_whole_archive_flags_intelligently(whole_archive_flags)
+    
+    # Bereinige LINKFLAGS (entferne sowohl Standard- als auch --whole-archive Flags)
+    all_extracted_flags = set(extra_flags + whole_archive_flags)
     link_args["LINKFLAGS"] = [
         flag for flag in link_args["LINKFLAGS"] 
-        if flag not in extra_flags_set
+        if flag not in all_extracted_flags
     ]
     
-    # Füge die intelligent verarbeiteten Flags hinzu
-    link_args["LINKFLAGS"].extend(processed_extra_flags)
+    # Füge alle verarbeiteten Flags hinzu
+    link_args["LINKFLAGS"].extend(extra_flags)
+    link_args["LINKFLAGS"].extend(processed_whole_archive_flags)
     
-    print("ESP-IDF: Using intelligent Clang linking with --whole-archive optimization")
+    print("ESP-IDF: Using intelligent Clang linking with separate --whole-archive processing")
 
 else:
     # Standard GCC-Verarbeitung (unverändert)
@@ -2094,6 +2099,7 @@ else:
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
+
 
 # remove the main linker script flags '-T memory.ld'
 try:
