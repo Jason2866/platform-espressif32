@@ -2007,7 +2007,7 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Minimale Flag-Bereinigung: Nur -mcpu= entfernen + Debug
+    Minimale Flag-Bereinigung: Nur -mcpu= entfernen + erweiterte Debug-Ausgabe
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2018,8 +2018,10 @@ def clean_clang_linkflags_espidf(target, source, env):
     for flag in original:
         flag_str = str(flag)
         
-        # Entferne nur das problematische -mcpu= Flag
-        if flag_str.startswith('-mcpu='):
+        # Entferne problematische Flags
+        if (flag_str.startswith('-mcpu=') or 
+            flag_str.startswith('-mtune=') or
+            flag_str.startswith('-march=')):
             print(f"ESP-IDF: Removed problematic flag: {flag_str}")
             removed_count += 1
             continue
@@ -2032,13 +2034,55 @@ def clean_clang_linkflags_espidf(target, source, env):
     else:
         print("ESP-IDF: No problematic flags found")
     
-    # Debug: Teste LINKCOM
+    # Debug: Teste LINKCOM mit erweiterte Ausgabe
     try:
         linkcom = env.subst('$LINKCOM', target=target, source=source)
+        
+        # Schreibe in Datei
         with open("/tmp/firmware_linkcom.log", "w") as f:
             f.write(linkcom)
+        
         print("Firmware LINKCOM written to /tmp/firmware_linkcom.log")
         print(f"LINKCOM length: {len(linkcom)}")
+        
+        # NEU: Ausgabe der LINKCOM in der Konsole mit Zeilenumbrüchen
+        print("=== LINKCOM COMMAND (formatted) ===")
+        
+        # Teile den Befehl in Wörter
+        parts = linkcom.split()
+        current_line = ""
+        
+        for part in parts:
+            # Wenn das hinzufügen des nächsten Teils die Zeile zu lang macht
+            if len(current_line + " " + part) > 80:
+                if current_line:
+                    print(current_line + " \\")
+                    current_line = "  " + part  # Einrückung für Fortsetzungszeilen
+                else:
+                    print("  " + part + " \\")
+                    current_line = ""
+            else:
+                if current_line:
+                    current_line += " " + part
+                else:
+                    current_line = part
+        
+        # Letzte Zeile ausgeben
+        if current_line:
+            print(current_line)
+        
+        print("=== END LINKCOM COMMAND ===")
+        
+        # Analysiere auf verdächtige Teile
+        suspicious_parts = []
+        for part in parts:
+            if '%' in part or '${' in part or '$(' in part:
+                suspicious_parts.append(part)
+        
+        if suspicious_parts:
+            print("*** SUSPICIOUS PARTS FOUND ***")
+            for part in suspicious_parts:
+                print(f"  SUSPICIOUS: {repr(part)}")
         
         if '%' in linkcom:
             print("*** WARNING: LINKCOM contains % characters ***")
@@ -2047,6 +2091,46 @@ def clean_clang_linkflags_espidf(target, source, env):
             
     except Exception as e:
         print(f"*** ERROR: LINKCOM failed: {e}")
+        import traceback
+        print("Full traceback:")
+        traceback.print_exc()
+    
+    # NEU: Teste den Linker-Befehl direkt
+    try:
+        print("=== TESTING ACTUAL LINKER EXECUTION ===")
+        import subprocess
+        
+        # Extrahiere nur den Linker-Befehl (ohne Ausgabedatei)
+        parts = linkcom.split()
+        if len(parts) > 3:
+            # Finde die Position der Ausgabedatei (-o ...)
+            try:
+                o_index = parts.index('-o')
+                if o_index + 1 < len(parts):
+                    # Teste nur bis zur -o Option
+                    test_parts = parts[:o_index]
+                    test_cmd = " ".join(test_parts) + " --help"
+                    
+                    result = subprocess.run(
+                        test_cmd, 
+                        shell=True, 
+                        capture_output=True, 
+                        text=True, 
+                        timeout=5
+                    )
+                    
+                    if result.returncode == 0:
+                        print("Linker executable seems accessible")
+                    else:
+                        print(f"Linker test failed with code: {result.returncode}")
+                        if result.stderr:
+                            print(f"Linker stderr: {result.stderr[:200]}")
+                        
+            except (ValueError, subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+                print(f"Linker test failed: {e}")
+                
+    except Exception as e:
+        print(f"Could not test linker: {e}")
     
     print("=== ESP-IDF FLAG CLEANING END ===")
     return (target, source)
