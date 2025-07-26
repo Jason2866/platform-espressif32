@@ -1955,324 +1955,54 @@ libs = find_lib_deps(
 )
 
 
-def debug_all_linkflags(target, source, env):
-    """
-    Debug-Ausgabe für alle ELF-Targets (Bootloader + Firmware)
-    """
-    target_name = str(target[0]) if target else "unknown"
-    build_dir = env.get("BUILD_DIR", "")
-    
-    # Bestimme Build-Typ
-    is_bootloader = (
-        "bootloader" in target_name.lower() or 
-        "bootloader" in build_dir.lower()
-    )
-    build_type = "BOOTLOADER" if is_bootloader else "FIRMWARE"
-    
-    print(f"=== {build_type} LINKFLAGS ANALYSIS ===")
-    print(f"Target: {target_name}")
-    print(f"Build Dir: {build_dir}")
-    print(f"CC: {env.get('CC', 'not set')}")
-    print(f"LINK: {env.get('LINK', 'not set')}")
-    
-    # Analysiere LINKFLAGS
-    linkflags = env.get("LINKFLAGS", [])
-    print(f"LINKFLAGS count: {len(linkflags)}")
-    
-    # Kategorisiere Flags
-    cpu_flags = [f for f in linkflags if str(f).startswith('-mcpu=')]
-    z_flags = []
-    t_flags = []
-    u_flags = []
-    wl_flags = []
-    
-    i = 0
-    while i < len(linkflags):
-        flag = str(linkflags[i])
-        if flag == "-z" and i + 1 < len(linkflags):
-            z_flags.append((flag, str(linkflags[i+1])))
-            i += 2
-        elif flag.startswith('-T') and flag.endswith('.ld'):
-            t_flags.append(flag)
-            i += 1
-        elif flag.startswith('-u'):
-            u_flags.append(flag)
-            i += 1
-        elif flag.startswith('-Wl,'):
-            wl_flags.append(flag)
-            i += 1
-        else:
-            i += 1
-    
-    print(f"{build_type} Flag categories:")
-    print(f"  CPU flags (-mcpu=): {len(cpu_flags)} -> {cpu_flags}")
-    print(f"  Z flags (-z): {len(z_flags)} -> {z_flags}")
-    print(f"  T scripts (-T): {len(t_flags)} -> {t_flags[:5]}...")  # Erste 5
-    print(f"  U symbols (-u): {len(u_flags)} -> {u_flags[:5]}...")  # Erste 5
-    print(f"  Wl flags (-Wl,): {len(wl_flags)} -> {wl_flags[:5]}...")  # Erste 5
-    
-    # Teste LINKCOM für beide Build-Typen
-    try:
-        linkcom = env.subst('$LINKCOM', target=target, source=source)
-        debug_file = f"/tmp/{build_type.lower()}_linkcom.txt"
-        with open(debug_file, "w") as f:
-            f.write(linkcom)
-        print(f"{build_type} LINKCOM written to {debug_file}")
-        print(f"LINKCOM length: {len(linkcom)}")
-        
-        # Prüfe auf problematische Zeichen
-        if '%' in linkcom:
-            print(f"*** WARNING: {build_type} LINKCOM contains % characters ***")
-        else:
-            print(f"{build_type} LINKCOM is clean")
-            
-    except Exception as e:
-        print(f"*** ERROR: {build_type} LINKCOM failed: {e}")
-    
-    print(f"=== END {build_type} ANALYSIS ===\n")
-    return (target, source)
-
-# Registriere für ALLE ELF-Targets in espidf.py
-env.AddPreAction("$BUILD_DIR/*.elf", debug_all_linkflags)
-
-
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Vor dem Linken problematische Flags für Clang bereinigen.
+    Minimale Flag-Bereinigung für Clang: Nur tatsächlich problematische Flags entfernen.
+    Da extract_link_args jetzt GCC-Format beibehält, sind keine Konvertierungen nötig.
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
-    converted_count = 0
-    seen_symbols = set()
+    removed_count = 0
     
-    # VERBESSERTE: Multi-Ansatz Bootloader-Erkennung
-    BUILD_DIR = env.get("BUILD_DIR", "")
+    print("=== ESP-IDF MINIMAL FLAG CLEANING ===")
+    print(f"Original LINKFLAGS count: {len(original)}")
     
-    # 1. Target-basierte Erkennung
-    target_name = str(target[0]).lower() if target else ""
-    has_bootloader_in_target = "bootloader" in target_name
-    
-    # 2. Build-Pfad-Erkennung
-    has_bootloader_in_path = "bootloader" in BUILD_DIR.lower()
-    
-    # 3. Compiler-Define-Erkennung
-    cppdefines = env.get("CPPDEFINES", [])
-    has_bootloader_define = "__BOOTLOADER_BUILD" in str(cppdefines)
-    
-    # 4. Environment-Variable-Erkennung
-    env_vars = env.Dictionary()
-    has_bootloader_env = any(
-        "bootloader" in str(key).lower() or "bootloader" in str(value).lower()
-        for key, value in env_vars.items()
-        if key in ["PROGNAME", "TARGET", "BUILD_TYPE"]
-    )
-    
-    # 5. LINKFLAGS-Analyse für Bootloader-spezifische Flags
-    has_bootloader_flags = any(
-        indicator in str(flag).lower()
-        for flag in original
-        for indicator in ["bootloader.ld", "bootloader.rom.ld", "bootloader_support"]
-    )
-    
-    # Kombinierte Bootloader-Erkennung
-    is_bootloader = (
-        has_bootloader_in_target or
-        has_bootloader_in_path or
-        has_bootloader_define or
-        has_bootloader_env or
-        has_bootloader_flags
-    )
-    
-    build_type = "BOOTLOADER" if is_bootloader else "FIRMWARE"
-    
-    # Debug: Zeige Erkennungsdetails
-    print(f"=== ESP-IDF FLAG CLEANING DEBUG START ({build_type}) ===")
-    print(f"Bootloader detection details:")
-    print(f"  Target name: {target_name} -> {has_bootloader_in_target}")
-    print(f"  Build path: {BUILD_DIR} -> {has_bootloader_in_path}")
-    print(f"  Defines: {has_bootloader_define}")
-    print(f"  Env vars: {has_bootloader_env}")
-    print(f"  LINKFLAGS: {has_bootloader_flags}")
-    print(f"  Final result: {build_type}")
-    print("Original LINKFLAGS count: " + str(len(original)))
-    
-    i = 0
-    while i < len(original):
-        flag = str(original[i])
+    for flag in original:
+        flag_str = str(flag)
         
-        # KRITISCH: Entferne problematische CPU-Flags für den Linker
-        if flag.startswith('-mcpu='):
-            print(f"ESP-IDF ({build_type}): Removed linker-incompatible flag: " + flag)
-            converted_count += 1
-            i += 1
+        # Entferne nur das eine bekannte problematische Flag
+        if flag_str.startswith('-mcpu='):
+            print(f"ESP-IDF: Removed problematic flag: {flag_str}")
+            removed_count += 1
             continue
             
-        # Behandle getrennte -z Flags (MUSS konvertiert werden)
-        if flag == "-z" and i + 1 < len(original):
-            arg = str(original[i+1])
-            clang_flag = "-Wl,-z," + arg
-            cleaned.append(clang_flag)
-            print(f"ESP-IDF ({build_type}): Converted -z " + arg + " to " + clang_flag)
-            converted_count += 1
-            i += 2
-            continue
-            
-        # -T Flags NICHT konvertieren (GCC-Format beibehalten)
-        elif flag == "-T" and i + 1 < len(original):
-            script = str(original[i+1])
-            if script.endswith('.ld'):
-                gcc_flag = "-T" + script
-                cleaned.append(gcc_flag)
-                print(f"ESP-IDF ({build_type}): Combined -T " + script + " to " + gcc_flag + " (GCC format)")
-                i += 2
-                continue
-            
-        # Bereits kombinierte -T Flags unverändert lassen
-        elif str(flag).startswith('-T') and str(flag).endswith('.ld'):
-            cleaned.append(flag)
-            print(f"ESP-IDF ({build_type}): Kept linker script in GCC format: " + str(flag))
-            i += 1
-            continue
-            
-        # -u Flags konvertieren
-        elif flag == "-u" and i + 1 < len(original):
-            symbol = str(original[i+1])
-            if symbol not in seen_symbols:
-                clang_flag = "-Wl,-u," + symbol
-                cleaned.append(clang_flag)
-                seen_symbols.add(symbol)
-                print(f"ESP-IDF ({build_type}): Converted -u " + symbol + " to " + clang_flag)
-                converted_count += 1
-            i += 2
-            continue
-            
-        # Bereits kombinierte -u Flags
-        elif str(flag).startswith('-u') and not str(flag).startswith('-Wl,'):
-            if len(str(flag)) > 2:
-                symbol = str(flag)[2:].lstrip()
-                if symbol and symbol not in seen_symbols:
-                    clang_flag = "-Wl,-u," + symbol
-                    cleaned.append(clang_flag)
-                    seen_symbols.add(symbol)
-                    print(f"ESP-IDF ({build_type}): Converted " + str(flag) + " to " + clang_flag)
-                    converted_count += 1
-            i += 1
-            continue
-            
-        # Alle anderen Flags unverändert
-        else:
-            cleaned.append(flag)
-            i += 1
-
-    if converted_count > 0:
+        # ALLE anderen Flags bleiben unverändert (GCC-Format funktioniert!)
+        cleaned.append(flag)
+    
+    if removed_count > 0:
         env.Replace(LINKFLAGS=cleaned)
-        print(f"ESP-IDF ({build_type}): Flag cleaning completed: " + str(converted_count) + " flags converted")
+        print(f"ESP-IDF: Removed {removed_count} problematic flags")
+    else:
+        print("ESP-IDF: No problematic flags found")
     
-    # KRITISCH: LINKCOM-Test für beide Build-Typen
+    # Debug: Teste LINKCOM
     try:
-        print(f"=== FINAL LINKCOM SUBSTITUTION TEST ({build_type}) ===")
         linkcom = env.subst('$LINKCOM', target=target, source=source)
-        print(f"LINKCOM substitution successful ({build_type})")
-        print(f"Command length: {len(linkcom)}")
-        
-        # Verschiedene Debug-Dateien für Bootloader vs Firmware
-        debug_file = f"/tmp/linkcom_debug_{build_type.lower()}.txt"
-        try:
-            with open(debug_file, "w") as f:
-                f.write(linkcom)
-            print(f"Full {build_type} command written to {debug_file}")
-        except:
-            print(f"Could not write {build_type} command to file")
-        
-        # Zeige Unterschiede in der Befehlsstruktur
-        print(f"=== {build_type} LINKCOM ANALYSIS ===")
-        print(f"Command starts: {linkcom[:150]}")
-        print(f"Command ends: {linkcom[-150:]}")
-        
-        # Zähle verschiedene Flag-Typen
-        parts = linkcom.split()
-        wl_flags = [p for p in parts if p.startswith('-Wl,')]
-        t_flags = [p for p in parts if p.startswith('-T') and p.endswith('.ld')]
-        u_flags = [p for p in parts if p.startswith('-Wl,-u,')]
-        libs = [p for p in parts if p.endswith('.a')]
-        
-        print(f"{build_type} Flag counts:")
-        print(f"  -Wl, flags: {len(wl_flags)}")
-        print(f"  -T scripts: {len(t_flags)}")
-        print(f"  -u symbols: {len(u_flags)}")
-        print(f"  Libraries: {len(libs)}")
+        with open("/tmp/firmware_linkcom.log", "w") as f:
+            f.write(linkcom)
+        print("Firmware LINKCOM written to /tmp/firmware_linkcom.log")
+        print(f"LINKCOM length: {len(linkcom)}")
         
         if '%' in linkcom:
-            print(f"*** WARNING: {build_type} LINKCOM contains % characters ***")
+            print("*** WARNING: LINKCOM contains % characters ***")
         else:
-            print(f"{build_type} LINKCOM is clean (no % characters)")
+            print("LINKCOM is clean (no % characters)")
             
     except Exception as e:
-        print(f"*** CRITICAL ERROR during {build_type} LINKCOM substitution: " + str(e))
-        print("This is the source of the TypeError!")
+        print(f"*** ERROR: LINKCOM failed: {e}")
     
-    print(f"=== ESP-IDF FLAG CLEANING DEBUG END ({build_type}) ===")
+    print("=== ESP-IDF FLAG CLEANING END ===")
     return (target, source)
-
-if "clang" in env.subst("$CC").lower():
-    # Registriere Flag-Bereinigung als Pre-Link-Action
-    target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
-    env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
-
-    # HAL-Libraries für Xtensa-MCUs hinzufügen
-    mcu = env.get("BOARD_MCU", "esp32")
-    additional_hal_libs = []
-    
-    if mcu in ("esp32", "esp32s2", "esp32s3"):
-        xtensa_hal_lib = os.path.join(FRAMEWORK_DIR, "components", "xtensa", mcu, "libxt_hal.a")
-        if os.path.isfile(xtensa_hal_lib):
-            additional_hal_libs.append(xtensa_hal_lib)
-            print(f"Added Xtensa HAL: {xtensa_hal_lib}")
-    
-    # ESP32-spezifische System-Libraries
-    esp_hal_candidates = [
-        os.path.join(BUILD_DIR, "esp-idf", "esp_hw_support", "libesp_hw_support.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "esp_system", "libesp_system.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "hal", "libhal.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "soc", "libsoc.a"),
-        os.path.join(BUILD_DIR, "esp-idf", "esp_common", "libesp_common.a"),
-    ]
-    
-    for candidate_lib in esp_hal_candidates:
-        if os.path.isfile(candidate_lib):
-            if candidate_lib not in link_args["LINKFLAGS"]:
-                additional_hal_libs.append(candidate_lib)
-                print(f"Added HAL library: {os.path.basename(candidate_lib)}")
-    
-    if additional_hal_libs:
-        link_args["LINKFLAGS"].extend(additional_hal_libs)
-    
-    # Flag-Filterung
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
-    )
-    extra_flags_set = set(extra_flags)
-    link_args["LINKFLAGS"] = [
-        flag for flag in link_args["LINKFLAGS"] 
-        if flag not in extra_flags_set
-    ]
-    # Füge extra_flags am Ende hinzu
-    link_args["LINKFLAGS"].extend(extra_flags)
-    print("Clang: Using Clang linker argument format")
-
-else:
-    # GCC: Standard-Verarbeitung (unverändert)
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    extra_flags_set = set(extra_flags)
-    link_args["LINKFLAGS"] = [
-        flag for flag in link_args["LINKFLAGS"] 
-        if flag not in extra_flags_set
-    ]
 
 # remove the main linker script flags '-T memory.ld'
 try:
