@@ -888,21 +888,14 @@ def finalize_clang_environment():
             "-Wno-single-bit-bitfield-constant-conversion"
         ]
         
-        # Separate Compiler and Linker Flags
+        # Compiler Flags
         compiler_clang_flags = [
             f"--target={target_arch}",
             "-fno-common",
             "-fno-jump-tables",
             "-fno-rtti",
         ]
-        
-        # Linker specific Flags
-        linker_specific_flags = [
-            "-fno-common",
-            "-fno-jump-tables",
-            "-fno-rtti",
-        ]
-        
+    
         if is_riscv:
             c_cxx_flags = ["-march=rv32imc", "-mabi=ilp32", "-mno-relax"]
             asm_flags = ["-march=rv32imc", "-mabi=ilp32"]
@@ -936,8 +929,6 @@ def finalize_clang_environment():
             "-Wl,--allow-multiple-definition",
             "-Wl,--strip-debug",
         ]
-        # Only Linker specific Flags
-        linker_flags.extend(linker_specific_flags)
 
         env.Append(
             CCFLAGS=app_flags["C"],
