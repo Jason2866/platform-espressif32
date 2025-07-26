@@ -2007,7 +2007,7 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Erweiterte Analyse der LINKFLAGS-Duplikate
+    Erweiterte Analyse der LINKFLAGS-Duplikate + formatierte LINKCOM-Ausgabe
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2116,7 +2116,19 @@ def clean_clang_linkflags_espidf(target, source, env):
         # Nackte Symbol-Namen entfernen
         naked_symbols = ['esp_system_include_coredump_init', 'nvs_sec_provider_include_impl', 
                         'esp_timer_init_include_func', 'esp_app_desc', 'esp_efuse_startup_include_func',
-                        'ld_include_highint_hdl', 'start_app', 'start_app_other_cores']
+                        'ld_include_highint_hdl', 'start_app', 'start_app_other_cores',
+                        '__ubsan_include', 'esp_system_include_startup_funcs', '__assert_func',
+                        'esp_dport_access_reg_read', 'esp_security_init_include_impl', 'app_main',
+                        'esp_libc_include_heap_impl', 'esp_libc_include_reent_syscalls_impl',
+                        'esp_libc_include_syscalls_impl', 'esp_libc_include_pthread_impl',
+                        'esp_libc_include_assert_impl', 'esp_libc_include_getentropy_impl',
+                        'esp_libc_include_init_funcs', 'esp_libc_init_funcs',
+                        'pthread_include_pthread_impl', 'pthread_include_pthread_cond_var_impl',
+                        'pthread_include_pthread_local_storage_impl', 'pthread_include_pthread_rwlock_impl',
+                        'pthread_include_pthread_semaphore_impl', '__cxa_guard_dummy', '__cxx_init_dummy',
+                        '__cxx_fatal_exception', 'uart_vfs_include_dev_init', 'include_esp_phy_override',
+                        'esp_vfs_include_console_register', 'vfs_include_syscalls_impl',
+                        'esp_vfs_include_nullfs_register']
         
         if flag_str in naked_symbols:
             print(f"Removed naked symbol: {flag_str}")
@@ -2131,17 +2143,65 @@ def clean_clang_linkflags_espidf(target, source, env):
         print(f"ESP-IDF: Cleaned {removed_count} problematic/duplicate flags")
         print(f"Cleaned LINKFLAGS count: {len(cleaned)}")
     
-    # Test LINKCOM nach Bereinigung
+    # HINZUGEFÜGT: Formatierte LINKCOM-Ausgabe
     try:
         linkcom = env.subst('$LINKCOM', target=target, source=source)
-        print(f"Cleaned LINKCOM length: {len(linkcom)}")
         
+        # Schreibe in Datei
         with open("/tmp/firmware_linkcom_cleaned.log", "w") as f:
             f.write(linkcom)
-        print("Cleaned LINKCOM written to /tmp/firmware_linkcom_cleaned.log")
+        
+        print("Firmware LINKCOM written to /tmp/firmware_linkcom_cleaned.log")
+        print(f"Cleaned LINKCOM length: {len(linkcom)}")
+        
+        # FORMATIERTE AUSGABE: LINKCOM in der Konsole mit Zeilenumbrüchen
+        print("=== CLEANED LINKCOM COMMAND (formatted) ===")
+        
+        # Teile den Befehl in Wörter
+        parts = linkcom.split()
+        current_line = ""
+        
+        for part in parts:
+            # Wenn das hinzufügen des nächsten Teils die Zeile zu lang macht
+            if len(current_line + " " + part) > 80:
+                if current_line:
+                    print(current_line + " \\")
+                    current_line = "  " + part  # Einrückung für Fortsetzungszeilen
+                else:
+                    print("  " + part + " \\")
+                    current_line = ""
+            else:
+                if current_line:
+                    current_line += " " + part
+                else:
+                    current_line = part
+        
+        # Letzte Zeile ausgeben
+        if current_line:
+            print(current_line)
+        
+        print("=== END CLEANED LINKCOM COMMAND ===")
+        
+        # Analysiere auf verdächtige Teile
+        suspicious_parts = []
+        for part in parts:
+            if '%' in part or '${' in part or '$(' in part:
+                suspicious_parts.append(part)
+        
+        if suspicious_parts:
+            print("*** SUSPICIOUS PARTS FOUND ***")
+            for part in suspicious_parts:
+                print(f"  SUSPICIOUS: {repr(part)}")
+        
+        if '%' in linkcom:
+            print("*** WARNING: LINKCOM contains % characters ***")
+        else:
+            print("LINKCOM is clean (no % characters)")
         
     except Exception as e:
         print(f"ERROR: Cleaned LINKCOM failed: {e}")
+        import traceback
+        traceback.print_exc()
     
     print("=== ESP-IDF FLAG CLEANING END ===")
     return (target, source)
