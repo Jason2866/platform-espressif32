@@ -707,64 +707,24 @@ def extract_link_args(target_config):
     return link_args
 
 
-def filter_args(flags, allowed_prefixes):
-    """
-    Extrahiert Flags mit korrekter Behandlung mehrteiliger Flags.
-    Kombiniert getrennte Flags wie ['-u', 'symbol'] zu ['-usymbol'].
-    Entfernt Duplikate.
-    """
-    extracted = []
-    seen = set()
-    i = 0
-    
-    while i < len(flags):
-        flag = str(flags[i])
-        matched = False
-        
-        for prefix in allowed_prefixes:
-            # Mehrteilige Flags: "-u" + "symbol" → "-usymbol"
-            if flag == prefix and (i + 1) < len(flags):
-                next_arg = str(flags[i + 1])
-                combined = prefix + next_arg
-                
-                if combined not in seen:
-                    extracted.append(combined)
-                    seen.add(combined)
-                    print(f"filter_args: Combined {flag} {next_arg} → {combined}")
-                
-                i += 2
-                matched = True
-                break
-            
-            # Bereits kombinierte Flags: "-usymbol", "-Tscript.ld"
-            elif flag.startswith(prefix) and len(flag) > len(prefix):
-                if flag not in seen:
-                    extracted.append(flag)
-                    seen.add(flag)
-                    print(f"filter_args: Found combined flag: {flag}")
-                
-                i += 1
-                matched = True
-                break
-            
-            # Einteilige Flags: "-Wl,--start-group"
-            elif flag == prefix:
-                if flag not in seen:
-                    extracted.append(flag)
-                    seen.add(flag)
-                    print(f"filter_args: Found single flag: {flag}")
-                
-                i += 1
-                matched = True
-                break
-        
-        # Flag nicht in allowed_prefixes
-        if not matched:
-            i += 1
-    
-    print(f"filter_args: Extracted {len(extracted)} flags, removed duplicates")
-    return extracted
+def filter_args(args, allowed, ignore=None):
+    if not allowed:
+        return []
 
+    ignore = ignore or []
+    result = []
+    i = 0
+    length = len(args)
+    while i < length:
+        if any(args[i].startswith(f) for f in allowed) and not any(
+            args[i].startswith(f) for f in ignore
+        ):
+            result.append(args[i])
+            if i + 1 < length and not args[i + 1].startswith("-"):
+                i += 1
+                result.append(args[i])
+        i += 1
+    return result
 
 def remove_flag(flags):
     """Remove gcc assembler flag"""
