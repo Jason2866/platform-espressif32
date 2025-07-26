@@ -601,6 +601,65 @@ def get_app_defines(app_config):
     return extract_defines(app_config["compileGroups"][0])
 
 
+def get_problematic_whole_archive_libs():
+    """Libraries die NICHT --whole-archive brauchen (verursachen Konflikte)"""
+    return {
+        'libwpa_supplicant.a',  # Multiple definitions
+        'libmbedtls.a',         # Crypto conflicts
+        'libmbedcrypto.a',      # Crypto conflicts  
+        'libmbedx509.a',        # X.509 conflicts
+        'libfreertos.a'         # Task conflicts
+    }
+
+def should_use_whole_archive(library_name):
+    """Entscheidung basierend auf bekannten ESP-IDF Patterns"""
+    
+    problematic_libs = get_problematic_whole_archive_libs()
+    
+    if library_name in problematic_libs:
+        return False
+    
+    # ESP-IDF Standard: Alle anderen Libraries brauchen --whole-archive
+    return True
+
+def process_whole_archive_flags_intelligently(extra_flags):
+    """Verarbeite --whole-archive Flags mit intelligenter Blacklist"""
+    
+    processed_flags = []
+    i = 0
+    
+    while i < len(extra_flags):
+        flag = str(extra_flags[i])
+        
+        if flag == "-Wl,--whole-archive" and i + 1 < len(extra_flags):
+            library = str(extra_flags[i + 1])
+            library_name = os.path.basename(library)
+            
+            # Intelligente Entscheidung pro Library
+            if should_use_whole_archive(library_name):
+                # Behalte --whole-archive Block
+                processed_flags.extend([flag, library])
+                if i + 2 < len(extra_flags) and str(extra_flags[i + 2]) == "-Wl,--no-whole-archive":
+                    processed_flags.append(str(extra_flags[i + 2]))
+                    i += 3
+                else:
+                    i += 2
+                print(f"Kept --whole-archive for: {library_name}")
+            else:
+                # Entferne --whole-archive, behalte nur Library
+                processed_flags.append(library)
+                # Skip bis --no-whole-archive
+                i += 2
+                if i < len(extra_flags) and str(extra_flags[i]) == "-Wl,--no-whole-archive":
+                    i += 1
+                print(f"Removed --whole-archive for problematic lib: {library_name}")
+        else:
+            processed_flags.append(flag)
+            i += 1
+    
+    return processed_flags
+
+
 def extract_link_args(target_config):
     def _add_to_libpath(lib_path, link_args):
         if lib_path not in link_args["LIBPATH"]:
@@ -614,7 +673,6 @@ def extract_link_args(target_config):
 
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
 
-    # BEHALTEN: Ursprüngliche Fragment-Verarbeitung
     for f in target_config.get("link", {}).get("commandFragments", []):
         fragment = f.get("fragment", "").strip()
         fragment_role = f.get("role", "").strip()
@@ -624,7 +682,7 @@ def extract_link_args(target_config):
         args = click.parser.split_arg_string(fragment)
         
         if fragment_role == "flags":
-            # ÄNDERUNG: Flags im GCC-Format belassen, keine -Wl, Konvertierung
+            # VEREINFACHT: Flags im GCC-Format belassen, keine -Wl, Konvertierung
             link_args["LINKFLAGS"].extend(args)
             
         elif fragment_role in ("libraries", "libraryPath"):
@@ -634,12 +692,11 @@ def extract_link_args(target_config):
                 lib_path = fragment.replace("-L", "").strip(" '\"")
                 _add_to_libpath(lib_path, link_args)
             elif fragment.startswith("-") and not fragment.startswith("-l"):
-                # ÄNDERUNG: CMake LINKFLAGS im GCC-Format belassen
-                # Keine Konvertierung von -T, -u, -z Flags zu -Wl, Format
+                # VEREINFACHT: CMake LINKFLAGS im GCC-Format belassen
                 link_args["LINKFLAGS"].extend(args)
             elif fragment.endswith(".a"):
                 archive_path = fragment
-                # BEHALTEN: Ursprüngliche Archive-Verarbeitung
+                # Original Archive-Verarbeitung beibehalten
                 if os.path.isabs(archive_path):
                     _add_archive(archive_path, link_args)
                 else:
@@ -650,13 +707,6 @@ def extract_link_args(target_config):
                         )
                     else:
                         link_args["__LIB_DEPS"].append(os.path.basename(archive_path))
-
-    # OPTIONAL: Debug-Ausgabe für Unterschiede
-    print(f"extract_link_args completed (GCC format preserved):")
-    print(f"  LINKFLAGS: {len(link_args['LINKFLAGS'])} flags")
-    print(f"  LIBS: {len(link_args['LIBS'])} libraries") 
-    print(f"  LIBPATH: {len(link_args['LIBPATH'])} paths")
-    print(f"  __LIB_DEPS: {len(link_args['__LIB_DEPS'])} dependencies")
 
     return link_args
 
@@ -1957,26 +2007,23 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Minimale Flag-Bereinigung für Clang: Nur tatsächlich problematische Flags entfernen.
-    Da extract_link_args jetzt GCC-Format beibehält, sind keine Konvertierungen nötig.
+    Minimale Flag-Bereinigung: Nur -mcpu= entfernen + Debug
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     removed_count = 0
     
     print("=== ESP-IDF MINIMAL FLAG CLEANING ===")
-    print(f"Original LINKFLAGS count: {len(original)}")
     
     for flag in original:
         flag_str = str(flag)
         
-        # Entferne nur das eine bekannte problematische Flag
+        # Entferne nur das problematische -mcpu= Flag
         if flag_str.startswith('-mcpu='):
             print(f"ESP-IDF: Removed problematic flag: {flag_str}")
             removed_count += 1
             continue
             
-        # ALLE anderen Flags bleiben unverändert (GCC-Format funktioniert!)
         cleaned.append(flag)
     
     if removed_count > 0:
@@ -2009,37 +2056,50 @@ if "clang" in env.subst("$CC").lower():
     # Target-ELF-Pfad definieren
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     
-    # Registriere minimale Flag-Bereinigung
+    # Registriere minimale Flag-Bereinigung (nur -mcpu= entfernen)
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
-    print("ESP-IDF: Registered minimal Clang flag cleaning for firmware linking")
+    print("ESP-IDF: Registered Clang flag cleaning for firmware linking")
     
-    # Vereinfachte Flag-Filterung
+    # Vorsichtsmaßnahme: Entferne -mcpu= bereits hier
+    link_args["LINKFLAGS"] = [
+        f for f in link_args["LINKFLAGS"] if not str(f).startswith("-mcpu=")
+    ]
+    
+    # Standard Flag-Extraktion
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group", 
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
     
+    # NEU: Intelligente --whole-archive Verarbeitung
+    processed_extra_flags = process_whole_archive_flags_intelligently(extra_flags)
+    
+    # Bereinige LINKFLAGS
     extra_flags_set = set(extra_flags)
     link_args["LINKFLAGS"] = [
         flag for flag in link_args["LINKFLAGS"] 
         if flag not in extra_flags_set
     ]
-    link_args["LINKFLAGS"].extend(extra_flags)
-    print("Clang: Using simplified flag processing")
+    
+    # Füge die intelligent verarbeiteten Flags hinzu
+    link_args["LINKFLAGS"].extend(processed_extra_flags)
+    
+    print("ESP-IDF: Using intelligent Clang linking with --whole-archive optimization")
 
 else:
-    # GCC: Standard-Verarbeitung (unverändert)
+    # Standard GCC-Verarbeitung (unverändert)
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
          "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
     )
+    
     extra_flags_set = set(extra_flags)
     link_args["LINKFLAGS"] = [
         flag for flag in link_args["LINKFLAGS"] 
         if flag not in extra_flags_set
     ]
-
 
 # remove the main linker script flags '-T memory.ld'
 try:
