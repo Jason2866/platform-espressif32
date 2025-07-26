@@ -682,9 +682,7 @@ def extract_link_args(target_config):
         args = click.parser.split_arg_string(fragment)
         
         if fragment_role == "flags":
-            # VEREINFACHT: Flags im GCC-Format belassen, keine -Wl, Konvertierung
             link_args["LINKFLAGS"].extend(args)
-            
         elif fragment_role in ("libraries", "libraryPath"):
             if fragment.startswith("-l"):
                 link_args["LIBS"].extend(args)
@@ -692,11 +690,9 @@ def extract_link_args(target_config):
                 lib_path = fragment.replace("-L", "").strip(" '\"")
                 _add_to_libpath(lib_path, link_args)
             elif fragment.startswith("-") and not fragment.startswith("-l"):
-                # VEREINFACHT: CMake LINKFLAGS im GCC-Format belassen
                 link_args["LINKFLAGS"].extend(args)
             elif fragment.endswith(".a"):
                 archive_path = fragment
-                # Original Archive-Verarbeitung beibehalten
                 if os.path.isabs(archive_path):
                     _add_archive(archive_path, link_args)
                 else:
@@ -713,86 +709,60 @@ def extract_link_args(target_config):
 
 def filter_args(flags, allowed_prefixes):
     """
-    Extrahiert Flags basierend auf Prefixes und behandelt mehrteilige Flags korrekt.
-    
-    Args:
-        flags: Liste der zu filternden Flags
-        allowed_prefixes: Liste der erlaubten Flag-Prefixes (z.B. ["-T", "-u"])
-    
-    Returns:
-        Liste der extrahierten Flags (mehrteilige Flags werden kombiniert)
+    Extrahiert Flags mit korrekter Behandlung mehrteiliger Flags.
+    Kombiniert getrennte Flags wie ['-u', 'symbol'] zu ['-usymbol'].
+    Entfernt Duplikate.
     """
     extracted = []
+    seen = set()
     i = 0
     
     while i < len(flags):
         flag = str(flags[i])
-        
-        # Prüfe gegen alle erlaubten Prefixes
         matched = False
         
         for prefix in allowed_prefixes:
-            # Mehrteilige Flags: -T script.ld oder -u symbol
-            if flag == prefix and i + 1 < len(flags):
+            # Mehrteilige Flags: "-u" + "symbol" → "-usymbol"
+            if flag == prefix and (i + 1) < len(flags):
                 next_arg = str(flags[i + 1])
+                combined = prefix + next_arg
                 
-                # Für -T: Nur .ld Dateien kombinieren
-                if prefix == "-T" and next_arg.endswith('.ld'):
-                    combined_flag = f"{prefix}{next_arg}"
-                    extracted.append(combined_flag)
-                    print(f"filter_args: Combined {prefix} {next_arg} → {combined_flag}")
-                    i += 2
-                    matched = True
-                    break
+                if combined not in seen:
+                    extracted.append(combined)
+                    seen.add(combined)
+                    print(f"filter_args: Combined {flag} {next_arg} → {combined}")
                 
-                # Für -u: Symbole kombinieren (keine Dateiendung)
-                elif prefix == "-u" and not next_arg.endswith('.ld') and not next_arg.startswith('-'):
-                    combined_flag = f"{prefix}{next_arg}"
-                    extracted.append(combined_flag)
-                    print(f"filter_args: Combined {prefix} {next_arg} → {combined_flag}")
-                    i += 2
-                    matched = True
-                    break
+                i += 2
+                matched = True
+                break
             
-            # Bereits kombinierte Flags: -Tscript.ld oder -usymbol
-            elif flag.startswith(prefix):
-                # Für -T: Muss mit .ld enden
-                if prefix == "-T" and flag.endswith('.ld'):
+            # Bereits kombinierte Flags: "-usymbol", "-Tscript.ld"
+            elif flag.startswith(prefix) and len(flag) > len(prefix):
+                if flag not in seen:
                     extracted.append(flag)
-                    print(f"filter_args: Found combined T-flag: {flag}")
-                    i += 1
-                    matched = True
-                    break
+                    seen.add(flag)
+                    print(f"filter_args: Found combined flag: {flag}")
                 
-                # Für -u: Darf nicht mit .ld enden und muss mehr als nur "-u" sein
-                elif prefix == "-u" and len(flag) > 2 and not flag.endswith('.ld'):
+                i += 1
+                matched = True
+                break
+            
+            # Einteilige Flags: "-Wl,--start-group"
+            elif flag == prefix:
+                if flag not in seen:
                     extracted.append(flag)
-                    print(f"filter_args: Found combined u-flag: {flag}")
-                    i += 1
-                    matched = True
-                    break
-                
-                # Für andere Prefixes (z.B. -Wl,): Direkte Übereinstimmung
-                elif prefix.startswith('-Wl,') and flag == prefix:
-                    extracted.append(flag)
-                    print(f"filter_args: Found Wl-flag: {flag}")
-                    i += 1
-                    matched = True
-                    break
-                
-                # Für andere einteilige Flags
-                elif not prefix.startswith('-Wl,') and len(prefix) > 2 and flag == prefix:
-                    extracted.append(flag)
+                    seen.add(flag)
                     print(f"filter_args: Found single flag: {flag}")
-                    i += 1
-                    matched = True
-                    break
+                
+                i += 1
+                matched = True
+                break
         
-        # Flag nicht gefunden, weitermachen
+        # Flag nicht in allowed_prefixes
         if not matched:
             i += 1
     
-    print(f"filter_args: Extracted {len(extracted)} flags from {len(flags)} total flags")
+    print(f"filter_args: Extracted {len(extracted)} flags, removed duplicates")
     return extracted
 
 
@@ -2273,44 +2243,25 @@ def clean_clang_linkflags_espidf(target, source, env):
 
 
 if "clang" in env.subst("$CC").lower():
-    # Target-ELF-Pfad definieren
+    # Minimale Änderungen - nur Hook registrieren
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
-    
-    # Registriere minimale Flag-Bereinigung
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
     
-    # Vorsichtsmaßnahme: Entferne -mcpu= bereits hier
-    link_args["LINKFLAGS"] = [
-        f for f in link_args["LINKFLAGS"] if not str(f).startswith("-mcpu=")
-    ]
-    
-    # KORRIGIERT: Extrahiere nur Standard-Flags, NICHT --whole-archive
+    # Standard Flag-Extraktion (mit korrigierter filter_args)
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
     )
     
-    # SEPARAT: Extrahiere --whole-archive Flags für intelligente Verarbeitung
-    whole_archive_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    
-    # Intelligente --whole-archive Verarbeitung
-    processed_whole_archive_flags = process_whole_archive_flags_intelligently(whole_archive_flags)
-    
-    # Bereinige LINKFLAGS (entferne sowohl Standard- als auch --whole-archive Flags)
-    all_extracted_flags = set(extra_flags + whole_archive_flags)
+    # Standard Bereinigung
+    extra_flags_set = set(extra_flags)
     link_args["LINKFLAGS"] = [
         flag for flag in link_args["LINKFLAGS"] 
-        if flag not in all_extracted_flags
+        if flag not in extra_flags_set
     ]
-    
-    # Füge alle verarbeiteten Flags hinzu
     link_args["LINKFLAGS"].extend(extra_flags)
-    link_args["LINKFLAGS"].extend(processed_whole_archive_flags)
     
-    print("ESP-IDF: Using intelligent Clang linking with separate --whole-archive processing")
+    print("ESP-IDF: Using corrected Clang flag processing")
 
 else:
     # Standard GCC-Verarbeitung (unverändert)
