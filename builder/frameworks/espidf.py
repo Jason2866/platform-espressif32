@@ -2313,20 +2313,18 @@ def clean_clang_linkflags_espidf(target, source, env):
     
     # ERWEITERT: Direkte LINKCOM-Manipulation mit formatierter Debug-Ausgabe
     try:
-        # Hole die aktuelle LINKCOM zur Link-Zeit
         current_linkcom = env.subst('$LINKCOM', target=target, source=source)
         
         print(f"\nDEBUG: Original LINKCOM length: {len(current_linkcom)} characters")
-        
         # NEU: Formatierte LINKCOM-Ausgabe (80 Zeichen pro Zeile)
         print("\n=== ORIGINAL LINKCOM (formatted) ===")
-        
+
         def format_linkcom(linkcom_string, max_length=80):
             """Formatiert LINKCOM auf max_length Zeichen pro Zeile"""
             words = linkcom_string.split()
             current_line = ""
             line_count = 0
-            
+
             for word in words:
                 # Prüfe ob das Wort in die aktuelle Zeile passt
                 if len(current_line + " " + word) > max_length:
@@ -2343,56 +2341,81 @@ def clean_clang_linkflags_espidf(target, source, env):
                         current_line += " " + word
                     else:
                         current_line = word
-            
+
             # Letzte Zeile ohne Backslash
             if current_line:
                 print(current_line)
                 line_count += 1
-            
+
             return line_count
-        
         original_lines = format_linkcom(current_linkcom)
         print("=== END ORIGINAL LINKCOM ===")
         print(f"Original LINKCOM: {original_lines} lines")
-        
-        # Analysiere und filtere die LINKCOM
+       
+        # KORRIGIERTE paarweise Filterung
         words = current_linkcom.split()
         filtered_words = []
         linkcom_removed_scripts = []
         linkcom_removed_symbols = []
         
-        for word in words:
-            # Naked .ld scripts
-            if word.endswith('.ld') and not word.startswith('-T'):
-                script_basename = os.path.basename(word)
-                if script_basename in processed_scripts:
-                    linkcom_removed_scripts.append(word)
-                    print(f"*** LINKCOM: Filtered naked script: {word}")
-                    continue
+        i = 0
+        while i < len(words):
+            word = words[i]
             
-            # Naked symbols
+            # Behandle -T Paare korrekt
+            if word == "-T" and i + 1 < len(words):
+                next_word = words[i + 1]
+                
+                # Prüfe ob das nächste Wort ein naked script ist
+                if next_word.endswith('.ld') and not next_word.startswith('-T'):
+                    script_basename = os.path.basename(next_word)
+                    if script_basename in processed_scripts:
+                        # Entferne BEIDE: -T UND den Pfad
+                        linkcom_removed_scripts.append(f"-T {next_word}")
+                        print(f"*** LINKCOM: Filtered -T pair: -T {next_word}")
+                        i += 2  # Überspringe beide Wörter
+                        continue
+                
+                # Behalte das -T Paar
+                filtered_words.extend([word, next_word])
+                i += 2
+                continue
+            
+            # Naked symbols (ohne -u)
             elif word in ['esp_app_desc', 'app_main', 'start_app', '__assert_func', 
                          'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']:
                 if word in processed_symbols:
                     linkcom_removed_symbols.append(word)
                     print(f"*** LINKCOM: Filtered naked symbol: {word}")
+                    i += 1
                     continue
             
+            # Einzelne naked .ld Dateien (sollten nicht vorkommen, aber sicherheitshalber)
+            elif word.endswith('.ld') and not word.startswith('-T'):
+                script_basename = os.path.basename(word)
+                if script_basename in processed_scripts:
+                    linkcom_removed_scripts.append(word)
+                    print(f"*** LINKCOM: Filtered naked script: {word}")
+                    i += 1
+                    continue
+            
+            # Alle anderen Wörter behalten
             filtered_words.append(word)
+            i += 1
         
-        # Erstelle gefilterte LINKCOM
+        # Rest der Funktion bleibt gleich...
         filtered_linkcom = ' '.join(filtered_words)
         
         print(f"\nDEBUG: Filtered LINKCOM length: {len(filtered_linkcom)} characters")
         
-        # NEU: Formatierte gefilterte LINKCOM-Ausgabe
+        # Formatierte gefilterte LINKCOM
         if linkcom_removed_scripts or linkcom_removed_symbols:
             print("\n=== FILTERED LINKCOM (formatted) ===")
             filtered_lines = format_linkcom(filtered_linkcom)
             print("=== END FILTERED LINKCOM ===")
             print(f"Filtered LINKCOM: {filtered_lines} lines")
         
-        # KRITISCH: Setze die gefilterte LINKCOM direkt
+        # Setze die gefilterte LINKCOM
         env['LINKCOM'] = filtered_linkcom
         
         # Schreibe LINKCOM auch in Dateien für weitere Analyse
