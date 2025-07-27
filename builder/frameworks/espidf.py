@@ -2323,7 +2323,11 @@ def clean_clang_linkflags_espidf(target, source, env):
     
     # ERWEITERTE DEBUG-AUSGABEN
     try:
-        final_linkcom = env.subst('$LINKCOM', target=target, source=source)
+        # KORRIGIERT: Behandle sowohl String- als auch Funktions-LINKCOM
+        if callable(env.get('LINKCOM')):
+            final_linkcom = env['LINKCOM'](target, source, env)
+        else:
+            final_linkcom = env.subst('$LINKCOM', target=target, source=source)
         
         print(f"\nDEBUG: Final LINKCOM length: {len(final_linkcom)} characters")
         
