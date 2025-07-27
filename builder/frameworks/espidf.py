@@ -2626,54 +2626,28 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# KORRIGIERT: Nur bei Standard-Builds (nicht bei Clang-Firmware)
-if not (is_clang and not is_bootloader):
-    project_flags.update(link_args)
-    env.MergeFlags(project_flags)
-    
-    env.Prepend(
-        CPPPATH=app_includes["plain_includes"],
-        CPPDEFINES=project_defines,
-        ESPIDF_PYTHONEXE=get_python_exe(),
-        LINKFLAGS=extra_flags,  # Nur bei Standard-Builds
-        LIBS=libs,              # Nur bei Standard-Builds
-        FLASH_EXTRA_IMAGES=[
-            (
-                board.get(
-                    "upload.bootloader_offset",
-                    "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
-                ),
-                os.path.join("$BUILD_DIR", "bootloader.bin"),
+project_flags.update(link_args)
+env.MergeFlags(project_flags)
+env.Prepend(
+    CPPPATH=app_includes["plain_includes"],
+    CPPDEFINES=project_defines,
+    ESPIDF_PYTHONEXE=get_python_exe(),
+    LINKFLAGS=extra_flags,
+    LIBS=libs,
+    FLASH_EXTRA_IMAGES=[
+        (
+            board.get(
+                "upload.bootloader_offset",
+                "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
             ),
-            (
-                board.get("upload.partition_table_offset", hex(partition_table_offset)),
-                os.path.join("$BUILD_DIR", "partitions.bin"),
-            ),
-        ],
-    )
-else:
-    # Clang-spezifische Konfiguration (ohne LINKFLAGS/LIBS Überschreibung)
-    print("DEBUG: Using Clang-controlled environment configuration")
-    env.Prepend(
-        CPPPATH=app_includes["plain_includes"],
-        CPPDEFINES=project_defines,
-        ESPIDF_PYTHONEXE=get_python_exe(),
-        # LINKFLAGS und LIBS werden NICHT hinzugefügt - bereits von env.Replace() kontrolliert
-        FLASH_EXTRA_IMAGES=[
-            (
-                board.get(
-                    "upload.bootloader_offset",
-                    "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
-                ),
-                os.path.join("$BUILD_DIR", "bootloader.bin"),
-            ),
-            (
-                board.get("upload.partition_table_offset", hex(partition_table_offset)),
-                os.path.join("$BUILD_DIR", "partitions.bin"),
-            ),
-        ],
-    )
-
+            os.path.join("$BUILD_DIR", "bootloader.bin"),
+        ),
+        (
+            board.get("upload.partition_table_offset", hex(partition_table_offset)),
+            os.path.join("$BUILD_DIR", "partitions.bin"),
+        ),
+    ],
+)
 
 #
 # Propagate Arduino defines to the main build environment
