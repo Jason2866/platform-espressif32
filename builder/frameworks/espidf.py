@@ -2296,67 +2296,43 @@ def clean_clang_linkflags_espidf(target, source, env):
     original_linkcom = env.get('LINKCOM')
     
     def filtered_linkcom_substitution(target, source, env):
-        """Korrekte paarweise -T/script Behandlung - KEINE naked Einträge toleriert!"""
+        """Nur naked entries entfernen - NIEMALS -T Paare!"""
         linkcom = env.subst(original_linkcom, target=target, source=source)
         words = linkcom.split()
         filtered_words = []
-        removed_pairs = []
         removed_naked = []
-        
+    
         i = 0
         while i < len(words):
             word = words[i]
-            
-            # Behandle -T Paare korrekt
+        
+            # ALLE -T Paare IMMER behalten!
             if word == "-T" and i + 1 < len(words):
                 next_word = words[i + 1]
-                
-                # Prüfe ob das nächste Wort ein naked script ist, das wir bereits verarbeitet haben
-                if next_word.endswith('.ld') and not next_word.startswith('-T'):
-                    script_basename = os.path.basename(next_word)
-                    if script_basename in processed_scripts:
-                        # Entferne BEIDE: -T UND den Pfad
-                        removed_pairs.append(f"-T {next_word}")
-                        print(f"*** LINKCOM: Filtered -T pair: -T {next_word}")
-                        i += 2  # Überspringe beide Wörter
-                        continue
-                
-                # Behalte das -T Paar
-                filtered_words.extend([word, next_word])
+                filtered_words.extend([word, next_word])  # IMMER behalten!
                 i += 2
                 continue
-            
-            # Einzelne naked .ld Dateien (sollten NIEMALS vorkommen!)
+        
+            # NUR isolierte naked .ld Dateien entfernen
             elif word.endswith('.ld') and not word.startswith('-T'):
                 script_basename = os.path.basename(word)
                 if script_basename in processed_scripts:
                     removed_naked.append(word)
-                    print(f"*** LINKCOM: ERROR - Found isolated naked script: {word}")
+                    print(f"*** LINKCOM: Filtered isolated naked script: {word}")
                     i += 1
                     continue
-                else:
-                    print(f"*** LINKCOM: WARNING - Unknown naked script: {word}")
-            
-            # Naked Symbole (sollten NIEMALS vorkommen!)
-            elif word in ['esp_app_desc', 'app_main', 'start_app', '__assert_func', 
-                         'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']:
+        
+            # NUR naked Symbole entfernen  
+            elif word in ['esp_app_desc', 'app_main', 'start_app', '__assert_func']:
                 removed_naked.append(word)
-                print(f"*** LINKCOM: ERROR - Found naked symbol: {word}")
+                print(f"*** LINKCOM: Filtered naked symbol: {word}")
                 i += 1
                 continue
-            
+        
             # Alle anderen Wörter behalten
             filtered_words.append(word)
             i += 1
-        
-        if removed_pairs:
-            print(f"\n*** LINKCOM: Filtered {len(removed_pairs)} -T pairs (duplicates)")
-        
-        if removed_naked:
-            print(f"*** LINKCOM: ERROR - Found {len(removed_naked)} naked entries (THIS SHOULD NEVER HAPPEN!):")
-            for naked in removed_naked:
-                print(f"  ⚠️  {naked}")
-        
+    
         return ' '.join(filtered_words)
     
     # Setze die gefilterte LINKCOM
