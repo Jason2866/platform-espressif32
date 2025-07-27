@@ -2171,12 +2171,13 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Minimal-Version: Nur Pfad-Auflösung für Linker-Scripts
+    Erweiterte Version: Pfad-Auflösung + LINKCOM-Debug + -T Korrektur
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     
     print("=== ESP-IDF CLANG LINKER SCRIPT PATH RESOLUTION ===")
+    print(f"Processing {len(original)} flags")
     
     # Standard ESP-IDF Suchpfade
     search_paths = [
@@ -2190,12 +2191,11 @@ def clean_clang_linkflags_espidf(target, source, env):
     while i < len(original):
         flag = str(original[i])
         
-        # Nur -T Flags mit Pfad-Auflösung behandeln
+        # -T Flags mit Pfad-Auflösung
         if flag == "-T" and i + 1 < len(original):
             script_name = str(original[i + 1])
             
             if not os.path.isabs(script_name):
-                # Suche in Standard-Pfaden
                 full_path = None
                 for search_path in search_paths:
                     if not os.path.isdir(search_path):
@@ -2217,6 +2217,52 @@ def clean_clang_linkflags_espidf(target, source, env):
             i += 2
             continue
         
+        # HINZUGEFÜGT: Kombinierte -Tscript.ld Flags
+        elif flag.startswith("-T") and flag.endswith(".ld"):
+            script_name = flag[2:]  # Entferne -T Präfix
+            
+            if not os.path.isabs(script_name):
+                full_path = None
+                for search_path in search_paths:
+                    candidate = os.path.join(search_path, script_name)
+                    if os.path.isfile(candidate):
+                        full_path = candidate
+                        break
+                
+                if full_path:
+                    cleaned.append(f"-T{full_path}")
+                    print(f"Resolved combined: {flag} → -T{full_path}")
+                else:
+                    cleaned.append(flag)
+            else:
+                cleaned.append(flag)
+            
+            i += 1
+            continue
+        
+        # KRITISCH: Nackte *.ld Scripts → -T hinzufügen
+        elif flag.endswith(".ld"):
+            if not os.path.isabs(flag):
+                full_path = None
+                for search_path in search_paths:
+                    candidate = os.path.join(search_path, flag)
+                    if os.path.isfile(candidate):
+                        full_path = candidate
+                        break
+                
+                if full_path:
+                    cleaned.extend(["-T", full_path])
+                    print(f"Added -T to naked script: {flag} → -T{full_path}")
+                else:
+                    cleaned.extend(["-T", flag])
+                    print(f"Added -T to naked script (not found): {flag}")
+            else:
+                cleaned.extend(["-T", flag])
+                print(f"Added -T to naked absolute script: {flag}")
+            
+            i += 1
+            continue
+        
         # Alle anderen Flags unverändert
         cleaned.append(flag)
         i += 1
@@ -2224,6 +2270,36 @@ def clean_clang_linkflags_espidf(target, source, env):
     # Flags aktualisieren
     env.Replace(LINKFLAGS=cleaned)
     print(f"Updated LINKFLAGS: {len(original)} → {len(cleaned)} flags")
+    
+    # HINZUGEFÜGT: LINKCOM-Debug-Ausgabe
+    try:
+        linkcom = env.subst('$LINKCOM', target=target, source=source)
+        print(f"\nLINKCOM length: {len(linkcom)} characters")
+        
+        # Prüfe auf problematische Inhalte
+        if '%' in linkcom:
+            percent_count = linkcom.count('%')
+            print(f"*** WARNING: LINKCOM contains {percent_count} % characters (TypeError risk!) ***")
+            
+            # Zeige erste % Vorkommen
+            first_percent = linkcom.find('%')
+            if first_percent != -1:
+                context = linkcom[max(0, first_percent-30):first_percent+30]
+                print(f"First % context: ...{context}...")
+        
+        # Prüfe auf nackte *.ld Scripts in LINKCOM
+        words = linkcom.split()
+        naked_scripts = [w for w in words if w.endswith('.ld') and not w.startswith('-T')]
+        if naked_scripts:
+            print(f"*** ERROR: Found {len(naked_scripts)} naked .ld scripts in LINKCOM! ***")
+            for script in naked_scripts[:3]:
+                print(f"  Naked: {script}")
+        else:
+            print("Good: No naked .ld scripts found in LINKCOM")
+            
+    except Exception as e:
+        print(f"*** ERROR: LINKCOM analysis failed: {e}")
+    
     print("=== END PATH RESOLUTION ===")
     
     return (target, source)
