@@ -2579,27 +2579,43 @@ def clean_heuristic_clang_linking(env, libs, link_args):
             
         return scripts
     
-    # 2. Essential Libraries filtern
+    # 2. ALLE Libraries verwenden - KEINE Filterung
     def collect_essential_libs(libs, link_args):
-        essential_patterns = [
-            'libfreertos.a', 'libesp_system.a', 'libesp_common.a',
-            'libhal.a', 'libsoc.a', 'libheap.a', 'libnewlib.a'
-        ]
-        
+        """Verwende ALLE Libraries - keine Filterung mehr!"""
         result = []
         seen = set()
         
-        # Aus libs Array
+        # Aus libs Array - ALLE nehmen
         for lib in libs:
             path = str(lib.get_path() if hasattr(lib, 'get_path') else lib)
             if path.startswith('['):
                 path = path.strip("[]'\"")
             
             basename = os.path.basename(path)
-            if basename not in seen and any(p in basename for p in essential_patterns):
+            if basename not in seen and path.endswith('.a'):
                 result.append(path)
                 seen.add(basename)
+                print(f"Added library: {basename}")
         
+        # Aus link_args LIBS - auch alle nehmen
+        for lib_name in link_args.get("LIBS", []):
+            if lib_name.startswith('lib') and lib_name.endswith('.a'):
+                search_name = lib_name
+            elif lib_name.startswith('-l'):
+                search_name = f"lib{lib_name[2:]}.a"
+            else:
+                search_name = f"lib{lib_name}.a"
+                
+            if search_name not in seen:
+                for lib_path in link_args.get("LIBPATH", []):
+                    full_path = os.path.join(lib_path, search_name)
+                    if os.path.isfile(full_path):
+                        result.append(full_path)
+                        seen.add(search_name)
+                        print(f"Added from LIBS: {search_name}")
+                        break
+        
+        print(f"Total libraries collected: {len(result)}")
         return result
     
     # 3. Undefined Symbols sammeln
@@ -2607,7 +2623,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
         symbols = []
         known_symbols = [
             'esp_app_desc', 'app_main', 'start_app',
-            'esp_system_include_coredump_init'
+            'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl'
         ]
         
         i = 0
@@ -2631,7 +2647,8 @@ def clean_heuristic_clang_linking(env, libs, link_args):
             if (not flag_str.endswith('.ld') and 
                 not flag_str.startswith('-l') and
                 flag_str not in ['-T', '-u'] and
-                not flag_str.startswith('-Wl,--')):
+                not flag_str.startswith('-Wl,--') and
+                not flag_str.startswith('-mcpu=')):  # NEU: -mcpu entfernen
                 result.append(flag_str)
         return result
     
@@ -2644,7 +2661,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     
     # Baue finale Flag-Liste in korrekter Reihenfolge
     final_flags = []
-    final_flags.extend(other_flags)        # Compiler-Flags
+    final_flags.extend(other_flags)        # Compiler-Flags (ohne -mcpu)
     final_flags.extend(linker_scripts)     # -T scripts (Pfade bleiben relativ)
     final_flags.extend(undefined_symbols)  # -u symbols
     final_flags.append("-Wl,--start-group")
@@ -2665,6 +2682,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     
     print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
+    print(f"Libraries: {len(essential_libs)} total libraries included")
 
 #
 # Process project sources
