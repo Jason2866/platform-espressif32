@@ -2092,7 +2092,7 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Zur Link-Zeit: Jetzt existieren ALLE .ld Dateien
+    Zur Link-Zeit: Jetzt existieren ALLE .ld Dateien + vollständige LINKCOM-Ausgabe
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2153,8 +2153,77 @@ def clean_clang_linkflags_espidf(target, source, env):
         env.Replace(LINKFLAGS=cleaned)
         print(f"ESP-IDF: Updated LINKFLAGS with resolved paths")
     
+    # VOLLSTÄNDIGE LINKCOM-AUSGABE
+    try:
+        linkcom = env.subst('$LINKCOM', target=target, source=source)
+        
+        # 1. Schreibe komplette LINKCOM in Datei (unformatiert)
+        with open("/tmp/firmware_linkcom_complete.log", "w", encoding="utf-8") as f:
+            f.write(linkcom + "\n")
+        
+        print(f"Complete LINKCOM written to /tmp/firmware_linkcom_complete.log")
+        print(f"LINKCOM length: {len(linkcom)} characters")
+        
+        # 2. Formatierte LINKCOM-Ausgabe in Log (80 Zeichen pro Zeile)
+        print("\n=== COMPLETE LINKCOM (formatted) ===")
+        
+        words = linkcom.split()
+        current_line = ""
+        max_length = 80
+        
+        for word in words:
+            # Teste ob das nächste Wort in die aktuelle Zeile passt
+            if len(current_line + " " + word) > max_length:
+                if current_line:
+                    print(current_line + " \\")
+                    current_line = "  " + word  # Einrückung für Fortsetzungszeilen
+                else:
+                    print("  " + word + " \\")
+                    current_line = ""
+            else:
+                if current_line:
+                    current_line += " " + word
+                else:
+                    current_line = word
+        
+        # Letzte Zeile ausgeben (ohne Backslash)
+        if current_line:
+            print(current_line)
+        
+        print("=== END COMPLETE LINKCOM ===")
+        
+        # 3. Auch formatierte Version in separate Datei
+        with open("/tmp/firmware_linkcom_formatted.log", "w", encoding="utf-8") as f:
+            words = linkcom.split()
+            current_line = ""
+            
+            for word in words:
+                if len(current_line + " " + word) > max_length:
+                    if current_line:
+                        f.write(current_line + " \\\n")
+                        current_line = "  " + word
+                    else:
+                        f.write("  " + word + " \\\n")
+                        current_line = ""
+                else:
+                    if current_line:
+                        current_line += " " + word
+                    else:
+                        current_line = word
+            
+            if current_line:
+                f.write(current_line + "\n")
+        
+        print("Formatted LINKCOM written to /tmp/firmware_linkcom_formatted.log")
+        
+    except Exception as e:
+        print(f"*** ERROR: LINKCOM generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
     print("=== ESP-IDF CLANG FLAG CLEANING END ===")
     return (target, source)
+
 
 # Am Anfang der Verarbeitung - für beide Pfade
 is_clang = "clang" in env.subst("$CC").lower()
@@ -2243,8 +2312,6 @@ else:
     env.MergeFlags(link_args)  # Standard-Behandlung
 
 print(f"DEBUG: Final libs count: {len(libs)}")
-
-
 
 # remove the main linker script flags '-T memory.ld'
 try:
