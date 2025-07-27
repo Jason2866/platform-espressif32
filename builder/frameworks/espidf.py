@@ -2489,7 +2489,7 @@ if is_clang and not is_bootloader:
             clean_path = clean_path.strip("[]'\"")
             print(f"DEBUG: Cleaned Python list string [{i:2d}]: {original_path} → {clean_path}")
         
-        if clean_path and os.path.isfile(clean_path):
+        if clean_path and clean_path.endswith('.a'):
             controlled_library_flags.extend([
                 "-Wl,--whole-archive",
                 clean_path,
