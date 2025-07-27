@@ -2156,6 +2156,109 @@ def clean_clang_linkflags_espidf(target, source, env):
     print("=== ESP-IDF CLANG FLAG CLEANING END ===")
     return (target, source)
 
+# Am Anfang der Verarbeitung - für beide Pfade
+is_clang = "clang" in env.subst("$CC").lower()
+is_bootloader = any("__BOOTLOADER_BUILD" in str(d) for d in env.get("CPPDEFINES", []))
+
+print(f"DEBUG: is_clang={is_clang}, is_bootloader={is_bootloader}")
+
+if is_clang and not is_bootloader:
+    print("ESP-IDF: Applying Clang-specific firmware linking")
+    
+    # Sammle Libraries für kontrollierte Behandlung
+    all_libraries = []
+    for lib_node in libs:
+        if isinstance(lib_node, (list, tuple)):
+            for individual_lib in lib_node:
+                if hasattr(individual_lib, 'get_path'):
+                    all_libraries.append(individual_lib.get_path())
+                else:
+                    all_libraries.append(str(individual_lib))
+        else:
+            if hasattr(lib_node, 'get_path'):
+                all_libraries.append(lib_node.get_path())
+            else:
+                all_libraries.append(str(lib_node))
+    
+    print(f"ESP-IDF: Collected {len(all_libraries)} libraries for controlled linking")
+    
+    # Extrahiere Standard-Flags (NICHT --whole-archive)
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
+    )
+    
+    # Generiere kontrollierte Library-Flags
+    controlled_library_flags = []
+    controlled_library_flags.append("-Wl,--start-group")
+    
+    for lib_path in all_libraries:
+        lib_path_str = str(lib_path).strip("[]'\"")
+        controlled_library_flags.extend([
+            "-Wl,--whole-archive",
+            lib_path_str,
+            "-Wl,--no-whole-archive"
+        ])
+    
+    controlled_library_flags.append("-Wl,--end-group")
+    
+    # Kombiniere Flags
+    final_extra_flags = extra_flags + controlled_library_flags
+    
+    # Entferne alle extrahierten Flags aus LINKFLAGS
+    all_extracted_flags = set(extra_flags)
+    
+    # Entferne auch --whole-archive Flags
+    whole_archive_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    all_extracted_flags.update(whole_archive_flags)
+    
+    # Bereinige LINKFLAGS
+    link_args["LINKFLAGS"] = [
+        flag for flag in link_args["LINKFLAGS"] 
+        if flag not in all_extracted_flags
+    ]
+    
+    # Füge finale Flags hinzu
+    link_args["LINKFLAGS"].extend(final_extra_flags)
+    
+    # KRITISCH: Leere libs Array
+    libs = []
+    
+    # Ersetze extra_flags mit den finalen Flags
+    extra_flags = final_extra_flags
+    
+    # Flag-Bereinigung registrieren
+    target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
+    env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
+    
+    print("ESP-IDF: Controlled Clang linking configured successfully")
+
+else:
+    print("ESP-IDF: Using standard linking (Bootloader or GCC)")
+    # STANDARD-Verarbeitung für GCC und Bootloader
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    
+    extra_flags_set = set(extra_flags)
+    link_args["LINKFLAGS"] = [
+        flag for flag in link_args["LINKFLAGS"] 
+        if flag not in extra_flags_set
+    ]
+
+# Jetzt ist extra_flags in beiden Pfaden definiert
+env.MergeFlags(link_args)
+
+# Debug-Ausgabe
+print(f"DEBUG: Final extra_flags count: {len(extra_flags)}")
+print(f"DEBUG: Final libs count: {len(libs)}")
+
+
 
 # remove the main linker script flags '-T memory.ld'
 try:
