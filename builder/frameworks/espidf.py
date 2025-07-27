@@ -2175,31 +2175,35 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     OHNE nachgelagerte Reparatur-Funktion
     """
     
-    # 1. Linker-Scripts mit korrekten Pfaden sammeln
+    # 1. Linker-Scripts sammeln - OHNE Build-Zeit-Pfad-Auflösung
     def resolve_and_collect_scripts(linkflags, env):
-        search_paths = [
-            env.subst("$BUILD_DIR"),
-            os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
-            "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
-            "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
-        ]
-        
         scripts = []
-        for flag in linkflags:
-            flag_str = str(flag)
-            if flag_str.endswith('.ld'):
-                # Löse Pfad direkt auf
-                if os.path.isabs(flag_str):
-                    scripts.extend(["-T", flag_str])
-                else:
-                    # Suche in Standard-Pfaden
-                    resolved = None
-                    for path in search_paths:
-                        candidate = os.path.join(path, flag_str)
-                        if os.path.isfile(candidate):
-                            resolved = candidate
-                            break
-                    scripts.extend(["-T", resolved or flag_str])
+        
+        i = 0
+        while i < len(linkflags):
+            flag = str(linkflags[i])
+            
+            # Explizite -T Flags
+            if flag == "-T" and i + 1 < len(linkflags):
+                script = str(linkflags[i + 1])
+                scripts.extend(["-T", script])  # Pfad bleibt wie er ist
+                i += 2
+                continue
+                
+            # Kombinierte -Tscript.ld Flags  
+            elif flag.startswith("-T") and flag.endswith(".ld"):
+                scripts.append(flag)  # Bereits korrekt formatiert
+                i += 1
+                continue
+                
+            # Naked *.ld Dateien - füge -T Präfix hinzu
+            elif flag.endswith(".ld"):
+                scripts.extend(["-T", flag])  # Pfad-Auflösung später
+                i += 1
+                continue
+            
+            i += 1
+            
         return scripts
     
     # 2. Essential Libraries filtern
@@ -2268,7 +2272,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     # Baue finale Flag-Liste in korrekter Reihenfolge
     final_flags = []
     final_flags.extend(other_flags)        # Compiler-Flags
-    final_flags.extend(linker_scripts)     # -T scripts (mit Pfaden)
+    final_flags.extend(linker_scripts)     # -T scripts (Pfade bleiben relativ)
     final_flags.extend(undefined_symbols)  # -u symbols
     final_flags.append("-Wl,--start-group")
     
@@ -2281,6 +2285,10 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     # Setze Flags - EINMAL und KORREKT
     env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
     libs.clear()
+    
+    # KRITISCH: Registriere Link-Zeit-Pfad-Auflösung für *.ld Dateien
+    target_elf = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
+    env.AddPreAction(target_elf, clean_clang_linkflags_espidf)
     
     print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
