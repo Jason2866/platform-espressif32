@@ -2002,112 +2002,71 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Entfernt problematische Flags und loggt vollständige LINKCOM für Debugging
+    Debug: Zeige Linker-Script-Pfade und deren Auflösung
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     removed_count = 0
     
     print("=== ESP-IDF FLAG CLEANING START ===")
+    print("=== DEBUGGING LINKER SCRIPTS ===")
     
-    for flag in original:
+    # Debug: Analysiere -T Flags
+    linker_scripts = []
+    for i, flag in enumerate(original):
         flag_str = str(flag)
+        if flag_str == "-T" and i + 1 < len(original):
+            script_name = str(original[i + 1])
+            linker_scripts.append((i, flag_str, script_name))
+        elif flag_str.startswith("-T") and flag_str.endswith(".ld"):
+            script_name = flag_str[2:]  # Entferne -T
+            linker_scripts.append((i, "-T", script_name))
+    
+    print(f"Found {len(linker_scripts)} linker scripts:")
+    for pos, prefix, script in linker_scripts:
+        print(f"  [{pos}] {prefix} {script}")
         
-        # Entferne alle bekannten problematischen Flags
-        if (flag_str.startswith('-mcpu=') or 
-            flag_str.startswith('-mtune=') or 
-            flag_str.startswith('-march=')):
-            print(f"Removed problematic flag: {flag_str}")
+        # Prüfe, ob die Datei existiert
+        if os.path.isabs(script):
+            exists = os.path.isfile(script)
+            print(f"    Absolute path exists: {exists}")
+        else:
+            # Suche in bekannten ESP-IDF Pfaden
+            search_paths = [
+                env.subst("$PROJECT_DIR"),
+                env.subst("$BUILD_DIR"),
+                os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
+                "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
+                "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
+            ]
+            
+            found_path = None
+            for search_path in search_paths:
+                full_path = os.path.join(search_path, script)
+                if os.path.isfile(full_path):
+                    found_path = full_path
+                    break
+            
+            if found_path:
+                print(f"    Found at: {found_path}")
+            else:
+                print(f"    *** NOT FOUND *** - Searched in:")
+                for path in search_paths:
+                    print(f"      - {path}")
+    
+    print("=== END DEBUGGING LINKER SCRIPTS ===")
+    
+    # Standard Flag-Bereinigung
+    for flag in original:
+        if str(flag).startswith('-mcpu='):
+            print(f"Removed problematic flag: {flag}")
             removed_count += 1
             continue
-            
         cleaned.append(flag)
     
     if removed_count > 0:
         env.Replace(LINKFLAGS=cleaned)
         print(f"ESP-IDF: Removed {removed_count} problematic flags")
-    else:
-        print("ESP-IDF: No problematic flags found")
-    
-    # Vollständige LINKCOM-Ausgabe und Formatierung
-    try:
-        linkcom = env.subst('$LINKCOM', target=target, source=source)
-        
-        # 1. Schreibe vollständige LINKCOM in Datei
-        with open("/tmp/firmware_linkcom_complete.log", "w") as f:
-            f.write(linkcom)
-        
-        print(f"Complete LINKCOM written to /tmp/firmware_linkcom_complete.log")
-        print(f"LINKCOM length: {len(linkcom)}")
-        
-        # 2. Formatierte Ausgabe für bessere Lesbarkeit
-        print("=== FORMATTED LINKCOM (80 chars per line) ===")
-        
-        parts = linkcom.split()
-        current_line = ""
-        max_length = 80
-        
-        for part in parts:
-            # Füge Komma als Trenner hinzu
-            token = part + ","
-            
-            # Prüfe, ob das Token in die aktuelle Zeile passt
-            if len(current_line) + len(token) > max_length:
-                if current_line:
-                    print(current_line.rstrip(",") + " \\")
-                    current_line = "  " + token + " "
-                else:
-                    print("  " + token + " \\")
-                    current_line = ""
-            else:
-                current_line += token + " "
-        
-        # Letzte Zeile ausgeben
-        if current_line:
-            print(current_line.rstrip(","))
-        
-        print("=== END FORMATTED LINKCOM ===")
-        
-        # 3. Auch formatierte Version in Datei speichern
-        with open("/tmp/firmware_linkcom_formatted.log", "w") as f:
-            parts = linkcom.split()
-            current_line = ""
-            
-            for part in parts:
-                token = part + ","
-                if len(current_line) + len(token) > max_length:
-                    if current_line:
-                        f.write(current_line.rstrip(",") + " \\\n")
-                        current_line = "  " + token + " "
-                    else:
-                        f.write("  " + token + " \\\n")
-                        current_line = ""
-                else:
-                    current_line += token + " "
-            
-            if current_line:
-                f.write(current_line.rstrip(",") + "\n")
-        
-        print("Formatted LINKCOM written to /tmp/firmware_linkcom_formatted.log")
-        
-        # 4. Prüfe auf verdächtige Zeichen
-        if '%' in linkcom:
-            print("*** WARNING: LINKCOM contains % characters ***")
-            percent_positions = [i for i, char in enumerate(linkcom) if char == '%']
-            print(f"% characters found at positions: {percent_positions[:10]}")  # Erste 10
-        else:
-            print("LINKCOM is clean (no % characters)")
-        
-        # 5. Suche nach anderen problematischen Zeichen
-        suspicious_chars = ['${', '$(', '`']
-        for char_seq in suspicious_chars:
-            if char_seq in linkcom:
-                print(f"*** WARNING: LINKCOM contains suspicious sequence: {char_seq} ***")
-        
-    except Exception as e:
-        print(f"*** ERROR: LINKCOM generation failed: {e}")
-        import traceback
-        traceback.print_exc()
     
     print("=== ESP-IDF FLAG CLEANING END ===")
     return (target, source)
