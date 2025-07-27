@@ -2175,7 +2175,8 @@ def clean_clang_linkflags_espidf(target, source, env):
     1. Löst alle relativen *.ld-Namen zu absoluten Pfaden auf
     2. Trennt kombinierte -Tscript.ld und -Lpath Flags
     3. Filtert nachträglich nackte *.ld-Einträge aus der LINKCOM
-    4. Ausführliche Debug-Ausgaben und Statistiken
+    4. Trennt kombinierte -L Flags in der LINKCOM
+    5. Ausführliche Debug-Ausgaben und Statistiken
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2321,15 +2322,40 @@ def clean_clang_linkflags_espidf(target, source, env):
     # Setze die gefilterte LINKCOM
     env['LINKCOM'] = filtered_linkcom_substitution
     
-    # ERWEITERTE DEBUG-AUSGABEN
+    # ERWEITERTE DEBUG-AUSGABEN mit LINKCOM-Korrektur
     try:
         # KORRIGIERT: Behandle sowohl String- als auch Funktions-LINKCOM
         if callable(env.get('LINKCOM')):
-            final_linkcom = env['LINKCOM'](target, source, env)
+            current_linkcom = env['LINKCOM'](target, source, env)
         else:
-            final_linkcom = env.subst('$LINKCOM', target=target, source=source)
+            current_linkcom = env.subst('$LINKCOM', target=target, source=source)
         
-        print(f"\nDEBUG: Final LINKCOM length: {len(final_linkcom)} characters")
+        print(f"\nDEBUG: Original LINKCOM length: {len(current_linkcom)} characters")
+        
+        # NEU: LINKCOM-Korrektur für kombinierte -L Flags
+        words = current_linkcom.split()
+        corrected_words = []
+        separated_l_flags = []
+        
+        for word in words:
+            # Kombinierte -L Flags trennen
+            if word.startswith('-L') and len(word) > 2:
+                lib_path = word[2:]  # Entferne -L Präfix
+                corrected_words.extend(['-L', lib_path])  # Getrennt hinzufügen
+                separated_l_flags.append(f"{word} → -L {lib_path}")
+            else:
+                corrected_words.append(word)
+        
+        # Setze die korrigierte LINKCOM
+        corrected_linkcom = ' '.join(corrected_words)
+        env['LINKCOM'] = corrected_linkcom
+        
+        if separated_l_flags:
+            print("\n*** LINKCOM: Separated -L flags:")
+            for flag_change in separated_l_flags:
+                print(f"  - {flag_change}")
+        
+        print(f"DEBUG: Corrected LINKCOM length: {len(corrected_linkcom)} characters")
         
         # Formatierte LINKCOM-Ausgabe (80 Zeichen pro Zeile)
         print("\n=== FINAL LINKCOM (formatted) ===")
@@ -2361,16 +2387,16 @@ def clean_clang_linkflags_espidf(target, source, env):
             
             return line_count
         
-        final_lines = format_linkcom(final_linkcom)
+        final_lines = format_linkcom(corrected_linkcom)
         print("=== END FINAL LINKCOM ===")
         print(f"Final LINKCOM: {final_lines} lines")
         
         # Schreibe LINKCOM in Dateien
         with open("/tmp/final_linkcom.log", "w", encoding="utf-8") as f:
-            f.write(final_linkcom + "\n")
+            f.write(corrected_linkcom + "\n")
         
         with open("/tmp/final_linkcom_formatted.log", "w", encoding="utf-8") as f:
-            words = final_linkcom.split()
+            words = corrected_linkcom.split()
             current_line = ""
             
             for word in words:
@@ -2394,8 +2420,8 @@ def clean_clang_linkflags_espidf(target, source, env):
         print("  - /tmp/final_linkcom.log")
         print("  - /tmp/final_linkcom_formatted.log")
         
-        # AUSFÜHRLICHE STATISTIKEN
-        words = final_linkcom.split()
+        # AUSFÜHRLICHE STATISTIKEN mit korrigierten Daten
+        words = corrected_linkcom.split()
         
         # Zähle verschiedene Flag-Typen
         stats = {
@@ -2404,8 +2430,8 @@ def clean_clang_linkflags_espidf(target, source, env):
             'undefined_symbols_u': len([w for w in words if w == "-u"]),
             'library_paths_l': len([w for w in words if w == "-L"]),
             'libraries_a': len([w for w in words if w.endswith('.a')]),
-            'whole_archive_flags': final_linkcom.count('-Wl,--whole-archive'),
-            'start_group_flags': final_linkcom.count('-Wl,--start-group'),
+            'whole_archive_flags': corrected_linkcom.count('-Wl,--whole-archive'),
+            'start_group_flags': corrected_linkcom.count('-Wl,--start-group'),
         }
         
         print(f"\n=== FINAL LINKCOM STATISTICS ===")
@@ -2444,13 +2470,13 @@ def clean_clang_linkflags_espidf(target, source, env):
                 print(f"  ⚠️  {flag}")
         
         # % Zeichen (TypeError risk)
-        if '%' in final_linkcom:
-            percent_count = final_linkcom.count('%')
+        if '%' in corrected_linkcom:
+            percent_count = corrected_linkcom.count('%')
             issues.append(f"{percent_count} % characters (TypeError risk)")
             print(f"\n❌ WARNING: Found % characters:")
-            first_percent = final_linkcom.find('%')
+            first_percent = corrected_linkcom.find('%')
             if first_percent != -1:
-                context = final_linkcom[max(0, first_percent-30):first_percent+30]
+                context = corrected_linkcom[max(0, first_percent-30):first_percent+30]
                 print(f"  ⚠️  Context: ...{context}...")
         
         # Finale Bewertung
