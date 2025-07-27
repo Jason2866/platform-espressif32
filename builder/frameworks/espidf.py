@@ -491,6 +491,134 @@ def calculate_dependency_link_order(dependency_graph, libs):
     
     return ordered_components
 
+def clean_heuristic_clang_linking(env, libs, link_args):
+    """
+    Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
+    OHNE nachgelagerte Reparatur-Funktion
+    """
+    
+    # 1. Linker-Scripts mit korrekten Pfaden sammeln
+    def resolve_and_collect_scripts(linkflags, env):
+        search_paths = [
+            env.subst("$BUILD_DIR"),
+            os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
+            "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
+            "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
+        ]
+        
+        scripts = []
+        for flag in linkflags:
+            flag_str = str(flag)
+            if flag_str.endswith('.ld'):
+                # Löse Pfad direkt auf
+                if os.path.isabs(flag_str):
+                    scripts.extend(["-T", flag_str])
+                else:
+                    # Suche in Standard-Pfaden
+                    resolved = None
+                    for path in search_paths:
+                        candidate = os.path.join(path, flag_str)
+                        if os.path.isfile(candidate):
+                            resolved = candidate
+                            break
+                    scripts.extend(["-T", resolved or flag_str])
+        return scripts
+    
+    # 2. Essential Libraries filtern
+    def collect_essential_libs(libs, link_args):
+        essential_patterns = [
+            'libfreertos.a', 'libesp_system.a', 'libesp_common.a',
+            'libhal.a', 'libsoc.a', 'libheap.a', 'libnewlib.a'
+        ]
+        
+        result = []
+        seen = set()
+        
+        # Aus libs Array
+        for lib in libs:
+            path = str(lib.get_path() if hasattr(lib, 'get_path') else lib)
+            if path.startswith('['):
+                path = path.strip("[]'\"")
+            
+            basename = os.path.basename(path)
+            if basename not in seen and any(p in basename for p in essential_patterns):
+                result.append(path)
+                seen.add(basename)
+        
+        return result
+    
+    # 3. Undefined Symbols sammeln
+    def collect_symbols(linkflags):
+        symbols = []
+        known_symbols = [
+            'esp_app_desc', 'app_main', 'start_app',
+            'esp_system_include_coredump_init'
+        ]
+        
+        i = 0
+        while i < len(linkflags):
+            flag = str(linkflags[i])
+            if flag == "-u" and i + 1 < len(linkflags):
+                symbols.extend(["-u", str(linkflags[i + 1])])
+                i += 2
+            elif flag in known_symbols:
+                symbols.extend(["-u", flag])
+                i += 1
+            else:
+                i += 1
+        return symbols
+    
+    # 4. Andere Flags sammeln
+    def collect_other_flags(linkflags):
+        result = []
+        for flag in linkflags:
+            flag_str = str(flag)
+            if (not flag_str.endswith('.ld') and 
+                not flag_str.startswith('-l') and
+                flag_str not in ['-T', '-u'] and
+                not flag_str.startswith('-Wl,--')):
+                result.append(flag_str)
+        return result
+    
+    # Sammle alle Komponenten
+    linkflags = link_args["LINKFLAGS"]
+    linker_scripts = resolve_and_collect_scripts(linkflags, env)
+    essential_libs = collect_essential_libs(libs, link_args)
+    undefined_symbols = collect_symbols(linkflags)
+    other_flags = collect_other_flags(linkflags)
+    
+    # Baue finale Flag-Liste in korrekter Reihenfolge
+    final_flags = []
+    final_flags.extend(other_flags)        # Compiler-Flags
+    final_flags.extend(linker_scripts)     # -T scripts (mit Pfaden)
+    final_flags.extend(undefined_symbols)  # -u symbols
+    final_flags.append("-Wl,--start-group")
+    
+    # Libraries mit --whole-archive
+    for lib in essential_libs:
+        final_flags.extend(["-Wl,--whole-archive", lib, "-Wl,--no-whole-archive"])
+    
+    final_flags.append("-Wl,--end-group")
+    
+    # Setze Flags - EINMAL und KORREKT
+    env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
+    libs.clear()
+    
+    print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
+    print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
+
+# Integration (super sauber):
+is_clang = "clang" in env.subst("$CC").lower()
+is_bootloader = any("__BOOTLOADER_BUILD" in str(d) for d in env.get("CPPDEFINES", []))
+
+if is_clang and not is_bootloader:
+    clean_heuristic_clang_linking(env, libs, link_args)
+    extra_flags = []
+else:
+    # Standard-Verarbeitung
+    extra_flags = filter_args(link_args["LINKFLAGS"], [...])
+    env.MergeFlags(link_args)
+
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
     project.install_dependencies()
@@ -2169,147 +2297,6 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
-# Erweiterte Clang/GCC-Behandlung mit Dependency-Awareness
-if "clang" in env.subst("$CC").lower():
-    # Extrahiere Dependency-Graph aus allen Target-Konfigurationen
-    cmake_api_reply_dir = os.path.join(BUILD_DIR, ".cmake", "api", "v1", "reply")
-    dependency_graph = extract_component_dependencies(target_configs, cmake_api_reply_dir)
-    
-    # WICHTIG: Erst extra_flags aus link_args extrahieren
-    original_extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u",
-         "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    
-    # Vereinfachte Clang-Linking-Logik
-    clang_linking_flags = []
-    
-    # 1. Nur essenzielle Symbole forcieren
-    essential_symbols = get_essential_esp_idf_symbols()
-    for symbol in essential_symbols:
-        clang_linking_flags.extend(['-u', symbol])
-    
-    # 2. Standard Library-Gruppierung mit intelligenter Whole-Archive-Entscheidung
-    clang_linking_flags.append('-Wl,--start-group')
-    
-    # Berechne optimale Link-Reihenfolge basierend auf Dependencies
-    optimal_order = calculate_dependency_link_order(dependency_graph, libs)
-    
-    # Sortiere Libraries nach Dependency-Order
-    ordered_libs = []
-    remaining_libs = libs[:]
-    
-    for component_order in optimal_order:
-        for lib_node in remaining_libs[:]:
-            if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
-                for lib_path in lib_node:
-                    lib_path_str = lib_path.get_path() if hasattr(lib_path, 'get_path') else str(lib_path)
-                    lib_filename = os.path.basename(lib_path_str)
-                    component_name = lib_filename.replace('lib', '').replace('.a', '')
-                    
-                    if component_order.endswith(component_name):
-                        ordered_libs.append(lib_node)
-                        remaining_libs.remove(lib_node)
-                        break
-            else:
-                lib_path_str = lib_node.get_path() if hasattr(lib_node, 'get_path') else str(lib_node)
-                lib_filename = os.path.basename(lib_path_str)
-                component_name = lib_filename.replace('lib', '').replace('.a', '')
-                
-                if component_order.endswith(component_name):
-                    ordered_libs.append(lib_node)
-                    remaining_libs.remove(lib_node)
-                    break
-    
-    # Verbleibende Libraries anhängen
-    ordered_libs.extend(remaining_libs)
-    
-    libraries_processed = 0
-    for lib_node in ordered_libs:
-        if hasattr(lib_node, '__iter__') and not isinstance(lib_node, str):
-            for lib_path in lib_node:
-                lib_path_str = lib_path.get_path() if hasattr(lib_path, 'get_path') else str(lib_path)
-                lib_filename = os.path.basename(lib_path_str)
-                component_name = lib_filename.replace('lib', '').replace('.a', '')
-                
-                # Deterministische Whole-Archive-Entscheidung
-                whole_archive_req = get_realistic_whole_archive_requirements(component_name)
-                
-                # Dependency-aware Linking-Entscheidung
-                if whole_archive_req["required"]:
-                    clang_linking_flags.extend([
-                        '-Wl,--whole-archive',
-                        lib_path_str,
-                        '-Wl,--no-whole-archive'
-                    ])
-                else:
-                    clang_linking_flags.append(lib_path_str)
-                
-                libraries_processed += 1
-        else:
-            # Einzelne Library-Nodes
-            lib_path_str = lib_node.get_path() if hasattr(lib_node, 'get_path') else str(lib_node)
-            lib_filename = os.path.basename(lib_path_str)
-            component_name = lib_filename.replace('lib', '').replace('.a', '')
-            
-            # Deterministische Whole-Archive-Entscheidung
-            whole_archive_req = get_realistic_whole_archive_requirements(component_name)
-            
-            if whole_archive_req["required"]:
-                clang_linking_flags.extend([
-                    '-Wl,--whole-archive',
-                    lib_path_str,
-                    '-Wl,--no-whole-archive'
-                ])
-            else:
-                clang_linking_flags.append(lib_path_str)
-            libraries_processed += 1
-    
-    clang_linking_flags.append('-Wl,--end-group')
-    
-    # 3. Standard Linker-Optimierungen
-    clang_linking_flags.extend([
-        '-Wl,--gc-sections',
-        '-Wl,--cref'
-    ])
-    
-    # 4. Bestehende Linker-Scripts übernehmen (nur kritische)
-    essential_linker_flags = []
-    for flag in original_extra_flags:  # ← Jetzt verwenden wir original_extra_flags
-        flag_str = str(flag)
-        # Nur wirklich kritische Linker-Elemente
-        if (flag_str.startswith('-T') and flag_str.endswith('.ld') or 
-            flag_str.startswith('-Wl,') and ('wrap' in flag_str or 'defsym' in flag_str) or
-            flag_str.startswith('-u')):
-            essential_linker_flags.append(flag_str)
-
-    clang_linking_flags.extend(essential_linker_flags)
-    
-    # Bereinige original LINKFLAGS
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(original_extra_flags)
-    )
-    
-    # Setze die finalen Flags
-    extra_flags = clang_linking_flags
-    libs = []
-    
-    print(f"ESP-IDF 5.5 Clang Linking: Processed {libraries_processed} libraries with dependency-aware configuration")
-
-else:
-    # Original GCC processing - unverändert
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u",
-         "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-    link_args["LINKFLAGS"] = sorted(
-        set(link_args["LINKFLAGS"]) - set(extra_flags)
-    )
-
 #
 # Process project sources
 #
@@ -2364,27 +2351,85 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 #
 
 project_flags.update(link_args)
-env.MergeFlags(project_flags)
-env.Prepend(
-    CPPPATH=app_includes["plain_includes"],
-    CPPDEFINES=project_defines,
-    ESPIDF_PYTHONEXE=get_python_exe(),
-    LINKFLAGS=extra_flags,
-    LIBS=libs,
-    FLASH_EXTRA_IMAGES=[
-        (
-            board.get(
-                "upload.bootloader_offset",
-                "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
+
+# Am Anfang der Link-Verarbeitung
+is_clang = "clang" in env.subst("$CC").lower()
+is_bootloader = any("__BOOTLOADER_BUILD" in str(d) for d in env.get("CPPDEFINES", []))
+
+print(f"DEBUG: is_clang={is_clang}, is_bootloader={is_bootloader}")
+
+if is_clang and not is_bootloader:
+    print("ESP-IDF: Using Clang linking")
+    clean_heuristic_clang_linking(env, libs, link_args)
+    extra_flags = []  # Verhindert Standard-Verarbeitung
+else:
+    print("ESP-IDF: Using standard linking")
+    # Standard-Verarbeitung (unverändert)
+    extra_flags = filter_args(
+        link_args["LINKFLAGS"],
+        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
+         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
+    )
+    
+    extra_flags_set = set(extra_flags)
+    link_args["LINKFLAGS"] = [
+        flag for flag in link_args["LINKFLAGS"] 
+        if flag not in extra_flags_set
+    ]
+    
+    env.MergeFlags(link_args)
+
+#
+# Main environment configuration
+#
+
+# Nur bei Standard-Builds (nicht bei Clang-Firmware)
+if not (is_clang and not is_bootloader):
+    project_flags.update(link_args)
+    env.MergeFlags(project_flags)
+    
+    env.Prepend(
+        CPPPATH=app_includes["plain_includes"],
+        CPPDEFINES=project_defines,
+        ESPIDF_PYTHONEXE=get_python_exe(),
+        LINKFLAGS=extra_flags,  # Nur bei Standard-Builds
+        LIBS=libs,              # Nur bei Standard-Builds
+        FLASH_EXTRA_IMAGES=[
+            (
+                board.get(
+                    "upload.bootloader_offset",
+                    "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
+                ),
+                os.path.join("$BUILD_DIR", "bootloader.bin"),
             ),
-            os.path.join("$BUILD_DIR", "bootloader.bin"),
-        ),
-        (
-            board.get("upload.partition_table_offset", hex(partition_table_offset)),
-            os.path.join("$BUILD_DIR", "partitions.bin"),
-        ),
-    ],
-)
+            (
+                board.get("upload.partition_table_offset", hex(partition_table_offset)),
+                os.path.join("$BUILD_DIR", "partitions.bin"),
+            ),
+        ],
+    )
+else:
+    # Clang-spezifische Konfiguration (ohne LINKFLAGS/LIBS Überschreibung)
+    print("DEBUG: Using Clang-controlled environment configuration")
+    env.Prepend(
+        CPPPATH=app_includes["plain_includes"],
+        CPPDEFINES=project_defines,
+        ESPIDF_PYTHONEXE=get_python_exe(),
+        # LINKFLAGS und LIBS werden NICHT hinzugefügt!
+        FLASH_EXTRA_IMAGES=[
+            (
+                board.get(
+                    "upload.bootloader_offset",
+                    "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
+                ),
+                os.path.join("$BUILD_DIR", "bootloader.bin"),
+            ),
+            (
+                board.get("upload.partition_table_offset", hex(partition_table_offset)),
+                os.path.join("$BUILD_DIR", "partitions.bin"),
+            ),
+        ],
+    )
 
 #
 # Propagate Arduino defines to the main build environment
