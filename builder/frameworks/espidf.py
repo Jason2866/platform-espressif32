@@ -671,6 +671,45 @@ def extract_link_args(target_config):
             _add_to_libpath(os.path.dirname(archive_path), link_args)
             link_args["LIBS"].append(archive_name)
 
+    def _resolve_linker_script_path(script_name):
+        """Löse .ld Pfad auf - aber nur wenn die Datei bereits existiert"""
+        if os.path.isabs(script_name):
+            return script_name
+        
+        # Such-Pfade für ESP-IDF Framework-Dateien (existieren immer)
+        framework_paths = [
+            os.path.join(os.environ.get("PLATFORMIO_CORE_DIR", ""), "packages", "framework-espidf", "components", "soc", "esp32", "ld"),
+            os.path.join(os.environ.get("PLATFORMIO_CORE_DIR", ""), "packages", "framework-espidf", "components", "esp_rom", "esp32", "ld"),
+        ]
+        
+        # Build-Pfade (können noch nicht existieren)
+        build_paths = [
+            BUILD_DIR,
+            os.path.join(BUILD_DIR, "esp-idf", "esp_system", "ld"),
+        ]
+        
+        # Erst Framework-Pfade prüfen (existieren sicher)
+        for search_path in framework_paths:
+            if not search_path or not os.path.isdir(search_path):
+                continue
+            candidate = os.path.join(search_path, script_name)
+            if os.path.isfile(candidate):
+                print(f"extract_link_args: Resolved framework script {script_name} → {candidate}")
+                return candidate
+        
+        # Dann Build-Pfade prüfen (falls schon generiert)
+        for search_path in build_paths:
+            if not search_path or not os.path.isdir(search_path):
+                continue
+            candidate = os.path.join(search_path, script_name)
+            if os.path.isfile(candidate):
+                print(f"extract_link_args: Found build script {script_name} → {candidate}")
+                return candidate
+        
+        # Fallback: Relativen Namen beibehalten (wird später in clean_clang_linkflags_espidf aufgelöst)
+        print(f"extract_link_args: Keeping relative path for later resolution: {script_name}")
+        return script_name
+
     link_args = {"LINKFLAGS": [], "LIBS": [], "LIBPATH": [], "__LIB_DEPS": []}
 
     for f in target_config.get("link", {}).get("commandFragments", []):
@@ -682,7 +721,35 @@ def extract_link_args(target_config):
         args = click.parser.split_arg_string(fragment)
         
         if fragment_role == "flags":
-            link_args["LINKFLAGS"].extend(args)
+            # ERWEITERT: Verarbeite -T Flags bereits hier (hybride Auflösung)
+            processed_args = []
+            i = 0
+            while i < len(args):
+                arg = args[i]
+                
+                # Behandle -T script.ld Paare
+                if arg == "-T" and i + 1 < len(args):
+                    script_name = args[i + 1]
+                    if script_name.endswith('.ld'):
+                        resolved_path = _resolve_linker_script_path(script_name)
+                        processed_args.extend(["-T", resolved_path])
+                        i += 2
+                        continue
+                
+                # Behandle -Tscript.ld Kombinationen
+                elif arg.startswith("-T") and arg.endswith('.ld'):
+                    script_name = arg[2:]  # Entferne -T
+                    resolved_path = _resolve_linker_script_path(script_name)
+                    processed_args.append(f"-T{resolved_path}")
+                    i += 1
+                    continue
+                
+                # Alle anderen Argumente unverändert
+                processed_args.append(arg)
+                i += 1
+            
+            link_args["LINKFLAGS"].extend(processed_args)
+            
         elif fragment_role in ("libraries", "libraryPath"):
             if fragment.startswith("-l"):
                 link_args["LIBS"].extend(args)
@@ -690,7 +757,30 @@ def extract_link_args(target_config):
                 lib_path = fragment.replace("-L", "").strip(" '\"")
                 _add_to_libpath(lib_path, link_args)
             elif fragment.startswith("-") and not fragment.startswith("-l"):
-                link_args["LINKFLAGS"].extend(args)
+                # ERWEITERT: Auch hier -T Flags behandeln (für CMake-Flags in libraries Role)
+                processed_args = []
+                i = 0
+                while i < len(args):
+                    arg = args[i]
+                    
+                    if arg == "-T" and i + 1 < len(args):
+                        script_name = args[i + 1]
+                        if script_name.endswith('.ld'):
+                            resolved_path = _resolve_linker_script_path(script_name)
+                            processed_args.extend(["-T", resolved_path])
+                            i += 2
+                            continue
+                    elif arg.startswith("-T") and arg.endswith('.ld'):
+                        script_name = arg[2:]
+                        resolved_path = _resolve_linker_script_path(script_name)
+                        processed_args.append(f"-T{resolved_path}")
+                        i += 1
+                        continue
+                    
+                    processed_args.append(arg)
+                    i += 1
+                
+                link_args["LINKFLAGS"].extend(processed_args)
             elif fragment.endswith(".a"):
                 archive_path = fragment
                 if os.path.isabs(archive_path):
@@ -2002,156 +2092,69 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Debug: Zeige Linker-Script-Pfade und deren Auflösung
+    Zur Link-Zeit: Jetzt existieren ALLE .ld Dateien
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     removed_count = 0
     
-    print("=== ESP-IDF FLAG CLEANING START ===")
-    print("=== DEBUGGING LINKER SCRIPTS ===")
+    print("=== ESP-IDF CLANG FLAG CLEANING START ===")
     
-    # Debug: Analysiere -T Flags
-    linker_scripts = []
-    for i, flag in enumerate(original):
-        flag_str = str(flag)
-        if flag_str == "-T" and i + 1 < len(original):
-            script_name = str(original[i + 1])
-            linker_scripts.append((i, flag_str, script_name))
-        elif flag_str.startswith("-T") and flag_str.endswith(".ld"):
-            script_name = flag_str[2:]  # Entferne -T
-            linker_scripts.append((i, "-T", script_name))
-    
-    print(f"Found {len(linker_scripts)} linker scripts:")
-    for pos, prefix, script in linker_scripts:
-        print(f"  [{pos}] {prefix} {script}")
+    i = 0
+    while i < len(original):
+        flag = str(original[i])
         
-        # Prüfe, ob die Datei existiert
-        if os.path.isabs(script):
-            exists = os.path.isfile(script)
-            print(f"    Absolute path exists: {exists}")
-        else:
-            # Suche in bekannten ESP-IDF Pfaden
-            search_paths = [
-                env.subst("$PROJECT_DIR"),
-                env.subst("$BUILD_DIR"),
-                os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
-                "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
-                "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
-            ]
-            
-            found_path = None
-            for search_path in search_paths:
-                full_path = os.path.join(search_path, script)
-                if os.path.isfile(full_path):
-                    found_path = full_path
-                    break
-            
-            if found_path:
-                print(f"    Found at: {found_path}")
-            else:
-                print(f"    *** NOT FOUND *** - Searched in:")
-                for path in search_paths:
-                    print(f"      - {path}")
-    
-    print("=== END DEBUGGING LINKER SCRIPTS ===")
-    
-    # Standard Flag-Bereinigung
-    for flag in original:
-        if str(flag).startswith('-mcpu='):
+        # Entferne problematische Flags
+        if flag.startswith('-mcpu='):
             print(f"Removed problematic flag: {flag}")
             removed_count += 1
+            i += 1
             continue
-        cleaned.append(flag)
-    
-    if removed_count > 0:
-        env.Replace(LINKFLAGS=cleaned)
-        print(f"ESP-IDF: Removed {removed_count} problematic flags")
-    
-    print("=== ESP-IDF FLAG CLEANING END ===")
-    return (target, source)
-
-
-if "clang" in env.subst("$CC").lower():
-    # Standard Flag-Extraktion
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
-    )
-    
-    # KORRIGIERTE Library-Sammlung
-    all_libraries = []
-    
-    # Libraries aus libs Array sammeln (korrekte Behandlung von Listen)
-    for lib_node in libs:
-        if isinstance(lib_node, (list, tuple)):
-            # lib_node ist eine Liste von SCons-Nodes
-            for individual_lib in lib_node:
-                if hasattr(individual_lib, 'get_path'):
-                    lib_path = individual_lib.get_path()
-                    all_libraries.append(lib_path)
-                    print(f"Added lib from list: {lib_path}")
-                else:
-                    lib_path = str(individual_lib)
-                    all_libraries.append(lib_path)
-                    print(f"Added lib from list (str): {lib_path}")
-        else:
-            # lib_node ist ein einzelner SCons-Node
-            if hasattr(lib_node, 'get_path'):
-                lib_path = lib_node.get_path()
-                all_libraries.append(lib_path)
-                print(f"Added single lib: {lib_path}")
-            else:
-                lib_path = str(lib_node)
-                all_libraries.append(lib_path)
-                print(f"Added single lib (str): {lib_path}")
-    
-    # Libraries aus LIBS sammeln 
-    for lib_name in link_args.get("LIBS", []):
-        for lib_path in link_args.get("LIBPATH", []):
-            full_lib_path = os.path.join(lib_path, f"lib{lib_name}.a")
-            if os.path.isfile(full_lib_path):
-                all_libraries.append(full_lib_path)
-                print(f"Added LIBS entry: {full_lib_path}")
-                break
-    
-    # Controlled Library Flags generieren
-    controlled_linking_flags = []
-    controlled_linking_flags.append("-Wl,--start-group")
-    
-    # KORRIGIERT: Jede Library einzeln mit --whole-archive wrappen
-    for lib_path in all_libraries:
-        # Stelle sicher, dass lib_path ein String ist
-        lib_path_str = str(lib_path).strip("[]'\"")  # Entferne Liste-Zeichen falls vorhanden
         
-        controlled_linking_flags.extend([
-            "-Wl,--whole-archive",
-            lib_path_str,  # ← Nur der reine String-Pfad
-            "-Wl,--no-whole-archive"
-        ])
-        print(f"Added with --whole-archive: {lib_path_str}")
+        # Zur Link-Zeit: ALLE .ld Dateien existieren jetzt!
+        if flag == "-T" and i + 1 < len(original):
+            script_name = str(original[i + 1])
+            
+            if not os.path.isabs(script_name):
+                # Vollständige Suche - jetzt existieren alle Dateien
+                search_paths = [
+                    env.subst("$BUILD_DIR"),  # memory.ld, sections.ld
+                    os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
+                    "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
+                    "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
+                ]
+                
+                full_path = None
+                for search_path in search_paths:
+                    if not os.path.isdir(search_path):
+                        continue
+                    candidate = os.path.join(search_path, script_name)
+                    if os.path.isfile(candidate):
+                        full_path = candidate
+                        break
+                
+                if full_path:
+                    cleaned.extend(["-T", full_path])
+                    print(f"Link-time resolved: {script_name} → {full_path}")
+                else:
+                    cleaned.extend([flag, script_name])
+                    print(f"*** WARNING: Script not found even at link-time: {script_name}")
+            else:
+                cleaned.extend([flag, script_name])
+            
+            i += 2
+            continue
+        
+        # Alle anderen Flags
+        cleaned.append(flag)
+        i += 1
     
-    controlled_linking_flags.append("-Wl,--end-group")
+    if removed_count > 0 or len(cleaned) != len(original):
+        env.Replace(LINKFLAGS=cleaned)
+        print(f"ESP-IDF: Updated LINKFLAGS with resolved paths")
     
-    # Kombiniere mit anderen Flags
-    extra_flags.extend(controlled_linking_flags)
-    
-    # KRITISCH: Leere das libs Array (verhindert doppelte Verarbeitung)
-    libs = []
-    
-    # Standard LINKFLAGS-Bereinigung
-    extra_flags_set = set(extra_flags)
-    link_args["LINKFLAGS"] = [
-        flag for flag in link_args["LINKFLAGS"] 
-        if flag not in extra_flags_set
-    ]
-    link_args["LINKFLAGS"].extend(extra_flags)
-    
-    # Flag-Bereinigung
-    target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
-    env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
-    
-    print(f"ESP-IDF: Using controlled library linking with {len(all_libraries)} libraries")
+    print("=== ESP-IDF CLANG FLAG CLEANING END ===")
+    return (target, source)
 
 else:
     # Standard GCC-Verarbeitung (unverändert)
