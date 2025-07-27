@@ -491,122 +491,6 @@ def calculate_dependency_link_order(dependency_graph, libs):
     
     return ordered_components
 
-def clean_heuristic_clang_linking(env, libs, link_args):
-    """
-    Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
-    OHNE nachgelagerte Reparatur-Funktion
-    """
-    
-    # 1. Linker-Scripts mit korrekten Pfaden sammeln
-    def resolve_and_collect_scripts(linkflags, env):
-        search_paths = [
-            env.subst("$BUILD_DIR"),
-            os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
-            "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
-            "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
-        ]
-        
-        scripts = []
-        for flag in linkflags:
-            flag_str = str(flag)
-            if flag_str.endswith('.ld'):
-                # Löse Pfad direkt auf
-                if os.path.isabs(flag_str):
-                    scripts.extend(["-T", flag_str])
-                else:
-                    # Suche in Standard-Pfaden
-                    resolved = None
-                    for path in search_paths:
-                        candidate = os.path.join(path, flag_str)
-                        if os.path.isfile(candidate):
-                            resolved = candidate
-                            break
-                    scripts.extend(["-T", resolved or flag_str])
-        return scripts
-    
-    # 2. Essential Libraries filtern
-    def collect_essential_libs(libs, link_args):
-        essential_patterns = [
-            'libfreertos.a', 'libesp_system.a', 'libesp_common.a',
-            'libhal.a', 'libsoc.a', 'libheap.a', 'libnewlib.a'
-        ]
-        
-        result = []
-        seen = set()
-        
-        # Aus libs Array
-        for lib in libs:
-            path = str(lib.get_path() if hasattr(lib, 'get_path') else lib)
-            if path.startswith('['):
-                path = path.strip("[]'\"")
-            
-            basename = os.path.basename(path)
-            if basename not in seen and any(p in basename for p in essential_patterns):
-                result.append(path)
-                seen.add(basename)
-        
-        return result
-    
-    # 3. Undefined Symbols sammeln
-    def collect_symbols(linkflags):
-        symbols = []
-        known_symbols = [
-            'esp_app_desc', 'app_main', 'start_app',
-            'esp_system_include_coredump_init'
-        ]
-        
-        i = 0
-        while i < len(linkflags):
-            flag = str(linkflags[i])
-            if flag == "-u" and i + 1 < len(linkflags):
-                symbols.extend(["-u", str(linkflags[i + 1])])
-                i += 2
-            elif flag in known_symbols:
-                symbols.extend(["-u", flag])
-                i += 1
-            else:
-                i += 1
-        return symbols
-    
-    # 4. Andere Flags sammeln
-    def collect_other_flags(linkflags):
-        result = []
-        for flag in linkflags:
-            flag_str = str(flag)
-            if (not flag_str.endswith('.ld') and 
-                not flag_str.startswith('-l') and
-                flag_str not in ['-T', '-u'] and
-                not flag_str.startswith('-Wl,--')):
-                result.append(flag_str)
-        return result
-    
-    # Sammle alle Komponenten
-    linkflags = link_args["LINKFLAGS"]
-    linker_scripts = resolve_and_collect_scripts(linkflags, env)
-    essential_libs = collect_essential_libs(libs, link_args)
-    undefined_symbols = collect_symbols(linkflags)
-    other_flags = collect_other_flags(linkflags)
-    
-    # Baue finale Flag-Liste in korrekter Reihenfolge
-    final_flags = []
-    final_flags.extend(other_flags)        # Compiler-Flags
-    final_flags.extend(linker_scripts)     # -T scripts (mit Pfaden)
-    final_flags.extend(undefined_symbols)  # -u symbols
-    final_flags.append("-Wl,--start-group")
-    
-    # Libraries mit --whole-archive
-    for lib in essential_libs:
-        final_flags.extend(["-Wl,--whole-archive", lib, "-Wl,--no-whole-archive"])
-    
-    final_flags.append("-Wl,--end-group")
-    
-    # Setze Flags - EINMAL und KORREKT
-    env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
-    libs.clear()
-    
-    print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
-    print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
-
 # Integration (super sauber):
 is_clang = "clang" in env.subst("$CC").lower()
 is_bootloader = any("__BOOTLOADER_BUILD" in str(d) for d in env.get("CPPDEFINES", []))
@@ -2296,6 +2180,123 @@ env.AddPlatformTarget(
 libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
+
+def clean_heuristic_clang_linking(env, libs, link_args):
+    """
+    Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
+    OHNE nachgelagerte Reparatur-Funktion
+    """
+    
+    # 1. Linker-Scripts mit korrekten Pfaden sammeln
+    def resolve_and_collect_scripts(linkflags, env):
+        search_paths = [
+            env.subst("$BUILD_DIR"),
+            os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
+            "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
+            "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
+        ]
+        
+        scripts = []
+        for flag in linkflags:
+            flag_str = str(flag)
+            if flag_str.endswith('.ld'):
+                # Löse Pfad direkt auf
+                if os.path.isabs(flag_str):
+                    scripts.extend(["-T", flag_str])
+                else:
+                    # Suche in Standard-Pfaden
+                    resolved = None
+                    for path in search_paths:
+                        candidate = os.path.join(path, flag_str)
+                        if os.path.isfile(candidate):
+                            resolved = candidate
+                            break
+                    scripts.extend(["-T", resolved or flag_str])
+        return scripts
+    
+    # 2. Essential Libraries filtern
+    def collect_essential_libs(libs, link_args):
+        essential_patterns = [
+            'libfreertos.a', 'libesp_system.a', 'libesp_common.a',
+            'libhal.a', 'libsoc.a', 'libheap.a', 'libnewlib.a'
+        ]
+        
+        result = []
+        seen = set()
+        
+        # Aus libs Array
+        for lib in libs:
+            path = str(lib.get_path() if hasattr(lib, 'get_path') else lib)
+            if path.startswith('['):
+                path = path.strip("[]'\"")
+            
+            basename = os.path.basename(path)
+            if basename not in seen and any(p in basename for p in essential_patterns):
+                result.append(path)
+                seen.add(basename)
+        
+        return result
+    
+    # 3. Undefined Symbols sammeln
+    def collect_symbols(linkflags):
+        symbols = []
+        known_symbols = [
+            'esp_app_desc', 'app_main', 'start_app',
+            'esp_system_include_coredump_init'
+        ]
+        
+        i = 0
+        while i < len(linkflags):
+            flag = str(linkflags[i])
+            if flag == "-u" and i + 1 < len(linkflags):
+                symbols.extend(["-u", str(linkflags[i + 1])])
+                i += 2
+            elif flag in known_symbols:
+                symbols.extend(["-u", flag])
+                i += 1
+            else:
+                i += 1
+        return symbols
+    
+    # 4. Andere Flags sammeln
+    def collect_other_flags(linkflags):
+        result = []
+        for flag in linkflags:
+            flag_str = str(flag)
+            if (not flag_str.endswith('.ld') and 
+                not flag_str.startswith('-l') and
+                flag_str not in ['-T', '-u'] and
+                not flag_str.startswith('-Wl,--')):
+                result.append(flag_str)
+        return result
+    
+    # Sammle alle Komponenten
+    linkflags = link_args["LINKFLAGS"]
+    linker_scripts = resolve_and_collect_scripts(linkflags, env)
+    essential_libs = collect_essential_libs(libs, link_args)
+    undefined_symbols = collect_symbols(linkflags)
+    other_flags = collect_other_flags(linkflags)
+    
+    # Baue finale Flag-Liste in korrekter Reihenfolge
+    final_flags = []
+    final_flags.extend(other_flags)        # Compiler-Flags
+    final_flags.extend(linker_scripts)     # -T scripts (mit Pfaden)
+    final_flags.extend(undefined_symbols)  # -u symbols
+    final_flags.append("-Wl,--start-group")
+    
+    # Libraries mit --whole-archive
+    for lib in essential_libs:
+        final_flags.extend(["-Wl,--whole-archive", lib, "-Wl,--no-whole-archive"])
+    
+    final_flags.append("-Wl,--end-group")
+    
+    # Setze Flags - EINMAL und KORREKT
+    env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
+    libs.clear()
+    
+    print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
+    print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
+
 
 #
 # Process project sources
