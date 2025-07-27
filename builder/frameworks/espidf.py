@@ -2092,7 +2092,8 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Zur Link-Zeit: ALLE .ld Dateien + vollständige LINKCOM-Ausgabe + Debug-Analyse
+    Intelligente Bereinigung: Entfernt Duplikate und naked entries,
+    behält aber notwendige Build-Logik bei
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2101,31 +2102,27 @@ def clean_clang_linkflags_espidf(target, source, env):
     print("=== ESP-IDF CLANG FLAG CLEANING START ===")
     print(f"Original LINKFLAGS count: {len(original)}")
     
-    # Debug: Analysiere LINKFLAGS vor Bereinigung
-    print("\n=== LINKFLAGS ANALYSIS (first 20) ===")
-    for i, flag in enumerate(original[:20]):
-        flag_str = str(flag)
-        flag_type = type(flag).__name__
-        print(f"  [{i:3d}] {flag_type:12s} {repr(flag_str)}")
-    
-    if len(original) > 20:
-        print(f"  ... and {len(original) - 20} more flags")
+    # Sammle bereits vorhandene Scripts und Symbole (mit -T/-u Präfix)
+    existing_scripts = set()
+    existing_symbols = set()
     
     i = 0
     while i < len(original):
         flag = str(original[i])
         
-        # Entferne problematische Flags
+        # Entferne problematische -mcpu Flags
         if flag.startswith('-mcpu='):
             print(f"Removed problematic flag: {flag}")
             removed_count += 1
             i += 1
             continue
         
-        # Zur Link-Zeit: ALLE .ld Dateien existieren jetzt!
+        # Sammle vorhandene -T Scripts
         if flag == "-T" and i + 1 < len(original):
             script_name = str(original[i + 1])
+            existing_scripts.add(os.path.basename(script_name))
             
+            # Pfad-Auflösung wie gehabt
             if not os.path.isabs(script_name):
                 search_paths = [
                     env.subst("$BUILD_DIR"),
@@ -2148,73 +2145,99 @@ def clean_clang_linkflags_espidf(target, source, env):
                     print(f"Link-time resolved: {script_name} → {full_path}")
                 else:
                     cleaned.extend([flag, script_name])
-                    print(f"*** WARNING: Script not found even at link-time: {script_name}")
             else:
                 cleaned.extend([flag, script_name])
             
             i += 2
             continue
         
-        # Behandle kombinierte -Tscript.ld Flags
+        # Sammle vorhandene -u Symbole
+        elif flag == "-u" and i + 1 < len(original):
+            symbol_name = str(original[i + 1])
+            existing_symbols.add(symbol_name)
+            cleaned.extend([flag, symbol_name])
+            i += 2
+            continue
+        
+        # Kombinierte -T Flags
         elif flag.startswith("-T") and flag.endswith(".ld"):
-            script_name = flag[2:]  # Entferne -T Prefix
-            
-            if not os.path.isabs(script_name):
-                search_paths = [
-                    env.subst("$BUILD_DIR"),
-                    os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
-                    "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
-                    "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
-                ]
-                
-                full_path = None
-                for search_path in search_paths:
-                    if not os.path.isdir(search_path):
-                        continue
-                    candidate = os.path.join(search_path, script_name)
-                    if os.path.isfile(candidate):
-                        full_path = candidate
-                        break
-                
-                if full_path:
-                    cleaned.append(f"-T{full_path}")
-                    print(f"Link-time resolved combined: {flag} → -T{full_path}")
-                else:
-                    cleaned.append(flag)
-                    print(f"*** WARNING: Combined script not found: {script_name}")
-            else:
-                cleaned.append(flag)
-            
+            script_name = flag[2:]
+            existing_scripts.add(os.path.basename(script_name))
+            cleaned.append(flag)
             i += 1
             continue
         
-        # Alle anderen Flags
-        cleaned.append(flag)
-        i += 1
+        # INTELLIGENT: Naked Scripts filtern
+        elif flag.endswith('.ld'):
+            script_basename = os.path.basename(flag)
+            if script_basename in existing_scripts:
+                print(f"Filtered duplicate naked script: {flag} (already have -T version)")
+                removed_count += 1
+            else:
+                # Neues Script - füge mit -T Präfix hinzu
+                cleaned.extend(["-T", flag])
+                existing_scripts.add(script_basename)
+                print(f"Added -T prefix to naked script: {flag}")
+            i += 1
+            continue
+        
+        # INTELLIGENT: Naked Symbols filtern
+        elif flag in ['esp_system_include_coredump_init', 'nvs_sec_provider_include_impl', 
+                     'esp_app_desc', 'start_app', '__assert_func', 'app_main']:
+            if flag in existing_symbols:
+                print(f"Filtered duplicate naked symbol: {flag} (already have -u version)")
+                removed_count += 1
+            else:
+                # Neues Symbol - füge mit -u Präfix hinzu
+                cleaned.extend(["-u", flag])
+                existing_symbols.add(flag)
+                print(f"Added -u prefix to naked symbol: {flag}")
+            i += 1
+            continue
+        
+        # Alle anderen Flags behalten
+        else:
+            cleaned.append(flag)
+            i += 1
     
-    if removed_count > 0 or len(cleaned) != len(original):
-        env.Replace(LINKFLAGS=cleaned)
-        print(f"ESP-IDF: Updated LINKFLAGS with resolved paths")
-        print(f"Processed {len(original)} → {len(cleaned)} flags")
+    # Duplikate in Libraries filtern
+    seen_libs = set()
+    final_cleaned = []
     
-    # VOLLSTÄNDIGE LINKCOM-ANALYSE UND -AUSGABE
+    for flag in cleaned:
+        flag_str = str(flag)
+        if flag_str.endswith('.a'):
+            lib_basename = os.path.basename(flag_str)
+            if lib_basename in seen_libs:
+                print(f"Filtered duplicate library: {lib_basename}")
+                removed_count += 1
+                continue
+            else:
+                seen_libs.add(lib_basename)
+        final_cleaned.append(flag)
+    
+    if removed_count > 0 or len(final_cleaned) != len(original):
+        env.Replace(LINKFLAGS=final_cleaned)
+        print(f"ESP-IDF: Cleaned LINKFLAGS - removed {removed_count} duplicates/problems")
+        print(f"Processed {len(original)} → {len(final_cleaned)} flags")
+    else:
+        final_cleaned = original
+    
+    # VOLLSTÄNDIGE LINKCOM-AUSGABE (unverändert)
     try:
         linkcom = env.subst('$LINKCOM', target=target, source=source)
         
-        # 1. Schreibe komplette LINKCOM in Datei (unformatiert)
         with open("/tmp/firmware_linkcom_complete.log", "w", encoding="utf-8") as f:
             f.write(linkcom + "\n")
         
         print(f"\nComplete LINKCOM written to /tmp/firmware_linkcom_complete.log")
         print(f"LINKCOM length: {len(linkcom)} characters")
         
-        # 2. Formatierte LINKCOM-Ausgabe in Log (80 Zeichen pro Zeile)
+        # Formatierte Ausgabe
         print("\n=== COMPLETE LINKCOM (formatted) ===")
-        
         words = linkcom.split()
         current_line = ""
         max_length = 80
-        line_count = 0
         
         for word in words:
             if len(current_line + " " + word) > max_length:
@@ -2224,7 +2247,6 @@ def clean_clang_linkflags_espidf(target, source, env):
                 else:
                     print("  " + word + " \\")
                     current_line = ""
-                line_count += 1
             else:
                 if current_line:
                     current_line += " " + word
@@ -2233,12 +2255,9 @@ def clean_clang_linkflags_espidf(target, source, env):
         
         if current_line:
             print(current_line)
-            line_count += 1
         
         print("=== END COMPLETE LINKCOM ===")
-        print(f"Total lines in formatted output: {line_count}")
         
-        # 3. Auch formatierte Version in separate Datei
         with open("/tmp/firmware_linkcom_formatted.log", "w", encoding="utf-8") as f:
             words = linkcom.split()
             current_line = ""
@@ -2262,10 +2281,9 @@ def clean_clang_linkflags_espidf(target, source, env):
         
         print("Formatted LINKCOM written to /tmp/firmware_linkcom_formatted.log")
         
-        # 4. ERWEITERTE LINKCOM-ANALYSE
+        # Erweiterte Analyse
         print("\n=== LINKCOM CONTENT ANALYSIS ===")
         
-        # Zähle verschiedene Flag-Typen  
         analysis = {
             'total_words': len(words),
             'linker_scripts': len([w for w in words if w.startswith('-T')]),
@@ -2278,64 +2296,24 @@ def clean_clang_linkflags_espidf(target, source, env):
         for key, value in analysis.items():
             print(f"  {key.replace('_', ' ').title()}: {value}")
         
-        # Prüfe auf problematische Inhalte
+        # Prüfe auf verbleibende Probleme
         suspicious_indicators = []
         
-        if '%' in linkcom:
-            count = linkcom.count('%')
-            suspicious_indicators.append(f"Contains {count} % characters (can cause TypeError)")
-            # Zeige erste 3 Vorkommen
-            positions = []
-            start = 0
-            for _ in range(min(3, count)):
-                pos = linkcom.find('%', start)
-                if pos != -1:
-                    context_start = max(0, pos - 20)
-                    context_end = min(len(linkcom), pos + 20)
-                    context = linkcom[context_start:context_end]
-                    positions.append(f"pos {pos}: ...{context}...")
-                    start = pos + 1
-            print(f"    % Examples: {positions}")
-        
-        if '[' in linkcom and ']' in linkcom:
-            bracket_count = linkcom.count('[')
-            suspicious_indicators.append(f"Contains {bracket_count} square brackets (possible Python lists)")
-            # Finde Python-Listen-Muster
-            python_lists = []
-            start = 0
-            while True:
-                start_bracket = linkcom.find("['/", start)
-                if start_bracket == -1:
-                    break
-                end_bracket = linkcom.find("']", start_bracket)
-                if end_bracket != -1:
-                    python_list = linkcom[start_bracket:end_bracket+2]
-                    python_lists.append(python_list[:50] + "..." if len(python_list) > 50 else python_list)
-                    start = end_bracket + 2
-                else:
-                    break
-            if python_lists:
-                print(f"    Python lists found: {python_lists[:3]}")  # Zeige erste 3
-        
-        # Prüfe auf doppelte Libraries
         lib_files = [w for w in words if w.endswith('.a')]
         lib_basenames = [os.path.basename(lib) for lib in lib_files]
         duplicates = len(lib_basenames) - len(set(lib_basenames))
         if duplicates > 0:
-            suspicious_indicators.append(f"Contains {duplicates} duplicate library entries")
-            # Zeige welche Libraries doppelt sind
             from collections import Counter
             lib_counts = Counter(lib_basenames)
             duplicate_libs = [name for name, count in lib_counts.items() if count > 1]
-            print(f"    Duplicate libraries: {duplicate_libs[:5]}")  # Zeige erste 5
+            suspicious_indicators.append(f"Contains {duplicates} duplicate library entries")
+            print(f"    Duplicate libraries: {duplicate_libs[:5]}")
         
-        # Prüfe auf nackte Linker-Scripts (ohne -T)
         naked_scripts = [w for w in words if w.endswith('.ld') and not w.startswith('-T')]
         if naked_scripts:
             suspicious_indicators.append(f"Contains {len(naked_scripts)} naked linker scripts")
-            print(f"    Naked scripts: {naked_scripts[:3]}")  # Zeige erste 3
+            print(f"    Naked scripts: {naked_scripts[:3]}")
         
-        # Prüfe auf nackte Symbole (häufige ESP-IDF Symbole ohne -u)
         common_symbols = ['esp_app_desc', 'app_main', 'start_app', '__assert_func', 
                          'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']
         naked_symbols = [w for w in words if w in common_symbols]
