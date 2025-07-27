@@ -2165,23 +2165,19 @@ print(f"DEBUG: is_clang={is_clang}, is_bootloader={is_bootloader}")
 if is_clang and not is_bootloader:
     print("ESP-IDF: Applying Clang-specific firmware linking")
     
-    # Sammle ALLE Libraries (aus libs Array UND link_args["LIBS"])
+    # Library-Sammlung (wie vorher)
     def flatten_lib_nodes(seq):
-        """Wandelt SCons-Nodes/Listen/Strings in reine Pfade um"""
         flat = []
         for item in seq:
             if isinstance(item, (list, tuple)):
-                flat.extend(flatten_lib_nodes(item))  # Rekursiv
+                flat.extend(flatten_lib_nodes(item))
             elif hasattr(item, "get_path"):
                 flat.append(item.get_path())
             else:
                 flat.append(str(item))
         return flat
     
-    # 1. Libraries aus libs Array sammeln
     all_libraries = flatten_lib_nodes(libs)
-    
-    # 2. Libraries aus link_args["LIBS"] sammeln
     for lib_name in link_args.get("LIBS", []):
         for lib_path in link_args.get("LIBPATH", []):
             full_lib_path = os.path.join(lib_path, f"lib{lib_name}.a")
@@ -2189,15 +2185,13 @@ if is_clang and not is_bootloader:
                 all_libraries.append(full_lib_path)
                 break
     
-    print(f"ESP-IDF: Collected {len(all_libraries)} libraries for controlled linking")
-    
-    # 3. Extrahiere NUR Standard-Flags (NICHT --whole-archive)
+    # Standard-Flags sammeln
     base_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
     )
     
-    # 4. Generiere kontrollierte Library-Flags
+    # Kontrollierte Library-Flags
     controlled_library_flags = []
     controlled_library_flags.append("-Wl,--start-group")
     
@@ -2210,27 +2204,30 @@ if is_clang and not is_bootloader:
     
     controlled_library_flags.append("-Wl,--end-group")
     
-    # 5. KRITISCH: Komplett neue LINKFLAGS setzen (nicht erweitern)
-    final_linkflags = base_flags + controlled_library_flags
-    link_args["LINKFLAGS"] = final_linkflags
+    # KRITISCH: Wie im heuristischen Ansatz - direkte env.Replace()
+    final_flags = base_flags + controlled_library_flags
     
-    # 6. KRITISCH: SCons-Library-Quellen leeren
-    link_args["LIBS"] = []
+    env.Replace(
+        LINKFLAGS=final_flags,     # Ersetzt komplett alle LINKFLAGS
+        LIBS=[],                   # Leert LIBS komplett
+        LIBPATH=link_args.get("LIBPATH", [])  # Behält LIBPATH für Header-Suche
+    )
+    
+    # KRITISCH: libs Array leeren (wie im heuristischen Ansatz)
     libs.clear()
     
-    # 7. extra_flags für Kompatibilität
-    extra_flags = []  # Leer, da alles in LINKFLAGS ist
+    # Für Kompatibilität - aber wird nicht von SCons verwendet
+    extra_flags = []
     
-    # 8. Flag-Bereinigung registrieren
+    # Flag-Bereinigung
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
     
-    print("ESP-IDF: Controlled Clang linking configured successfully")
-    print(f"ESP-IDF: Final LINKFLAGS count: {len(final_linkflags)}")
+    print(f"ESP-IDF: Direct env.Replace() with {len(final_flags)} flags")
+    print(f"ESP-IDF: Controlled {len(all_libraries)} libraries")
 
 else:
-    print("ESP-IDF: Using standard linking (Bootloader or GCC)")
-    # STANDARD-Verarbeitung für GCC und Bootloader
+    # Standard-Verarbeitung bleibt unverändert
     extra_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
@@ -2242,14 +2239,10 @@ else:
         flag for flag in link_args["LINKFLAGS"] 
         if flag not in extra_flags_set
     ]
+    
+    env.MergeFlags(link_args)  # Standard-Behandlung
 
-# Jetzt ist extra_flags in beiden Pfaden definiert
-env.MergeFlags(link_args)
-
-# Debug-Ausgabe
-print(f"DEBUG: Final extra_flags count: {len(extra_flags)}")
 print(f"DEBUG: Final libs count: {len(libs)}")
-print(f"DEBUG: Final LIBS count: {len(link_args.get('LIBS', []))}")
 
 
 
