@@ -2648,7 +2648,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
                 not flag_str.startswith('-l') and
                 flag_str not in ['-T', '-u'] and
                 not flag_str.startswith('-Wl,--') and
-                not flag_str.startswith('-mcpu=')) and
+                not flag_str.startswith('-mcpu=') and
                 not flag_str.startswith('--target=')):
                 result.append(flag_str)
         return result
