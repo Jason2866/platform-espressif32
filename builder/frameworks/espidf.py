@@ -2092,13 +2092,24 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Zur Link-Zeit: Jetzt existieren ALLE .ld Dateien + vollständige LINKCOM-Ausgabe
+    Zur Link-Zeit: ALLE .ld Dateien + vollständige LINKCOM-Ausgabe + Debug-Analyse
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
     removed_count = 0
     
     print("=== ESP-IDF CLANG FLAG CLEANING START ===")
+    print(f"Original LINKFLAGS count: {len(original)}")
+    
+    # Debug: Analysiere LINKFLAGS vor Bereinigung
+    print("\n=== LINKFLAGS ANALYSIS (first 20) ===")
+    for i, flag in enumerate(original[:20]):
+        flag_str = str(flag)
+        flag_type = type(flag).__name__
+        print(f"  [{i:3d}] {flag_type:12s} {repr(flag_str)}")
+    
+    if len(original) > 20:
+        print(f"  ... and {len(original) - 20} more flags")
     
     i = 0
     while i < len(original):
@@ -2116,9 +2127,8 @@ def clean_clang_linkflags_espidf(target, source, env):
             script_name = str(original[i + 1])
             
             if not os.path.isabs(script_name):
-                # Vollständige Suche - jetzt existieren alle Dateien
                 search_paths = [
-                    env.subst("$BUILD_DIR"),  # memory.ld, sections.ld
+                    env.subst("$BUILD_DIR"),
                     os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
                     "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
                     "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
@@ -2145,6 +2155,39 @@ def clean_clang_linkflags_espidf(target, source, env):
             i += 2
             continue
         
+        # Behandle kombinierte -Tscript.ld Flags
+        elif flag.startswith("-T") and flag.endswith(".ld"):
+            script_name = flag[2:]  # Entferne -T Prefix
+            
+            if not os.path.isabs(script_name):
+                search_paths = [
+                    env.subst("$BUILD_DIR"),
+                    os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
+                    "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
+                    "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
+                ]
+                
+                full_path = None
+                for search_path in search_paths:
+                    if not os.path.isdir(search_path):
+                        continue
+                    candidate = os.path.join(search_path, script_name)
+                    if os.path.isfile(candidate):
+                        full_path = candidate
+                        break
+                
+                if full_path:
+                    cleaned.append(f"-T{full_path}")
+                    print(f"Link-time resolved combined: {flag} → -T{full_path}")
+                else:
+                    cleaned.append(flag)
+                    print(f"*** WARNING: Combined script not found: {script_name}")
+            else:
+                cleaned.append(flag)
+            
+            i += 1
+            continue
+        
         # Alle anderen Flags
         cleaned.append(flag)
         i += 1
@@ -2152,8 +2195,9 @@ def clean_clang_linkflags_espidf(target, source, env):
     if removed_count > 0 or len(cleaned) != len(original):
         env.Replace(LINKFLAGS=cleaned)
         print(f"ESP-IDF: Updated LINKFLAGS with resolved paths")
+        print(f"Processed {len(original)} → {len(cleaned)} flags")
     
-    # VOLLSTÄNDIGE LINKCOM-AUSGABE
+    # VOLLSTÄNDIGE LINKCOM-ANALYSE UND -AUSGABE
     try:
         linkcom = env.subst('$LINKCOM', target=target, source=source)
         
@@ -2161,7 +2205,7 @@ def clean_clang_linkflags_espidf(target, source, env):
         with open("/tmp/firmware_linkcom_complete.log", "w", encoding="utf-8") as f:
             f.write(linkcom + "\n")
         
-        print(f"Complete LINKCOM written to /tmp/firmware_linkcom_complete.log")
+        print(f"\nComplete LINKCOM written to /tmp/firmware_linkcom_complete.log")
         print(f"LINKCOM length: {len(linkcom)} characters")
         
         # 2. Formatierte LINKCOM-Ausgabe in Log (80 Zeichen pro Zeile)
@@ -2170,27 +2214,29 @@ def clean_clang_linkflags_espidf(target, source, env):
         words = linkcom.split()
         current_line = ""
         max_length = 80
+        line_count = 0
         
         for word in words:
-            # Teste ob das nächste Wort in die aktuelle Zeile passt
             if len(current_line + " " + word) > max_length:
                 if current_line:
                     print(current_line + " \\")
-                    current_line = "  " + word  # Einrückung für Fortsetzungszeilen
+                    current_line = "  " + word
                 else:
                     print("  " + word + " \\")
                     current_line = ""
+                line_count += 1
             else:
                 if current_line:
                     current_line += " " + word
                 else:
                     current_line = word
         
-        # Letzte Zeile ausgeben (ohne Backslash)
         if current_line:
             print(current_line)
+            line_count += 1
         
         print("=== END COMPLETE LINKCOM ===")
+        print(f"Total lines in formatted output: {line_count}")
         
         # 3. Auch formatierte Version in separate Datei
         with open("/tmp/firmware_linkcom_formatted.log", "w", encoding="utf-8") as f:
@@ -2216,8 +2262,96 @@ def clean_clang_linkflags_espidf(target, source, env):
         
         print("Formatted LINKCOM written to /tmp/firmware_linkcom_formatted.log")
         
+        # 4. ERWEITERTE LINKCOM-ANALYSE
+        print("\n=== LINKCOM CONTENT ANALYSIS ===")
+        
+        # Zähle verschiedene Flag-Typen  
+        analysis = {
+            'total_words': len(words),
+            'linker_scripts': len([w for w in words if w.startswith('-T')]),
+            'undefined_symbols': len([w for w in words if w.startswith('-u')]),
+            'libraries': len([w for w in words if w.endswith('.a')]),
+            'whole_archive_flags': linkcom.count('-Wl,--whole-archive'),
+            'start_group_flags': linkcom.count('-Wl,--start-group'),
+        }
+        
+        for key, value in analysis.items():
+            print(f"  {key.replace('_', ' ').title()}: {value}")
+        
+        # Prüfe auf problematische Inhalte
+        suspicious_indicators = []
+        
+        if '%' in linkcom:
+            count = linkcom.count('%')
+            suspicious_indicators.append(f"Contains {count} % characters (can cause TypeError)")
+            # Zeige erste 3 Vorkommen
+            positions = []
+            start = 0
+            for _ in range(min(3, count)):
+                pos = linkcom.find('%', start)
+                if pos != -1:
+                    context_start = max(0, pos - 20)
+                    context_end = min(len(linkcom), pos + 20)
+                    context = linkcom[context_start:context_end]
+                    positions.append(f"pos {pos}: ...{context}...")
+                    start = pos + 1
+            print(f"    % Examples: {positions}")
+        
+        if '[' in linkcom and ']' in linkcom:
+            bracket_count = linkcom.count('[')
+            suspicious_indicators.append(f"Contains {bracket_count} square brackets (possible Python lists)")
+            # Finde Python-Listen-Muster
+            python_lists = []
+            start = 0
+            while True:
+                start_bracket = linkcom.find("['/", start)
+                if start_bracket == -1:
+                    break
+                end_bracket = linkcom.find("']", start_bracket)
+                if end_bracket != -1:
+                    python_list = linkcom[start_bracket:end_bracket+2]
+                    python_lists.append(python_list[:50] + "..." if len(python_list) > 50 else python_list)
+                    start = end_bracket + 2
+                else:
+                    break
+            if python_lists:
+                print(f"    Python lists found: {python_lists[:3]}")  # Zeige erste 3
+        
+        # Prüfe auf doppelte Libraries
+        lib_files = [w for w in words if w.endswith('.a')]
+        lib_basenames = [os.path.basename(lib) for lib in lib_files]
+        duplicates = len(lib_basenames) - len(set(lib_basenames))
+        if duplicates > 0:
+            suspicious_indicators.append(f"Contains {duplicates} duplicate library entries")
+            # Zeige welche Libraries doppelt sind
+            from collections import Counter
+            lib_counts = Counter(lib_basenames)
+            duplicate_libs = [name for name, count in lib_counts.items() if count > 1]
+            print(f"    Duplicate libraries: {duplicate_libs[:5]}")  # Zeige erste 5
+        
+        # Prüfe auf nackte Linker-Scripts (ohne -T)
+        naked_scripts = [w for w in words if w.endswith('.ld') and not w.startswith('-T')]
+        if naked_scripts:
+            suspicious_indicators.append(f"Contains {len(naked_scripts)} naked linker scripts")
+            print(f"    Naked scripts: {naked_scripts[:3]}")  # Zeige erste 3
+        
+        # Prüfe auf nackte Symbole (häufige ESP-IDF Symbole ohne -u)
+        common_symbols = ['esp_app_desc', 'app_main', 'start_app', '__assert_func', 
+                         'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']
+        naked_symbols = [w for w in words if w in common_symbols]
+        if naked_symbols:
+            suspicious_indicators.append(f"Contains {len(naked_symbols)} naked symbols")
+            print(f"    Naked symbols: {naked_symbols}")
+        
+        if suspicious_indicators:
+            print("*** SUSPICIOUS CONTENT DETECTED ***")
+            for indicator in suspicious_indicators:
+                print(f"  - {indicator}")
+        else:
+            print("LINKCOM appears clean")
+        
     except Exception as e:
-        print(f"*** ERROR: LINKCOM generation failed: {e}")
+        print(f"*** ERROR: LINKCOM analysis failed: {e}")
         import traceback
         traceback.print_exc()
     
@@ -2234,58 +2368,118 @@ print(f"DEBUG: is_clang={is_clang}, is_bootloader={is_bootloader}")
 if is_clang and not is_bootloader:
     print("ESP-IDF: Applying Clang-specific firmware linking")
     
-    # Library-Sammlung (wie vorher)
+    # KORRIGIERTE Library-Sammlung mit Debug-Ausgaben
     def flatten_lib_nodes(seq):
+        """Robuste Flattening-Funktion für SCons-Nodes mit Debug"""
         flat = []
-        for item in seq:
+        print(f"    DEBUG flatten_lib_nodes: Processing {len(seq) if hasattr(seq, '__len__') else '?'} items")
+        
+        for i, item in enumerate(seq):
+            item_type = type(item).__name__
+            print(f"    DEBUG [{i:2d}] {item_type:15s}: {repr(str(item)[:60])}")
+            
             if isinstance(item, (list, tuple)):
+                print(f"    DEBUG: Recursing into nested {item_type}")
                 flat.extend(flatten_lib_nodes(item))
             elif hasattr(item, "get_path"):
-                flat.append(item.get_path())
+                path = item.get_path()
+                flat.append(str(path))
+                print(f"    DEBUG: SCons node → {path}")
+            elif hasattr(item, '__str__'):
+                path_str = str(item)
+                if path_str and not path_str.startswith('['):
+                    flat.append(path_str)
+                    print(f"    DEBUG: String path → {path_str}")
+                else:
+                    print(f"    DEBUG: SKIPPED suspicious path → {path_str}")
             else:
-                flat.append(str(item))
+                print(f"    DEBUG: UNKNOWN item type → {type(item)} = {item}")
+        
+        print(f"    DEBUG flatten_lib_nodes: Returning {len(flat)} paths")
         return flat
     
+    # Sammle Libraries mit Debug-Ausgabe
+    print("\nDEBUG: Processing libs array...")
+    print(f"DEBUG: libs type = {type(libs)}, length = {len(libs) if hasattr(libs, '__len__') else '?'}")
     all_libraries = flatten_lib_nodes(libs)
-    for lib_name in link_args.get("LIBS", []):
+    
+    print(f"\nDEBUG: Processing LIBS from link_args...")
+    link_libs = link_args.get("LIBS", [])
+    print(f"DEBUG: link_args['LIBS'] = {len(link_libs)} items: {link_libs[:5]}...")
+    
+    for lib_name in link_libs:
+        print(f"DEBUG: Looking for lib{lib_name}.a in LIBPATH...")
         for lib_path in link_args.get("LIBPATH", []):
             full_lib_path = os.path.join(lib_path, f"lib{lib_name}.a")
             if os.path.isfile(full_lib_path):
                 all_libraries.append(full_lib_path)
+                print(f"DEBUG: Found LIBS entry → {full_lib_path}")
                 break
+        else:
+            print(f"DEBUG: lib{lib_name}.a not found in any LIBPATH")
+    
+    print(f"\nDEBUG: Total libraries collected: {len(all_libraries)}")
+    for i, lib in enumerate(all_libraries[:10]):  # Zeige erste 10
+        print(f"DEBUG lib[{i:2d}]: {lib}")
+    if len(all_libraries) > 10:
+        print(f"DEBUG: ... and {len(all_libraries) - 10} more libraries")
     
     # Standard-Flags sammeln
+    print(f"\nDEBUG: Extracting base flags from {len(link_args['LINKFLAGS'])} LINKFLAGS...")
     base_flags = filter_args(
         link_args["LINKFLAGS"],
         ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
     )
+    print(f"DEBUG: Extracted {len(base_flags)} base flags")
     
-    # Kontrollierte Library-Flags
+    # KORRIGIERTE Library-Flags-Generierung
+    print(f"\nDEBUG: Generating controlled library flags...")
     controlled_library_flags = []
     controlled_library_flags.append("-Wl,--start-group")
     
-    for lib_path in all_libraries:
-        controlled_library_flags.extend([
-            "-Wl,--whole-archive",
-            str(lib_path),
-            "-Wl,--no-whole-archive"
-        ])
+    for i, lib_path in enumerate(all_libraries):
+        # KRITISCH: Stelle sicher, dass es ein reiner String-Pfad ist
+        clean_path = str(lib_path).strip()
+        
+        # Vermeide Python-Listen-Strings
+        if clean_path.startswith('[') and clean_path.endswith(']'):
+            # Extrahiere Pfad aus Python-Liste-String
+            original_path = clean_path
+            clean_path = clean_path.strip("[]'\"")
+            print(f"DEBUG: Cleaned Python list string [{i:2d}]: {original_path} → {clean_path}")
+        
+        if clean_path and os.path.isfile(clean_path):
+            controlled_library_flags.extend([
+                "-Wl,--whole-archive",
+                clean_path,
+                "-Wl,--no-whole-archive"
+            ])
+            print(f"DEBUG: Added library [{i:2d}] with --whole-archive: {clean_path}")
+        else:
+            print(f"DEBUG: SKIPPED invalid library path [{i:2d}]: {clean_path}")
     
     controlled_library_flags.append("-Wl,--end-group")
     
-    # KRITISCH: Wie im heuristischen Ansatz - direkte env.Replace()
+    print(f"DEBUG: Generated {len(controlled_library_flags)} controlled flags")
+    
+    # KRITISCH: Direkte env.Replace() wie im heuristischen Ansatz
     final_flags = base_flags + controlled_library_flags
     
+    print(f"DEBUG: Final flags composition:")
+    print(f"DEBUG:   base_flags: {len(base_flags)}")
+    print(f"DEBUG:   controlled_library_flags: {len(controlled_library_flags)}")
+    print(f"DEBUG:   total final_flags: {len(final_flags)}")
+    
     env.Replace(
-        LINKFLAGS=final_flags,     # Ersetzt komplett alle LINKFLAGS
-        LIBS=[],                   # Leert LIBS komplett
-        LIBPATH=link_args.get("LIBPATH", [])  # Behält LIBPATH für Header-Suche
+        LINKFLAGS=final_flags,
+        LIBS=[],
+        LIBPATH=link_args.get("LIBPATH", [])
     )
     
-    # KRITISCH: libs Array leeren (wie im heuristischen Ansatz)
+    # KRITISCH: libs Array leeren
     libs.clear()
     
-    # Für Kompatibilität - aber wird nicht von SCons verwendet
+    # Für Kompatibilität
     extra_flags = []
     
     # Flag-Bereinigung
@@ -2309,7 +2503,7 @@ else:
         if flag not in extra_flags_set
     ]
     
-    env.MergeFlags(link_args)  # Standard-Behandlung
+    env.MergeFlags(link_args)
 
 print(f"DEBUG: Final libs count: {len(libs)}")
 
