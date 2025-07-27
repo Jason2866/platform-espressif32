@@ -491,18 +491,6 @@ def calculate_dependency_link_order(dependency_graph, libs):
     
     return ordered_components
 
-# Integration (super sauber):
-is_clang = "clang" in env.subst("$CC").lower()
-is_bootloader = any("__BOOTLOADER_BUILD" in str(d) for d in env.get("CPPDEFINES", []))
-
-if is_clang and not is_bootloader:
-    clean_heuristic_clang_linking(env, libs, link_args)
-    extra_flags = []
-else:
-    # Standard-Verarbeitung
-    extra_flags = filter_args(link_args["LINKFLAGS"], [...])
-    env.MergeFlags(link_args)
-
 def get_project_lib_includes(env):
     project = ProjectAsLibBuilder(env, "$PROJECT_DIR")
     project.install_dependencies()
@@ -2296,7 +2284,6 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     
     print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
-
 
 #
 # Process project sources
