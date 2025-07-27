@@ -2174,9 +2174,9 @@ def clean_clang_linkflags_espidf(target, source, env):
     Komplette LINKFLAGS-Bereinigung mit Debug-Ausgaben:
     1. Löst alle relativen *.ld-Namen zu absoluten Pfaden auf
     2. Trennt kombinierte -Tscript.ld und -Lpath Flags
-    3. Filtert nachträglich nackte *.ld-Einträge aus der LINKCOM (paarweise!)
+    3. Filtert nachträglich nackte *.ld-Einträge aus der LINKCOM
     4. Trennt kombinierte -L Flags in der LINKCOM
-    5. Ausführliche Debug-Ausgaben und Statistiken
+    5. Ausführliche Debug-Ausgaben und Statistiken mit korrigierter paarweiser Validierung
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2292,27 +2292,27 @@ def clean_clang_linkflags_espidf(target, source, env):
     env.Replace(LINKFLAGS=cleaned)
     print(f"Updated LINKFLAGS: {len(original)} → {len(cleaned)} flags")
     
-    # KORRIGIERTE LINKCOM-Filterung mit paarweiser -T/script Behandlung
+    # KORRIGIERTE LINKCOM-Filterung - nur echte naked entries entfernen
     original_linkcom = env.get('LINKCOM')
     
     def filtered_linkcom_substitution(target, source, env):
-        """Nur naked entries entfernen - NIEMALS -T Paare!"""
+        """Nur echte naked *.ld scripts entfernen - NIEMALS -T Paare!"""
         linkcom = env.subst(original_linkcom, target=target, source=source)
         words = linkcom.split()
         filtered_words = []
         removed_naked = []
-    
+        
         i = 0
         while i < len(words):
             word = words[i]
-        
+            
             # ALLE -T Paare IMMER behalten!
             if word == "-T" and i + 1 < len(words):
                 next_word = words[i + 1]
                 filtered_words.extend([word, next_word])  # IMMER behalten!
                 i += 2
                 continue
-        
+            
             # NUR isolierte naked .ld Dateien entfernen
             elif word.endswith('.ld') and not word.startswith('-T'):
                 script_basename = os.path.basename(word)
@@ -2321,18 +2321,22 @@ def clean_clang_linkflags_espidf(target, source, env):
                     print(f"*** LINKCOM: Filtered isolated naked script: {word}")
                     i += 1
                     continue
-        
+            
             # NUR naked Symbole entfernen  
-            elif word in ['esp_app_desc', 'app_main', 'start_app', '__assert_func']:
+            elif word in ['esp_app_desc', 'app_main', 'start_app', '__assert_func',
+                         'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']:
                 removed_naked.append(word)
                 print(f"*** LINKCOM: Filtered naked symbol: {word}")
                 i += 1
                 continue
-        
+            
             # Alle anderen Wörter behalten
             filtered_words.append(word)
             i += 1
-    
+        
+        if removed_naked:
+            print(f"\n*** LINKCOM: Filtered {len(removed_naked)} naked entries")
+        
         return ' '.join(filtered_words)
     
     # Setze die gefilterte LINKCOM
@@ -2413,7 +2417,7 @@ def clean_clang_linkflags_espidf(target, source, env):
         print("\nLINKCOM files written:")
         print("  - /tmp/final_linkcom.log")
         
-        # KRITISCHE VALIDIERUNG - KEINE naked Einträge toleriert!
+        # KRITISCHE VALIDIERUNG - Paarweise Analyse statt einzelne Wörter
         words = corrected_linkcom.split()
         
         # Zähle verschiedene Flag-Typen
@@ -2436,55 +2440,98 @@ def clean_clang_linkflags_espidf(target, source, env):
         print(f"  Whole archive flags: {stats['whole_archive_flags']}")
         print(f"  Start group flags: {stats['start_group_flags']}")
         
-        # KRITISCHE PRÜFUNG - JEDER naked Eintrag ist ein FEHLER!
+        # KORRIGIERTE KRITISCHE PRÜFUNG - Paarweise Analyse
         critical_errors = []
         
-        # Naked .ld scripts
-        naked_scripts = [w for w in words if w.endswith('.ld') and not w.startswith('-T')]
-        if naked_scripts:
-            critical_errors.append(f"NAKED SCRIPTS: {naked_scripts}")
+        # Korrekte naked script Erkennung - berücksichtige -T Paare
+        actual_naked_scripts = []
+        i = 0
+        while i < len(words):
+            word = words[i]
+            
+            # Überspringe korrekte -T Paare
+            if word == "-T" and i + 1 < len(words):
+                next_word = words[i + 1]
+                if next_word.endswith('.ld'):
+                    i += 2  # Überspringe das korrekte -T Paar
+                    continue
+            
+            # Nur isolierte .ld Dateien sind problematisch
+            if word.endswith('.ld') and not word.startswith('-T'):
+                actual_naked_scripts.append(word)
+            
+            i += 1
         
-        # Kombinierte -T Flags
-        combined_t_flags = [w for w in words if w.startswith('-T') and w.endswith('.ld')]
-        if combined_t_flags:
-            critical_errors.append(f"COMBINED -T FLAGS: {combined_t_flags}")
+        if actual_naked_scripts:
+            critical_errors.append(f"ACTUAL NAKED SCRIPTS: {actual_naked_scripts}")
         
-        # Kombinierte -L Flags
-        combined_l_flags = [w for w in words if w.startswith('-L') and len(w) > 2]
-        if combined_l_flags:
-            critical_errors.append(f"COMBINED -L FLAGS: {combined_l_flags}")
-        
-        # Orphaned -T Flags (ohne nachfolgendes Argument)
+        # Überprüfe auf orphaned -T Flags (ohne nachfolgendes .ld)
         orphaned_t_flags = []
         for i, word in enumerate(words):
             if word == "-T":
                 if i + 1 >= len(words) or not words[i + 1].endswith('.ld'):
                     orphaned_t_flags.append(f"Position {i}: -T without .ld argument")
+        
         if orphaned_t_flags:
             critical_errors.append(f"ORPHANED -T FLAGS: {orphaned_t_flags}")
         
-        # Naked Symbole
-        naked_symbols = [w for w in words if w in ['esp_app_desc', 'app_main', 'start_app', '__assert_func', 'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']]
-        if naked_symbols:
-            critical_errors.append(f"NAKED SYMBOLS: {naked_symbols}")
+        # Korrekte naked symbol Erkennung - berücksichtige -u Paare
+        actual_naked_symbols = []
+        known_symbols = ['esp_app_desc', 'app_main', 'start_app', '__assert_func', 
+                        'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']
+        
+        i = 0
+        while i < len(words):
+            word = words[i]
+            
+            # Überspringe korrekte -u Paare
+            if word == "-u" and i + 1 < len(words):
+                next_word = words[i + 1]
+                if next_word in known_symbols:
+                    i += 2  # Überspringe das korrekte -u Paar
+                    continue
+            
+            # Nur isolierte Symbole sind problematisch
+            if word in known_symbols:
+                actual_naked_symbols.append(word)
+            
+            i += 1
+        
+        if actual_naked_symbols:
+            critical_errors.append(f"ACTUAL NAKED SYMBOLS: {actual_naked_symbols}")
+        
+        # Kombinierte Flags (diese sind immer problematisch)
+        combined_t_flags = [w for w in words if w.startswith('-T') and w.endswith('.ld')]
+        if combined_t_flags:
+            critical_errors.append(f"COMBINED -T FLAGS: {combined_t_flags}")
+        
+        combined_l_flags = [w for w in words if w.startswith('-L') and len(w) > 2]
+        if combined_l_flags:
+            critical_errors.append(f"COMBINED -L FLAGS: {combined_l_flags}")
         
         # % Zeichen (TypeError risk)
         if '%' in corrected_linkcom:
             percent_count = corrected_linkcom.count('%')
             critical_errors.append(f"% CHARACTERS: {percent_count} found (TypeError risk)")
+            print(f"\n❌ WARNING: Found % characters:")
+            first_percent = corrected_linkcom.find('%')
+            if first_percent != -1:
+                context = corrected_linkcom[max(0, first_percent-30):first_percent+30]
+                print(f"  ⚠️  Context: ...{context}...")
         
         # Finale Bewertung
         if critical_errors:
             print(f"\n❌ CRITICAL ERRORS DETECTED:")
             for error in critical_errors:
                 print(f"  🚨 {error}")
-            print(f"\n*** LINKING WILL FAIL - ALL NAKED ENTRIES MUST BE ELIMINATED! ***")
+            print(f"\n*** LINKING WILL FAIL - CRITICAL ISSUES MUST BE RESOLVED! ***")
         else:
             print(f"\n✅ SUCCESS: LINKCOM is completely clean!")
             print(f"   - All {stats['linker_scripts_t']} linker scripts properly formatted as -T pairs")
             print(f"   - All {stats['library_paths_l']} library paths properly separated")
             print(f"   - {stats['libraries_a']} libraries with {stats['whole_archive_flags']} whole-archive flags")
-            print(f"   - NO naked scripts or symbols found")
+            print(f"   - NO actual naked scripts or symbols found")
+            print(f"   - All flags properly formatted for Clang linking")
         
     except Exception as e:
         print(f"*** ERROR: LINKCOM analysis failed: {e}")
