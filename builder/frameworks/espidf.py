@@ -2156,14 +2156,6 @@ def clean_clang_linkflags_espidf(target, source, env):
     print("=== ESP-IDF CLANG FLAG CLEANING END ===")
     return (target, source)
 
-else:
-    # Standard GCC-Verarbeitung (unverändert)
-    extra_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group",
-         "-Wl,--whole-archive", "-Wl,--no-whole-archive"],
-    )
-
 
 # remove the main linker script flags '-T memory.ld'
 try:
