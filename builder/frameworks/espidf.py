@@ -2368,7 +2368,7 @@ print(f"DEBUG: is_clang={is_clang}, is_bootloader={is_bootloader}")
 if is_clang and not is_bootloader:
     print("ESP-IDF: Applying Clang-specific firmware linking")
     
-    # KORRIGIERTE Library-Sammlung mit NodeList-Behandlung
+    # NodeList-Verarbeitung (bleibt gleich)
     def flatten_lib_nodes(seq):
         """Robuste Flattening-Funktion für SCons NodeList-Objekte"""
         flat = []
@@ -2383,12 +2383,10 @@ if is_clang and not is_bootloader:
                 print(f"    DEBUG: Recursing into nested {item_type}")
                 flat.extend(flatten_lib_nodes(item))
             elif hasattr(item, "get_path"):
-                # SCons File/Node-Objekt mit get_path()
                 path = item.get_path()
                 flat.append(str(path))
                 print(f"    DEBUG: SCons node → {path}")
             elif item_type == 'NodeList':
-                # KRITISCH: NodeList-Objekte korrekt behandeln
                 print(f"    DEBUG: Processing NodeList with {len(item)} items")
                 for j, node in enumerate(item):
                     if hasattr(node, "get_path"):
@@ -2400,10 +2398,8 @@ if is_clang and not is_bootloader:
                         flat.append(node_str)
                         print(f"    DEBUG: NodeList[{j}] string → {node_str}")
             elif item_str.startswith('[') and item_str.endswith(']'):
-                # Python-Listen-String - versuche zu parsen
                 print(f"    DEBUG: Attempting to parse Python list string")
                 try:
-                    # Entferne äußere Klammern und Quotes
                     cleaned = item_str.strip("[]'\"")
                     if cleaned and not cleaned.startswith('['):
                         flat.append(cleaned)
@@ -2413,7 +2409,6 @@ if is_clang and not is_bootloader:
                 except Exception as e:
                     print(f"    DEBUG: Failed to parse list string: {e}")
             elif hasattr(item, '__str__') and item_str and not item_str.startswith('['):
-                # Normale String-Pfade
                 flat.append(item_str)
                 print(f"    DEBUG: String path → {item_str}")
             else:
@@ -2427,7 +2422,7 @@ if is_clang and not is_bootloader:
     print(f"DEBUG: libs type = {type(libs)}, length = {len(libs) if hasattr(libs, '__len__') else '?'}")
     all_libraries = flatten_lib_nodes(libs)
     
-    # KORRIGIERTE LIBS-Verarbeitung
+    # LIBS-Verarbeitung
     print(f"\nDEBUG: Processing LIBS from link_args...")
     link_libs = link_args.get("LIBS", [])
     print(f"DEBUG: link_args['LIBS'] = {len(link_libs)} items: {link_libs[:5]}...")
@@ -2435,21 +2430,16 @@ if is_clang and not is_bootloader:
     for lib_name in link_libs:
         print(f"DEBUG: Processing LIBS entry: {lib_name}")
         
-        # KORRIGIERT: Behandle bereits vollständige Library-Namen
         if lib_name.startswith('lib') and lib_name.endswith('.a'):
-            # Bereits vollständiger Name: libcore.a
             search_name = lib_name
             print(f"DEBUG: Using complete library name: {search_name}")
         elif lib_name.startswith('-l'):
-            # Linker-Flag: -lcore
             search_name = f"lib{lib_name[2:]}.a"
             print(f"DEBUG: Converting linker flag {lib_name} → {search_name}")
         else:
-            # Plain name: core
             search_name = f"lib{lib_name}.a"
             print(f"DEBUG: Converting plain name {lib_name} → {search_name}")
         
-        # Suche in LIBPATH
         for lib_path in link_args.get("LIBPATH", []):
             full_lib_path = os.path.join(lib_path, search_name)
             if os.path.isfile(full_lib_path):
@@ -2460,31 +2450,73 @@ if is_clang and not is_bootloader:
             print(f"DEBUG: {search_name} not found in any LIBPATH")
     
     print(f"\nDEBUG: Total libraries collected: {len(all_libraries)}")
-    for i, lib in enumerate(all_libraries[:10]):  # Zeige erste 10
-        print(f"DEBUG lib[{i:2d}]: {lib}")
-    if len(all_libraries) > 10:
-        print(f"DEBUG: ... and {len(all_libraries) - 10} more libraries")
     
-    # Standard-Flags sammeln
-    print(f"\nDEBUG: Extracting base flags from {len(link_args['LINKFLAGS'])} LINKFLAGS...")
-    base_flags = filter_args(
-        link_args["LINKFLAGS"],
-        ["-T", "-u", "-Wl,--start-group", "-Wl,--end-group"],
-    )
-    print(f"DEBUG: Extracted {len(base_flags)} base flags")
+    # KORRIGIERT: Separiere alle LINKFLAGS nach Typ
+    print(f"\nDEBUG: Processing ALL LINKFLAGS from {len(link_args['LINKFLAGS'])} total flags...")
     
-    # Kontrollierte Library-Flags-Generierung
-    print(f"\nDEBUG: Generating controlled library flags...")
+    linker_scripts = []  # -T flags
+    undefined_symbols = []  # -u flags
+    group_flags = []  # --start-group, --end-group (ignoriert)
+    other_flags = []  # Alle anderen
+    
+    i = 0
+    while i < len(link_args["LINKFLAGS"]):
+        flag = str(link_args["LINKFLAGS"][i])
+        
+        # Behandle -T script.ld Paare
+        if flag == "-T" and i + 1 < len(link_args["LINKFLAGS"]):
+            script_name = str(link_args["LINKFLAGS"][i + 1])
+            linker_scripts.extend(["-T", script_name])
+            print(f"DEBUG: Found linker script pair: -T {script_name}")
+            i += 2
+            continue
+        
+        # Behandle -Tscript.ld kombiniert
+        elif flag.startswith("-T") and flag.endswith(".ld"):
+            linker_scripts.append(flag)
+            print(f"DEBUG: Found combined linker script: {flag}")
+            i += 1
+            continue
+        
+        # Behandle -u symbol Paare
+        elif flag == "-u" and i + 1 < len(link_args["LINKFLAGS"]):
+            symbol_name = str(link_args["LINKFLAGS"][i + 1])
+            undefined_symbols.extend(["-u", symbol_name])
+            print(f"DEBUG: Found undefined symbol pair: -u {symbol_name}")
+            i += 2
+            continue
+        
+        # Behandle Group-Flags (überspringen - wir erstellen eigene)
+        elif flag in ["-Wl,--start-group", "-Wl,--end-group"]:
+            print(f"DEBUG: Skipping group flag (will recreate): {flag}")
+            i += 1
+            continue
+        
+        # Behandle --whole-archive Flags (überspringen - wir erstellen eigene)
+        elif flag in ["-Wl,--whole-archive", "-Wl,--no-whole-archive"]:
+            print(f"DEBUG: Skipping whole-archive flag (will recreate): {flag}")
+            i += 1
+            continue
+        
+        # Alle anderen Flags behalten
+        else:
+            other_flags.append(flag)
+            i += 1
+    
+    print(f"DEBUG: Separated flags:")
+    print(f"DEBUG:   linker_scripts: {len(linker_scripts)}")
+    print(f"DEBUG:   undefined_symbols: {len(undefined_symbols)}")
+    print(f"DEBUG:   other_flags: {len(other_flags)}")
+    
+    # KORRIGIERT: Generiere kontrollierte Library-Flags für ALLE Libraries
+    print(f"\nDEBUG: Generating controlled library flags for {len(all_libraries)} libraries...")
     controlled_library_flags = []
     controlled_library_flags.append("-Wl,--start-group")
     
     for i, lib_path in enumerate(all_libraries):
-        # KRITISCH: Stelle sicher, dass es ein reiner String-Pfad ist
         clean_path = str(lib_path).strip()
         
-        # Vermeide Python-Listen-Strings
         if clean_path.startswith('[') and clean_path.endswith(']'):
-            # Extrahiere Pfad aus Python-Liste-String
             original_path = clean_path
             clean_path = clean_path.strip("[]'\"")
             print(f"DEBUG: Cleaned Python list string [{i:2d}]: {original_path} → {clean_path}")
@@ -2495,35 +2527,41 @@ if is_clang and not is_bootloader:
                 clean_path,
                 "-Wl,--no-whole-archive"
             ])
-            print(f"DEBUG: Added library [{i:2d}] with --whole-archive: {clean_path}")
+            if i < 5:  # Debug für erste 5
+                print(f"DEBUG: Added library [{i:2d}] with --whole-archive: {clean_path}")
         else:
             print(f"DEBUG: SKIPPED invalid library path [{i:2d}]: {clean_path}")
     
     controlled_library_flags.append("-Wl,--end-group")
     
-    print(f"DEBUG: Generated {len(controlled_library_flags)} controlled flags")
+    print(f"DEBUG: Generated {len(controlled_library_flags)} controlled library flags")
+    print(f"DEBUG: Expected whole-archive count: {len(all_libraries)} (should appear as {len(all_libraries)} in analysis)")
     
-    # KRITISCH: Direkte env.Replace() wie im heuristischen Ansatz
-    final_flags = base_flags + controlled_library_flags
+    # KORRIGIERT: Vollständige Flag-Zusammenstellung
+    final_flags = (
+        linker_scripts +           # Alle -T Flags
+        undefined_symbols +        # Alle -u Flags  
+        controlled_library_flags + # Unsere --whole-archive Gruppe
+        other_flags               # Alle anderen Flags
+    )
     
     print(f"DEBUG: Final flags composition:")
-    print(f"DEBUG:   base_flags: {len(base_flags)}")
+    print(f"DEBUG:   linker_scripts: {len(linker_scripts)}")
+    print(f"DEBUG:   undefined_symbols: {len(undefined_symbols)}")
     print(f"DEBUG:   controlled_library_flags: {len(controlled_library_flags)}")
+    print(f"DEBUG:   other_flags: {len(other_flags)}")
     print(f"DEBUG:   total final_flags: {len(final_flags)}")
     
+    # KRITISCH: env.Replace() mit vollständigen Flags
     env.Replace(
         LINKFLAGS=final_flags,
         LIBS=[],
         LIBPATH=link_args.get("LIBPATH", [])
     )
     
-    # KRITISCH: libs Array leeren
     libs.clear()
-    
-    # Für Kompatibilität
     extra_flags = []
     
-    # Flag-Bereinigung
     target_elf_path = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     env.AddPreAction(target_elf_path, clean_clang_linkflags_espidf)
     
