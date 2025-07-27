@@ -2368,32 +2368,56 @@ print(f"DEBUG: is_clang={is_clang}, is_bootloader={is_bootloader}")
 if is_clang and not is_bootloader:
     print("ESP-IDF: Applying Clang-specific firmware linking")
     
-    # KORRIGIERTE Library-Sammlung mit Debug-Ausgaben
+    # KORRIGIERTE Library-Sammlung mit NodeList-Behandlung
     def flatten_lib_nodes(seq):
-        """Robuste Flattening-Funktion für SCons-Nodes mit Debug"""
+        """Robuste Flattening-Funktion für SCons NodeList-Objekte"""
         flat = []
         print(f"    DEBUG flatten_lib_nodes: Processing {len(seq) if hasattr(seq, '__len__') else '?'} items")
         
         for i, item in enumerate(seq):
             item_type = type(item).__name__
-            print(f"    DEBUG [{i:2d}] {item_type:15s}: {repr(str(item)[:60])}")
+            item_str = str(item)
+            print(f"    DEBUG [{i:2d}] {item_type:15s}: {repr(item_str[:60])}")
             
             if isinstance(item, (list, tuple)):
                 print(f"    DEBUG: Recursing into nested {item_type}")
                 flat.extend(flatten_lib_nodes(item))
             elif hasattr(item, "get_path"):
+                # SCons File/Node-Objekt mit get_path()
                 path = item.get_path()
                 flat.append(str(path))
                 print(f"    DEBUG: SCons node → {path}")
-            elif hasattr(item, '__str__'):
-                path_str = str(item)
-                if path_str and not path_str.startswith('['):
-                    flat.append(path_str)
-                    print(f"    DEBUG: String path → {path_str}")
-                else:
-                    print(f"    DEBUG: SKIPPED suspicious path → {path_str}")
+            elif item_type == 'NodeList':
+                # KRITISCH: NodeList-Objekte korrekt behandeln
+                print(f"    DEBUG: Processing NodeList with {len(item)} items")
+                for j, node in enumerate(item):
+                    if hasattr(node, "get_path"):
+                        path = node.get_path()
+                        flat.append(str(path))
+                        print(f"    DEBUG: NodeList[{j}] → {path}")
+                    else:
+                        node_str = str(node)
+                        flat.append(node_str)
+                        print(f"    DEBUG: NodeList[{j}] string → {node_str}")
+            elif item_str.startswith('[') and item_str.endswith(']'):
+                # Python-Listen-String - versuche zu parsen
+                print(f"    DEBUG: Attempting to parse Python list string")
+                try:
+                    # Entferne äußere Klammern und Quotes
+                    cleaned = item_str.strip("[]'\"")
+                    if cleaned and not cleaned.startswith('['):
+                        flat.append(cleaned)
+                        print(f"    DEBUG: Parsed list string → {cleaned}")
+                    else:
+                        print(f"    DEBUG: Could not parse list string: {item_str}")
+                except Exception as e:
+                    print(f"    DEBUG: Failed to parse list string: {e}")
+            elif hasattr(item, '__str__') and item_str and not item_str.startswith('['):
+                # Normale String-Pfade
+                flat.append(item_str)
+                print(f"    DEBUG: String path → {item_str}")
             else:
-                print(f"    DEBUG: UNKNOWN item type → {type(item)} = {item}")
+                print(f"    DEBUG: SKIPPED unknown/suspicious item → {item_str}")
         
         print(f"    DEBUG flatten_lib_nodes: Returning {len(flat)} paths")
         return flat
@@ -2403,20 +2427,37 @@ if is_clang and not is_bootloader:
     print(f"DEBUG: libs type = {type(libs)}, length = {len(libs) if hasattr(libs, '__len__') else '?'}")
     all_libraries = flatten_lib_nodes(libs)
     
+    # KORRIGIERTE LIBS-Verarbeitung
     print(f"\nDEBUG: Processing LIBS from link_args...")
     link_libs = link_args.get("LIBS", [])
     print(f"DEBUG: link_args['LIBS'] = {len(link_libs)} items: {link_libs[:5]}...")
     
     for lib_name in link_libs:
-        print(f"DEBUG: Looking for lib{lib_name}.a in LIBPATH...")
+        print(f"DEBUG: Processing LIBS entry: {lib_name}")
+        
+        # KORRIGIERT: Behandle bereits vollständige Library-Namen
+        if lib_name.startswith('lib') and lib_name.endswith('.a'):
+            # Bereits vollständiger Name: libcore.a
+            search_name = lib_name
+            print(f"DEBUG: Using complete library name: {search_name}")
+        elif lib_name.startswith('-l'):
+            # Linker-Flag: -lcore
+            search_name = f"lib{lib_name[2:]}.a"
+            print(f"DEBUG: Converting linker flag {lib_name} → {search_name}")
+        else:
+            # Plain name: core
+            search_name = f"lib{lib_name}.a"
+            print(f"DEBUG: Converting plain name {lib_name} → {search_name}")
+        
+        # Suche in LIBPATH
         for lib_path in link_args.get("LIBPATH", []):
-            full_lib_path = os.path.join(lib_path, f"lib{lib_name}.a")
+            full_lib_path = os.path.join(lib_path, search_name)
             if os.path.isfile(full_lib_path):
                 all_libraries.append(full_lib_path)
                 print(f"DEBUG: Found LIBS entry → {full_lib_path}")
                 break
         else:
-            print(f"DEBUG: lib{lib_name}.a not found in any LIBPATH")
+            print(f"DEBUG: {search_name} not found in any LIBPATH")
     
     print(f"\nDEBUG: Total libraries collected: {len(all_libraries)}")
     for i, lib in enumerate(all_libraries[:10]):  # Zeige erste 10
@@ -2432,7 +2473,7 @@ if is_clang and not is_bootloader:
     )
     print(f"DEBUG: Extracted {len(base_flags)} base flags")
     
-    # KORRIGIERTE Library-Flags-Generierung
+    # Kontrollierte Library-Flags-Generierung
     print(f"\nDEBUG: Generating controlled library flags...")
     controlled_library_flags = []
     controlled_library_flags.append("-Wl,--start-group")
@@ -2514,6 +2555,7 @@ try:
     extra_flags.pop(ld_index - 1)
 except:
     print("Warning! Couldn't find the main linker script in the CMake code model.")
+
 
 #
 # Process project sources
