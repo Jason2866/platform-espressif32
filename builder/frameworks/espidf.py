@@ -2169,6 +2169,66 @@ libs = find_lib_deps(
     framework_components_map, elf_config, link_args, [project_target_name]
 )
 
+def clean_clang_linkflags_espidf(target, source, env):
+    """
+    Minimal-Version: Nur Pfad-Auflösung für Linker-Scripts
+    """
+    original = env.get("LINKFLAGS", [])
+    cleaned = []
+    
+    print("=== ESP-IDF CLANG LINKER SCRIPT PATH RESOLUTION ===")
+    
+    # Standard ESP-IDF Suchpfade
+    search_paths = [
+        env.subst("$BUILD_DIR"),
+        os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
+        "/home/runner/.platformio/packages/framework-espidf/components/soc/esp32/ld",
+        "/home/runner/.platformio/packages/framework-espidf/components/esp_rom/esp32/ld"
+    ]
+    
+    i = 0
+    while i < len(original):
+        flag = str(original[i])
+        
+        # Nur -T Flags mit Pfad-Auflösung behandeln
+        if flag == "-T" and i + 1 < len(original):
+            script_name = str(original[i + 1])
+            
+            if not os.path.isabs(script_name):
+                # Suche in Standard-Pfaden
+                full_path = None
+                for search_path in search_paths:
+                    if not os.path.isdir(search_path):
+                        continue
+                    candidate = os.path.join(search_path, script_name)
+                    if os.path.isfile(candidate):
+                        full_path = candidate
+                        break
+                
+                if full_path:
+                    cleaned.extend(["-T", full_path])
+                    print(f"Resolved: {script_name} → {full_path}")
+                else:
+                    cleaned.extend([flag, script_name])
+                    print(f"WARNING: Script not found: {script_name}")
+            else:
+                cleaned.extend([flag, script_name])
+            
+            i += 2
+            continue
+        
+        # Alle anderen Flags unverändert
+        cleaned.append(flag)
+        i += 1
+    
+    # Flags aktualisieren
+    env.Replace(LINKFLAGS=cleaned)
+    print(f"Updated LINKFLAGS: {len(original)} → {len(cleaned)} flags")
+    print("=== END PATH RESOLUTION ===")
+    
+    return (target, source)
+
+
 def clean_heuristic_clang_linking(env, libs, link_args):
     """
     Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
