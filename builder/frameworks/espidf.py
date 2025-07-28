@@ -2545,7 +2545,7 @@ def clean_clang_linkflags_espidf(target, source, env):
 def clean_heuristic_clang_linking(env, libs, link_args):
     """
     Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
-    OHNE nachgelagerte Reparatur-Funktion
+    mit Clang-LLD-kompatibler Gruppierung statt GNU-LD-Syntax
     """
     
     # 1. Linker-Scripts sammeln - OHNE Build-Zeit-Pfad-Auflösung
@@ -2639,7 +2639,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
                 i += 1
         return symbols
     
-    # 4. Andere Flags sammeln
+    # 4. Andere Flags sammeln - mit Clang-inkompatiblen Flags gefiltert
     def collect_other_flags(linkflags):
         result = []
         for flag in linkflags:
@@ -2649,7 +2649,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
                 flag_str not in ['-T', '-u'] and
                 not flag_str.startswith('-Wl,--') and
                 not flag_str.startswith('-mcpu=') and
-                not flag_str.startswith('--target=')):
+                not flag_str.startswith('--target=')):  # Clang-inkompatible Flags entfernen
                 result.append(flag_str)
         return result
     
@@ -2660,18 +2660,19 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     undefined_symbols = collect_symbols(linkflags)
     other_flags = collect_other_flags(linkflags)
     
-    # Baue finale Flag-Liste in korrekter Reihenfolge
+    # Baue finale Flag-Liste mit CLANG-LLD-GRUPPIERUNG
     final_flags = []
-    final_flags.extend(other_flags)        # Compiler-Flags (ohne -mcpu)
+    final_flags.extend(other_flags)        # Compiler-Flags (ohne -mcpu, --target)
     final_flags.extend(linker_scripts)     # -T scripts (Pfade bleiben relativ)
     final_flags.extend(undefined_symbols)  # -u symbols
-    final_flags.append("-Wl,--start-group")
     
-    # Libraries mit --whole-archive
-    for lib in essential_libs:
-        final_flags.extend(["-Wl,--whole-archive", lib, "-Wl,--no-whole-archive"])
+    # CLANG-LLD-kompatible Gruppierung statt GNU-LD
+    final_flags.append("--start-lib")      # ✅ Clang-LLD Syntax
     
-    final_flags.append("-Wl,--end-group")
+    # Libraries OHNE --whole-archive (wird von --start-lib übernommen)
+    final_flags.extend(essential_libs)
+    
+    final_flags.append("--end-lib")        # ✅ Clang-LLD Syntax
     
     # Setze Flags - EINMAL und KORREKT
     env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
@@ -2684,6 +2685,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
     print(f"Libraries: {len(essential_libs)} total libraries included")
+    print(f"Using Clang-LLD grouping: --start-lib ... --end-lib")
 
 #
 # Process project sources
