@@ -2447,14 +2447,14 @@ def clean_clang_linkflags_espidf(target, source, env):
         before_other_replacement = corrected_linkcom
 
         corrected_linkcom = re.sub(
-            r' (\.pio/[^\s]+)',
-            replace_other_pio_paths,
+            r'-L (\.pio/build/[^/]+/esp-idf/esp_system/ld)',
+            lambda m: f"-L {os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(env.subst('$BUILD_DIR')))), m.group(1))}",
             corrected_linkcom
         )
 
-        # NEU: Spezielle Behandlung für -L Flags mit .pio Pfaden
+        # Alle verbleibenden -L .pio Pfade
         corrected_linkcom = re.sub(
-            r'-L (\.pio/[^\s]+)',  # Findet -L .pio/... Pfade
+            r'-L (\.pio/[^\s]+)',
             lambda m: f"-L {os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(env.subst('$BUILD_DIR')))), m.group(1))}",
             corrected_linkcom
         )
