@@ -2480,6 +2480,7 @@ def clean_clang_linkflags_espidf(target, source, env):
         final_linkcom = ' '.join(corrected_words)
         # Prüfe und integriere wichtige Linker-Flags
         required_flags = {
+            "-Wl,--strip-all": "Remove anything not needed",
             "-Wl,--strip-debug": "Strip debug sections",
             "-Wl,--compress-debug-sections=none": "Disable debug compression", 
             "-Wl,--discard-all": "Discard local symbols"
