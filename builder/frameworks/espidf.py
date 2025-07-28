@@ -2730,6 +2730,20 @@ def clean_heuristic_clang_linking(env, libs, link_args):
         i = 0
         while i < len(linkflags):
             flag_str = str(linkflags[i])
+        
+            # NEU: --target Flag für Clang BEHALTEN statt filtern
+            if flag_str.startswith('--target='):
+                result.append(flag_str)
+                print(f"✅ Kept target flag for clang: {flag_str}")
+                i += 1
+                continue
+        
+            # NEU: -nostdlib Flag für Clang BEHALTEN
+            if flag_str == '-nostdlib':
+                result.append(flag_str)
+                print(f"✅ Kept nostdlib flag for clang: {flag_str}")
+                i += 1
+                continue
             
             # NEU: Bestehende -o Flags herausfiltern (werden durch TARGET ersetzt)
             if flag_str == '-o' and i + 1 < len(linkflags):
