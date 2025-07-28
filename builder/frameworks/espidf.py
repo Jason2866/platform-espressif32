@@ -2443,6 +2443,9 @@ def clean_clang_linkflags_espidf(target, source, env):
                 return f" {absolute_path}"
             return f" {relative_path}"  # Object-Dateien bereits behandelt
 
+        # Ersetze verbleibende .pio Pfade
+        before_other_replacement = corrected_linkcom
+
         corrected_linkcom = re.sub(
             r' (\.pio/[^\s]+)',
             replace_other_pio_paths,
