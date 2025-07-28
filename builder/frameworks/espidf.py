@@ -2476,9 +2476,27 @@ def clean_clang_linkflags_espidf(target, source, env):
                 separated_l_flags.append(f"{word} → -L {lib_path}")
             else:
                 corrected_words.append(word)
-        
-        # Setze die final korrigierte LINKCOM
+
         final_linkcom = ' '.join(corrected_words)
+        # Prüfe und integriere wichtige Linker-Flags
+        required_flags = {
+            "-Wl,--strip-debug": "Strip debug sections",
+            "-Wl,--compress-debug-sections=none": "Disable debug compression", 
+            "-Wl,--discard-all": "Discard local symbols"
+        }
+
+        missing_flags = []
+        for flag, description in required_flags.items():
+            if flag not in final_linkcom:
+                missing_flags.append(flag)
+                print(f"  ➕ Adding missing flag: {flag} ({description})")
+
+        if missing_flags:
+            final_linkcom += " " + " ".join(missing_flags)
+            print(f"✅ Added {len(missing_flags)} missing debug strip flags")
+        else:
+            print(f"✅ All required debug strip flags already present")
+
         env['LINKCOM'] = final_linkcom
         
         if separated_l_flags:
@@ -2860,18 +2878,6 @@ def clean_heuristic_clang_linking(env, libs, link_args):
         
         print(f"Filtered flags: {len(linkflags)} → {len(result)} (removed compiler flags and -o)")
         return result
-
-
-    env.AppendUnique(LINKFLAGS=[
-        "--strip-all",
-        "--strip-debug",                        # Entferne Debug-Informationen
-        "-s",                                   # Strip symbols (Linker)
-        "-Wl,-s",
-        "-Wl,--strip-all",
-        "-Wl,--strip-debug",
-        "-Wl,--discard-all",
-        "-Wl,--compress-debug-sections=none"
-    ])
 
     # NEU: Build-Verzeichnis und absoluter Output-Pfad
     build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
