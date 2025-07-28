@@ -2497,8 +2497,10 @@ def clean_clang_linkflags_espidf(target, source, env):
             print(f"✅ Added {len(missing_flags)} missing debug strip flags")
         else:
             print(f"✅ All required debug strip flags already present")
-
-        env['LINKCOM'] = final_linkcom
+        
+        # KRITISCH: Immer als String setzen
+        final_linkcom_string = str(final_linkcom).strip()
+        env['LINKCOM'] = final_linkcom_string
         
         if separated_l_flags:
             print("\n*** LINKCOM: Separated -L flags:")
