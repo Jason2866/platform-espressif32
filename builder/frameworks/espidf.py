@@ -2545,7 +2545,7 @@ def clean_clang_linkflags_espidf(target, source, env):
 def clean_heuristic_clang_linking(env, libs, link_args):
     """
     Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
-    mit Clang-LLD-kompatibler Gruppierung und verbesserter Pfad-Auflösung
+    OHNE Gruppierung für ESP32-Clang-Linker Kompatibilität
     """
     
     # 1. Linker-Scripts sammeln mit VERBESSERTER Pfad-Auflösung
@@ -2689,11 +2689,11 @@ def clean_heuristic_clang_linking(env, libs, link_args):
                 not flag_str.startswith('-l') and
                 flag_str not in ['-T', '-u'] and
                 not flag_str.startswith('-Wl,--') and
-                not flag_str.startswith('-Wl,-') and        # NEU: -Wl,- Flags
+                not flag_str.startswith('-Wl,-') and        # -Wl,- Flags entfernen
                 not flag_str.startswith('-mcpu=') and
                 not flag_str.startswith('--target=') and
-                not flag_str.startswith('-Wno-') and        # NEU: Warning-Flags
-                not flag_str.startswith('--ld-path=')):     # NEU: LD-Path-Flag
+                not flag_str.startswith('-Wno-') and        # Warning-Flags entfernen
+                not flag_str.startswith('--ld-path=')):     # LD-Path-Flag entfernen
                 result.append(flag_str)
         return result
     
@@ -2704,19 +2704,15 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     undefined_symbols = collect_symbols(linkflags)
     other_flags = collect_other_flags(linkflags)
     
-    # Baue finale Flag-Liste mit CLANG-LLD-GRUPPIERUNG
+    # Baue finale Flag-Liste OHNE Gruppierung
     final_flags = []
     final_flags.extend(other_flags)        # Nur kompatible Flags
     final_flags.extend(linker_scripts)     # Mit aufgelösten absoluten Pfaden
     final_flags.extend(undefined_symbols)  # -u symbols
     
-    # CLANG-LLD-kompatible Gruppierung statt GNU-LD
-    final_flags.append("--start-lib")      # ✅ Clang-LLD Syntax
-    
-    # Libraries OHNE --whole-archive (wird von --start-lib übernommen)
-    final_flags.extend(essential_libs)
-    
-    final_flags.append("--end-lib")        # ✅ Clang-LLD Syntax
+    # EINFACHE Library-Linkage OHNE jegliche Gruppierung
+    final_flags.extend(essential_libs)     # Direkt alle Libraries
+    final_flags.extend(essential_libs)     # Zweiter Durchgang für zirkuläre Abhängigkeiten
     
     # Setze Flags - EINMAL und KORREKT
     env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
@@ -2731,7 +2727,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     print(f"Libraries: {len(essential_libs)} total libraries included")
     print(f"✅ Immediate path resolution: {len(linker_scripts)//2} scripts resolved")
     print(f"✅ Clang-incompatible flags filtered: Warning/LD-path flags removed")
-    print(f"Using Clang-LLD grouping: --start-lib ... --end-lib")
+    print(f"✅ NO GROUPING: Direct library linkage for ESP32-Clang-Linker compatibility")
 
 #
 # Process project sources
