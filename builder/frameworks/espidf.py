@@ -2545,7 +2545,7 @@ def clean_clang_linkflags_espidf(target, source, env):
 def clean_heuristic_clang_linking(env, libs, link_args):
     """
     Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
-    OHNE Gruppierung für ESP32-Clang-Linker Kompatibilität
+    mit absoluten Output-Pfaden und vollständiger Compiler-Flag-Filterung
     """
     
     # 1. Linker-Scripts sammeln mit VERBESSERTER Pfad-Auflösung
@@ -2679,7 +2679,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
                 i += 1
         return symbols
     
-    # 4. Andere Flags sammeln - VOLLSTÄNDIGE Filterung
+    # 4. Andere Flags sammeln - VOLLSTÄNDIGE Compiler-Flag-Filterung
     def collect_other_flags(linkflags):
         result = []
         allowed_flags = {'-z', '--gc-sections', '--strip-all', '--strip-debug'}  # Erlaubte Linker-Flags
@@ -2715,6 +2715,22 @@ def clean_heuristic_clang_linking(env, libs, link_args):
         print(f"Filtered flags: {len(linkflags)} → {len(result)} (removed {len(linkflags)-len(result)} compiler flags)")
         return result
     
+    # NEU: Build-Verzeichnis und Output-Pfad vorbereiten
+    build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
+    output_file = os.path.join(build_dir, "firmware.elf")
+    
+    print(f"\n=== OUTPUT PATH SETUP ===")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Build directory: {build_dir}")
+    print(f"Output file: {output_file}")
+    print(f"Directory exists: {os.path.exists(build_dir)}")
+    print(f"Directory writable: {os.access(build_dir, os.W_OK) if os.path.exists(build_dir) else 'N/A'}")
+    
+    # Erstelle Build-Verzeichnis falls es nicht existiert
+    if not os.path.exists(build_dir):
+        print(f"Creating missing build directory: {build_dir}")
+        os.makedirs(build_dir, exist_ok=True)
+    
     # Sammle alle Komponenten
     linkflags = link_args["LINKFLAGS"]
     linker_scripts = resolve_and_collect_scripts(linkflags, env)
@@ -2722,15 +2738,16 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     undefined_symbols = collect_symbols(linkflags)
     other_flags = collect_other_flags(linkflags)
     
-    # Baue finale Flag-Liste OHNE Gruppierung
+    # Baue finale Flag-Liste mit ABSOLUTEM Output-Pfad
     final_flags = []
-    final_flags.extend(other_flags)        # Nur kompatible Flags
-    final_flags.extend(linker_scripts)     # Mit aufgelösten absoluten Pfaden
-    final_flags.extend(undefined_symbols)  # -u symbols
+    final_flags.extend(['-o', output_file])    # ✅ Expliziter absoluter Output-Pfad
+    final_flags.extend(other_flags)            # Nur kompatible Linker-Flags
+    final_flags.extend(linker_scripts)         # Mit aufgelösten absoluten Pfaden
+    final_flags.extend(undefined_symbols)      # -u symbols
     
     # EINFACHE Library-Linkage OHNE jegliche Gruppierung
-    final_flags.extend(essential_libs)     # Direkt alle Libraries
-    final_flags.extend(essential_libs)     # Zweiter Durchgang für zirkuläre Abhängigkeiten
+    final_flags.extend(essential_libs)         # Direkt alle Libraries
+    final_flags.extend(essential_libs)         # Zweiter Durchgang für zirkuläre Abhängigkeiten
     
     # Setze Flags - EINMAL und KORREKT
     env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
@@ -2740,11 +2757,13 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     target_elf = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     env.AddPreAction(target_elf, clean_clang_linkflags_espidf)
     
+    print(f"\n=== FINAL SUMMARY ===")
     print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
     print(f"Libraries: {len(essential_libs)} total libraries included")
+    print(f"✅ Absolute output path: {output_file}")
     print(f"✅ Immediate path resolution: {len(linker_scripts)//2} scripts resolved")
-    print(f"✅ Clang-incompatible flags filtered: Warning/LD-path flags removed")
+    print(f"✅ All compiler flags filtered out")
     print(f"✅ NO GROUPING: Direct library linkage for ESP32-Clang-Linker compatibility")
 
 #
