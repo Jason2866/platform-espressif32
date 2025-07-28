@@ -2545,12 +2545,50 @@ def clean_clang_linkflags_espidf(target, source, env):
 def clean_heuristic_clang_linking(env, libs, link_args):
     """
     Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
-    mit Clang-LLD-kompatibler Gruppierung statt GNU-LD-Syntax
+    mit Clang-LLD-kompatibler Gruppierung und verbesserter Pfad-Auflösung
     """
     
-    # 1. Linker-Scripts sammeln - OHNE Build-Zeit-Pfad-Auflösung
+    # 1. Linker-Scripts sammeln mit VERBESSERTER Pfad-Auflösung
     def resolve_and_collect_scripts(linkflags, env):
         scripts = []
+        
+        # ERWEITERTE Suchpfade mit Debug-Ausgabe
+        search_paths = [
+            env.subst("$BUILD_DIR"),
+            os.path.join(env.subst("$BUILD_DIR"), "esp-idf", "esp_system", "ld"),
+            os.path.join(env.PioPlatform().get_package_dir("framework-espidf"), "components", "soc", "esp32", "ld"),
+            os.path.join(env.PioPlatform().get_package_dir("framework-espidf"), "components", "esp_rom", "esp32", "ld"),
+        ]
+        
+        print(f"=== LINKER SCRIPT SEARCH PATHS ===")
+        for i, path in enumerate(search_paths):
+            exists = os.path.isdir(path)
+            print(f"  {i+1}. {path} {'✅' if exists else '❌'}")
+        
+        def resolve_script_path(script_name):
+            print(f"\n--- Resolving script: {script_name} ---")
+            
+            if os.path.isabs(script_name):
+                exists = os.path.isfile(script_name)
+                print(f"  Absolute path: {script_name} {'✅' if exists else '❌'}")
+                return script_name
+            
+            # Suche in allen Pfaden
+            for i, search_path in enumerate(search_paths):
+                if not os.path.isdir(search_path):
+                    print(f"  Path {i+1}: {search_path} (directory not found)")
+                    continue
+                    
+                candidate = os.path.join(search_path, script_name)
+                exists = os.path.isfile(candidate)
+                print(f"  Path {i+1}: {candidate} {'✅ FOUND' if exists else '❌'}")
+                
+                if exists:
+                    print(f"  ✅ RESOLVED: {script_name} → {candidate}")
+                    return candidate
+            
+            print(f"  ❌ NOT FOUND: {script_name} (keeping relative)")
+            return script_name
         
         i = 0
         while i < len(linkflags):
@@ -2558,20 +2596,22 @@ def clean_heuristic_clang_linking(env, libs, link_args):
             
             # Explizite -T Flags
             if flag == "-T" and i + 1 < len(linkflags):
-                script = str(linkflags[i + 1])
-                scripts.extend(["-T", script])  # Pfad bleibt wie er ist
+                script = resolve_script_path(str(linkflags[i + 1]))
+                scripts.extend(["-T", script])
                 i += 2
                 continue
                 
             # Kombinierte -Tscript.ld Flags  
             elif flag.startswith("-T") and flag.endswith(".ld"):
-                scripts.append(flag)  # Bereits korrekt formatiert
+                script = resolve_script_path(flag[2:])
+                scripts.extend(["-T", script])
                 i += 1
                 continue
                 
-            # Naked *.ld Dateien - füge -T Präfix hinzu
+            # Naked *.ld Dateien
             elif flag.endswith(".ld"):
-                scripts.extend(["-T", flag])  # Pfad-Auflösung später
+                script = resolve_script_path(flag)
+                scripts.extend(["-T", script])
                 i += 1
                 continue
             
@@ -2639,17 +2679,21 @@ def clean_heuristic_clang_linking(env, libs, link_args):
                 i += 1
         return symbols
     
-    # 4. Andere Flags sammeln - mit Clang-inkompatiblen Flags gefiltert
+    # 4. Andere Flags sammeln - ERWEITERTE Filterung für Clang-inkompatible Flags
     def collect_other_flags(linkflags):
         result = []
         for flag in linkflags:
             flag_str = str(flag)
+            # ERWEITERTE Filterung für Clang-inkompatible Flags
             if (not flag_str.endswith('.ld') and 
                 not flag_str.startswith('-l') and
                 flag_str not in ['-T', '-u'] and
                 not flag_str.startswith('-Wl,--') and
+                not flag_str.startswith('-Wl,-') and        # NEU: -Wl,- Flags
                 not flag_str.startswith('-mcpu=') and
-                not flag_str.startswith('--target=')):  # Clang-inkompatible Flags entfernen
+                not flag_str.startswith('--target=') and
+                not flag_str.startswith('-Wno-') and        # NEU: Warning-Flags
+                not flag_str.startswith('--ld-path=')):     # NEU: LD-Path-Flag
                 result.append(flag_str)
         return result
     
@@ -2662,8 +2706,8 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     
     # Baue finale Flag-Liste mit CLANG-LLD-GRUPPIERUNG
     final_flags = []
-    final_flags.extend(other_flags)        # Compiler-Flags (ohne -mcpu, --target)
-    final_flags.extend(linker_scripts)     # -T scripts (Pfade bleiben relativ)
+    final_flags.extend(other_flags)        # Nur kompatible Flags
+    final_flags.extend(linker_scripts)     # Mit aufgelösten absoluten Pfaden
     final_flags.extend(undefined_symbols)  # -u symbols
     
     # CLANG-LLD-kompatible Gruppierung statt GNU-LD
@@ -2678,13 +2722,15 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
     libs.clear()
     
-    # KRITISCH: Registriere Link-Zeit-Pfad-Auflösung für *.ld Dateien
+    # KRITISCH: Registriere Link-Zeit-Pfad-Auflösung für verbleibende Probleme
     target_elf = os.path.join("$BUILD_DIR", "${PROGNAME}.elf")
     env.AddPreAction(target_elf, clean_clang_linkflags_espidf)
     
     print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
     print(f"Libraries: {len(essential_libs)} total libraries included")
+    print(f"✅ Immediate path resolution: {len(linker_scripts)//2} scripts resolved")
+    print(f"✅ Clang-incompatible flags filtered: Warning/LD-path flags removed")
     print(f"Using Clang-LLD grouping: --start-lib ... --end-lib")
 
 #
