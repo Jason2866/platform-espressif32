@@ -2175,8 +2175,9 @@ def clean_clang_linkflags_espidf(target, source, env):
     1. Löst alle relativen *.ld-Namen zu absoluten Pfaden auf
     2. Trennt kombinierte -Tscript.ld und -Lpath Flags
     3. Filtert nachträglich nackte *.ld-Einträge aus der LINKCOM
-    4. Trennt kombinierte -L Flags in der LINKCOM
-    5. Ausführliche Debug-Ausgaben und Statistiken mit korrigierter paarweiser Validierung
+    4. Korrigiert ALLE relativen .pio firmware.elf Pfade zu absoluten Pfaden
+    5. Trennt kombinierte -L Flags in der LINKCOM
+    6. Ausführliche Debug-Ausgaben und Statistiken mit korrigierter paarweiser Validierung
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2344,13 +2345,49 @@ def clean_clang_linkflags_espidf(target, source, env):
     
     # ERWEITERTE DEBUG-AUSGABEN mit LINKCOM-Korrektur
     try:
+        print("=== LINK-TIME LINKCOM CORRECTION ===")
+        
         # Behandle sowohl String- als auch Funktions-LINKCOM
         if callable(env.get('LINKCOM')):
             current_linkcom = env['LINKCOM'](target, source, env)
         else:
             current_linkcom = env.subst('$LINKCOM', target=target, source=source)
         
-        print(f"\nDEBUG: Original LINKCOM length: {len(current_linkcom)} characters")
+        print(f"DEBUG: Original LINKCOM length: {len(current_linkcom)} characters")
+        
+        # NEU: GENERISCHE Korrektur für ALLE relativen .pio firmware.elf Pfade
+        import re
+        original_linkcom_for_comparison = current_linkcom
+        
+        # Prüfe auf JEDE relative -o Pfade mit .pio
+        if "-o .pio/" in current_linkcom:
+            # Erstelle absoluten Pfad
+            build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
+            output_file = os.path.join(build_dir, "firmware.elf")
+            
+            # Ersetze alle Varianten von relativen .pio Pfaden für firmware.elf
+            # Pattern matches: -o .pio/build/BOARD_NAME/firmware.elf
+            corrected_linkcom = re.sub(
+                r'-o \.pio/build/[^/]+/firmware\.elf',
+                f'-o {output_file}',
+                current_linkcom
+            )
+            
+            if corrected_linkcom != current_linkcom:
+                env.Replace(LINKCOM=corrected_linkcom)
+                print(f"✅ CORRECTED: Replaced relative .pio path with absolute path")
+                
+                # Zeige was ersetzt wurde
+                old_match = re.search(r'-o (\.pio/build/[^/]+/firmware\.elf)', current_linkcom)
+                if old_match:
+                    print(f"   Old: -o {old_match.group(1)}")
+                    print(f"   New: -o {output_file}")
+                
+                current_linkcom = corrected_linkcom
+            else:
+                print(f"✅ Pattern not matched or already absolute")
+        else:
+            print(f"✅ Already absolute: No .pio relative paths found")
         
         # LINKCOM-Korrektur für kombinierte -L Flags
         words = current_linkcom.split()
@@ -2366,16 +2403,16 @@ def clean_clang_linkflags_espidf(target, source, env):
             else:
                 corrected_words.append(word)
         
-        # Setze die korrigierte LINKCOM
-        corrected_linkcom = ' '.join(corrected_words)
-        env['LINKCOM'] = corrected_linkcom
+        # Setze die final korrigierte LINKCOM
+        final_linkcom = ' '.join(corrected_words)
+        env['LINKCOM'] = final_linkcom
         
         if separated_l_flags:
             print("\n*** LINKCOM: Separated -L flags:")
             for flag_change in separated_l_flags:
                 print(f"  - {flag_change}")
         
-        print(f"DEBUG: Corrected LINKCOM length: {len(corrected_linkcom)} characters")
+        print(f"DEBUG: Final LINKCOM length: {len(final_linkcom)} characters")
         
         # Formatierte LINKCOM-Ausgabe (80 Zeichen pro Zeile)
         print("\n=== FINAL LINKCOM (formatted) ===")
@@ -2406,19 +2443,19 @@ def clean_clang_linkflags_espidf(target, source, env):
             
             return line_count
         
-        final_lines = format_linkcom(corrected_linkcom)
+        final_lines = format_linkcom(final_linkcom)
         print("=== END FINAL LINKCOM ===")
         print(f"Final LINKCOM: {final_lines} lines")
         
         # Schreibe LINKCOM in Dateien
         with open("/tmp/final_linkcom.log", "w", encoding="utf-8") as f:
-            f.write(corrected_linkcom + "\n")
+            f.write(final_linkcom + "\n")
         
         print("\nLINKCOM files written:")
         print("  - /tmp/final_linkcom.log")
         
         # KRITISCHE VALIDIERUNG - Paarweise Analyse statt einzelne Wörter
-        words = corrected_linkcom.split()
+        words = final_linkcom.split()
         
         # Zähle verschiedene Flag-Typen
         stats = {
@@ -2427,8 +2464,8 @@ def clean_clang_linkflags_espidf(target, source, env):
             'undefined_symbols_u': len([w for w in words if w == "-u"]),
             'library_paths_l': len([w for w in words if w == "-L"]),
             'libraries_a': len([w for w in words if w.endswith('.a')]),
-            'whole_archive_flags': corrected_linkcom.count('-Wl,--whole-archive'),
-            'start_group_flags': corrected_linkcom.count('-Wl,--start-group'),
+            'whole_archive_flags': final_linkcom.count('-Wl,--whole-archive'),
+            'start_group_flags': final_linkcom.count('-Wl,--start-group'),
         }
         
         print(f"\n=== FINAL LINKCOM STATISTICS ===")
@@ -2509,14 +2546,19 @@ def clean_clang_linkflags_espidf(target, source, env):
         if combined_l_flags:
             critical_errors.append(f"COMBINED -L FLAGS: {combined_l_flags}")
         
+        # Prüfe auf verbleibende relative .pio Pfade
+        remaining_relative = [w for w in words if '.pio/' in w and not os.path.isabs(w)]
+        if remaining_relative:
+            critical_errors.append(f"REMAINING RELATIVE PATHS: {remaining_relative}")
+        
         # % Zeichen (TypeError risk)
-        if '%' in corrected_linkcom:
-            percent_count = corrected_linkcom.count('%')
+        if '%' in final_linkcom:
+            percent_count = final_linkcom.count('%')
             critical_errors.append(f"% CHARACTERS: {percent_count} found (TypeError risk)")
             print(f"\n❌ WARNING: Found % characters:")
-            first_percent = corrected_linkcom.find('%')
+            first_percent = final_linkcom.find('%')
             if first_percent != -1:
-                context = corrected_linkcom[max(0, first_percent-30):first_percent+30]
+                context = final_linkcom[max(0, first_percent-30):first_percent+30]
                 print(f"  ⚠️  Context: ...{context}...")
         
         # Finale Bewertung
@@ -2532,6 +2574,7 @@ def clean_clang_linkflags_espidf(target, source, env):
             print(f"   - {stats['libraries_a']} libraries with {stats['whole_archive_flags']} whole-archive flags")
             print(f"   - NO actual naked scripts or symbols found")
             print(f"   - All flags properly formatted for Clang linking")
+            print(f"   - All relative .pio paths converted to absolute paths")
         
     except Exception as e:
         print(f"*** ERROR: LINKCOM analysis failed: {e}")
