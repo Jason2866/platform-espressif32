@@ -2679,22 +2679,40 @@ def clean_heuristic_clang_linking(env, libs, link_args):
                 i += 1
         return symbols
     
-    # 4. Andere Flags sammeln - ERWEITERTE Filterung für Clang-inkompatible Flags
+    # 4. Andere Flags sammeln - VOLLSTÄNDIGE Filterung
     def collect_other_flags(linkflags):
         result = []
+        allowed_flags = {'-z', '--gc-sections', '--strip-all', '--strip-debug'}  # Erlaubte Linker-Flags
+        
         for flag in linkflags:
             flag_str = str(flag)
-            # ERWEITERTE Filterung für Clang-inkompatible Flags
-            if (not flag_str.endswith('.ld') and 
-                not flag_str.startswith('-l') and
-                flag_str not in ['-T', '-u'] and
-                not flag_str.startswith('-Wl,--') and
-                not flag_str.startswith('-Wl,-') and        # -Wl,- Flags entfernen
-                not flag_str.startswith('-mcpu=') and
-                not flag_str.startswith('--target=') and
-                not flag_str.startswith('-Wno-') and        # Warning-Flags entfernen
-                not flag_str.startswith('--ld-path=')):     # LD-Path-Flag entfernen
+            
+            # Erlaubte Linker-Flags explizit durchlassen
+            if any(flag_str.startswith(allowed) for allowed in allowed_flags):
                 result.append(flag_str)
+                continue
+            
+            # ALLE Compiler-spezifischen Flags herausfiltern
+            if (flag_str.endswith('.ld') or
+                flag_str.startswith('-l') or
+                flag_str in ['-T', '-u'] or
+                flag_str.startswith('-Wl,') or
+                flag_str.startswith('-mcpu=') or
+                flag_str.startswith('--target=') or
+                flag_str.startswith('-W') or           # Alle Warning-Flags
+                flag_str.startswith('--ld-path=') or
+                flag_str.startswith('-f') or           # Alle -f Flags (Compiler)
+                flag_str.startswith('-O') or           # Optimierungen (Compiler)
+                flag_str.startswith('-g') or           # Debug-Flags (Compiler)
+                flag_str.startswith('-std=') or        # C++ Standards (Compiler)
+                flag_str.startswith('-D') or           # Defines (Compiler)
+                flag_str.startswith('-I')):            # Includes (Compiler)
+                continue  # Überspringe alle Compiler-Flags
+            
+            # Nur echte Linker-Flags durchlassen
+            result.append(flag_str)
+        
+        print(f"Filtered flags: {len(linkflags)} → {len(result)} (removed {len(linkflags)-len(result)} compiler flags)")
         return result
     
     # Sammle alle Komponenten
