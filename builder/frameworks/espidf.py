@@ -2171,7 +2171,7 @@ libs = find_lib_deps(
 
 def clean_clang_linkflags_espidf(target, source, env):
     """
-    Komplette LINKFLAGS-Bereinigung mit source-basierter Object-File-Korrektur:
+    Komplette LINKFLAGS-Bereinigung mit ausführlichem Logging:
     1. Löst alle relativen *.ld-Namen zu absoluten Pfaden auf
     2. Trennt kombinierte -Tscript.ld und -Lpath Flags
     3. Filtert nachträglich nackte *.ld-Einträge aus der LINKCOM
@@ -2293,131 +2293,12 @@ def clean_clang_linkflags_espidf(target, source, env):
     env.Replace(LINKFLAGS=cleaned)
     print(f"Updated LINKFLAGS: {len(original)} → {len(cleaned)} flags")
     
-    # NEU: SOURCE-BASIERTE OBJECT-FILE-KORREKTUR
-    def correct_linkcom_with_sources(target, source, env):
-        """
-        Elegante Lösung: Nutze source-Parameter für korrekte Object-File-Pfade
-        """
-        print(f"\n=== SOURCE-BASED OBJECT FILE CORRECTION ===")
-        print(f"Target: {target}")
-        print(f"Source files provided: {len(source)}")
-        
-        # Sammle alle tatsächlichen Object-File-Pfade aus source
-        actual_object_files = []
-        for src in source:
-            src_path = str(src)
-            print(f"  Source: {src_path}")
-            
-            if src_path.endswith('.o') and os.path.exists(src_path):
-                absolute_path = os.path.abspath(src_path)
-                actual_object_files.append(absolute_path)
-                print(f"    ✅ Object exists: {absolute_path}")
-            elif src_path.endswith('.o'):
-                print(f"    ❌ Object missing: {src_path}")
-        
-        print(f"Found {len(actual_object_files)} valid object files")
-        
-        # Hole aktuelle LINKCOM
-        original_linkcom = env.get('LINKCOM')
-        if callable(original_linkcom):
-            current_linkcom = original_linkcom(target, source, env)
-        else:
-            current_linkcom = env.subst(str(original_linkcom), target=target, source=source)
-        
-        print(f"Original LINKCOM length: {len(current_linkcom)} characters")
-        
-        # Ersetze alle relativen .pio Object-Pfade durch tatsächliche source-Pfade
-        import re
-        
-        corrected_linkcom = current_linkcom
-        replacements_made = 0
-        
-        # Finde alle .pio/*.o Pfade in der LINKCOM
-        relative_objects = re.findall(r'(\.pio/[^\s]+\.o)', current_linkcom)
-        
-        for i, relative_obj in enumerate(relative_objects):
-            if i < len(actual_object_files):
-                # Ersetze relativen Pfad durch tatsächlichen absoluten Pfad
-                corrected_linkcom = corrected_linkcom.replace(
-                    relative_obj, 
-                    actual_object_files[i]
-                )
-                print(f"  Replaced: {relative_obj} → {actual_object_files[i]}")
-                replacements_made += 1
-            else:
-                print(f"  ⚠️  No source match for: {relative_obj}")
-        
-        # Korrigiere auch andere relative .pio Pfade (Library-Pfade etc.)  
-        def replace_other_pio_paths(match):
-            relative_path = match.group(1)
-            if not relative_path.endswith('.o'):  # Nicht Object-Dateien
-                # Normale Pfad-Konvertierung für Library-Pfade etc.
-                build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
-                project_dir = os.path.dirname(os.path.dirname(build_dir))
-                absolute_path = os.path.join(project_dir, relative_path)
-                print(f"  Converted path: {relative_path} → {absolute_path}")
-                return f" {absolute_path}"
-            return f" {relative_path}"  # Object-Dateien bereits behandelt
-        
-        # Ersetze verbleibende .pio Pfade
-        corrected_linkcom = re.sub(
-            r' (\.pio/[^\s]+)',
-            replace_other_pio_paths,
-            corrected_linkcom
-        )
-        
-        # LINKCOM-Korrektur für kombinierte -L Flags
-        words = corrected_linkcom.split()
-        final_words = []
-        separated_l_flags = []
-        
-        for word in words:
-            # Kombinierte -L Flags trennen
-            if word.startswith('-L') and len(word) > 2:
-                lib_path = word[2:]
-                final_words.extend(['-L', lib_path])
-                separated_l_flags.append(f"{word} → -L {lib_path}")
-            else:
-                final_words.append(word)
-        
-        # Setze die final korrigierte LINKCOM
-        final_linkcom = ' '.join(final_words)
-        
-        if separated_l_flags:
-            print(f"\n*** LINKCOM: Separated -L flags:")
-            for flag_change in separated_l_flags:
-                print(f"  - {flag_change}")
-        
-        # Setze korrigierte LINKCOM direkt
-        env.Replace(LINKCOM=final_linkcom)
-        
-        print(f"\n✅ SOURCE-BASED CORRECTION: {replacements_made} object files corrected")
-        print(f"Final LINKCOM length: {len(final_linkcom)} characters")
-        
-        # KRITISCHE VALIDIERUNG - Prüfe auf verbleibende relative Pfade
-        remaining_relative = re.findall(r'(\.pio/[^\s]+)', final_linkcom)
-        if remaining_relative:
-            print(f"\n❌ WARNING: {len(remaining_relative)} relative paths still remain:")
-            for rel_path in remaining_relative[:5]:  # Zeige erste 5
-                print(f"  - {rel_path}")
-            if len(remaining_relative) > 5:
-                print(f"  ... and {len(remaining_relative)-5} more")
-        else:
-            print(f"\n✅ SUCCESS: All relative .pio paths converted to absolute!")
-        
-        return final_linkcom
-    
-    # Setze die source-basierte LINKCOM-Korrektur
-    env['LINKCOM'] = correct_linkcom_with_sources
-    
     # KORRIGIERTE LINKCOM-Filterung - nur echte naked entries entfernen
-    original_linkcom_func = env.get('LINKCOM')
+    original_linkcom = env.get('LINKCOM')
     
     def filtered_linkcom_substitution(target, source, env):
         """Nur echte naked *.ld scripts entfernen - NIEMALS -T Paare!"""
-        # Führe zuerst die source-basierte Korrektur aus
-        linkcom = original_linkcom_func(target, source, env) if callable(original_linkcom_func) else str(original_linkcom_func)
-        
+        linkcom = env.subst(original_linkcom, target=target, source=source)
         words = linkcom.split()
         filtered_words = []
         removed_naked = []
@@ -2461,6 +2342,255 @@ def clean_clang_linkflags_espidf(target, source, env):
     
     # Setze die gefilterte LINKCOM
     env['LINKCOM'] = filtered_linkcom_substitution
+    
+    # NEU: SOURCE-BASIERTE OBJECT-FILE-KORREKTUR mit ausführlichem Logging
+    def correct_linkcom_with_sources(target, source, env):
+        """
+        Elegante Lösung: Nutze source-Parameter für korrekte Object-File-Pfade
+        """
+        print(f"\n=== SOURCE-BASED OBJECT FILE CORRECTION ===")
+        print(f"Target: {target}")
+        print(f"Source files provided: {len(source)}")
+        
+        # Sammle alle tatsächlichen Object-File-Pfade aus source
+        actual_object_files = []
+        for i, src in enumerate(source):
+            src_path = str(src)
+            print(f"  Source {i+1}: {src_path}")
+            
+            if src_path.endswith('.o'):
+                if os.path.exists(src_path):
+                    absolute_path = os.path.abspath(src_path)
+                    actual_object_files.append(absolute_path)
+                    print(f"    ✅ Object exists: {absolute_path}")
+                else:
+                    print(f"    ❌ Object missing: {src_path}")
+            else:
+                print(f"    ℹ️  Not an object file: {os.path.splitext(src_path)[1]}")
+        
+        print(f"\nFound {len(actual_object_files)} valid object files")
+        
+        # Hole aktuelle LINKCOM über die gefilterte Funktion
+        if callable(env.get('LINKCOM')):
+            current_linkcom = env['LINKCOM'](target, source, env)
+        else:
+            current_linkcom = env.subst('$LINKCOM', target=target, source=source)
+        
+        print(f"DEBUG: Original LINKCOM length: {len(current_linkcom)} characters")
+        
+        # Ersetze alle relativen .pio Object-Pfade durch tatsächliche source-Pfade
+        import re
+        
+        corrected_linkcom = current_linkcom
+        replacements_made = 0
+        
+        # Finde alle .pio/*.o Pfade in der LINKCOM
+        relative_objects = re.findall(r'(\.pio/[^\s]+\.o)', current_linkcom)
+        print(f"\nFound {len(relative_objects)} relative object paths in LINKCOM:")
+        for i, rel_obj in enumerate(relative_objects):
+            print(f"  {i+1}. {rel_obj}")
+        
+        # Ersetze relative Object-Pfade durch source-basierte absolute Pfade
+        for i, relative_obj in enumerate(relative_objects):
+            if i < len(actual_object_files):
+                old_path = relative_obj
+                new_path = actual_object_files[i]
+                corrected_linkcom = corrected_linkcom.replace(old_path, new_path)
+                print(f"  ✅ Replaced: {old_path} → {new_path}")
+                replacements_made += 1
+            else:
+                print(f"  ⚠️  No source match for: {relative_obj}")
+        
+        # Korrigiere auch andere relative .pio Pfade (Library-Pfade etc.)  
+        def replace_other_pio_paths(match):
+            relative_path = match.group(1)
+            if not relative_path.endswith('.o'):  # Nicht Object-Dateien
+                # Normale Pfad-Konvertierung für Library-Pfade etc.
+                build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
+                project_dir = os.path.dirname(os.path.dirname(build_dir))
+                absolute_path = os.path.join(project_dir, relative_path)
+                print(f"  🔄 Converted path: {relative_path} → {absolute_path}")
+                return f" {absolute_path}"
+            return f" {relative_path}"  # Object-Dateien bereits behandelt
+        
+        # Ersetze verbleibende .pio Pfade
+        before_other_replacement = corrected_linkcom
+        corrected_linkcom = re.sub(
+            r' (\.pio/[^\s]+)',
+            replace_other_pio_paths,
+            corrected_linkcom
+        )
+        
+        other_replacements = len(before_other_replacement) != len(corrected_linkcom)
+        if other_replacements:
+            print(f"  ✅ Additional .pio paths converted")
+        
+        # LINKCOM-Korrektur für kombinierte -L Flags
+        print(f"\n=== LINKCOM -L FLAG SEPARATION ===")
+        words = corrected_linkcom.split()
+        final_words = []
+        separated_l_flags = []
+        
+        for word in words:
+            # Kombinierte -L Flags trennen
+            if word.startswith('-L') and len(word) > 2:
+                lib_path = word[2:]
+                final_words.extend(['-L', lib_path])
+                separated_l_flags.append(f"{word} → -L {lib_path}")
+            else:
+                final_words.append(word)
+        
+        # Setze die final korrigierte LINKCOM
+        final_linkcom = ' '.join(final_words)
+        
+        if separated_l_flags:
+            print(f"*** LINKCOM: Separated {len(separated_l_flags)} -L flags:")
+            for flag_change in separated_l_flags:
+                print(f"  - {flag_change}")
+        else:
+            print(f"*** LINKCOM: No combined -L flags found to separate")
+        
+        print(f"DEBUG: Corrected LINKCOM length: {len(final_linkcom)} characters")
+        
+        # KRITISCHE VALIDIERUNG - Prüfe auf verbleibende relative Pfade
+        print(f"\n=== FINAL VALIDATION ===")
+        remaining_relative = re.findall(r'(\.pio/[^\s]+)', final_linkcom)
+        if remaining_relative:
+            print(f"❌ CRITICAL: {len(remaining_relative)} relative paths still remain:")
+            for i, rel_path in enumerate(remaining_relative[:10]):  # Zeige erste 10
+                print(f"  {i+1}. {rel_path}")
+            if len(remaining_relative) > 10:
+                print(f"  ... and {len(remaining_relative)-10} more")
+        else:
+            print(f"✅ SUCCESS: All relative .pio paths converted to absolute!")
+        
+        # Formatierte LINKCOM-Ausgabe für Debug
+        print(f"\n=== FINAL LINKCOM (formatted) ===")
+        def format_linkcom(linkcom_string, max_length=80):
+            words = linkcom_string.split()
+            current_line = ""
+            line_count = 0
+            
+            for word in words:
+                if len(current_line + " " + word) > max_length:
+                    if current_line:
+                        print(current_line + " \\")
+                        current_line = "  " + word
+                    else:
+                        print("  " + word + " \\")
+                        current_line = ""
+                    line_count += 1
+                else:
+                    if current_line:
+                        current_line += " " + word
+                    else:
+                        current_line = word
+            
+            if current_line:
+                print(current_line)
+                line_count += 1
+            
+            return line_count
+        
+        final_lines = format_linkcom(final_linkcom)
+        print("=== END FINAL LINKCOM ===")
+        print(f"Final LINKCOM: {final_lines} lines")
+        
+        # Schreibe LINKCOM in Datei für weitere Analyse
+        try:
+            with open("/tmp/final_linkcom_debug.log", "w", encoding="utf-8") as f:
+                f.write(final_linkcom + "\n")
+            print(f"\nLINKCOM written to: /tmp/final_linkcom_debug.log")
+        except Exception as e:
+            print(f"⚠️  Could not write LINKCOM to file: {e}")
+        
+        # FINALE STATISTIKEN
+        words = final_linkcom.split()
+        stats = {
+            'total_words': len(words),
+            'linker_scripts_t': len([w for w in words if w == "-T"]),
+            'undefined_symbols_u': len([w for w in words if w == "-u"]),
+            'library_paths_l': len([w for w in words if w == "-L"]),
+            'libraries_a': len([w for w in words if w.endswith('.a')]),
+            'object_files_o': len([w for w in words if w.endswith('.o')]),
+            'whole_archive_flags': final_linkcom.count('-Wl,--whole-archive'),
+            'start_group_flags': final_linkcom.count('-Wl,--start-group'),
+        }
+        
+        print(f"\n=== FINAL LINKCOM STATISTICS ===")
+        print(f"  Total words: {stats['total_words']}")
+        print(f"  Linker scripts (-T flags): {stats['linker_scripts_t']}")
+        print(f"  Undefined symbols (-u flags): {stats['undefined_symbols_u']}")
+        print(f"  Library paths (-L flags): {stats['library_paths_l']}")
+        print(f"  Libraries (.a files): {stats['libraries_a']}")
+        print(f"  Object files (.o files): {stats['object_files_o']}")
+        print(f"  Whole archive flags: {stats['whole_archive_flags']}")
+        print(f"  Start group flags: {stats['start_group_flags']}")
+        
+        # KORRIGIERTE KRITISCHE PRÜFUNG - Paarweise Analyse
+        critical_errors = []
+        
+        # Korrekte naked script Erkennung - berücksichtige -T Paare
+        actual_naked_scripts = []
+        i = 0
+        while i < len(words):
+            word = words[i]
+            
+            # Überspringe korrekte -T Paare
+            if word == "-T" and i + 1 < len(words):
+                next_word = words[i + 1]
+                if next_word.endswith('.ld'):
+                    i += 2  # Überspringe das korrekte -T Paar
+                    continue
+            
+            # Nur isolierte .ld Dateien sind problematisch
+            if word.endswith('.ld') and not word.startswith('-T'):
+                actual_naked_scripts.append(word)
+            
+            i += 1
+        
+        if actual_naked_scripts:
+            critical_errors.append(f"ACTUAL NAKED SCRIPTS: {actual_naked_scripts}")
+        
+        # Überprüfe auf orphaned -T Flags (ohne nachfolgendes .ld)
+        orphaned_t_flags = []
+        for i, word in enumerate(words):
+            if word == "-T":
+                if i + 1 >= len(words) or not words[i + 1].endswith('.ld'):
+                    orphaned_t_flags.append(f"Position {i}: -T without .ld argument")
+        
+        if orphaned_t_flags:
+            critical_errors.append(f"ORPHANED -T FLAGS: {orphaned_t_flags}")
+        
+        # Prüfe auf verbleibende relative .pio Pfade
+        remaining_relative = [w for w in words if '.pio/' in w and not os.path.isabs(w)]
+        if remaining_relative:
+            critical_errors.append(f"REMAINING RELATIVE PATHS: {remaining_relative}")
+        
+        # % Zeichen (TypeError risk)
+        if '%' in final_linkcom:
+            percent_count = final_linkcom.count('%')
+            critical_errors.append(f"% CHARACTERS: {percent_count} found (TypeError risk)")
+        
+        # Finale Bewertung
+        if critical_errors:
+            print(f"\n❌ CRITICAL ERRORS DETECTED:")
+            for error in critical_errors:
+                print(f"  🚨 {error}")
+            print(f"\n*** LINKING WILL FAIL - CRITICAL ISSUES MUST BE RESOLVED! ***")
+        else:
+            print(f"\n✅ SUCCESS: LINKCOM is completely clean!")
+            print(f"   - All {stats['linker_scripts_t']} linker scripts properly formatted as -T pairs")
+            print(f"   - All {stats['library_paths_l']} library paths properly separated")
+            print(f"   - {stats['libraries_a']} libraries with {stats['whole_archive_flags']} whole-archive flags")
+            print(f"   - NO actual naked scripts or symbols found")
+            print(f"   - All flags properly formatted for Clang linking")
+            print(f"   - All relative .pio paths converted to absolute paths")
+        
+        return final_linkcom
+    
+    # Setze die source-basierte LINKCOM-Korrektur als finale Funktion
+    env['LINKCOM'] = correct_linkcom_with_sources
     
     print("=== END PATH RESOLUTION ===")
     return (target, source)
