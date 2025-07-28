@@ -2442,12 +2442,17 @@ def clean_clang_linkflags_espidf(target, source, env):
                 print(f"  🔄 Converted path: {relative_path} → {absolute_path}")
                 return f" {absolute_path}"
             return f" {relative_path}"  # Object-Dateien bereits behandelt
-        
-        # Ersetze verbleibende .pio Pfade
-        before_other_replacement = corrected_linkcom
+
         corrected_linkcom = re.sub(
             r' (\.pio/[^\s]+)',
             replace_other_pio_paths,
+            corrected_linkcom
+        )
+
+        # NEU: Spezielle Behandlung für -L Flags mit .pio Pfaden
+        corrected_linkcom = re.sub(
+            r'-L (\.pio/[^\s]+)',  # Findet -L .pio/... Pfade
+            lambda m: f"-L {os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(env.subst('$BUILD_DIR')))), m.group(1))}",
             corrected_linkcom
         )
         
@@ -2852,7 +2857,14 @@ def clean_heuristic_clang_linking(env, libs, link_args):
         
         print(f"Filtered flags: {len(linkflags)} → {len(result)} (removed compiler flags and -o)")
         return result
-    
+
+
+    # NEU: LLD-spezifische Flags für zlib
+    env.AppendUnique(LINKFLAGS=[
+        "--strip-debug",                      # Entferne Debug-Informationen  
+        "-Wl,--compress-debug-sections=none"  # Keine Debug-Kompression
+    ])
+
     # NEU: Build-Verzeichnis und absoluter Output-Pfad
     build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
     output_file = os.path.join(build_dir, "firmware.elf")
