@@ -2545,7 +2545,7 @@ def clean_clang_linkflags_espidf(target, source, env):
 def clean_heuristic_clang_linking(env, libs, link_args):
     """
     Sauberer heuristischer Ansatz - baut von Anfang an die korrekten Flags
-    mit absoluten Output-Pfaden und korrigierter -o Flag-Behandlung
+    mit TARGET-Variable-Überschreibung für absoluten Output-Pfad
     """
     
     # 1. Linker-Scripts sammeln mit VERBESSERTER Pfad-Auflösung
@@ -2688,7 +2688,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
         while i < len(linkflags):
             flag_str = str(linkflags[i])
             
-            # NEU: Bestehende -o Flags herausfiltern (wir setzen sie später absolut)
+            # NEU: Bestehende -o Flags herausfiltern (werden durch TARGET ersetzt)
             if flag_str == '-o' and i + 1 < len(linkflags):
                 output_path = str(linkflags[i + 1])
                 print(f"🔄 Filtered out existing -o flag: -o {output_path}")
@@ -2730,7 +2730,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
     output_file = os.path.join(build_dir, "firmware.elf")
     
-    print(f"\n=== OUTPUT PATH CORRECTION ===")
+    print(f"\n=== TARGET VARIABLE OVERRIDE ===")
     print(f"Current working directory: {os.getcwd()}")
     print(f"Build directory: {build_dir}")
     print(f"✅ Absolute output file: {output_file}")
@@ -2747,12 +2747,11 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     linker_scripts = resolve_and_collect_scripts(linkflags, env)
     essential_libs = collect_essential_libs(libs, link_args)
     undefined_symbols = collect_symbols(linkflags)
-    other_flags = collect_other_flags(linkflags)  # Filtert jetzt -o heraus!
+    other_flags = collect_other_flags(linkflags)  # Filtert -o heraus!
     
-    # Baue finale Flag-Liste mit korrektem absoluten -o Flag
+    # Baue finale Flag-Liste OHNE -o Flag (wird durch TARGET gesetzt)
     final_flags = []
-    final_flags.extend(['-o', output_file])    # ✅ Unser absoluter Output-Pfad ZUERST
-    final_flags.extend(other_flags)            # ✅ Enthält KEIN -o mehr
+    final_flags.extend(other_flags)            # Nur kompatible Linker-Flags (ohne -o)
     final_flags.extend(linker_scripts)         # Mit aufgelösten absoluten Pfaden
     final_flags.extend(undefined_symbols)      # -u symbols
     
@@ -2760,7 +2759,12 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     final_flags.extend(essential_libs)         # Direkt alle Libraries
     final_flags.extend(essential_libs)         # Zweiter Durchgang für zirkuläre Abhängigkeiten
     
-    # Setze Flags - EINMAL und KORREKT
+    # KRITISCH: Überschreibe TARGET Variable mit absoluten Pfad
+    print(f"Original TARGET: {env.get('TARGET', 'NOT SET')}")
+    env.Replace(TARGET=output_file)  # ✅ Absoluter Pfad statt relativer
+    print(f"✅ Override TARGET: {output_file}")
+    
+    # Setze Flags - OHNE -o Flag (wird durch $TARGET gesetzt)
     env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
     libs.clear()
     
@@ -2772,8 +2776,8 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
     print(f"Libraries: {len(essential_libs)} total libraries included")
-    print(f"✅ Corrected: Now using absolute output path instead of relative .pio/...")
-    print(f"✅ Absolute output path: {output_file}")
+    print(f"✅ TARGET override: SCons will use absolute path from $TARGET")
+    print(f"✅ TARGET set to: {output_file}")
     print(f"✅ All compiler flags filtered out")
     print(f"✅ NO GROUPING: Direct library linkage for ESP32-Clang-Linker compatibility")
 
