@@ -2179,6 +2179,8 @@ def clean_clang_linkflags_espidf(target, source, env):
     5. Korrigiert ALLE relativen .pio firmware.elf Pfade zu absoluten Pfaden
     6. Trennt kombinierte -L Flags in der LINKCOM
     7. Ausführliche Debug-Ausgaben und Statistiken mit korrigierter paarweiser Validierung
+    
+    KRITISCH: LINKCOM wird IMMER als String gesetzt, niemals als Funktion!
     """
     original = env.get("LINKFLAGS", [])
     cleaned = []
@@ -2294,13 +2296,28 @@ def clean_clang_linkflags_espidf(target, source, env):
     env.Replace(LINKFLAGS=cleaned)
     print(f"Updated LINKFLAGS: {len(original)} → {len(cleaned)} flags")
     
-    # KORRIGIERTE LINKCOM-Filterung - nur echte naked entries entfernen
-    original_linkcom = env.get('LINKCOM')
+    # ENTFERNT: Keine Funktions-Setzung für LINKCOM mehr!
+    # env['LINKCOM'] = filtered_linkcom_substitution  # ← KOMPLETT ENTFERNT!
     
-    def filtered_linkcom_substitution(target, source, env):
-        """Nur echte naked *.ld scripts entfernen - NIEMALS -T Paare!"""
-        linkcom = env.subst(original_linkcom, target=target, source=source)
-        words = linkcom.split()
+    # ERWEITERTE DEBUG-AUSGABEN - DIREKT MIT STRING-LINKCOM
+    try:
+        print("=== LINK-TIME LINKCOM CORRECTION ===")
+        
+        # Hole aktuelle LINKCOM als String
+        original_linkcom = env.get('LINKCOM')
+        if callable(original_linkcom):
+            # Falls noch eine Funktion gesetzt ist, führe sie aus und konvertiere zu String
+            current_linkcom = str(original_linkcom(target, source, env))
+            print(f"DEBUG: Converted callable LINKCOM to string")
+        else:
+            current_linkcom = str(env.subst('$LINKCOM', target=target, source=source))
+            print(f"DEBUG: Used string LINKCOM directly")
+        
+        print(f"DEBUG: Original LINKCOM length: {len(current_linkcom)} characters")
+        
+        # NAKED SCRIPT/SYMBOL FILTERUNG - DIREKT IM STRING
+        print(f"\n=== FILTERING NAKED ENTRIES ===")
+        words = current_linkcom.split()
         filtered_words = []
         removed_naked = []
         
@@ -2311,7 +2328,7 @@ def clean_clang_linkflags_espidf(target, source, env):
             # ALLE -T Paare IMMER behalten!
             if word == "-T" and i + 1 < len(words):
                 next_word = words[i + 1]
-                filtered_words.extend([word, next_word])  # IMMER behalten!
+                filtered_words.extend([word, next_word])
                 i += 2
                 continue
             
@@ -2339,16 +2356,10 @@ def clean_clang_linkflags_espidf(target, source, env):
         if removed_naked:
             print(f"\n*** LINKCOM: Filtered {len(removed_naked)} naked entries")
         
-        return ' '.join(filtered_words)
-    
-    # Setze die gefilterte LINKCOM
-    env['LINKCOM'] = filtered_linkcom_substitution
-    
-    # ERWEITERTE DEBUG-AUSGABEN mit LINKCOM-Korrektur UND SOURCE-BASIERTER OBJECT-FILE-KORREKTUR
-    try:
-        print("=== LINK-TIME LINKCOM CORRECTION ===")
+        # Gefilterte LINKCOM als String weiterverarbeiten
+        current_linkcom = ' '.join(filtered_words)
         
-        # NEU: SOURCE-BASIERTE OBJECT-FILE-KORREKTUR
+        # SOURCE-BASIERTE OBJECT-FILE-KORREKTUR
         print(f"\n=== SOURCE-BASED OBJECT FILE CORRECTION ===")
         print(f"Target: {target}")
         print(f"Source files provided: {len(source)}")
@@ -2371,15 +2382,7 @@ def clean_clang_linkflags_espidf(target, source, env):
         
         print(f"\nFound {len(actual_object_files)} valid object files from sources")
         
-        # Behandle sowohl String- als auch Funktions-LINKCOM
-        if callable(env.get('LINKCOM')):
-            current_linkcom = env['LINKCOM'](target, source, env)
-        else:
-            current_linkcom = env.subst('$LINKCOM', target=target, source=source)
-        
-        print(f"DEBUG: Original LINKCOM length: {len(current_linkcom)} characters")
-        
-        # NEU: Ersetze alle relativen .pio Object-Pfade durch tatsächliche source-Pfade
+        # Ersetze alle relativen .pio Object-Pfade durch tatsächliche source-Pfade
         import re
         
         # Finde alle .pio/*.o Pfade in der LINKCOM
@@ -2402,14 +2405,13 @@ def clean_clang_linkflags_espidf(target, source, env):
             else:
                 print(f"  ⚠️  No source match for: {relative_obj}")
         
-        # NEU: GENERISCHE Korrektur für ALLE relativen .pio firmware.elf Pfade
+        # GENERISCHE Korrektur für ALLE relativen .pio firmware.elf Pfade
         if "-o .pio/" in corrected_linkcom:
             # Erstelle absoluten Pfad
             build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
             output_file = os.path.join(build_dir, "firmware.elf")
             
             # Ersetze alle Varianten von relativen .pio Pfaden für firmware.elf
-            # Pattern matches: -o .pio/build/BOARD_NAME/firmware.elf
             firmware_corrected = re.sub(
                 r'-o \.pio/build/[^/]+/firmware\.elf',
                 f'-o {output_file}',
@@ -2478,6 +2480,7 @@ def clean_clang_linkflags_espidf(target, source, env):
                 corrected_words.append(word)
 
         final_linkcom = ' '.join(corrected_words)
+        
         # Prüfe und integriere wichtige Linker-Flags
         required_flags = {
             "-Wl,--strip-all": "Remove anything not needed",
@@ -2498,9 +2501,18 @@ def clean_clang_linkflags_espidf(target, source, env):
         else:
             print(f"✅ All required debug strip flags already present")
         
-        # KRITISCH: Immer als String setzen
+        # KRITISCH: IMMER als String setzen - niemals Funktion!
         final_linkcom_string = str(final_linkcom).strip()
         env['LINKCOM'] = final_linkcom_string
+        
+        # Validierung des LINKCOM-Typs
+        linkcom_type = type(env['LINKCOM'])
+        if isinstance(env['LINKCOM'], str):
+            print(f"✅ SUCCESS: LINKCOM is string ({len(env['LINKCOM'])} chars)")
+        else:
+            print(f"❌ ERROR: LINKCOM is {linkcom_type}, not string!")
+            env['LINKCOM'] = str(env['LINKCOM'])  # Notfall-Konvertierung
+            print(f"✅ FIXED: Converted LINKCOM to string")
         
         if separated_l_flags:
             print("\n*** LINKCOM: Separated -L flags:")
@@ -2578,7 +2590,7 @@ def clean_clang_linkflags_espidf(target, source, env):
         # KORRIGIERTE KRITISCHE PRÜFUNG - Paarweise Analyse
         critical_errors = []
         
-        # NEU: Korrekte naked script Erkennung - berücksichtige -T Paare
+        # Korrekte naked script Erkennung - berücksichtige -T Paare
         actual_naked_scripts = []
         i = 0
         while i < len(words):
@@ -2600,7 +2612,7 @@ def clean_clang_linkflags_espidf(target, source, env):
         if actual_naked_scripts:
             critical_errors.append(f"ACTUAL NAKED SCRIPTS: {actual_naked_scripts}")
         
-        # NEU: Überprüfe auf orphaned -T Flags (ohne nachfolgendes .ld)
+        # Überprüfe auf orphaned -T Flags (ohne nachfolgendes .ld)
         orphaned_t_flags = []
         for i, word in enumerate(words):
             if word == "-T":
