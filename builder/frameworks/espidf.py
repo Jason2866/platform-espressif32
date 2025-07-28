@@ -2862,10 +2862,15 @@ def clean_heuristic_clang_linking(env, libs, link_args):
         return result
 
 
-    # NEU: LLD-spezifische Flags für zlib
     env.AppendUnique(LINKFLAGS=[
-        "--strip-debug",                      # Entferne Debug-Informationen  
-        "-Wl,--compress-debug-sections=none"  # Keine Debug-Kompression
+        "--strip-all",
+        "--strip-debug",                        # Entferne Debug-Informationen
+        "-s",                                   # Strip symbols (Linker)
+        "-Wl,-s",
+        "-Wl,--strip-all",
+        "-Wl,--strip-debug",
+        "-Wl,--discard-all",
+        "-Wl,--compress-debug-sections=none"
     ])
 
     # NEU: Build-Verzeichnis und absoluter Output-Pfad
