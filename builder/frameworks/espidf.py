@@ -2882,19 +2882,7 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     # NEU: Build-Verzeichnis und absoluter Output-Pfad
     build_dir = os.path.abspath(env.subst("$BUILD_DIR"))
     output_file = os.path.join(build_dir, "firmware.elf")
-    
-    print(f"\n=== TARGET VARIABLE OVERRIDE ===")
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Build directory: {build_dir}")
-    print(f"✅ Absolute output file: {output_file}")
-    print(f"Directory exists: {os.path.exists(build_dir)}")
-    print(f"Directory writable: {os.access(build_dir, os.W_OK) if os.path.exists(build_dir) else 'N/A'}")
-    
-    # Erstelle Build-Verzeichnis falls es nicht existiert
-    if not os.path.exists(build_dir):
-        print(f"Creating missing build directory: {build_dir}")
-        os.makedirs(build_dir, exist_ok=True)
-    
+
     # Sammle alle Komponenten
     linkflags = link_args["LINKFLAGS"]
     linker_scripts = resolve_and_collect_scripts(linkflags, env)
@@ -2912,11 +2900,6 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     final_flags.extend(essential_libs)         # Direkt alle Libraries
     final_flags.extend(essential_libs)         # Zweiter Durchgang für zirkuläre Abhängigkeiten
     
-    # KRITISCH: Überschreibe TARGET Variable mit absoluten Pfad
-    print(f"Original TARGET: {env.get('TARGET', 'NOT SET')}")
-    env.Replace(TARGET=output_file)  # ✅ Absoluter Pfad statt relativer
-    print(f"✅ Override TARGET: {output_file}")
-    
     # Setze Flags - OHNE -o Flag (wird durch $TARGET gesetzt)
     env.Replace(LINKFLAGS=final_flags, LIBS=[], LIBPATH=link_args.get("LIBPATH", []))
     libs.clear()
@@ -2926,13 +2909,9 @@ def clean_heuristic_clang_linking(env, libs, link_args):
     env.AddPreAction(target_elf, clean_clang_linkflags_espidf)
     
     print(f"\n=== FINAL SUMMARY ===")
-    print(f"Clean heuristic: {len(final_flags)} flags, {len(essential_libs)} libs")
+    print(f"Clean: {len(final_flags)} flags, {len(essential_libs)} libs")
     print(f"Scripts: {len(linker_scripts)//2}, Symbols: {len(undefined_symbols)//2}")
     print(f"Libraries: {len(essential_libs)} total libraries included")
-    print(f"✅ TARGET override: SCons will use absolute path from $TARGET")
-    print(f"✅ TARGET set to: {output_file}")
-    print(f"✅ All compiler flags filtered out")
-    print(f"✅ NO GROUPING: Direct library linkage for ESP32-Clang-Linker compatibility")
 
 #
 # Process project sources
