@@ -2549,6 +2549,72 @@ def clean_clang_linkflags_espidf(target, source, env):
         # KORRIGIERTE KRITISCHE PRÜFUNG - Paarweise Analyse
         critical_errors = []
         
+        # NEU: Korrekte naked script Erkennung - berücksichtige -T Paare
+        actual_naked_scripts = []
+        i = 0
+        while i < len(words):
+            word = words[i]
+            
+            # Überspringe korrekte -T Paare
+            if word == "-T" and i + 1 < len(words):
+                next_word = words[i + 1]
+                if next_word.endswith('.ld'):
+                    i += 2  # Überspringe das korrekte -T Paar
+                    continue
+            
+            # Nur isolierte .ld Dateien sind problematisch
+            if word.endswith('.ld') and not word.startswith('-T'):
+                actual_naked_scripts.append(word)
+            
+            i += 1
+        
+        if actual_naked_scripts:
+            critical_errors.append(f"ACTUAL NAKED SCRIPTS: {actual_naked_scripts}")
+        
+        # NEU: Überprüfe auf orphaned -T Flags (ohne nachfolgendes .ld)
+        orphaned_t_flags = []
+        for i, word in enumerate(words):
+            if word == "-T":
+                if i + 1 >= len(words) or not words[i + 1].endswith('.ld'):
+                    orphaned_t_flags.append(f"Position {i}: -T without .ld argument")
+        
+        if orphaned_t_flags:
+            critical_errors.append(f"ORPHANED -T FLAGS: {orphaned_t_flags}")
+        
+        # Korrekte naked symbol Erkennung - berücksichtige -u Paare
+        actual_naked_symbols = []
+        known_symbols = ['esp_app_desc', 'app_main', 'start_app', '__assert_func', 
+                        'esp_system_include_coredump_init', 'nvs_sec_provider_include_impl']
+        
+        i = 0
+        while i < len(words):
+            word = words[i]
+            
+            # Überspringe korrekte -u Paare
+            if word == "-u" and i + 1 < len(words):
+                next_word = words[i + 1]
+                if next_word in known_symbols:
+                    i += 2  # Überspringe das korrekte -u Paar
+                    continue
+            
+            # Nur isolierte Symbole sind problematisch
+            if word in known_symbols:
+                actual_naked_symbols.append(word)
+            
+            i += 1
+        
+        if actual_naked_symbols:
+            critical_errors.append(f"ACTUAL NAKED SYMBOLS: {actual_naked_symbols}")
+        
+        # Kombinierte Flags (diese sind immer problematisch)
+        combined_t_flags = [w for w in words if w.startswith('-T') and w.endswith('.ld')]
+        if combined_t_flags:
+            critical_errors.append(f"COMBINED -T FLAGS: {combined_t_flags}")
+        
+        combined_l_flags = [w for w in words if w.startswith('-L') and len(w) > 2]
+        if combined_l_flags:
+            critical_errors.append(f"COMBINED -L FLAGS: {combined_l_flags}")
+        
         # Prüfe auf verbleibende relative .pio Pfade
         remaining_relative = [w for w in words if '.pio/' in w and not os.path.isabs(w)]
         if remaining_relative:
@@ -2558,6 +2624,11 @@ def clean_clang_linkflags_espidf(target, source, env):
         if '%' in final_linkcom:
             percent_count = final_linkcom.count('%')
             critical_errors.append(f"% CHARACTERS: {percent_count} found (TypeError risk)")
+            print(f"\n❌ WARNING: Found % characters:")
+            first_percent = final_linkcom.find('%')
+            if first_percent != -1:
+                context = final_linkcom[max(0, first_percent-30):first_percent+30]
+                print(f"  ⚠️  Context: ...{context}...")
         
         # Finale Bewertung
         if critical_errors:
@@ -2571,6 +2642,7 @@ def clean_clang_linkflags_espidf(target, source, env):
             print(f"   - All {stats['library_paths_l']} library paths properly separated")
             print(f"   - {stats['libraries_a']} libraries with {stats['whole_archive_flags']} whole-archive flags")
             print(f"   - {stats['object_files_o']} object files with absolute paths from sources")
+            print(f"   - NO actual naked scripts or symbols found")
             print(f"   - All flags properly formatted for Clang linking")
             print(f"   - All relative .pio paths converted to absolute paths")
         
