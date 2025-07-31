@@ -2135,19 +2135,19 @@ app_includes = get_app_includes(elf_config)
 # Compile bootloader
 #
 
-if flag_custom_sdkonfig == False:
-    bootloader_offset = board.get(
-        "upload.bootloader_offset",
-        sdk_config.get(
-            "BOOTLOADER_OFFSET_IN_FLASH",
-            (
-                "0x1000"
-                if mcu in ["esp32", "esp32s2"]
-                else ("0x2000" if mcu in ["esp32p4", "esp32c5"] else "0x0000")
-            ),
+bootloader_offset = board.get(
+    "upload.bootloader_offset",
+    sdk_config.get(
+        "BOOTLOADER_OFFSET_IN_FLASH",
+        (
+            "0x1000"
+            if mcu in ["esp32", "esp32s2"]
+            else ("0x2000" if mcu in ["esp32p4", "esp32c5"] else "0x0000")
         ),
-    )
+    ),
+)
 
+if flag_custom_sdkonfig == False:
     bootloader = build_bootloader(sdk_config, bootloader_offset)
     env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", bootloader)
 
