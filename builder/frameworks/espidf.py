@@ -2494,9 +2494,9 @@ if ota_partition_params["size"] and ota_partition_params["offset"]:
     if "arduino" in env.subst("$PIOFRAMEWORK"):
         ota_partition_image = os.path.join(ARDUINO_FRAMEWORK_DIR, "tools", "partitions", "boot_app0.bin")
     else:
-            generate_empty_partition_image(
-                ota_partition_image, ota_partition_params["size"]
-            )
+        generate_empty_partition_image(
+            ota_partition_image, ota_partition_params["size"]
+        )
 
     env.Append(
         FLASH_EXTRA_IMAGES=[
