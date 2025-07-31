@@ -1154,7 +1154,7 @@ def build_bootloader(sdk_config, bootloader_offset):
         target_configs, ["STATIC_LIBRARY", "OBJECT_LIBRARY"]
     )
 
-    if env.get("PIO_ESP32_SECURE_BOOT_ENABLED"):
+    if env.get("PIO_ESP32_SECURE_BOOT_ENABLED") and flag_custom_sdkonfig == False:
         if not env.get(
             "PIO_ESP32_SECURE_BOOT_BUILD_SIGNED_BINARIES", False
         ) and sdk_config.get("SECURE_BOOT_V2_ENABLED"):
@@ -1203,7 +1203,7 @@ def build_bootloader(sdk_config, bootloader_offset):
 
     if env.get("PIO_ESP32_SIGNATURE_REQUIRED", False) or env.get(
         "PIO_ESP32_SECURE_BOOT_BUILD_SIGNED_BINARIES", False
-    ):
+    ) and flag_custom_sdkonfig == False:
         bootloader_image_name = "bootloader-signed"
         bootloader_binary = env.SignBin(
             os.path.join("$BUILD_DIR", bootloader_image_name), bootloader_binary
@@ -1211,7 +1211,7 @@ def build_bootloader(sdk_config, bootloader_offset):
 
     if env.get("PIO_ESP32_ENCRYPTION_REQUIRED", False) and env.get(
         "PIO_ESP32_SECURE_FLASH_ENCRYPTION_ENABLED"
-    ):
+    ) and flag_custom_sdkonfig == False:
         bootloader_image_name = "bootloader-encrypted"
         bootloader_binary = env.Clone(
             FLASH_IMAGE_OFFSET=bootloader_offset
@@ -1773,7 +1773,7 @@ def generate_partition_table(partition_table_offset):
             partition_table
         )
 
-    if env.get("PIO_ESP32_ENCRYPTION_REQUIRED", False):
+    if env.get("PIO_ESP32_ENCRYPTION_REQUIRED", False) and flag_custom_sdkonfig == False:
         partition_table = env.Clone(
             FLASH_IMAGE_OFFSET=partition_table_offset
         ).EncryptBin(
@@ -2591,7 +2591,7 @@ env["INTEGRATION_EXTRA_DATA"].update(
 if (
     env.get("PIO_ESP32_SECURE_BOOT_ENABLED", False)
     or env.get("PIO_ESP32_SECURE_FLASH_ENCRYPTION_ENABLED", False)
-):
+) and flag_custom_sdkonfig == False:
     env.AddPreAction("upload", disable_after_reset_hook)
     for target_name in ("app", "bootloader"):
         for action_name in ("", "-signed", "-encrypted", "-signed-encrypted"):
