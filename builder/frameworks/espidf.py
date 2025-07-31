@@ -2255,7 +2255,7 @@ if flag_custom_sdkonfig == False:
         )
 
     if env.get("PIO_ESP32_SINGLE_BOOTLOADER_TARGET", False) or env.get(
-    "PIO_ESP32_SINGLE_APP_TARGET", False
+        "PIO_ESP32_SINGLE_APP_TARGET", False
     ):
         # Extra images are not added if a special target
         # (bootloader or app) is selected
