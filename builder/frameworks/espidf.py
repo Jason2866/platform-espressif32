@@ -2232,44 +2232,45 @@ env.Prepend(
 
 # In Secure Boot the bootloader image is only uploaded if
 # a corresponding option is enabled
-if not env.get("PIO_ESP32_SECURE_BOOT_ENABLED") or sdk_config.get(
-    "SECURE_BOOT_FLASH_BOOTLOADER_DEFAULT", False
-) or env.get("PIO_ESP32_SINGLE_APP_TARGET", False) and flag_custom_sdkonfig == False:
-    env.Append(
-        FLASH_EXTRA_IMAGES=[
-            (
-                bootloader_offset,
-                bootloader.get_abspath(),
-            ),
-        ],
-    )
-elif (
-    env.get("PIO_ESP32_SECURE_BOOT_ENABLED", False)
-    and not sdk_config.get("SECURE_BOOT_FLASH_BOOTLOADER_DEFAULT", False)
-    and not env.get("PIO_ESP32_SINGLE_BOOTLOADER_TARGET", False)
-):
-    print(
-        "Warning! The bootloader image is not uploaded by default "
-        "in Secure Boot mode"
-    )
-
-if env.get("PIO_ESP32_SINGLE_BOOTLOADER_TARGET", False) or env.get(
-    "PIO_ESP32_SINGLE_APP_TARGET", False
-):
-    # Extra images are not added if a special target
-    # (bootloader or app) is selected
-    env.Replace(FLASH_EXTRA_IMAGES=[])
-else:
-    env.Append(
-        FLASH_EXTRA_IMAGES=[
-            (
-                board.get(
-                    "upload.partition_table_offset", hex(partition_table_offset)
+if flag_custom_sdkonfig == False:
+    if not env.get("PIO_ESP32_SECURE_BOOT_ENABLED") or sdk_config.get(
+        "SECURE_BOOT_FLASH_BOOTLOADER_DEFAULT", False
+    ) or env.get("PIO_ESP32_SINGLE_APP_TARGET", False):
+        env.Append(
+            FLASH_EXTRA_IMAGES=[
+                (
+                    bootloader_offset,
+                    bootloader.get_abspath(),
                 ),
-                partition_table[0].get_abspath(),
-            ),
-        ],
-    )
+            ],
+        )
+    elif (
+        env.get("PIO_ESP32_SECURE_BOOT_ENABLED", False)
+        and not sdk_config.get("SECURE_BOOT_FLASH_BOOTLOADER_DEFAULT", False)
+        and not env.get("PIO_ESP32_SINGLE_BOOTLOADER_TARGET", False)
+    ):
+        print(
+            "Warning! The bootloader image is not uploaded by default "
+            "in Secure Boot mode"
+        )
+
+    if env.get("PIO_ESP32_SINGLE_BOOTLOADER_TARGET", False) or env.get(
+    "PIO_ESP32_SINGLE_APP_TARGET", False
+    ):
+        # Extra images are not added if a special target
+        # (bootloader or app) is selected
+        env.Replace(FLASH_EXTRA_IMAGES=[])
+    else:
+        env.Append(
+            FLASH_EXTRA_IMAGES=[
+                (
+                    board.get(
+                        "upload.partition_table_offset", hex(partition_table_offset)
+                    ),
+                    partition_table[0].get_abspath(),
+                ),
+            ],
+        )
 
 #
 # Propagate Arduino defines to the main build environment
