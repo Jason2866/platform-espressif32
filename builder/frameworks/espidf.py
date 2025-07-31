@@ -2140,7 +2140,11 @@ if flag_custom_sdkonfig == False:
         "upload.bootloader_offset",
         sdk_config.get(
             "BOOTLOADER_OFFSET_IN_FLASH",
-            ("0x0" if mcu in ("esp32c3", "esp32c6", "esp32s3") else "0x1000"),
+            (
+                "0x1000"
+                if mcu in ["esp32", "esp32s2"]
+                else ("0x2000" if mcu in ["esp32p4", "esp32c5"] else "0x0000")
+            ),
         ),
     )
 
