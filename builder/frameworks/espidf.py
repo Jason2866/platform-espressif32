@@ -1799,7 +1799,7 @@ env.Append(
                             platform.get_package_dir("tool-esptoolpy") or "",
                             "espsecure.py",
                         ),
-                        "sign_data",
+                        "sign-data",
                         "--version",
                         "$PIO_ESP32_SECURE_BOOT_VERSION",
                         "--keyfile",
