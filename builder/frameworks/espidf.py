@@ -2234,7 +2234,7 @@ env.Prepend(
 # a corresponding option is enabled
 if not env.get("PIO_ESP32_SECURE_BOOT_ENABLED") or sdk_config.get(
     "SECURE_BOOT_FLASH_BOOTLOADER_DEFAULT", False
-) or env.get("PIO_ESP32_SINGLE_APP_TARGET", False):
+) or env.get("PIO_ESP32_SINGLE_APP_TARGET", False) and flag_custom_sdkonfig == False:
     env.Append(
         FLASH_EXTRA_IMAGES=[
             (
