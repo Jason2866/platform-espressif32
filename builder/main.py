@@ -67,8 +67,10 @@ def setup_pipenv_in_package():
     if not os.path.exists(penv_dir):
         try:
             # Install pipenv if not available
-            subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user"], 
-                         check=True, capture_output=True)
+            result = subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user", "--break-system-packages"],
+                                     check=True, capture_output=True)
+            print(f"Pipenv installed successfully: {result.stdout.decode(terminal_cp)}")
+            result.check_returncode()
 
             # Set environment variable to create venv locally
             venv_dir = os.path.join(platformio_dir, ".venv")
