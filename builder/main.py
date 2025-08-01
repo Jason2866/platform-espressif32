@@ -75,8 +75,7 @@ def setup_pipenv_in_package():
                 os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
             
             # Use package directory
-            package_dir = FRAMEWORK_DIR
-            
+            package_dir = projectconfig.get("platformio", "packages_dir")
             print(f"Creating pipenv environment in package directory: {package_dir}")
             
             # Create pipenv environment in package directory
