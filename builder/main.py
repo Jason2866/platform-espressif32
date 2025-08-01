@@ -34,6 +34,7 @@ from SCons.Script import (
 from platformio.project.helpers import get_project_dir
 from platformio.package.version import pepver_to_semver
 from platformio.util import get_serial_ports
+from platformio.compat import IS_WINDOWS
 
 # Python dependencies required for the build process
 python_deps = {
@@ -56,13 +57,19 @@ PYTHON_EXE = env.subst("$PYTHONEXE")  # Global Python executable path
 # Framework directory path
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
+platformio_dir = projectconfig.get("platformio", "core_dir")
+penv_dir = os.path.join(platformio_dir, "penv")
+
+pip_path = os.path.join(
+    penv_dir,
+    "Scripts" if IS_WINDOWS else "bin",
+    "pip" + (".exe" if IS_WINDOWS else ""),
+)
+
 def setup_pipenv_in_package():
     """
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
     """
-    platformio_dir = projectconfig.get("platformio", "core_dir")
-    penv_dir = os.path.join(platformio_dir, "penv")
-
     if not os.path.exists(penv_dir):
         env.Execute(
             env.VerboseAction(
@@ -71,9 +78,14 @@ def setup_pipenv_in_package():
             )
         )
 
-    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if sys.platform == "win32" else os.path.join(penv_dir, "bin", "python3")
+        assert os.path.isfile(
+            pip_path
+        ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
+
+    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python3")
     env.Replace(PYTHONEXE=penv_python)
     print(f"PYTHONEXE updated to penv environment: {penv_python}")
+
 
 setup_pipenv_in_package()
 # Update global PYTHON_EXE variable after potential pipenv setup
@@ -85,6 +97,7 @@ python_dir = os.path.dirname(PYTHON_EXE)
 current_path = os.environ.get("PATH", "")
 if python_dir not in current_path:
     os.environ["PATH"] = python_dir + os.pathsep + current_path
+    assert os.path.isfile(python_dir + os.pathsep + current_path)
 
 
 def add_to_pythonpath(path):
