@@ -100,6 +100,26 @@ if python_dir not in current_path:
 # Verify the Python executable exists
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
 
+if os.path.isfile(python_exe):
+    # Update sys.path to include penv site-packages
+    if IS_WINDOWS:
+        penv_site_packages = os.path.join(penv_dir, "Lib", "site-packages")
+    else:
+        # Find the actual site-packages directory in the venv
+        penv_lib_dir = os.path.join(penv_dir, "lib")
+        if os.path.isdir(penv_lib_dir):
+            for python_dir in os.listdir(penv_lib_dir):
+                if python_dir.startswith("python"):
+                    penv_site_packages = os.path.join(penv_lib_dir, python_dir, "site-packages")
+                    break
+            else:
+                penv_site_packages = None
+        else:
+            penv_site_packages = None
+
+    if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
+        sys.path.insert(0, penv_site_packages)
+
 def add_to_pythonpath(path):
     """
     Add a path to the PYTHONPATH environment variable (cross-platform).
