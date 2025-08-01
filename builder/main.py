@@ -77,16 +77,26 @@ def setup_pipenv_in_package():
             # Use package directory
             package_dir = projectconfig.get("platformio", "packages_dir")
             print(f"Creating pipenv environment in package directory: {package_dir}")
+
+            # Set environment variable to create venv in project directory
+            env_vars = os.environ.copy()
+            env_vars["PIPENV_VENV_IN_PROJECT"] = "1"
             
-            # Create pipenv environment in package directory
-            subprocess.run(["pipenv", "install"], cwd=package_dir, check=True)
+            # Create pipenv environment in package directory (locally)
+            subprocess.run(["pipenv", "install"], cwd=package_dir, check=True, env=env_vars)
+
+            # Get new Python path from local .venv directory
+            local_venv_python = os.path.join(package_dir, ".venv", "Scripts", "python.exe")
             
-            # Get new Python path and update PYTHONEXE
-            result = subprocess.run(["pipenv", "--py"], cwd=package_dir, 
-                                  capture_output=True, text=True, check=True)
-            env.Replace(PYTHONEXE=result.stdout.strip())
-            
-            print(f"PYTHONEXE updated to pipenv environment: {result.stdout.strip()}")
+            if os.path.isfile(local_venv_python):
+                env.Replace(PYTHONEXE=local_venv_python)
+                print(f"PYTHONEXE updated to local pipenv environment: {local_venv_python}")
+            else:
+                # Fallback: use pipenv --py command
+                result = subprocess.run(["pipenv", "--py"], cwd=package_dir, 
+                                      capture_output=True, text=True, check=True, env=env_vars)
+                env.Replace(PYTHONEXE=result.stdout.strip())
+                print(f"PYTHONEXE updated to pipenv environment: {result.stdout.strip()}")
             
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Pipenv setup in package directory failed: {e}")
