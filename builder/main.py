@@ -56,6 +56,50 @@ PYTHON_EXE = env.subst("$PYTHONEXE")  # Global Python executable path
 # Framework directory path
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
+def setup_pipenv_in_package():
+    """
+    Windows only!
+    Checks if PYTHONEXE contains 'penv' and creates pipenv environment if not.
+    """
+    python_exe = env.subst("$PYTHONEXE")
+    
+    if 'penv' not in python_exe.lower():
+        try:
+            # Install pipenv if not available
+            subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user"], 
+                         check=True, capture_output=True)
+            
+            # Extend PATH for Windows Scripts directory
+            scripts_dir = os.path.join(os.path.dirname(python_exe), "Scripts")
+            if os.path.isdir(scripts_dir):
+                os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
+            
+            # Use package directory
+            package_dir = FRAMEWORK_DIR
+            
+            print(f"Creating pipenv environment in package directory: {package_dir}")
+            
+            # Create pipenv environment in package directory
+            subprocess.run(["pipenv", "install"], cwd=package_dir, check=True)
+            
+            # Get new Python path and update PYTHONEXE
+            result = subprocess.run(["pipenv", "--py"], cwd=package_dir, 
+                                  capture_output=True, text=True, check=True)
+            env.Replace(PYTHONEXE=result.stdout.strip())
+            
+            print(f"PYTHONEXE updated to pipenv environment: {result.stdout.strip()}")
+            
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Pipenv setup in package directory failed: {e}")
+    else:
+        print(f"PYTHONEXE already uses pipenv environment: {python_exe}")
+
+if sys.platform == "win32":
+    # Setup pipenv in package directory
+    setup_pipenv_in_package()
+    # Update global PYTHON_EXE variable after potential pipenv setup
+    PYTHON_EXE = env.subst("$PYTHONEXE")
+
 
 def add_to_pythonpath(path):
     """
@@ -125,8 +169,7 @@ def _get_executable_path(python_exe, executable_name):
     python_dir = os.path.dirname(python_exe)
     
     if sys.platform == "win32":
-        scripts_dir = os.path.join(python_dir, "Scripts")
-        executable_path = os.path.join(scripts_dir, f"{executable_name}.exe")
+        executable_path = os.path.join(python_dir, f"{executable_name}.exe")
     else:
         # For Unix-like systems, executables are typically in the same directory as python
         # or in a bin subdirectory
