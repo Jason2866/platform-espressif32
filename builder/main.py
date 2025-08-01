@@ -82,19 +82,17 @@ def setup_pipenv_in_package():
             # Rename .venv to penv if it exists
             if os.path.exists(venv_dir) and not os.path.exists(penv_dir):
                 os.rename(venv_dir, penv_dir)
-            
-            # Update PYTHONEXE to use penv directory
-            penv_python = os.path.join(penv_dir, "Scripts", "python.exe")
-            if os.path.isfile(penv_python):
-                env.Replace(PYTHONEXE=penv_python)
-                print(f"PYTHONEXE updated to penv environment: {penv_python}")
-            else:
-                print(f"Warning: Could not find python.exe in penv directory")
 
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Pipenv setup in package directory failed: {e}")
+
+    penv_python = os.path.join(penv_dir, "Scripts", "python.exe")
+    if os.path.isfile(penv_python):
+        env.Replace(PYTHONEXE=penv_python)
+        print(f"PYTHONEXE updated to penv environment: {penv_python}")
     else:
-        print(f"PYTHONEXE already uses penv environment: {python_exe}")
+        print(f"Warning: Could not find python.exe in penv directory")
+
 
 if sys.platform == "win32":
     # Setup pipenv in package directory
