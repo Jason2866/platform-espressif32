@@ -97,7 +97,9 @@ python_dir = os.path.dirname(PYTHON_EXE)
 current_path = os.environ.get("PATH", "")
 if python_dir not in current_path:
     os.environ["PATH"] = python_dir + os.pathsep + current_path
-    assert os.path.isfile(python_dir + os.pathsep + current_path)
+
+# Verify the Python executable exists
+assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
 
 
 def _get_executable_path(python_exe, executable_name):
