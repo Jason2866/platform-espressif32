@@ -58,25 +58,25 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 def setup_pipenv_in_package():
     """
-    Checks if 'penv' folder exists in package dir and creates pipenv environment if not.
+    Checks if 'penv' folder exists in platformio dir and creates pipenv environment if not.
     """
     python_exe = env.subst("$PYTHONEXE")
-    package_dir = projectconfig.get("platformio", "packages_dir")
-    penv_dir = os.path.join(package_dir, "penv")
+    platformio_dir = projectconfig.get("platformio", "core_dir")
+    penv_dir = os.path.join(platformio_dir, "penv")
     
-    if not os.path.exists(penv_dir):
+    if not penv_dir:
         try:
             # Install pipenv if not available
             subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user"], 
                          check=True, capture_output=True)
 
             # Set environment variable to create venv locally
-            venv_dir = os.path.join(package_dir, ".venv")
+            venv_dir = os.path.join(platformio_dir, ".venv")
             env_vars = os.environ.copy()
             env_vars["PIPENV_VENV_IN_PROJECT"] = "1"
             
             # Create pipenv environment (will create .venv)
-            subprocess.run(["pipenv", "install"], cwd=package_dir, check=True, env=env_vars)
+            subprocess.run(["pipenv", "install"], cwd=platformio_dir, check=True, env=env_vars)
             
             # Rename .venv to penv if it exists
             if os.path.exists(venv_dir) and not os.path.exists(penv_dir):
