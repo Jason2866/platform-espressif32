@@ -378,6 +378,9 @@ def install_python_deps():
     Returns:
         bool: True if successful, False otherwise
     """
+    # Set flag to indicate installation is in progress
+    env["PYTHON_DEPS_INSTALLING"] = True
+    
     # Get uv executable path
     uv_executable = _get_uv_executable_path(PYTHON_EXE)
     
@@ -404,6 +407,7 @@ def install_python_deps():
             if result.returncode != 0:
                 if result.stderr:
                     print(f"Error output: {result.stderr.strip()}")
+                env["PYTHON_DEPS_INSTALLING"] = False
                 return False
             
             # Update uv executable path after installation
@@ -418,12 +422,15 @@ def install_python_deps():
                     
         except subprocess.TimeoutExpired:
             print("Error: uv installation timed out")
+            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except FileNotFoundError:
             print("Error: Python executable not found")
+            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except Exception as e:
             print(f"Error installing uv package manager: {e}")
+            env["PYTHON_DEPS_INSTALLING"] = False
             return False
 
     
@@ -493,18 +500,24 @@ def install_python_deps():
                 print(f"Error: Failed to install Python dependencies (exit code: {result.returncode})")
                 if result.stderr:
                     print(f"Error output: {result.stderr.strip()}")
+                env["PYTHON_DEPS_INSTALLING"] = False
                 return False
                 
         except subprocess.TimeoutExpired:
             print("Error: Python dependencies installation timed out")
+            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except FileNotFoundError:
             print("Error: uv command not found")
+            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except Exception as e:
             print(f"Error installing Python dependencies: {e}")
+            env["PYTHON_DEPS_INSTALLING"] = False
             return False
     
+    # Clear installing flag when successful
+    env["PYTHON_DEPS_INSTALLING"] = False
     return True
 
 

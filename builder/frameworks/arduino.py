@@ -36,6 +36,43 @@ from SCons.Script import DefaultEnvironment, SConscript
 from platformio import fs
 from platformio.package.manager.tool import ToolPackageManager
 
+# CRITICAL: Wait for Python dependencies before doing ANYTHING else
+import time
+env = DefaultEnvironment()
+
+def wait_for_python_dependencies():
+    """Wait until Python dependencies are installed before proceeding"""
+    max_wait_time = 120  # Maximum wait time in seconds
+    check_interval = 2   # Check every 2 seconds
+    start_time = time.time()
+    
+    print("[Arduino Framework] Checking Python dependencies...")
+    
+    while time.time() - start_time < max_wait_time:
+        deps_installed = env.get("PYTHON_DEPS_INSTALLED", False)
+        
+        if deps_installed:
+            print("[Arduino Framework] Python dependencies are ready!")
+            return True
+            
+        # Check if dependencies are still being installed
+        deps_installing = env.get("PYTHON_DEPS_INSTALLING", False)
+        if deps_installing:
+            print("[Arduino Framework] Waiting for dependency installation to complete...")
+        else:
+            print("[Arduino Framework] Dependencies not yet started, waiting...")
+            
+        time.sleep(check_interval)
+    
+    # Timeout reached
+    print("[Arduino Framework] ERROR: Timeout waiting for Python dependencies!")
+    print("[Arduino Framework] Dependencies did not become available within 120 seconds")
+    env.Exit(1)
+    return False
+
+# WAIT FOR DEPENDENCIES BEFORE CONTINUING
+wait_for_python_dependencies()
+
 IS_WINDOWS = sys.platform.startswith("win")
 
 # Constants for better performance
@@ -501,8 +538,7 @@ def safe_remove_sdkconfig_files():
             safe_delete_file(file_path)
 
 
-# Initialization
-env = DefaultEnvironment()
+# Initialization (env already initialized at top for dependency check)
 pm = ToolPackageManager()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
@@ -878,23 +914,17 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and
         arduino_lib_compile_flag in ("Inactive", "True")):
 
-    # Check if Python dependencies were installed successfully
-    if env.get("PYTHON_DEPS_INSTALLED", False):
-        # try to remove not needed include path if an lib_ignore entry exists
-        from component_manager import ComponentManager
-        component_manager = ComponentManager(env)
-        component_manager.handle_component_settings()
-        silent_action = env.Action(component_manager.restore_pioarduino_build_py)
-        # hack to silence scons command output
-        silent_action.strfunction = lambda target, source, env: ''
-        env.AddPostAction("checkprogsize", silent_action)
+    # try to remove not needed include path if an lib_ignore entry exists
+    from component_manager import ComponentManager
+    component_manager = ComponentManager(env)
+    component_manager.handle_component_settings()
+    silent_action = env.Action(component_manager.restore_pioarduino_build_py)
+    # hack to silence scons command output
+    silent_action.strfunction = lambda target, source, env: ''
+    env.AddPostAction("checkprogsize", silent_action)
 
-        if IS_WINDOWS:
-            env.AddBuildMiddleware(smart_include_length_shorten)
+    if IS_WINDOWS:
+        env.AddBuildMiddleware(smart_include_length_shorten)
 
-        build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py")
-        SConscript(build_script_path)
-    else:
-        print("[ComponentManager] Error: Python dependencies not available, build cannot continue")
-        print("[ComponentManager] Please ensure PyYAML and other dependencies are properly installed")
-        env.Exit(1)
+    build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py")
+    SConscript(build_script_path)
