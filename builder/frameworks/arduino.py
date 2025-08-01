@@ -36,8 +36,6 @@ from SCons.Script import DefaultEnvironment, SConscript
 from platformio import fs
 from platformio.package.manager.tool import ToolPackageManager
 
-env = DefaultEnvironment()
-
 IS_WINDOWS = sys.platform.startswith("win")
 
 # Constants for better performance
@@ -503,7 +501,8 @@ def safe_remove_sdkconfig_files():
             safe_delete_file(file_path)
 
 
-# Initialization (env already initialized at top for dependency check)
+# Initialization
+env = DefaultEnvironment()
 pm = ToolPackageManager()
 platform = env.PioPlatform()
 config = env.GetProjectConfig()
