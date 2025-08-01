@@ -78,33 +78,35 @@ def setup_pipenv_in_package():
             package_dir = projectconfig.get("platformio", "packages_dir")
             print(f"Creating pipenv environment in package directory: {package_dir}")
 
-            # Set environment variable to create venv in project directory
+            venv_dir = os.path.join(package_dir, ".venv")
             penv_dir = os.path.join(package_dir, "penv")
+            
+            print(f"Creating pipenv environment in package directory: {package_dir}")
+            
+            # Set environment variable to create venv locally
             env_vars = os.environ.copy()
-            env_vars["WORKON_HOME"] = package_dir
-            env_vars["PIPENV_CUSTOM_VENV_NAME"] = "penv"
             env_vars["PIPENV_VENV_IN_PROJECT"] = "1"
             
-            # Create pipenv environment in package directory
+            # Create pipenv environment (will create .venv)
             subprocess.run(["pipenv", "install"], cwd=package_dir, check=True, env=env_vars)
             
-            # Get Python path from 'penv' directory
-            penv_python = os.path.join(penv_dir, "Scripts", "python.exe")
+            # Rename .venv to penv if it exists
+            if os.path.exists(venv_dir) and not os.path.exists(penv_dir):
+                os.rename(venv_dir, penv_dir)
+                print(f"Renamed .venv to penv directory")
             
+            # Update PYTHONEXE to use penv directory
+            penv_python = os.path.join(penv_dir, "Scripts", "python.exe")
             if os.path.isfile(penv_python):
                 env.Replace(PYTHONEXE=penv_python)
                 print(f"PYTHONEXE updated to penv environment: {penv_python}")
             else:
-                # Fallback: use pipenv --py command
-                result = subprocess.run(["pipenv", "--py"], cwd=package_dir, 
-                                      capture_output=True, text=True, check=True, env=env_vars)
-                env.Replace(PYTHONEXE=result.stdout.strip())
-                print(f"PYTHONEXE updated to pipenv environment: {result.stdout.strip()}")
+                print(f"Warning: Could not find python.exe in penv directory")
             
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Pipenv setup in package directory failed: {e}")
     else:
-        print(f"PYTHONEXE already uses pipenv environment: {python_exe}")
+        print(f"PYTHONEXE already uses penv environment: {python_exe}")
 
 if sys.platform == "win32":
     # Setup pipenv in package directory
