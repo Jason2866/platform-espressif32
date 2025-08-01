@@ -146,7 +146,8 @@ def setup_pipenv_in_package():
                 # Install pipenv using uv if available, otherwise use pip
                 try:
                     if uv_available:
-                        result = subprocess.run([python_exe, "-m", "uv", "pip", "install", "pipenv", "--user"],
+                        # uv doesn't support --user flag, it manages its own environments
+                        result = subprocess.run([python_exe, "-m", "uv", "pip", "install", "pipenv"],
                                                check=True, capture_output=True)
                     else:
                         print("uv not available, using pip...")
