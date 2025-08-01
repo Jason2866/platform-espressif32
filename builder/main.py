@@ -86,7 +86,6 @@ def setup_pipenv_in_package():
     env.Replace(PYTHONEXE=penv_python)
     print(f"PYTHONEXE updated to penv environment: {penv_python}")
 
-
 setup_pipenv_in_package()
 # Update global PYTHON_EXE variable after potential pipenv setup
 PYTHON_EXE = env.subst("$PYTHONEXE")
@@ -101,6 +100,51 @@ if python_dir not in current_path:
 # Verify the Python executable exists
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
 
+def add_to_pythonpath(path):
+    """
+    Add a path to the PYTHONPATH environment variable (cross-platform).
+    
+    Args:
+        path (str): The path to add to PYTHONPATH
+    """
+    # Normalize the path for the current OS
+    normalized_path = os.path.normpath(path)
+    
+    # Add to PYTHONPATH environment variable
+    if "PYTHONPATH" in os.environ:
+        current_paths = os.environ["PYTHONPATH"].split(os.pathsep)
+        normalized_current_paths = [os.path.normpath(p) for p in current_paths]
+        if normalized_path not in normalized_current_paths:
+            os.environ["PYTHONPATH"] = normalized_path + os.pathsep + os.environ.get("PYTHONPATH", "")
+    else:
+        os.environ["PYTHONPATH"] = normalized_path
+    
+    # Also add to sys.path for immediate availability
+    if normalized_path not in sys.path:
+        sys.path.insert(0, normalized_path)
+
+def setup_python_paths():
+    """
+    Setup Python paths based on the actual Python executable being used.
+    """    
+    # Get the directory containing the Python executable
+    python_dir = os.path.dirname(PYTHON_EXE)
+    add_to_pythonpath(python_dir)
+    
+    # Try to find site-packages directory using the actual Python executable
+    result = subprocess.run(
+        [PYTHON_EXE, "-c", "import site; print(site.getsitepackages()[0])"],
+        capture_output=True,
+        text=True,
+        timeout=5
+    )
+    if result.returncode == 0:
+        site_packages = result.stdout.strip()
+        if os.path.isdir(site_packages):
+            add_to_pythonpath(site_packages)
+
+# Setup Python paths based on the actual Python executable
+setup_python_paths()
 
 def _get_executable_path(python_exe, executable_name):
     """
