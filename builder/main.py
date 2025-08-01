@@ -85,7 +85,7 @@ def setup_pipenv_in_package():
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Pipenv setup in package directory failed: {e}")
 
-    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if sys.platform == "win32" else os.path.join(penv_dir, "python3")
+    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if sys.platform == "win32" else os.path.join(penv_dir, "bin", "python3")
     if os.path.isfile(penv_python):
         env.Replace(PYTHONEXE=penv_python)
         print(f"PYTHONEXE updated to penv environment: {penv_python}")
