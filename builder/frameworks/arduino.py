@@ -36,70 +36,7 @@ from SCons.Script import DefaultEnvironment, SConscript
 from platformio import fs
 from platformio.package.manager.tool import ToolPackageManager
 
-# CRITICAL: Wait for Python dependencies before doing ANYTHING else
-import time
-import subprocess
 env = DefaultEnvironment()
-
-def restart_with_correct_python():
-    """Restart this script with the correct Python environment if needed"""
-    framework_python = env.get("FRAMEWORK_PYTHON_EXE")
-    current_python = sys.executable
-    
-    if framework_python and framework_python != current_python:
-        print(f"[Arduino Framework] Restarting with correct Python environment: {framework_python}")
-        
-        # Get the current script path
-        script_path = __file__
-        
-        # Re-execute this script with the correct Python
-        result = subprocess.run([
-            framework_python, script_path
-        ], env=dict(os.environ, **{
-            "PLATFORMIO_ARDUINO_FRAMEWORK_RESTARTED": "1"
-        }))
-        
-        # Exit this process after the subprocess completes
-        sys.exit(result.returncode)
-    
-    return True
-
-def wait_for_python_dependencies():
-    """Wait until Python dependencies are installed before proceeding"""
-    max_wait_time = 120  # Maximum wait time in seconds
-    check_interval = 2   # Check every 2 seconds
-    start_time = time.time()
-    
-    print("[Arduino Framework] Checking Python dependencies...")
-    
-    while time.time() - start_time < max_wait_time:
-        deps_installed = env.get("PYTHON_DEPS_INSTALLED", False)
-        
-        if deps_installed:
-            print("[Arduino Framework] Python dependencies are ready!")
-            return True
-            
-        # Check if dependencies are still being installed
-        deps_installing = env.get("PYTHON_DEPS_INSTALLING", False)
-        if deps_installing:
-            print("[Arduino Framework] Waiting for dependency installation to complete...")
-        else:
-            print("[Arduino Framework] Dependencies not yet started, waiting...")
-            
-        time.sleep(check_interval)
-    
-    # Timeout reached
-    print("[Arduino Framework] ERROR: Timeout waiting for Python dependencies!")
-    print("[Arduino Framework] Dependencies did not become available within 120 seconds")
-    env.Exit(1)
-    return False
-
-# Check if we've already been restarted with the correct Python
-if not os.environ.get("PLATFORMIO_ARDUINO_FRAMEWORK_RESTARTED"):
-    restart_with_correct_python()
-
-# WAIT FOR DEPENDENCIES BEFORE CONTINUING
-wait_for_python_dependencies()
 
 IS_WINDOWS = sys.platform.startswith("win")
 
@@ -942,7 +879,6 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and
         arduino_lib_compile_flag in ("Inactive", "True")):
 
-    # Dependencies are already verified and we're running with correct Python environment
     # try to remove not needed include path if an lib_ignore entry exists
     from component_manager import ComponentManager
     component_manager = ComponentManager(env)

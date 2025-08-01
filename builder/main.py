@@ -230,10 +230,6 @@ def setup_pipenv_in_package():
             print("Pipenv environment was not created successfully.")
 
 
-
-
-#if sys.platform == "win32":
-# Setup pipenv in package directory
 setup_pipenv_in_package()
 # Update global PYTHON_EXE variable after potential pipenv setup
 PYTHON_EXE = env.subst("$PYTHONEXE")
