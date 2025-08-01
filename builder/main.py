@@ -131,8 +131,27 @@ def setup_pipenv_in_package():
             # Install pipenv if not found
             if not pipenv_executable:
                 print("Pipenv not found, installing...")
-                result = subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user", "--break-system-packages"],
-                                         check=True, capture_output=True)
+                
+                # Check if uv is available for faster installation
+                uv_available = False
+                try:
+                    result = subprocess.run([python_exe, "-m", "uv", "--version"], 
+                                          capture_output=True, text=True, timeout=3)
+                    uv_available = result.returncode == 0
+                    if uv_available:
+                        print("Using uv for faster pipenv installation...")
+                except:
+                    pass
+                
+                # Install pipenv using uv if available, otherwise use pip
+                if uv_available:
+                    result = subprocess.run([python_exe, "-m", "uv", "pip", "install", "pipenv", "--user"],
+                                           check=True, capture_output=True)
+                else:
+                    print("uv not available, using pip...")
+                    result = subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user", "--break-system-packages"],
+                                           check=True, capture_output=True)
+                
                 print(f"Pipenv installed successfully: {result.stdout.decode(terminal_cp)}")
                 result.check_returncode()
                 
