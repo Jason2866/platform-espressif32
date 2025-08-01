@@ -884,7 +884,7 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     component_manager = ComponentManager(env)
     component_manager.handle_component_settings()
     silent_action = env.Action(component_manager.restore_pioarduino_build_py)
-    # hack to silence scons command output
+    # silence scons command output
     silent_action.strfunction = lambda target, source, env: ''
     env.AddPostAction("checkprogsize", silent_action)
 

@@ -235,66 +235,11 @@ setup_pipenv_in_package()
 PYTHON_EXE = env.subst("$PYTHONEXE")
 python_exe = PYTHON_EXE
 
-# CRITICAL: Update Python environment IMMEDIATELY after pipenv setup
-if PYTHON_EXE and os.path.isfile(PYTHON_EXE) and PYTHON_EXE != sys.executable:
-    # Windows-specific PATH cleanup for subprocess calls
-    if sys.platform == "win32":
-        python_dir = os.path.dirname(PYTHON_EXE)
-        current_path = os.environ.get("PATH", "")
-        path_parts = current_path.split(os.pathsep)
-            
-        # Remove conflicting Python paths from environment
-        filtered_paths = []
-        for path_part in path_parts:
-            skip_path = False
-            path_lower = path_part.lower()
-                
-            # Skip if it contains python executables or typical Python directories
-            python_indicators = [
-                "python", "scripts", "site-packages", 
-                "hostedtoolcache", "appdata\\local\\programs\\python",
-                "program files\\python", "anaconda", "miniconda", "conda"
-            ]
-                
-            # Also check if this path actually contains python.exe
-            potential_python = os.path.join(path_part, "python.exe")
-            if os.path.isfile(potential_python):
-                skip_path = True
-                
-            # Skip if any Python indicator is found in the path
-            if any(indicator in path_lower for indicator in python_indicators):
-                skip_path = True
-                
-            if not skip_path:
-                filtered_paths.append(path_part)
-            
-        # Ensure our penv Python directory is at the very beginning
-        new_path = python_dir + os.pathsep + os.pathsep.join(filtered_paths)
-        os.environ["PATH"] = new_path
-        
-        # WINDOWS SOLUTION: Install PyYAML directly in penv environment for immediate availability
-        try:
-            import yaml
-        except ImportError:
-            try:
-                result = subprocess.run([
-                    PYTHON_EXE, "-m", "pip", "install", "PyYAML>=6.0.2", "--quiet"
-                ], capture_output=True, text=True, timeout=30)
-                if result.returncode == 0:
-                    # Add penv site-packages to sys.path for immediate import
-                    penv_site_packages = subprocess.run([
-                        PYTHON_EXE, "-c", "import site; print(site.getsitepackages()[0])"
-                    ], capture_output=True, text=True)
-                    if penv_site_packages.returncode == 0:
-                        site_pkg_path = penv_site_packages.stdout.strip()
-                        if site_pkg_path not in sys.path:
-                            sys.path.insert(0, site_pkg_path)
-            except Exception as e:
-                pass
-    
-    # Update environment variables for all platforms
-    os.environ["PYTHONEXE"] = PYTHON_EXE
-    os.environ["PYTHON"] = PYTHON_EXE
+# Ensure penv Python directory is in PATH for subprocess calls
+python_dir = os.path.dirname(PYTHON_EXE)
+current_path = os.environ.get("PATH", "")
+if python_dir not in current_path:
+    os.environ["PATH"] = python_dir + os.pathsep + current_path
 
 
 def add_to_pythonpath(path):
@@ -435,9 +380,6 @@ def install_python_deps():
     Returns:
         bool: True if successful, False otherwise
     """
-    # Set flag to indicate installation is in progress
-    env["PYTHON_DEPS_INSTALLING"] = True
-    
     # Get uv executable path
     uv_executable = _get_uv_executable_path(PYTHON_EXE)
     
@@ -464,7 +406,6 @@ def install_python_deps():
             if result.returncode != 0:
                 if result.stderr:
                     print(f"Error output: {result.stderr.strip()}")
-                env["PYTHON_DEPS_INSTALLING"] = False
                 return False
             
             # Update uv executable path after installation
@@ -479,15 +420,12 @@ def install_python_deps():
                     
         except subprocess.TimeoutExpired:
             print("Error: uv installation timed out")
-            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except FileNotFoundError:
             print("Error: Python executable not found")
-            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except Exception as e:
             print(f"Error installing uv package manager: {e}")
-            env["PYTHON_DEPS_INSTALLING"] = False
             return False
 
     
@@ -557,24 +495,18 @@ def install_python_deps():
                 print(f"Error: Failed to install Python dependencies (exit code: {result.returncode})")
                 if result.stderr:
                     print(f"Error output: {result.stderr.strip()}")
-                env["PYTHON_DEPS_INSTALLING"] = False
                 return False
                 
         except subprocess.TimeoutExpired:
             print("Error: Python dependencies installation timed out")
-            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except FileNotFoundError:
             print("Error: uv command not found")
-            env["PYTHON_DEPS_INSTALLING"] = False
             return False
         except Exception as e:
             print(f"Error installing Python dependencies: {e}")
-            env["PYTHON_DEPS_INSTALLING"] = False
             return False
     
-    # Clear installing flag when successful
-    env["PYTHON_DEPS_INSTALLING"] = False
     return True
 
 
@@ -618,17 +550,8 @@ def install_esptool():
     return 'esptool'  # Fallback
 
 
-# Install Python dependencies and esptool
-# Install dependencies first to ensure they're available for framework scripts
-print("Installing Python dependencies...")
+# Install Python dependencies
 deps_installed = install_python_deps()
-env["PYTHON_DEPS_INSTALLED"] = deps_installed
-# Pass the correct Python executable to framework scripts
-env["FRAMEWORK_PYTHON_EXE"] = PYTHON_EXE
-if deps_installed:
-    print("Python dependencies installation completed successfully")
-else:
-    print("Warning: Python dependencies installation failed")
 
 # Install esptool after dependencies
 esptool_binary_path = install_esptool()
