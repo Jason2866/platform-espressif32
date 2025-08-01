@@ -38,7 +38,31 @@ from platformio.package.manager.tool import ToolPackageManager
 
 # CRITICAL: Wait for Python dependencies before doing ANYTHING else
 import time
+import subprocess
 env = DefaultEnvironment()
+
+def restart_with_correct_python():
+    """Restart this script with the correct Python environment if needed"""
+    framework_python = env.get("FRAMEWORK_PYTHON_EXE")
+    current_python = sys.executable
+    
+    if framework_python and framework_python != current_python:
+        print(f"[Arduino Framework] Restarting with correct Python environment: {framework_python}")
+        
+        # Get the current script path
+        script_path = __file__
+        
+        # Re-execute this script with the correct Python
+        result = subprocess.run([
+            framework_python, script_path
+        ], env=dict(os.environ, **{
+            "PLATFORMIO_ARDUINO_FRAMEWORK_RESTARTED": "1"
+        }))
+        
+        # Exit this process after the subprocess completes
+        sys.exit(result.returncode)
+    
+    return True
 
 def wait_for_python_dependencies():
     """Wait until Python dependencies are installed before proceeding"""
@@ -69,6 +93,10 @@ def wait_for_python_dependencies():
     print("[Arduino Framework] Dependencies did not become available within 120 seconds")
     env.Exit(1)
     return False
+
+# Check if we've already been restarted with the correct Python
+if not os.environ.get("PLATFORMIO_ARDUINO_FRAMEWORK_RESTARTED"):
+    restart_with_correct_python()
 
 # WAIT FOR DEPENDENCIES BEFORE CONTINUING
 wait_for_python_dependencies()
@@ -914,6 +942,7 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and
         arduino_lib_compile_flag in ("Inactive", "True")):
 
+    # Dependencies are already verified and we're running with correct Python environment
     # try to remove not needed include path if an lib_ignore entry exists
     from component_manager import ComponentManager
     component_manager = ComponentManager(env)

@@ -566,6 +566,8 @@ def install_esptool():
 print("Installing Python dependencies...")
 deps_installed = install_python_deps()
 env["PYTHON_DEPS_INSTALLED"] = deps_installed
+# Pass the correct Python executable to framework scripts
+env["FRAMEWORK_PYTHON_EXE"] = PYTHON_EXE
 if deps_installed:
     print("Python dependencies installation completed successfully")
 else:
