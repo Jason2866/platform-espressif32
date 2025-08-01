@@ -58,7 +58,6 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 
 def setup_pipenv_in_package():
     """
-    Windows only!
     Checks if 'penv' folder exists in package dir and creates pipenv environment if not.
     """
     python_exe = env.subst("$PYTHONEXE")
@@ -86,7 +85,7 @@ def setup_pipenv_in_package():
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Pipenv setup in package directory failed: {e}")
 
-    penv_python = os.path.join(penv_dir, "Scripts", "python.exe")
+    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if sys.platform == "win32" else os.path.join(penv_dir, "python3")
     if os.path.isfile(penv_python):
         env.Replace(PYTHONEXE=penv_python)
         print(f"PYTHONEXE updated to penv environment: {penv_python}")
@@ -94,11 +93,11 @@ def setup_pipenv_in_package():
         print(f"Warning: Could not find python.exe in penv directory")
 
 
-if sys.platform == "win32":
-    # Setup pipenv in package directory
-    setup_pipenv_in_package()
-    # Update global PYTHON_EXE variable after potential pipenv setup
-    PYTHON_EXE = env.subst("$PYTHONEXE")
+#if sys.platform == "win32":
+# Setup pipenv in package directory
+setup_pipenv_in_package()
+# Update global PYTHON_EXE variable after potential pipenv setup
+PYTHON_EXE = env.subst("$PYTHONEXE")
 
 
 def add_to_pythonpath(path):
