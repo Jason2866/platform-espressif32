@@ -82,7 +82,7 @@ def setup_pipenv_in_package():
             pip_path
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
 
-    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python3")
+    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python")
     env.Replace(PYTHONEXE=penv_python)
     print(f"PYTHONEXE updated to penv environment: {penv_python}")
 

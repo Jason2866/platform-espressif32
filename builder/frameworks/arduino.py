@@ -35,8 +35,35 @@ from typing import Union, List
 from SCons.Script import DefaultEnvironment, SConscript
 from platformio import fs
 from platformio.package.manager.tool import ToolPackageManager
+from platformio.compat import IS_WINDOWS
 
-IS_WINDOWS = sys.platform.startswith("win")
+env = DefaultEnvironment()
+
+# Ensure we use the same Python environment as main.py
+# Get the penv Python if it exists
+platformio_dir = env.GetProjectConfig().get("platformio", "core_dir")
+penv_dir = os.path.join(platformio_dir, "penv")
+penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python")
+
+if os.path.isfile(penv_python):
+    # Update sys.path to include penv site-packages
+    if IS_WINDOWS:
+        penv_site_packages = os.path.join(penv_dir, "Lib", "site-packages")
+    else:
+        # Find the actual site-packages directory in the venv
+        penv_lib_dir = os.path.join(penv_dir, "lib")
+        if os.path.isdir(penv_lib_dir):
+            for python_dir in os.listdir(penv_lib_dir):
+                if python_dir.startswith("python"):
+                    penv_site_packages = os.path.join(penv_lib_dir, python_dir, "site-packages")
+                    break
+            else:
+                penv_site_packages = None
+        else:
+            penv_site_packages = None
+    
+    if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
+        sys.path.insert(0, penv_site_packages)
 
 # Constants for better performance
 UNICORE_FLAGS = {
