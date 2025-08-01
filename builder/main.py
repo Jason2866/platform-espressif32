@@ -310,7 +310,11 @@ def _get_executable_path(python_exe, executable_name):
     python_dir = os.path.dirname(python_exe)
     
     if sys.platform == "win32":
-        executable_path = os.path.join(python_dir, f"{executable_name}.exe")
+        candidates = [
+            os.path.join(python_dir, f"{executable_name}.exe"),
+            os.path.join(python_dir, "Scripts", f"{executable_name}.exe"),
+        ]
+        executable_path = next((p for p in candidates if os.path.isfile(p)), candidates[0])
     else:
         # For Unix-like systems, executables are typically in the same directory as python
         # or in a bin subdirectory
