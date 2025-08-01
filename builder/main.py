@@ -244,13 +244,38 @@ if PYTHON_EXE and os.path.isfile(PYTHON_EXE) and PYTHON_EXE != sys.executable:
     if sys.platform == "win32":
         python_dir = os.path.dirname(PYTHON_EXE)
         current_path = os.environ.get("PATH", "")
-        # Remove any existing Python paths to avoid conflicts
         path_parts = current_path.split(os.pathsep)
-        filtered_paths = [p for p in path_parts if not ("python" in p.lower() and "site-packages" not in p.lower())]
-        # Add our Python directory at the beginning
+        
+        # More comprehensive removal of Python paths
+        filtered_paths = []
+        for path_part in path_parts:
+            skip_path = False
+            path_lower = path_part.lower()
+            
+            # Skip if it contains python executables or typical Python directories
+            python_indicators = [
+                "python", "scripts", "site-packages", 
+                "hostedtoolcache", "appdata\\local\\programs\\python",
+                "program files\\python", "anaconda", "miniconda", "conda"
+            ]
+            
+            # Also check if this path actually contains python.exe
+            potential_python = os.path.join(path_part, "python.exe")
+            if os.path.isfile(potential_python):
+                skip_path = True
+            
+            # Skip if any Python indicator is found in the path
+            if any(indicator in path_lower for indicator in python_indicators):
+                skip_path = True
+            
+            if not skip_path:
+                filtered_paths.append(path_part)
+        
+        # Ensure our penv Python directory is at the very beginning
         new_path = python_dir + os.pathsep + os.pathsep.join(filtered_paths)
         os.environ["PATH"] = new_path
-        print(f"Updated Windows PATH to prioritize: {python_dir}")
+        print(f"Updated Windows PATH to prioritize penv Python: {python_dir}")
+        print(f"Removed {len(path_parts) - len(filtered_paths)} potentially conflicting Python paths")
 
 
 def add_to_pythonpath(path):
