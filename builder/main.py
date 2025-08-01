@@ -68,20 +68,13 @@ def setup_pipenv_in_package():
             # Install pipenv if not available
             subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user"], 
                          check=True, capture_output=True)
-            
-            # Extend PATH for Windows Scripts directory
-            scripts_dir = os.path.join(os.path.dirname(python_exe), "Scripts")
-            if os.path.isdir(scripts_dir):
-                os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
-            
+
             # Use package directory
             package_dir = projectconfig.get("platformio", "packages_dir")
             print(f"Creating pipenv environment in package directory: {package_dir}")
 
             venv_dir = os.path.join(package_dir, ".venv")
             penv_dir = os.path.join(package_dir, "penv")
-            
-            print(f"Creating pipenv environment in package directory: {package_dir}")
             
             # Set environment variable to create venv locally
             env_vars = os.environ.copy()
@@ -93,7 +86,6 @@ def setup_pipenv_in_package():
             # Rename .venv to penv if it exists
             if os.path.exists(venv_dir) and not os.path.exists(penv_dir):
                 os.rename(venv_dir, penv_dir)
-                print(f"Renamed .venv to penv directory")
             
             # Update PYTHONEXE to use penv directory
             penv_python = os.path.join(penv_dir, "Scripts", "python.exe")
@@ -102,7 +94,7 @@ def setup_pipenv_in_package():
                 print(f"PYTHONEXE updated to penv environment: {penv_python}")
             else:
                 print(f"Warning: Could not find python.exe in penv directory")
-            
+
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Pipenv setup in package directory failed: {e}")
     else:
