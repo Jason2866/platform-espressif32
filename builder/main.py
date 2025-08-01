@@ -63,8 +63,8 @@ def setup_pipenv_in_package():
     python_exe = env.subst("$PYTHONEXE")
     platformio_dir = projectconfig.get("platformio", "core_dir")
     penv_dir = os.path.join(platformio_dir, "penv")
-    
-    if not penv_dir:
+
+    if not os.path.exists(penv_dir):
         try:
             # Install pipenv if not available
             subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user"], 
@@ -90,7 +90,12 @@ def setup_pipenv_in_package():
         env.Replace(PYTHONEXE=penv_python)
         print(f"PYTHONEXE updated to penv environment: {penv_python}")
     else:
-        print(f"Warning: Could not find python.exe in penv directory")
+        print(f"Warning: Could not find python binary in penv directory")
+        print(f"Content of {penv_dir}:")
+        for entry in os.listdir(penv_dir):
+            print(f"  {entry}")
+
+
 
 
 #if sys.platform == "win32":
@@ -98,6 +103,7 @@ def setup_pipenv_in_package():
 setup_pipenv_in_package()
 # Update global PYTHON_EXE variable after potential pipenv setup
 PYTHON_EXE = env.subst("$PYTHONEXE")
+python_exe = PYTHON_EXE
 
 
 def add_to_pythonpath(path):
