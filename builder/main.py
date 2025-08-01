@@ -100,57 +100,6 @@ if python_dir not in current_path:
     assert os.path.isfile(python_dir + os.pathsep + current_path)
 
 
-def add_to_pythonpath(path):
-    """
-    Add a path to the PYTHONPATH environment variable (cross-platform).
-    
-    Args:
-        path (str): The path to add to PYTHONPATH
-    """
-    # Normalize the path for the current OS
-    normalized_path = os.path.normpath(path)
-    
-    # Add to PYTHONPATH environment variable
-    if "PYTHONPATH" in os.environ:
-        current_paths = os.environ["PYTHONPATH"].split(os.pathsep)
-        normalized_current_paths = [os.path.normpath(p) for p in current_paths]
-        if normalized_path not in normalized_current_paths:
-            os.environ["PYTHONPATH"] = normalized_path + os.pathsep + os.environ.get("PYTHONPATH", "")
-    else:
-        os.environ["PYTHONPATH"] = normalized_path
-    
-    # Also add to sys.path for immediate availability
-    if normalized_path not in sys.path:
-        sys.path.insert(0, normalized_path)
-
-
-def setup_python_paths():
-    """
-    Setup Python paths based on the actual Python executable being used.
-    """
-    if not PYTHON_EXE or not os.path.isfile(PYTHON_EXE):
-        return
-    
-    # Get the directory containing the Python executable
-    python_dir = os.path.dirname(PYTHON_EXE)
-    add_to_pythonpath(python_dir)
-    
-    # Try to find site-packages directory using the actual Python executable
-    result = subprocess.run(
-        [PYTHON_EXE, "-c", "import site; print(site.getsitepackages()[0])"],
-        capture_output=True,
-        text=True,
-        timeout=5
-    )
-    if result.returncode == 0:
-        site_packages = result.stdout.strip()
-        if os.path.isdir(site_packages):
-            add_to_pythonpath(site_packages)
-
-# Setup Python paths based on the actual Python executable
-setup_python_paths()
-
-
 def _get_executable_path(python_exe, executable_name):
     """
     Get the path to an executable binary (esptool, uv, etc.) based on the Python executable path.
@@ -162,12 +111,10 @@ def _get_executable_path(python_exe, executable_name):
     Returns:
         str: Path to executable or fallback to executable name
     """
-    if not python_exe or not os.path.isfile(python_exe):
-        return executable_name  # Fallback to command name
     
     python_dir = os.path.dirname(python_exe)
     
-    if sys.platform == "win32":
+    if IS_WINDOWS:
         executable_path = os.path.join(python_dir, f"{executable_name}.exe")
     else:
         # For Unix-like systems, executables are typically in the same directory as python
@@ -270,7 +217,7 @@ def install_python_deps():
             uv_executable = _get_uv_executable_path(PYTHON_EXE)
             
             # Add Scripts directory to PATH for Windows
-            if sys.platform == "win32":
+            if IS_WINDOWS:
                 python_dir = os.path.dirname(PYTHON_EXE)
                 scripts_dir = os.path.join(python_dir, "Scripts")
                 if os.path.isdir(scripts_dir):
