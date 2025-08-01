@@ -74,16 +74,19 @@ def setup_pipenv_in_package():
             venv_dir = os.path.join(platformio_dir, ".venv")
             env_vars = os.environ.copy()
             env_vars["PIPENV_VENV_IN_PROJECT"] = "1"
-            
+            # Add user bin dir to PATH (macOS/Linux)
+            user_bin = os.path.expanduser("~/.local/bin")
+            env_vars["PATH"] = user_bin + os.pathsep + env_vars.get("PATH", "")
+
             # Create pipenv environment (will create .venv)
             subprocess.run(["pipenv", "install"], cwd=platformio_dir, check=True, env=env_vars)
-            
+
             # Rename .venv to penv if it exists
             if os.path.exists(venv_dir) and not os.path.exists(penv_dir):
                 os.rename(venv_dir, penv_dir)
 
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(f"Pipenv setup in package directory failed: {e}")
+            print(f"Pipenv setup in platformio directory failed: {e}")
 
     penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if sys.platform == "win32" else os.path.join(penv_dir, "bin", "python3")
     if os.path.isfile(penv_python):
