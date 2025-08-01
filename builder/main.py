@@ -235,6 +235,11 @@ setup_pipenv_in_package()
 PYTHON_EXE = env.subst("$PYTHONEXE")
 python_exe = PYTHON_EXE
 
+# CRITICAL: Update sys.executable to ensure SCons uses the correct Python
+if PYTHON_EXE and os.path.isfile(PYTHON_EXE) and PYTHON_EXE != sys.executable:
+    print(f"Updating sys.executable from {sys.executable} to {PYTHON_EXE}")
+    sys.executable = PYTHON_EXE
+
 
 def add_to_pythonpath(path):
     """
