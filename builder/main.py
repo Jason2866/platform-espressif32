@@ -66,28 +66,32 @@ def setup_pipenv_in_package():
 
     if not os.path.exists(penv_dir):
         try:
-            # Install pipenv if not available
-            result = subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user", "--break-system-packages"],
-                                     check=True, capture_output=True)
-            print(f"Pipenv installed successfully: {result.stdout.decode(terminal_cp)}")
-            result.check_returncode()
-
-            # Set environment variable to create venv locally
-            venv_dir = os.path.join(platformio_dir, ".venv")
-            env_vars = os.environ.copy()
-            env_vars["PIPENV_VENV_IN_PROJECT"] = "1"
-            # Add user bin dir to PATH (macOS/Linux)
-            user_bin = os.path.expanduser("~/.local/bin")
-            env_vars["PATH"] = user_bin + os.pathsep + env_vars.get("PATH", "")
-
-            # Find pipenv executable
+            # Find pipenv executable first
             pipenv_executable = None
+            
+            # Get Python version for macOS user paths
+            python_version = None
+            try:
+                result = subprocess.run([python_exe, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], 
+                                      capture_output=True, text=True)
+                if result.returncode == 0:
+                    python_version = result.stdout.strip()
+            except:
+                pass
+            
             # Check common locations for pipenv
             possible_paths = [
                 os.path.expanduser("~/.local/bin/pipenv"),
                 os.path.join(os.path.dirname(python_exe), "pipenv"),
                 os.path.join(os.path.dirname(python_exe), "Scripts", "pipenv.exe") if sys.platform == "win32" else None,
             ]
+            
+            # Add macOS user installation paths
+            if python_version:
+                possible_paths.append(os.path.expanduser(f"~/Library/Python/{python_version}/bin/pipenv"))
+            # Fallback for common Python versions on macOS
+            for version in ["3.13", "3.12", "3.11", "3.10", "3.9"]:
+                possible_paths.append(os.path.expanduser(f"~/Library/Python/{version}/bin/pipenv"))
             
             # Also check if pipenv is in PATH
             try:
@@ -101,10 +105,11 @@ def setup_pipenv_in_package():
             for path in possible_paths:
                 if path and os.path.isfile(path):
                     pipenv_executable = path
+                    print(f"Found existing pipenv: {pipenv_executable}")
                     break
             
+            # If pipenv not found, try pip show method
             if not pipenv_executable:
-                # Try to find pipenv using python -m pip show
                 try:
                     result = subprocess.run([python_exe, "-m", "pip", "show", "pipenv"], 
                                           capture_output=True, text=True)
@@ -118,19 +123,64 @@ def setup_pipenv_in_package():
                                 pipenv_path = os.path.join(scripts_dir, "pipenv.exe" if sys.platform == "win32" else "pipenv")
                                 if os.path.isfile(pipenv_path):
                                     pipenv_executable = pipenv_path
+                                    print(f"Found pipenv via pip show: {pipenv_executable}")
                                     break
                 except:
                     pass
             
+            # Install pipenv if not found
             if not pipenv_executable:
-                raise FileNotFoundError("pipenv executable not found. Please ensure pipenv is properly installed.")
+                print("Pipenv not found, installing...")
+                result = subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user", "--break-system-packages"],
+                                         check=True, capture_output=True)
+                print(f"Pipenv installed successfully: {result.stdout.decode(terminal_cp)}")
+                result.check_returncode()
+                
+                # Search again for pipenv after installation
+                for path in possible_paths:
+                    if path and os.path.isfile(path):
+                        pipenv_executable = path
+                        break
+                
+                # Final attempt with pip show after installation
+                if not pipenv_executable:
+                    try:
+                        result = subprocess.run([python_exe, "-m", "pip", "show", "pipenv"], 
+                                              capture_output=True, text=True)
+                        if result.returncode == 0:
+                            for line in result.stdout.split('\n'):
+                                if line.startswith('Location:'):
+                                    location = line.split(':', 1)[1].strip()
+                                    scripts_dir = os.path.join(os.path.dirname(location), "Scripts")
+                                    pipenv_path = os.path.join(scripts_dir, "pipenv.exe" if sys.platform == "win32" else "pipenv")
+                                    if os.path.isfile(pipenv_path):
+                                        pipenv_executable = pipenv_path
+                                        break
+                    except:
+                        pass
+            
+            if not pipenv_executable:
+                raise FileNotFoundError("pipenv executable not found even after installation. Please ensure pipenv is properly installed.")
 
             print(f"Using pipenv executable: {pipenv_executable}")
             
-            # Create pipenv environment (will create .venv)
-            subprocess.run([pipenv_executable, "install"], cwd=platformio_dir, check=True, env=env_vars)
+            # Set environment variable to create venv locally
+            venv_dir = os.path.join(platformio_dir, ".venv")
+            env_vars = os.environ.copy()
+            env_vars["PIPENV_VENV_IN_PROJECT"] = "1"
+            
+            # Add user bin directories to PATH (macOS/Linux)
+            user_bin = os.path.expanduser("~/.local/bin")
+            env_vars["PATH"] = user_bin + os.pathsep + env_vars.get("PATH", "")
+            
+            # Add macOS Library Python bin directory to PATH
+            if python_version:
+                macos_bin = os.path.expanduser(f"~/Library/Python/{python_version}/bin")
+                if os.path.isdir(macos_bin):
+                    env_vars["PATH"] = macos_bin + os.pathsep + env_vars["PATH"]
 
-            # Rename .venv to penv if it exists
+            # Create pipenv environment (will create .venv)
+            subprocess.run([pipenv_executable, "install"], cwd=platformio_dir, check=True, env=env_vars)            # Rename .venv to penv if it exists
             if os.path.exists(venv_dir) and not os.path.exists(penv_dir):
                 os.rename(venv_dir, penv_dir)
 
