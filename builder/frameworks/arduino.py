@@ -37,8 +37,6 @@ from platformio import fs
 from platformio.package.manager.tool import ToolPackageManager
 from platformio.compat import IS_WINDOWS
 
-env = DefaultEnvironment()
-
 # Constants for better performance
 UNICORE_FLAGS = {
     "CORE32SOLO1",
