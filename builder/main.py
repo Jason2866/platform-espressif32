@@ -358,7 +358,7 @@ def install_esptool():
 
 
 # Install Python dependencies
-deps_installed = install_python_deps()
+install_python_deps()
 
 # Install esptool after dependencies
 esptool_binary_path = install_esptool()
