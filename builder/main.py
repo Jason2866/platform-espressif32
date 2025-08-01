@@ -239,6 +239,18 @@ python_exe = PYTHON_EXE
 if PYTHON_EXE and os.path.isfile(PYTHON_EXE) and PYTHON_EXE != sys.executable:
     print(f"Updating sys.executable from {sys.executable} to {PYTHON_EXE}")
     sys.executable = PYTHON_EXE
+    
+    # On Windows, also update the PATH to ensure the correct Python is found first
+    if sys.platform == "win32":
+        python_dir = os.path.dirname(PYTHON_EXE)
+        current_path = os.environ.get("PATH", "")
+        # Remove any existing Python paths to avoid conflicts
+        path_parts = current_path.split(os.pathsep)
+        filtered_paths = [p for p in path_parts if not ("python" in p.lower() and "site-packages" not in p.lower())]
+        # Add our Python directory at the beginning
+        new_path = python_dir + os.pathsep + os.pathsep.join(filtered_paths)
+        os.environ["PATH"] = new_path
+        print(f"Updated Windows PATH to prioritize: {python_dir}")
 
 
 def add_to_pythonpath(path):
