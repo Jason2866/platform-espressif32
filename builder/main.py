@@ -234,48 +234,43 @@ setup_pipenv_in_package()
 # Update global PYTHON_EXE variable after potential pipenv setup
 PYTHON_EXE = env.subst("$PYTHONEXE")
 python_exe = PYTHON_EXE
+sys.executable = PYTHON_EXE
 
-# CRITICAL: Update sys.executable to ensure SCons uses the correct Python
-if PYTHON_EXE and os.path.isfile(PYTHON_EXE) and PYTHON_EXE != sys.executable:
-    print(f"Updating sys.executable from {sys.executable} to {PYTHON_EXE}")
-    sys.executable = PYTHON_EXE
-    
-    # On Windows, also update the PATH to ensure the correct Python is found first
-    if sys.platform == "win32":
-        python_dir = os.path.dirname(PYTHON_EXE)
-        current_path = os.environ.get("PATH", "")
-        path_parts = current_path.split(os.pathsep)
+if sys.platform == "win32":
+    python_dir = os.path.dirname(PYTHON_EXE)
+    current_path = os.environ.get("PATH", "")
+    path_parts = current_path.split(os.pathsep)
         
-        # More comprehensive removal of Python paths
-        filtered_paths = []
-        for path_part in path_parts:
-            skip_path = False
-            path_lower = path_part.lower()
+    # More comprehensive removal of Python paths
+    filtered_paths = []
+    for path_part in path_parts:
+        skip_path = False
+        path_lower = path_part.lower()
             
-            # Skip if it contains python executables or typical Python directories
-            python_indicators = [
-                "python", "scripts", "site-packages", 
-                "hostedtoolcache", "appdata\\local\\programs\\python",
-                "program files\\python", "anaconda", "miniconda", "conda"
-            ]
+        # Skip if it contains python executables or typical Python directories
+        python_indicators = [
+            "python", "scripts", "site-packages", 
+            "hostedtoolcache", "appdata\\local\\programs\\python",
+            "program files\\python", "anaconda", "miniconda", "conda"
+        ]
             
-            # Also check if this path actually contains python.exe
-            potential_python = os.path.join(path_part, "python.exe")
-            if os.path.isfile(potential_python):
-                skip_path = True
+        # Also check if this path actually contains python.exe
+        potential_python = os.path.join(path_part, "python.exe")
+        if os.path.isfile(potential_python):
+            skip_path = True
             
-            # Skip if any Python indicator is found in the path
-            if any(indicator in path_lower for indicator in python_indicators):
-                skip_path = True
+        # Skip if any Python indicator is found in the path
+        if any(indicator in path_lower for indicator in python_indicators):
+            skip_path = True
             
-            if not skip_path:
-                filtered_paths.append(path_part)
+        if not skip_path:
+            filtered_paths.append(path_part)
         
-        # Ensure our penv Python directory is at the very beginning
-        new_path = python_dir + os.pathsep + os.pathsep.join(filtered_paths)
-        os.environ["PATH"] = new_path
-        print(f"Updated Windows PATH to prioritize penv Python: {python_dir}")
-        print(f"Removed {len(path_parts) - len(filtered_paths)} potentially conflicting Python paths")
+    # Ensure our penv Python directory is at the very beginning
+    new_path = python_dir + os.pathsep + os.pathsep.join(filtered_paths)
+    os.environ["PATH"] = new_path
+    print(f"Updated Windows PATH to prioritize penv Python: {python_dir}")
+    print(f"Removed {len(path_parts) - len(filtered_paths)} potentially conflicting Python paths")
 
 
 def add_to_pythonpath(path):
