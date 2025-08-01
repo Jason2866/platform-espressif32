@@ -144,16 +144,21 @@ def setup_pipenv_in_package():
                     pass
                 
                 # Install pipenv using uv if available, otherwise use pip
-                if uv_available:
-                    result = subprocess.run([python_exe, "-m", "uv", "pip", "install", "pipenv", "--user"],
-                                           check=True, capture_output=True)
-                else:
-                    print("uv not available, using pip...")
-                    result = subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user", "--break-system-packages"],
-                                           check=True, capture_output=True)
-                
-                print(f"Pipenv installed successfully: {result.stdout.decode(terminal_cp)}")
-                result.check_returncode()
+                try:
+                    if uv_available:
+                        result = subprocess.run([python_exe, "-m", "uv", "pip", "install", "pipenv", "--user"],
+                                               check=True, capture_output=True)
+                    else:
+                        print("uv not available, using pip...")
+                        result = subprocess.run([python_exe, "-m", "pip", "install", "pipenv", "--user", "--break-system-packages"],
+                                               check=True, capture_output=True)
+                    
+                    print(f"Pipenv installed successfully: {result.stdout.decode(terminal_cp)}")
+                except subprocess.CalledProcessError as e:
+                    print(f"Installation failed with exit code {e.returncode}")
+                    if e.stderr:
+                        print(f"Error output: {e.stderr.decode(terminal_cp)}")
+                    raise
                 
                 # Search again for pipenv after installation
                 for path in possible_paths:
@@ -212,9 +217,16 @@ def setup_pipenv_in_package():
         print(f"PYTHONEXE updated to penv environment: {penv_python}")
     else:
         print(f"Warning: Could not find python binary in penv directory")
-        print(f"Content of {penv_dir}:")
-        for entry in os.listdir(penv_dir):
-            print(f"  {entry}")
+        if os.path.exists(penv_dir):
+            print(f"Content of {penv_dir}:")
+            try:
+                for entry in os.listdir(penv_dir):
+                    print(f"  {entry}")
+            except OSError as e:
+                print(f"Error listing directory contents: {e}")
+        else:
+            print(f"penv directory does not exist: {penv_dir}")
+            print("Pipenv environment was not created successfully.")
 
 
 
