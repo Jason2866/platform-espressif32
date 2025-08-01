@@ -549,7 +549,16 @@ def install_esptool():
 
 
 # Install Python dependencies and esptool
-install_python_deps()
+# Install dependencies first to ensure they're available for framework scripts
+print("Installing Python dependencies...")
+deps_installed = install_python_deps()
+env["PYTHON_DEPS_INSTALLED"] = deps_installed
+if deps_installed:
+    print("Python dependencies installation completed successfully")
+else:
+    print("Warning: Python dependencies installation failed")
+
+# Install esptool after dependencies
 esptool_binary_path = install_esptool()
 
 

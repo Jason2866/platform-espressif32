@@ -878,17 +878,23 @@ arduino_lib_compile_flag = env.subst("$ARDUINO_LIB_COMPILE_FLAG")
 if ("arduino" in pioframework and "espidf" not in pioframework and
         arduino_lib_compile_flag in ("Inactive", "True")):
 
-    # try to remove not needed include path if an lib_ignore entry exists
-    from component_manager import ComponentManager
-    component_manager = ComponentManager(env)
-    component_manager.handle_component_settings()
-    silent_action = env.Action(component_manager.restore_pioarduino_build_py)
-    # hack to silence scons command output
-    silent_action.strfunction = lambda target, source, env: ''
-    env.AddPostAction("checkprogsize", silent_action)
+    # Check if Python dependencies were installed successfully
+    if env.get("PYTHON_DEPS_INSTALLED", False):
+        # try to remove not needed include path if an lib_ignore entry exists
+        from component_manager import ComponentManager
+        component_manager = ComponentManager(env)
+        component_manager.handle_component_settings()
+        silent_action = env.Action(component_manager.restore_pioarduino_build_py)
+        # hack to silence scons command output
+        silent_action.strfunction = lambda target, source, env: ''
+        env.AddPostAction("checkprogsize", silent_action)
 
-    if IS_WINDOWS:
-        env.AddBuildMiddleware(smart_include_length_shorten)
+        if IS_WINDOWS:
+            env.AddBuildMiddleware(smart_include_length_shorten)
 
-    build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py")
-    SConscript(build_script_path)
+        build_script_path = join(FRAMEWORK_DIR, "tools", "pioarduino-build.py")
+        SConscript(build_script_path)
+    else:
+        print("[ComponentManager] Error: Python dependencies not available, build cannot continue")
+        print("[ComponentManager] Please ensure PyYAML and other dependencies are properly installed")
+        env.Exit(1)
