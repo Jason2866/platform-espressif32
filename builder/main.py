@@ -80,8 +80,55 @@ def setup_pipenv_in_package():
             user_bin = os.path.expanduser("~/.local/bin")
             env_vars["PATH"] = user_bin + os.pathsep + env_vars.get("PATH", "")
 
+            # Find pipenv executable
+            pipenv_executable = None
+            # Check common locations for pipenv
+            possible_paths = [
+                os.path.expanduser("~/.local/bin/pipenv"),
+                os.path.join(os.path.dirname(python_exe), "pipenv"),
+                os.path.join(os.path.dirname(python_exe), "Scripts", "pipenv.exe") if sys.platform == "win32" else None,
+            ]
+            
+            # Also check if pipenv is in PATH
+            try:
+                result = subprocess.run(["which", "pipenv"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    possible_paths.insert(0, result.stdout.strip())
+            except:
+                pass
+            
+            # Find first existing pipenv executable
+            for path in possible_paths:
+                if path and os.path.isfile(path):
+                    pipenv_executable = path
+                    break
+            
+            if not pipenv_executable:
+                # Try to find pipenv using python -m pip show
+                try:
+                    result = subprocess.run([python_exe, "-m", "pip", "show", "pipenv"], 
+                                          capture_output=True, text=True)
+                    if result.returncode == 0:
+                        # Parse location from pip show output
+                        for line in result.stdout.split('\n'):
+                            if line.startswith('Location:'):
+                                location = line.split(':', 1)[1].strip()
+                                # Check Scripts directory in the same parent as site-packages
+                                scripts_dir = os.path.join(os.path.dirname(location), "Scripts")
+                                pipenv_path = os.path.join(scripts_dir, "pipenv.exe" if sys.platform == "win32" else "pipenv")
+                                if os.path.isfile(pipenv_path):
+                                    pipenv_executable = pipenv_path
+                                    break
+                except:
+                    pass
+            
+            if not pipenv_executable:
+                raise FileNotFoundError("pipenv executable not found. Please ensure pipenv is properly installed.")
+
+            print(f"Using pipenv executable: {pipenv_executable}")
+            
             # Create pipenv environment (will create .venv)
-            subprocess.run(["pipenv", "install"], cwd=platformio_dir, check=True, env=env_vars)
+            subprocess.run([pipenv_executable, "install"], cwd=platformio_dir, check=True, env=env_vars)
 
             # Rename .venv to penv if it exists
             if os.path.exists(venv_dir) and not os.path.exists(penv_dir):
