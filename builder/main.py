@@ -79,18 +79,21 @@ def setup_pipenv_in_package():
             print(f"Creating pipenv environment in package directory: {package_dir}")
 
             # Set environment variable to create venv in project directory
+            penv_dir = os.path.join(package_dir, "penv")
             env_vars = os.environ.copy()
+            env_vars["WORKON_HOME"] = package_dir
+            env_vars["PIPENV_CUSTOM_VENV_NAME"] = "penv"
             env_vars["PIPENV_VENV_IN_PROJECT"] = "1"
             
-            # Create pipenv environment in package directory (locally)
+            # Create pipenv environment in package directory
             subprocess.run(["pipenv", "install"], cwd=package_dir, check=True, env=env_vars)
-
-            # Get new Python path from local .venv directory
-            local_venv_python = os.path.join(package_dir, ".venv", "Scripts", "python.exe")
             
-            if os.path.isfile(local_venv_python):
-                env.Replace(PYTHONEXE=local_venv_python)
-                print(f"PYTHONEXE updated to local pipenv environment: {local_venv_python}")
+            # Get Python path from 'penv' directory
+            penv_python = os.path.join(penv_dir, "Scripts", "python.exe")
+            
+            if os.path.isfile(penv_python):
+                env.Replace(PYTHONEXE=penv_python)
+                print(f"PYTHONEXE updated to penv environment: {penv_python}")
             else:
                 # Fallback: use pipenv --py command
                 result = subprocess.run(["pipenv", "--py"], cwd=package_dir, 
