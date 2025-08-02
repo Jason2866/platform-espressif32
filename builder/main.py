@@ -34,6 +34,7 @@ from SCons.Script import (
 from platformio.project.helpers import get_project_dir
 from platformio.package.version import pepver_to_semver
 from platformio.util import get_serial_ports
+from platformio.compat import IS_WINDOWS
 
 # Python dependencies required for the build process
 python_deps = {
@@ -55,6 +56,69 @@ PYTHON_EXE = env.subst("$PYTHONEXE")  # Global Python executable path
 
 # Framework directory path
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+
+platformio_dir = projectconfig.get("platformio", "core_dir")
+penv_dir = os.path.join(platformio_dir, "penv")
+
+pip_path = os.path.join(
+    penv_dir,
+    "Scripts" if IS_WINDOWS else "bin",
+    "pip" + (".exe" if IS_WINDOWS else ""),
+)
+
+def setup_pipenv_in_package():
+    """
+    Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
+    """
+    if not os.path.exists(penv_dir):
+        env.Execute(
+            env.VerboseAction(
+                '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
+                "Creating a new virtual environment for Python dependencies",
+            )
+        )
+
+        assert os.path.isfile(
+            pip_path
+        ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
+
+    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python")
+    env.Replace(PYTHONEXE=penv_python)
+    print(f"PYTHONEXE updated to penv environment: {penv_python}")
+
+setup_pipenv_in_package()
+# Update global PYTHON_EXE variable after potential pipenv setup
+PYTHON_EXE = env.subst("$PYTHONEXE")
+python_exe = PYTHON_EXE
+
+# Ensure penv Python directory is in PATH for subprocess calls
+python_dir = os.path.dirname(PYTHON_EXE)
+current_path = os.environ.get("PATH", "")
+if python_dir not in current_path:
+    os.environ["PATH"] = python_dir + os.pathsep + current_path
+
+# Verify the Python executable exists
+assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
+
+if os.path.isfile(python_exe):
+    # Update sys.path to include penv site-packages
+    if IS_WINDOWS:
+        penv_site_packages = os.path.join(penv_dir, "Lib", "site-packages")
+    else:
+        # Find the actual site-packages directory in the venv
+        penv_lib_dir = os.path.join(penv_dir, "lib")
+        if os.path.isdir(penv_lib_dir):
+            for python_dir in os.listdir(penv_lib_dir):
+                if python_dir.startswith("python"):
+                    penv_site_packages = os.path.join(penv_lib_dir, python_dir, "site-packages")
+                    break
+            else:
+                penv_site_packages = None
+        else:
+            penv_site_packages = None
+
+    if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
+        sys.path.insert(0, penv_site_packages)
 
 
 def add_to_pythonpath(path):
