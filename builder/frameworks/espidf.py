@@ -1788,9 +1788,9 @@ def generate_partition_table(partition_table_offset):
 #
 
 espsecure_binary = (
-    os.path.join(env.subst("$PROJECT_CORE_DIR"), ".platformio", "penv", "Scripts", "espsecure.exe")
+    os.path.join(env.subst("$PROJECT_CORE_DIR"), "penv", "Scripts", "espsecure.exe")
     if IS_WINDOWS
-    else os.path.join(env.subst("$PROJECT_CORE_DIR"), ".platformio", "penv", "bin", "espsecure")
+    else os.path.join(env.subst("$PROJECT_CORE_DIR"), "penv", "bin", "espsecure")
 )
 
 env.Append(
