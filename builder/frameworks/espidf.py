@@ -1787,6 +1787,11 @@ def generate_partition_table(partition_table_offset):
 # Add extra builders and variables for signing and encrypting binaries
 #
 
+espsecure_binary = (
+    os.path.join(env.subst("$PROJECT_CORE_DIR"), ".platformio", "penv", "Scripts", "espsecure.exe")
+    if IS_WINDOWS
+    else os.path.join(env.subst("$PROJECT_CORE_DIR"), ".platformio", "penv", "bin", "espsecure")
+)
 
 env.Append(
     BUILDERS=dict(
@@ -1794,11 +1799,7 @@ env.Append(
             action=env.VerboseAction(
                 " ".join(
                     [
-                        "$PYTHONEXE",
-                        os.path.join(
-                            platform.get_package_dir("tool-esptoolpy") or "",
-                            "espsecure.py",
-                        ),
+                        espsecure_binary,
                         "sign-data",
                         "--version",
                         "$PIO_ESP32_SECURE_BOOT_VERSION",
@@ -1817,11 +1818,7 @@ env.Append(
             action=env.VerboseAction(
                 " ".join(
                     [
-                        "$PYTHONEXE",
-                        os.path.join(
-                            platform.get_package_dir("tool-esptoolpy") or "",
-                            "espsecure.py",
-                        ),
+                        espsecure_binary,
                         "encrypt_flash_data",
                         "--aes_xts" if idf_variant != "esp32" else "",
                         "--keyfile",
