@@ -142,6 +142,10 @@ def setup_python_paths():
         scripts_dir = os.path.join(python_dir, "Scripts")
         if os.path.isdir(scripts_dir):
             os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
+    else:
+        penv_lib_dir = os.path.join(penv_dir, "lib")
+        if os.path.isdir(penv_lib_dir):
+            os.environ["PATH"] = penv_lib_dir + os.pathsep + os.environ.get("PATH", "")
 
     penv_site_packages = None
     if python_dir not in sys.path:
