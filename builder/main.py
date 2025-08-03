@@ -83,7 +83,7 @@ def setup_pipenv_in_package():
         env.Execute(
             env.VerboseAction(
                 '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
-                f"Creating pioarduino Python virtual environment: {penv_dir}",
+                "Creating pioarduino Python virtual environment: %s" % penv_dir,
             )
         )
         assert os.path.isfile(
