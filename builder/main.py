@@ -94,16 +94,13 @@ def setup_pipenv_in_package():
 
     penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python")
     env.Replace(PYTHONEXE=penv_python)
-    print(f"PYTHONEXE updated to penv environment: {penv_python}")
 
 # Setup virtual environment if needed and find path to Python exe
 setup_pipenv_in_package()
 # Set Python Scons Var to env Python
 PYTHON_EXE = env.subst("$PYTHONEXE")
 python_exe = PYTHON_EXE
-
-assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
-
+print(f"PYTHONEXE updated to penv environment: {python_exe}")
 
 def add_to_pythonpath(path):
     """
