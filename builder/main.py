@@ -100,6 +100,8 @@ setup_pipenv_in_package()
 # Set Python Scons Var to env Python
 PYTHON_EXE = env.subst("$PYTHONEXE")
 python_exe = PYTHON_EXE
+# check for python binary, exit with error when not found
+assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
 print(f"PYTHONEXE updated to penv environment: {python_exe}")
 
 def add_to_pythonpath(path):
