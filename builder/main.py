@@ -135,36 +135,26 @@ def setup_python_paths():
     
     This function configures both PYTHONPATH environment variable and sys.path
     to include the Python executable directory and site-packages directory.
-    
-    The function performs the following steps:
-    1. Adds the Python executable directory to PYTHONPATH and sys.path
-    2. Queries the Python executable to find its site-packages directory
-    3. Adds the site-packages directory to PYTHONPATH and sys.path
     """    
     # Get the directory containing the Python executable
     python_dir = os.path.dirname(PYTHON_EXE)
-    add_to_pythonpath(python_dir)
+    penv_site_packages = None
+    if python_dir not in sys.path:
+        add_to_pythonpath(python_dir)
+    if IS_WINDOWS:
+        penv_site_packages = os.path.join(penv_dir, "Lib", "site-packages")
+    else:
+        # Find the actual site-packages directory in the venv
+        penv_lib_dir = os.path.join(penv_dir, "lib")
+        if os.path.isdir(penv_lib_dir):
+            for python_dir in os.listdir(penv_lib_dir):
+                if python_dir.startswith("python"):
+                    penv_site_packages = os.path.join(penv_lib_dir, python_dir, "site-packages")
+                    break
+
+    if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
+        add_to_pythonpath(penv_site_packages)
     
-    # Find site-packages directory using the actual Python executable
-    # works with virtual environments and different Python versions
-    try:
-        result = subprocess.run(
-            [PYTHON_EXE, "-c", "import site; print(site.getsitepackages()[0])"],
-            capture_output=True,
-            text=True,
-            timeout=5  # Prevent hanging on subprocess calls
-        )
-        # Check if the subprocess executed successfully
-        if result.returncode == 0:
-            site_packages = result.stdout.strip()
-            # Verify that the site-packages directory actually exists
-            if os.path.isdir(site_packages):
-                add_to_pythonpath(site_packages)
-        else:
-            print("Error: Python site-packages directory not foud")
-            exit(1)
-    except subprocess.TimeoutExpired:
-        print("Warning: Timeout occurred while determining site-packages directory")
 
 setup_python_paths()
 
