@@ -381,7 +381,10 @@ def install_esptool():
     Also determines the path to the esptool executable binary.
     
     Returns:
-        str: Path to esptool executable, if fails exit with error
+        str: Path to esptool executable
+ 
+    Raises:
+        SystemExit: If esptool installation fails
     """
     try:
         subprocess.check_call(
