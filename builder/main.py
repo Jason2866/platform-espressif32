@@ -143,9 +143,9 @@ def setup_python_paths():
         if os.path.isdir(scripts_dir):
             os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
     else:
-        penv_lib_dir = os.path.join(penv_dir, "lib")
-        if os.path.isdir(penv_lib_dir):
-            os.environ["PATH"] = penv_lib_dir + os.pathsep + os.environ.get("PATH", "")
+        bin_dir = os.path.join(python_dir, "bin")
+        if os.path.isdir(bin_dir):
+            os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
 
     penv_site_packages = None
     if python_dir not in sys.path:
@@ -378,11 +378,10 @@ def install_python_deps():
 def install_esptool():
     """
     Install esptool from package folder "tool-esptoolpy" using uv package manager.
-    Also determines the path to the esptool executable binary.
     
     Returns:
         str: Path to esptool executable
- 
+
     Raises:
         SystemExit: If esptool installation fails
     """
@@ -393,27 +392,28 @@ def install_esptool():
             stderr=subprocess.DEVNULL,
             env=os.environ
         )
-        esptool_binary_path = _get_esptool_executable_path(PYTHON_EXE)
-        return esptool_binary_path
+        return _get_esptool_executable_path(PYTHON_EXE)
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
     esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
-    if esptool_repo_path and os.path.isdir(esptool_repo_path):
-        uv_executable = _get_uv_executable_path(PYTHON_EXE)
-        try:
-            subprocess.check_call([
-                uv_executable, "pip", "install", "--quiet",
-                f"--python={PYTHON_EXE}",
-                "-e", esptool_repo_path
-            ], env=os.environ)
-
-            esptool_binary_path = _get_esptool_executable_path(PYTHON_EXE)
-            return esptool_binary_path
-            
-        except subprocess.CalledProcessError as e:
-            print(f"Error: Failed to install esptool: {e}")
-            exit(1)
+    if not esptool_repo_path or not os.path.isdir(esptool_repo_path):
+        print("Error: esptool package directory not found")
+        sys.exit(1)
+        
+    uv_executable = _get_uv_executable_path(PYTHON_EXE)
+    try:
+        subprocess.check_call([
+            uv_executable, "pip", "install", "--quiet",
+            f"--python={PYTHON_EXE}",
+            "-e", esptool_repo_path
+        ], env=os.environ)
+        
+        return _get_esptool_executable_path(PYTHON_EXE)
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Failed to install esptool: {e}")
+        sys.exit(1)
 
 
 # Install Python dependencies
