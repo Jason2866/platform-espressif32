@@ -136,6 +136,13 @@ def setup_python_paths():
     """    
     # Get the directory containing the Python executable
     python_dir = os.path.dirname(PYTHON_EXE)
+
+    # Add Scripts directory to PATH for Windows
+    if IS_WINDOWS:
+        scripts_dir = os.path.join(python_dir, "Scripts")
+        if os.path.isdir(scripts_dir):
+            os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
+
     penv_site_packages = None
     if python_dir not in sys.path:
         add_to_pythonpath(python_dir)
@@ -152,7 +159,6 @@ def setup_python_paths():
 
     if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
         add_to_pythonpath(penv_site_packages)
-    
 
 setup_python_paths()
 
@@ -272,14 +278,7 @@ def install_python_deps():
             
             # Update uv executable path after installation
             uv_executable = _get_uv_executable_path(PYTHON_EXE)
-            
-            # Add Scripts directory to PATH for Windows
-            if IS_WINDOWS:
-                python_dir = os.path.dirname(PYTHON_EXE)
-                scripts_dir = os.path.join(python_dir, "Scripts")
-                if os.path.isdir(scripts_dir):
-                    os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
-                    
+
         except subprocess.TimeoutExpired:
             print("Error: uv installation timed out")
             return False
@@ -317,7 +316,7 @@ def install_python_deps():
                     for p in packages:
                         result[p["name"]] = pepver_to_semver(p["version"])
             else:
-                print(f"Warning: pip list failed with exit code {result_obj.returncode}")
+                print(f"Warning: uv pip list failed with exit code {result_obj.returncode}")
                 if result_obj.stderr:
                     print(f"Error output: {result_obj.stderr.strip()}")
                 
@@ -378,7 +377,7 @@ def install_esptool():
     Also determines the path to the esptool executable binary.
     
     Returns:
-        str: Path to esptool executable, or 'esptool' as fallback
+        str: Path to esptool executable, if fails exit with error
     """
     try:
         subprocess.check_call(
@@ -406,10 +405,8 @@ def install_esptool():
             return esptool_binary_path
             
         except subprocess.CalledProcessError as e:
-            print(f"Warning: Failed to install esptool: {e}")
-            return 'esptool'  # Fallback
-    
-    return 'esptool'  # Fallback
+            print(f"Error: Failed to install esptool: {e}")
+            exit(1)
 
 
 # Install Python dependencies
