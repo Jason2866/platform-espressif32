@@ -75,7 +75,6 @@ pip_path = os.path.join(
     "pip" + (".exe" if IS_WINDOWS else ""),
 )
 
-
 def setup_pipenv_in_package():
     """
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
@@ -146,9 +145,9 @@ def setup_python_paths():
         # Find the actual site-packages directory in the venv
         penv_lib_dir = os.path.join(penv_dir, "lib")
         if os.path.isdir(penv_lib_dir):
-            for python_dir in os.listdir(penv_lib_dir):
-                if python_dir.startswith("python"):
-                    penv_site_packages = os.path.join(penv_lib_dir, python_dir, "site-packages")
+            for python_version_dir in os.listdir(penv_lib_dir):
+                if python_version_dir.startswith("python"):
+                    penv_site_packages = os.path.join(penv_lib_dir, python_version_dir, "site-packages")
                     break
 
     if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
