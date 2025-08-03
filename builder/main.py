@@ -80,10 +80,12 @@ def setup_pipenv_in_package():
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
     """
     if not os.path.exists(penv_dir):
-        env.Execute(env.Action(
-            '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
-            ""  # no log message
-        ))
+        env.Execute(
+            env.VerboseAction(
+                '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
+                f"Creating pioarduino Python virtual environment: {penv_dir}",
+            )
+        )
         assert os.path.isfile(
             pip_path
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
@@ -98,7 +100,7 @@ PYTHON_EXE = env.subst("$PYTHONEXE")
 python_exe = PYTHON_EXE
 # check for python binary, exit with error when not found
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
-print(f"PYTHONEXE updated to penv environment: {python_exe}")
+# print(f"PYTHONEXE updated to penv environment: {python_exe}")
 
 def add_to_pythonpath(path):
     """
