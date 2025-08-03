@@ -80,13 +80,7 @@ def setup_pipenv_in_package():
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
     """
     if not os.path.exists(penv_dir):
-        env.Execute(
-            env.VerboseAction(
-                '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
-                "Creating a new virtual environment for Python dependencies",
-            )
-        )
-
+        env.Execute('"$PYTHONEXE" -m venv --clear "%s"' % penv_dir)
         assert os.path.isfile(
             pip_path
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
