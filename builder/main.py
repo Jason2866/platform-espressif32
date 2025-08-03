@@ -75,6 +75,7 @@ pip_path = os.path.join(
     "pip" + (".exe" if IS_WINDOWS else ""),
 )
 
+
 def setup_pipenv_in_package():
     """
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
@@ -95,39 +96,14 @@ def setup_pipenv_in_package():
     env.Replace(PYTHONEXE=penv_python)
     print(f"PYTHONEXE updated to penv environment: {penv_python}")
 
+# Setup virtual environment if needed and find path to Python exe
 setup_pipenv_in_package()
-# Update global PYTHON_EXE variable after potential pipenv setup
+# Set Python Scons Var to env Python
 PYTHON_EXE = env.subst("$PYTHONEXE")
 python_exe = PYTHON_EXE
 
-# Ensure penv Python directory is in PATH for subprocess calls
-python_dir = os.path.dirname(PYTHON_EXE)
-current_path = os.environ.get("PATH", "")
-if python_dir not in current_path:
-    os.environ["PATH"] = python_dir + os.pathsep + current_path
-
-# Verify the Python executable exists
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
 
-if os.path.isfile(python_exe):
-    # Update sys.path to include penv site-packages
-    if IS_WINDOWS:
-        penv_site_packages = os.path.join(penv_dir, "Lib", "site-packages")
-    else:
-        # Find the actual site-packages directory in the venv
-        penv_lib_dir = os.path.join(penv_dir, "lib")
-        if os.path.isdir(penv_lib_dir):
-            for python_dir in os.listdir(penv_lib_dir):
-                if python_dir.startswith("python"):
-                    penv_site_packages = os.path.join(penv_lib_dir, python_dir, "site-packages")
-                    break
-            else:
-                penv_site_packages = None
-        else:
-            penv_site_packages = None
-
-    if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
-        sys.path.insert(0, penv_site_packages)
 
 def add_to_pythonpath(path):
     """
@@ -138,7 +114,7 @@ def add_to_pythonpath(path):
     """
     # Normalize the path for the current OS
     normalized_path = os.path.normpath(path)
-    
+
     # Add to PYTHONPATH environment variable
     if "PYTHONPATH" in os.environ:
         current_paths = os.environ["PYTHONPATH"].split(os.pathsep)
@@ -147,33 +123,51 @@ def add_to_pythonpath(path):
             os.environ["PYTHONPATH"] = normalized_path + os.pathsep + os.environ.get("PYTHONPATH", "")
     else:
         os.environ["PYTHONPATH"] = normalized_path
-    
+
     # Also add to sys.path for immediate availability
     if normalized_path not in sys.path:
         sys.path.insert(0, normalized_path)
 
+
 def setup_python_paths():
     """
     Setup Python paths based on the actual Python executable being used.
+    
+    This function configures both PYTHONPATH environment variable and sys.path
+    to include the Python executable directory and site-packages directory.
+    
+    The function performs the following steps:
+    1. Adds the Python executable directory to PYTHONPATH and sys.path
+    2. Queries the Python executable to find its site-packages directory
+    3. Adds the site-packages directory to PYTHONPATH and sys.path
     """    
     # Get the directory containing the Python executable
     python_dir = os.path.dirname(PYTHON_EXE)
     add_to_pythonpath(python_dir)
     
-    # Try to find site-packages directory using the actual Python executable
-    result = subprocess.run(
-        [PYTHON_EXE, "-c", "import site; print(site.getsitepackages()[0])"],
-        capture_output=True,
-        text=True,
-        timeout=5
-    )
-    if result.returncode == 0:
-        site_packages = result.stdout.strip()
-        if os.path.isdir(site_packages):
-            add_to_pythonpath(site_packages)
+    # Find site-packages directory using the actual Python executable
+    # works with virtual environments and different Python versions
+    try:
+        result = subprocess.run(
+            [PYTHON_EXE, "-c", "import site; print(site.getsitepackages()[0])"],
+            capture_output=True,
+            text=True,
+            timeout=5  # Prevent hanging on subprocess calls
+        )
+        # Check if the subprocess executed successfully
+        if result.returncode == 0:
+            site_packages = result.stdout.strip()
+            # Verify that the site-packages directory actually exists
+            if os.path.isdir(site_packages):
+                add_to_pythonpath(site_packages)
+        else:
+            print("Error: Python site-packages directory not foud")
+            exit(1)
+    except subprocess.TimeoutExpired:
+        print("Warning: Timeout occurred while determining site-packages directory")
 
-# Setup Python paths based on the actual Python executable
 setup_python_paths()
+
 
 def _get_executable_path(python_exe, executable_name):
     """
