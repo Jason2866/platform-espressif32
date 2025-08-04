@@ -97,6 +97,8 @@ def setup_pipenv_in_package():
 setup_pipenv_in_package()
 # Set Python Scons Var to env Python
 PYTHON_EXE = env.subst("$PYTHONEXE")
+# Remove PYTHONHOME if set
+os.environ.pop('PYTHONHOME', None)
 
 # check for python binary, exit with error when not found
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
