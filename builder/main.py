@@ -117,8 +117,8 @@ def add_to_pythonpath(path):
         normalized_current_paths = [os.path.normpath(p) for p in current_paths]
         if normalized_path not in normalized_current_paths:
             # Rebuild PYTHONPATH with normalized paths to avoid duplicates
-            unique_paths = [normalized_path] + normalized_current_paths
-            os.environ["PYTHONPATH"] = os.pathsep.join(unique_paths)
+            normalized_current_paths.insert(0, normalized_path)
+            os.environ["PYTHONPATH"] = os.pathsep.join(normalized_current_paths)
     else:
         os.environ["PYTHONPATH"] = normalized_path
 
