@@ -117,7 +117,7 @@ def add_to_pythonpath(path):
 
 def get_executable_path(executable_name):
     """
-    Get the path to an executable based on the Python executable directory.
+    Get the path to an executable based on the variable 'penv_dir'
     
     Args:
         executable_name (str): Name of the executable (e.g., 'esptool', 'uv')
@@ -125,12 +125,10 @@ def get_executable_path(executable_name):
     Returns:
         str: Full path to the executable
     """
-    python_dir = os.path.dirname(PYTHON_EXE)
-    
     if IS_WINDOWS:
-        return os.path.join(python_dir, "Scripts", f"{executable_name}.exe")
+        return os.path.join(penv_dir, "Scripts", f"{executable_name}.exe")
     else:
-        return os.path.join(python_dir, executable_name)
+        return os.path.join(penv_dir, "bin", executable_name)
 
 
 def setup_python_paths():
