@@ -95,16 +95,14 @@ def setup_pipenv_in_package():
             get_executable_path("pip")
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
 
-    penv_python = get_executable_path("python")
-    env.Replace(PYTHONEXE=penv_python)
 
-
-# Setup virtual environment if needed and find path to Python exe
+# Setup virtual environment if needed and set path to venv Python exe
 setup_pipenv_in_package()
+
 # Set Python Scons Var to env Python
-PYTHON_EXE = env.subst("$PYTHONEXE")
-## Remove PYTHONHOME if set
-# os.environ.pop('PYTHONHOME', None)
+penv_python = get_executable_path("python")
+env.Replace(PYTHONEXE=penv_python)
+PYTHON_EXE = penv_python
 
 # check for python binary, exit with error when not found
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
