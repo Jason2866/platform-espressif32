@@ -16,6 +16,7 @@ import locale
 import json
 import os
 import re
+import site
 import semantic_version
 import shlex
 import subprocess
@@ -105,41 +106,26 @@ assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
 
 def add_to_pythonpath(path):
     """
-    Add a path to the PYTHONPATH environment variable (cross-platform).
+    Add a path to Python's module search path using site.addsitedir().
     
     Args:
-        path (str): The path to add to PYTHONPATH
+        path (str): The path to add to Python's module search path
     """
-    # Normalize the path for the current OS
-    normalized_path = os.path.normpath(path)
-
-    # Add to PYTHONPATH environment variable
-    if "PYTHONPATH" in os.environ:
-        current_paths = os.environ["PYTHONPATH"].split(os.pathsep)
-        normalized_current_paths = [os.path.normpath(p) for p in current_paths]
-        if normalized_path not in normalized_current_paths:
-            # Rebuild PYTHONPATH with normalized paths to avoid duplicates
-            normalized_current_paths.insert(0, normalized_path)
-            os.environ["PYTHONPATH"] = os.pathsep.join(normalized_current_paths)
-    else:
-        os.environ["PYTHONPATH"] = normalized_path
-
-    # Also add to sys.path for immediate availability
-    if normalized_path not in sys.path:
-        sys.path.insert(0, normalized_path)
+    if os.path.isdir(path):
+        site.addsitedir(path)
 
 
 def setup_python_paths():
     """
     Setup Python paths based on the actual Python executable being used.
     
-    This function configures both PYTHONPATH environment variable and sys.path
+    This function configures Python's module search path and PATH environment
     to include the Python executable directory and site-packages directory.
     """    
     # Get the directory containing the Python executable
     python_dir = os.path.dirname(PYTHON_EXE)
 
-    # Add Scripts directory to PATH for Windows
+    # Add Scripts/bin directory to PATH for executables
     if IS_WINDOWS:
         scripts_dir = os.path.join(python_dir, "Scripts")
         if os.path.isdir(scripts_dir):
@@ -149,22 +135,25 @@ def setup_python_paths():
         if os.path.isdir(bin_dir):
             os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
 
-    penv_site_packages = None
-    if python_dir not in sys.path:
-        add_to_pythonpath(python_dir)
+    # Add Python directory to module search path
+    add_to_pythonpath(python_dir)
+    
+    # Add site-packages directory
     if IS_WINDOWS:
-        penv_site_packages = os.path.join(penv_dir, "Lib", "site-packages")
+        site_packages = os.path.join(penv_dir, "Lib", "site-packages")
     else:
         # Find the actual site-packages directory in the venv
         penv_lib_dir = os.path.join(penv_dir, "lib")
+        site_packages = None
         if os.path.isdir(penv_lib_dir):
             for python_version_dir in os.listdir(penv_lib_dir):
                 if python_version_dir.startswith("python"):
-                    penv_site_packages = os.path.join(penv_lib_dir, python_version_dir, "site-packages")
+                    site_packages = os.path.join(penv_lib_dir, python_version_dir, "site-packages")
                     break
+    
+    if site_packages:
+        add_to_pythonpath(site_packages)
 
-    if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
-        add_to_pythonpath(penv_site_packages)
 
 setup_python_paths()
 
