@@ -284,9 +284,6 @@ def install_python_deps():
 def install_esptool():
     """
     Install esptool from package folder "tool-esptoolpy" using uv package manager.
-    
-    Returns:
-        str: Path to esptool executable
 
     Raises:
         SystemExit: If esptool installation fails
