@@ -115,14 +115,28 @@ def add_to_pythonpath(path):
         site.addsitedir(path)
 
 
+def get_executable_path(executable_name):
+    """
+    Get the path to an executable based on the Python executable directory.
+    
+    Args:
+        executable_name (str): Name of the executable (e.g., 'esptool', 'uv')
+        
+    Returns:
+        str: Full path to the executable
+    """
+    python_dir = os.path.dirname(PYTHON_EXE)
+    
+    if IS_WINDOWS:
+        return os.path.join(python_dir, "Scripts", f"{executable_name}.exe")
+    else:
+        return os.path.join(python_dir, executable_name)
+
+
 def setup_python_paths():
     """
     Setup Python paths based on the actual Python executable being used.
-    
-    This function configures Python's module search path and PATH environment
-    to include the Python executable directory and site-packages directory.
     """    
-    # Get the directory containing the Python executable
     python_dir = os.path.dirname(PYTHON_EXE)
 
     # Add Scripts/bin directory to PATH for executables
@@ -142,7 +156,7 @@ def setup_python_paths():
     if IS_WINDOWS:
         site_packages = os.path.join(penv_dir, "Lib", "site-packages")
     else:
-        # Find the actual site-packages directory in the venv
+        # Find site-packages directory in the venv
         penv_lib_dir = os.path.join(penv_dir, "lib")
         site_packages = None
         if os.path.isdir(penv_lib_dir):
@@ -157,63 +171,9 @@ def setup_python_paths():
 
 setup_python_paths()
 
-
-def _get_executable_path(python_exe, executable_name):
-    """
-    Get the path to an executable binary (esptool, uv, etc.) based on the Python executable path.
-    
-    Args:
-        python_exe (str): Path to Python executable
-        executable_name (str): Name of the executable to find (e.g., 'esptool', 'uv')
-        
-    Returns:
-        str: Path to executable or fallback to executable name
-    """
-    
-    python_dir = os.path.dirname(python_exe)
-    
-    if IS_WINDOWS:
-        executable_path = os.path.join(python_dir, f"{executable_name}.exe")
-    else:
-        # For Unix-like systems, executables are typically in the same directory as python
-        # or in a bin subdirectory
-        executable_path = os.path.join(python_dir, executable_name)
-        
-        # If not found in python directory, try bin subdirectory
-        if not os.path.isfile(executable_path):
-            bin_dir = os.path.join(python_dir, "bin")
-            executable_path = os.path.join(bin_dir, executable_name)
-    
-    if os.path.isfile(executable_path):
-        return executable_path
-    
-    return executable_name  # Fallback to command name
-
-
-def _get_esptool_executable_path(python_exe):
-    """
-    Get the path to the esptool executable binary.
-    
-    Args:
-        python_exe (str): Path to Python executable
-        
-    Returns:
-        str: Path to esptool executable
-    """
-    return _get_executable_path(python_exe, "esptool")
-
-
-def _get_uv_executable_path(python_exe):
-    """
-    Get the path to the uv executable binary.
-    
-    Args:
-        python_exe (str): Path to Python executable
-        
-    Returns:
-        str: Path to uv executable
-    """
-    return _get_executable_path(python_exe, "uv")
+# Set executable paths directly
+esptool_binary_path = get_executable_path("esptool")
+uv_executable = get_executable_path("uv")
 
 
 def get_packages_to_install(deps, installed_packages):
@@ -243,9 +203,6 @@ def install_python_deps():
     Returns:
         bool: True if successful, False otherwise
     """
-    # Get uv executable path
-    uv_executable = _get_uv_executable_path(PYTHON_EXE)
-    
     try:
         result = subprocess.run(
             [uv_executable, "--version"],
@@ -270,9 +227,6 @@ def install_python_deps():
                 if result.stderr:
                     print(f"Error output: {result.stderr.strip()}")
                 return False
-            
-            # Update uv executable path after installation
-            uv_executable = _get_uv_executable_path(PYTHON_EXE)
 
         except subprocess.TimeoutExpired:
             print("Error: uv installation timed out")
@@ -383,7 +337,7 @@ def install_esptool():
             stderr=subprocess.DEVNULL,
             env=os.environ
         )
-        return _get_esptool_executable_path(PYTHON_EXE)
+        return
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
@@ -391,8 +345,7 @@ def install_esptool():
     if not esptool_repo_path or not os.path.isdir(esptool_repo_path):
         print("Error: esptool package directory not found")
         sys.exit(1)
-        
-    uv_executable = _get_uv_executable_path(PYTHON_EXE)
+
     try:
         subprocess.check_call([
             uv_executable, "pip", "install", "--quiet",
@@ -400,7 +353,7 @@ def install_esptool():
             "-e", esptool_repo_path
         ], env=os.environ)
         
-        return _get_esptool_executable_path(PYTHON_EXE)
+        return
         
     except subprocess.CalledProcessError as e:
         print(f"Error: Failed to install esptool: {e}")
@@ -411,7 +364,7 @@ def install_esptool():
 install_python_deps()
 
 # Install esptool after dependencies
-esptool_binary_path = install_esptool()
+install_esptool()
 
 
 def BeforeUpload(target, source, env):
