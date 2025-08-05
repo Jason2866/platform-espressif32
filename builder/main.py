@@ -117,13 +117,8 @@ def get_executable_path(executable_name):
 
 def setup_python_paths():
     """
-    Setup Python paths directly using the penv_dir.
+    Setup Python module search paths using the penv_dir.
     """    
-    # Add Scripts/bin directory to PATH for executables
-    runtime_dir = os.path.join(penv_dir, "Scripts" if IS_WINDOWS else "bin")
-    if os.path.isdir(runtime_dir):
-        os.environ["PATH"] = runtime_dir + os.pathsep + os.environ.get("PATH", "")
-
     # Add penv_dir to module search path
     site.addsitedir(penv_dir)
     
