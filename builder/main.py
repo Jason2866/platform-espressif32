@@ -62,13 +62,13 @@ env = DefaultEnvironment()
 platform = env.PioPlatform()
 projectconfig = env.GetProjectConfig()
 terminal_cp = locale.getpreferredencoding().lower()
-PYTHON_EXE = env.subst("$PYTHONEXE")  # Global Python executable path
-
-# Framework directory path
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
-
 platformio_dir = projectconfig.get("platformio", "core_dir")
+
+# Global Python executable path, replaced later with venv python path
+PYTHON_EXE = env.subst("$PYTHONEXE")
 penv_dir = os.path.join(platformio_dir, "penv")
+
 
 def get_executable_path(executable_name):
     """
@@ -96,7 +96,7 @@ def setup_pipenv_in_package():
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
 
 
-# Setup virtual environment if needed and set path to venv Python exe
+# Setup virtual environment if needed
 setup_pipenv_in_package()
 
 # Set Python Scons Var to env Python
@@ -131,7 +131,8 @@ def setup_python_paths():
 
 
 setup_python_paths()
-# Set executable paths directly
+
+# Set executable paths from tools
 esptool_binary_path = get_executable_path("esptool")
 uv_executable = get_executable_path("uv")
 
@@ -181,7 +182,7 @@ def install_python_deps():
                 capture_output=True,
                 text=True,
                 timeout=30,  # 30 second timeout
-                env=os.environ  # Use modified environment with custom PYTHONPATH
+                env=os.environ  # Use modified environment with venv Python
             )
             if result.returncode != 0:
                 if result.stderr:
@@ -215,7 +216,7 @@ def install_python_deps():
                 text=True,
                 encoding='utf-8',
                 timeout=30,  # 30 second timeout
-                env=os.environ  # Use modified environment with custom PYTHONPATH
+                env=os.environ  # Use modified environment with venv Python
             )
             
             if result_obj.returncode == 0:
@@ -258,7 +259,7 @@ def install_python_deps():
                 capture_output=True,
                 text=True,
                 timeout=30,  # 30 second timeout for package installation
-                env=os.environ  # Use modified environment with custom PYTHONPATH
+                env=os.environ  # Use modified environment with venv Python
             )
             
             if result.returncode != 0:
@@ -320,7 +321,7 @@ def install_esptool():
         sys.exit(1)
 
 
-# Install Python dependencies
+# Install espressif32 Python dependencies
 install_python_deps()
 # Install esptool after dependencies
 install_esptool()
