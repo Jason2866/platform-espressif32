@@ -98,77 +98,51 @@ def setup_pipenv_in_package():
 setup_pipenv_in_package()
 # Set Python Scons Var to env Python
 PYTHON_EXE = env.subst("$PYTHONEXE")
-# Remove PYTHONHOME if set
-os.environ.pop('PYTHONHOME', None)
+## Remove PYTHONHOME if set
+# os.environ.pop('PYTHONHOME', None)
 
 # check for python binary, exit with error when not found
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
 
-def add_to_pythonpath(path):
-    """
-    Add a path to Python's module search path using site.addsitedir().
-    
-    Args:
-        path (str): The path to add to Python's module search path
-    """
-    if os.path.isdir(path):
-        site.addsitedir(path)
-
 
 def get_executable_path(executable_name):
     """
-    Get the path to an executable based on the variable 'penv_dir'
-    
-    Args:
-        executable_name (str): Name of the executable (e.g., 'esptool', 'uv')
-        
-    Returns:
-        str: Full path to the executable
+    Get the path to an executable based on the penv_dir.
     """
-    if IS_WINDOWS:
-        return os.path.join(penv_dir, "Scripts", f"{executable_name}.exe")
-    else:
-        return os.path.join(penv_dir, "bin", executable_name)
+    exe_suffix = ".exe" if IS_WINDOWS else ""
+    scripts_dir = "Scripts" if IS_WINDOWS else "bin"
+    
+    return os.path.join(penv_dir, scripts_dir, f"{executable_name}{exe_suffix}")
 
 
 def setup_python_paths():
     """
-    Setup Python paths based on the actual Python executable being used.
+    Setup Python paths directly using the penv_dir.
     """    
-    python_dir = os.path.dirname(PYTHON_EXE)
-
     # Add Scripts/bin directory to PATH for executables
-    if IS_WINDOWS:
-        scripts_dir = os.path.join(python_dir, "Scripts")
-        if os.path.isdir(scripts_dir):
-            os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
-    else:
-        bin_dir = os.path.join(python_dir, "bin")
-        if os.path.isdir(bin_dir):
-            os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
+    runtime_dir = os.path.join(penv_dir, "Scripts" if IS_WINDOWS else "bin")
+    if os.path.isdir(runtime_dir):
+        os.environ["PATH"] = runtime_dir + os.pathsep + os.environ.get("PATH", "")
 
-    # Add Python directory to module search path
-    add_to_pythonpath(python_dir)
+    # Add penv_dir to module search path
+    site.addsitedir(penv_dir)
     
     # Add site-packages directory
-    if IS_WINDOWS:
-        site_packages = os.path.join(penv_dir, "Lib", "site-packages")
-    else:
-        # Find site-packages directory in the venv
-        penv_lib_dir = os.path.join(penv_dir, "lib")
-        site_packages = None
-        if os.path.isdir(penv_lib_dir):
-            for python_version_dir in os.listdir(penv_lib_dir):
-                if python_version_dir.startswith("python"):
-                    site_packages = os.path.join(penv_lib_dir, python_version_dir, "site-packages")
-                    break
+    site_packages = (
+        os.path.join(penv_dir, "Lib", "site-packages") if IS_WINDOWS
+        else next(
+            (os.path.join(penv_dir, "lib", d, "site-packages") 
+             for d in os.listdir(os.path.join(penv_dir, "lib")) 
+             if d.startswith("python")), 
+            None
+        ) if os.path.isdir(os.path.join(penv_dir, "lib")) else None
+    )
     
-    if site_packages:
-        add_to_pythonpath(site_packages)
+    if site_packages and os.path.isdir(site_packages):
+        site.addsitedir(site_packages)
 
 
 setup_python_paths()
-
 # Set executable paths directly
 esptool_binary_path = get_executable_path("esptool")
 uv_executable = get_executable_path("uv")
@@ -360,7 +334,6 @@ def install_esptool():
 
 # Install Python dependencies
 install_python_deps()
-
 # Install esptool after dependencies
 install_esptool()
 
