@@ -70,11 +70,15 @@ FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
 platformio_dir = projectconfig.get("platformio", "core_dir")
 penv_dir = os.path.join(platformio_dir, "penv")
 
-pip_path = os.path.join(
-    penv_dir,
-    "Scripts" if IS_WINDOWS else "bin",
-    "pip" + (".exe" if IS_WINDOWS else ""),
-)
+def get_executable_path(executable_name):
+    """
+    Get the path to an executable based on the penv_dir.
+    """
+    exe_suffix = ".exe" if IS_WINDOWS else ""
+    scripts_dir = "Scripts" if IS_WINDOWS else "bin"
+    
+    return os.path.join(penv_dir, scripts_dir, f"{executable_name}{exe_suffix}")
+
 
 def setup_pipenv_in_package():
     """
@@ -88,11 +92,12 @@ def setup_pipenv_in_package():
             )
         )
         assert os.path.isfile(
-            pip_path
+            get_executable_path("pip")
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
 
-    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python")
+    penv_python = get_executable_path("python")
     env.Replace(PYTHONEXE=penv_python)
+
 
 # Setup virtual environment if needed and find path to Python exe
 setup_pipenv_in_package()
@@ -103,16 +108,6 @@ PYTHON_EXE = env.subst("$PYTHONEXE")
 
 # check for python binary, exit with error when not found
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
-
-
-def get_executable_path(executable_name):
-    """
-    Get the path to an executable based on the penv_dir.
-    """
-    exe_suffix = ".exe" if IS_WINDOWS else ""
-    scripts_dir = "Scripts" if IS_WINDOWS else "bin"
-    
-    return os.path.join(penv_dir, scripts_dir, f"{executable_name}{exe_suffix}")
 
 
 def setup_python_paths():
