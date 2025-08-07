@@ -344,7 +344,7 @@ def HandleCOMPONENTsettings(env):
 if "arduino" in env.subst("$PIOFRAMEWORK"):
     HandleCOMPONENTsettings(env)
 
-if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK"):
+if flag_custom_sdkonfig and "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK"):
     HandleArduinoIDFsettings(env)
     LIB_SOURCE = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "builder", "build_lib")
     if not bool(os.path.exists(os.path.join(PROJECT_DIR, ".dummy"))):
@@ -1154,7 +1154,7 @@ def build_bootloader(sdk_config, bootloader_offset):
         target_configs, ["STATIC_LIBRARY", "OBJECT_LIBRARY"]
     )
 
-    if env.get("PIO_ESP32_SECURE_BOOT_ENABLED") and flag_custom_sdkonfig == False:
+    if env.get("PIO_ESP32_SECURE_BOOT_ENABLED") and not flag_custom_sdkonfig:
         if not env.get(
             "PIO_ESP32_SECURE_BOOT_BUILD_SIGNED_BINARIES", False
         ) and sdk_config.get("SECURE_BOOT_V2_ENABLED"):
@@ -1203,7 +1203,7 @@ def build_bootloader(sdk_config, bootloader_offset):
 
     if env.get("PIO_ESP32_SIGNATURE_REQUIRED", False) or env.get(
         "PIO_ESP32_SECURE_BOOT_BUILD_SIGNED_BINARIES", False
-    ) and flag_custom_sdkonfig == False:
+    ) and not flag_custom_sdkonfig:
         bootloader_image_name = "bootloader-signed"
         bootloader_binary = env.SignBin(
             os.path.join("$BUILD_DIR", bootloader_image_name), bootloader_binary
@@ -1356,7 +1356,7 @@ def generate_empty_partition_image(binary_path, image_size):
         ),
     )
 
-    if flag_custom_sdkonfig == False:
+    if not flag_custom_sdkonfig:
         env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", empty_partition)
 
 
@@ -1773,7 +1773,7 @@ def generate_partition_table(partition_table_offset):
             partition_table
         )
 
-    if env.get("PIO_ESP32_ENCRYPTION_REQUIRED", False) and flag_custom_sdkonfig == False:
+    if env.get("PIO_ESP32_ENCRYPTION_REQUIRED", False) and not flag_custom_sdkonfig:
         partition_table = env.Clone(
             FLASH_IMAGE_OFFSET=partition_table_offset
         ).EncryptBin(
@@ -2040,7 +2040,7 @@ if sdk_config.get("SECURE_BOOT"):
 
 if env.get("PIO_ESP32_SIGNATURE_REQUIRED", False) or env.get(
     "PIO_ESP32_SECURE_BOOT_BUILD_SIGNED_BINARIES", False
-):
+) and not flag_custom_sdkonfig:
     signing_key = env.get("PIO_ESP32_SECURE_BOOT_SIGNING_KEY", "")
     if not signing_key:
         print(
@@ -2144,7 +2144,7 @@ bootloader_offset = board.get(
     ),
 )
 
-if flag_custom_sdkonfig == False:
+if not flag_custom_sdkonfig:
     bootloader = build_bootloader(sdk_config, bootloader_offset)
     env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", bootloader)
 
@@ -2229,7 +2229,7 @@ env.Prepend(
 
 # In Secure Boot the bootloader image is only uploaded if
 # a corresponding option is enabled
-if flag_custom_sdkonfig == False:
+if not flag_custom_sdkonfig:
     if not env.get("PIO_ESP32_SECURE_BOOT_ENABLED") or sdk_config.get(
         "SECURE_BOOT_FLASH_BOOTLOADER_DEFAULT", False
     ) or env.get("PIO_ESP32_SINGLE_APP_TARGET", False):
@@ -2589,7 +2589,7 @@ env["INTEGRATION_EXTRA_DATA"].update(
 if (
     env.get("PIO_ESP32_SECURE_BOOT_ENABLED", False)
     or env.get("PIO_ESP32_SECURE_FLASH_ENCRYPTION_ENABLED", False)
-) and flag_custom_sdkonfig == False:
+) and not flag_custom_sdkonfig:
     env.AddPreAction("upload", disable_after_reset_hook)
     for target_name in ("app", "bootloader"):
         for action_name in ("", "-signed", "-encrypted", "-signed-encrypted"):
