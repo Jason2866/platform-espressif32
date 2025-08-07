@@ -16,6 +16,7 @@ import locale
 import json
 import os
 import re
+import site
 import semantic_version
 import shlex
 import subprocess
@@ -36,6 +37,15 @@ from platformio.package.version import pepver_to_semver
 from platformio.util import get_serial_ports
 from platformio.compat import IS_WINDOWS
 
+# Check Python version requirement
+if sys.version_info < (3, 10):
+    sys.stderr.write(
+        f"Error: Python 3.10 or higher is required. "
+        f"Current version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\n"
+        f"Please update your Python installation.\n"
+    )
+    sys.exit(1)
+
 # Python dependencies required for the build process
 python_deps = {
     "uv": ">=0.1.0",
@@ -44,6 +54,10 @@ python_deps = {
     "zopfli": ">=0.2.2",
     "intelhex": ">=2.3.0",
     "rich": ">=14.0.0",
+    "cryptography": ">=45.0.3",
+    "ecdsa": ">=0.19.1",
+    "bitstring": ">=4.3.1",
+    "reedsolo": ">=1.5.3,<1.8",
     "esp-idf-size": ">=1.6.1"
 }
 
@@ -52,19 +66,23 @@ env = DefaultEnvironment()
 platform = env.PioPlatform()
 projectconfig = env.GetProjectConfig()
 terminal_cp = locale.getpreferredencoding().lower()
-PYTHON_EXE = env.subst("$PYTHONEXE")  # Global Python executable path
-
-# Framework directory path
 FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
-
 platformio_dir = projectconfig.get("platformio", "core_dir")
+
+# Global Python executable path, replaced later with venv python path
+PYTHON_EXE = env.subst("$PYTHONEXE")
 penv_dir = os.path.join(platformio_dir, "penv")
 
-pip_path = os.path.join(
-    penv_dir,
-    "Scripts" if IS_WINDOWS else "bin",
-    "pip" + (".exe" if IS_WINDOWS else ""),
-)
+
+def get_executable_path(executable_name):
+    """
+    Get the path to an executable based on the penv_dir.
+    """
+    exe_suffix = ".exe" if IS_WINDOWS else ""
+    scripts_dir = "Scripts" if IS_WINDOWS else "bin"
+    
+    return os.path.join(penv_dir, scripts_dir, f"{executable_name}{exe_suffix}")
+
 
 def setup_pipenv_in_package():
     """
@@ -74,163 +92,47 @@ def setup_pipenv_in_package():
         env.Execute(
             env.VerboseAction(
                 '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
-                "Creating a new virtual environment for Python dependencies",
+                "Creating pioarduino Python virtual environment: %s" % penv_dir,
             )
         )
-
         assert os.path.isfile(
-            pip_path
+            get_executable_path("pip")
         ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
 
-    penv_python = os.path.join(penv_dir, "Scripts", "python.exe") if IS_WINDOWS else os.path.join(penv_dir, "bin", "python")
-    env.Replace(PYTHONEXE=penv_python)
-    print(f"PYTHONEXE updated to penv environment: {penv_python}")
 
+# Setup virtual environment if needed
 setup_pipenv_in_package()
-# Update global PYTHON_EXE variable after potential pipenv setup
-PYTHON_EXE = env.subst("$PYTHONEXE")
-python_exe = PYTHON_EXE
 
-# Ensure penv Python directory is in PATH for subprocess calls
-python_dir = os.path.dirname(PYTHON_EXE)
-current_path = os.environ.get("PATH", "")
-if python_dir not in current_path:
-    os.environ["PATH"] = python_dir + os.pathsep + current_path
+# Set Python Scons Var to env Python
+penv_python = get_executable_path("python")
+env.Replace(PYTHONEXE=penv_python)
+PYTHON_EXE = penv_python
 
-# Verify the Python executable exists
+# check for python binary, exit with error when not found
 assert os.path.isfile(PYTHON_EXE), f"Python executable not found: {PYTHON_EXE}"
-
-if os.path.isfile(python_exe):
-    # Update sys.path to include penv site-packages
-    if IS_WINDOWS:
-        penv_site_packages = os.path.join(penv_dir, "Lib", "site-packages")
-    else:
-        # Find the actual site-packages directory in the venv
-        penv_lib_dir = os.path.join(penv_dir, "lib")
-        if os.path.isdir(penv_lib_dir):
-            for python_dir in os.listdir(penv_lib_dir):
-                if python_dir.startswith("python"):
-                    penv_site_packages = os.path.join(penv_lib_dir, python_dir, "site-packages")
-                    break
-            else:
-                penv_site_packages = None
-        else:
-            penv_site_packages = None
-
-    if penv_site_packages and os.path.isdir(penv_site_packages) and penv_site_packages not in sys.path:
-        sys.path.insert(0, penv_site_packages)
-
-
-def add_to_pythonpath(path):
-    """
-    Add a path to the PYTHONPATH environment variable (cross-platform).
-    
-    Args:
-        path (str): The path to add to PYTHONPATH
-    """
-    # Normalize the path for the current OS
-    normalized_path = os.path.normpath(path)
-    
-    # Add to PYTHONPATH environment variable
-    if "PYTHONPATH" in os.environ:
-        current_paths = os.environ["PYTHONPATH"].split(os.pathsep)
-        normalized_current_paths = [os.path.normpath(p) for p in current_paths]
-        if normalized_path not in normalized_current_paths:
-            os.environ["PYTHONPATH"] = normalized_path + os.pathsep + os.environ.get("PYTHONPATH", "")
-    else:
-        os.environ["PYTHONPATH"] = normalized_path
-    
-    # Also add to sys.path for immediate availability
-    if normalized_path not in sys.path:
-        sys.path.insert(0, normalized_path)
 
 
 def setup_python_paths():
-    """
-    Setup Python paths based on the actual Python executable being used.
-    """
-    if not PYTHON_EXE or not os.path.isfile(PYTHON_EXE):
-        return
+    """Setup Python module search paths using the penv_dir."""    
+    # Add penv_dir to module search path
+    site.addsitedir(penv_dir)
     
-    # Get the directory containing the Python executable
-    python_dir = os.path.dirname(PYTHON_EXE)
-    add_to_pythonpath(python_dir)
-    
-    # Try to find site-packages directory using the actual Python executable
-    result = subprocess.run(
-        [PYTHON_EXE, "-c", "import site; print(site.getsitepackages()[0])"],
-        capture_output=True,
-        text=True,
-        timeout=5
+    # Add site-packages directory
+    python_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    site_packages = (
+        os.path.join(penv_dir, "Lib", "site-packages") if IS_WINDOWS
+        else os.path.join(penv_dir, "lib", python_ver, "site-packages")
     )
-    if result.returncode == 0:
-        site_packages = result.stdout.strip()
-        if os.path.isdir(site_packages):
-            add_to_pythonpath(site_packages)
+    
+    if os.path.isdir(site_packages):
+        site.addsitedir(site_packages)
 
-# Setup Python paths based on the actual Python executable
+
 setup_python_paths()
 
-
-def _get_executable_path(python_exe, executable_name):
-    """
-    Get the path to an executable binary (esptool, uv, etc.) based on the Python executable path.
-    
-    Args:
-        python_exe (str): Path to Python executable
-        executable_name (str): Name of the executable to find (e.g., 'esptool', 'uv')
-        
-    Returns:
-        str: Path to executable or fallback to executable name
-    """
-    if not python_exe or not os.path.isfile(python_exe):
-        return executable_name  # Fallback to command name
-    
-    python_dir = os.path.dirname(python_exe)
-    
-    if sys.platform == "win32":
-        scripts_dir = os.path.join(python_dir, "Scripts")
-        executable_path = os.path.join(scripts_dir, f"{executable_name}.exe")
-    else:
-        # For Unix-like systems, executables are typically in the same directory as python
-        # or in a bin subdirectory
-        executable_path = os.path.join(python_dir, executable_name)
-        
-        # If not found in python directory, try bin subdirectory
-        if not os.path.isfile(executable_path):
-            bin_dir = os.path.join(python_dir, "bin")
-            executable_path = os.path.join(bin_dir, executable_name)
-    
-    if os.path.isfile(executable_path):
-        return executable_path
-    
-    return executable_name  # Fallback to command name
-
-
-def _get_esptool_executable_path(python_exe):
-    """
-    Get the path to the esptool executable binary.
-    
-    Args:
-        python_exe (str): Path to Python executable
-        
-    Returns:
-        str: Path to esptool executable
-    """
-    return _get_executable_path(python_exe, "esptool")
-
-
-def _get_uv_executable_path(python_exe):
-    """
-    Get the path to the uv executable binary.
-    
-    Args:
-        python_exe (str): Path to Python executable
-        
-    Returns:
-        str: Path to uv executable
-    """
-    return _get_executable_path(python_exe, "uv")
+# Set executable paths from tools
+esptool_binary_path = get_executable_path("esptool")
+uv_executable = get_executable_path("uv")
 
 
 def get_packages_to_install(deps, installed_packages):
@@ -260,9 +162,6 @@ def install_python_deps():
     Returns:
         bool: True if successful, False otherwise
     """
-    # Get uv executable path
-    uv_executable = _get_uv_executable_path(PYTHON_EXE)
-    
     try:
         result = subprocess.run(
             [uv_executable, "--version"],
@@ -281,23 +180,13 @@ def install_python_deps():
                 capture_output=True,
                 text=True,
                 timeout=30,  # 30 second timeout
-                env=os.environ  # Use modified environment with custom PYTHONPATH
+                env=os.environ  # Use modified environment with venv Python
             )
             if result.returncode != 0:
                 if result.stderr:
                     print(f"Error output: {result.stderr.strip()}")
                 return False
-            
-            # Update uv executable path after installation
-            uv_executable = _get_uv_executable_path(PYTHON_EXE)
-            
-            # Add Scripts directory to PATH for Windows
-            if sys.platform == "win32":
-                python_dir = os.path.dirname(PYTHON_EXE)
-                scripts_dir = os.path.join(python_dir, "Scripts")
-                if os.path.isdir(scripts_dir):
-                    os.environ["PATH"] = scripts_dir + os.pathsep + os.environ.get("PATH", "")
-                    
+
         except subprocess.TimeoutExpired:
             print("Error: uv installation timed out")
             return False
@@ -325,7 +214,7 @@ def install_python_deps():
                 text=True,
                 encoding='utf-8',
                 timeout=30,  # 30 second timeout
-                env=os.environ  # Use modified environment with custom PYTHONPATH
+                env=os.environ  # Use modified environment with venv Python
             )
             
             if result_obj.returncode == 0:
@@ -335,7 +224,7 @@ def install_python_deps():
                     for p in packages:
                         result[p["name"]] = pepver_to_semver(p["version"])
             else:
-                print(f"Warning: pip list failed with exit code {result_obj.returncode}")
+                print(f"Warning: uv pip list failed with exit code {result_obj.returncode}")
                 if result_obj.stderr:
                     print(f"Error output: {result_obj.stderr.strip()}")
                 
@@ -368,7 +257,7 @@ def install_python_deps():
                 capture_output=True,
                 text=True,
                 timeout=30,  # 30 second timeout for package installation
-                env=os.environ  # Use modified environment with custom PYTHONPATH
+                env=os.environ  # Use modified environment with venv Python
             )
             
             if result.returncode != 0:
@@ -393,10 +282,9 @@ def install_python_deps():
 def install_esptool():
     """
     Install esptool from package folder "tool-esptoolpy" using uv package manager.
-    Also determines the path to the esptool executable binary.
-    
-    Returns:
-        str: Path to esptool executable, or 'esptool' as fallback
+
+    Raises:
+        SystemExit: If esptool installation fails
     """
     try:
         subprocess.check_call(
@@ -405,34 +293,33 @@ def install_esptool():
             stderr=subprocess.DEVNULL,
             env=os.environ
         )
-        esptool_binary_path = _get_esptool_executable_path(PYTHON_EXE)
-        return esptool_binary_path
+        return
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
     esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
-    if esptool_repo_path and os.path.isdir(esptool_repo_path):
-        uv_executable = _get_uv_executable_path(PYTHON_EXE)
-        try:
-            subprocess.check_call([
-                uv_executable, "pip", "install", "--quiet",
-                f"--python={PYTHON_EXE}",
-                "-e", esptool_repo_path
-            ], env=os.environ)
+    if not esptool_repo_path or not os.path.isdir(esptool_repo_path):
+        print("Error: esptool package directory not found")
+        sys.exit(1)
 
-            esptool_binary_path = _get_esptool_executable_path(PYTHON_EXE)
-            return esptool_binary_path
-            
-        except subprocess.CalledProcessError as e:
-            print(f"Warning: Failed to install esptool: {e}")
-            return 'esptool'  # Fallback
-    
-    return 'esptool'  # Fallback
+    try:
+        subprocess.check_call([
+            uv_executable, "pip", "install", "--quiet",
+            f"--python={PYTHON_EXE}",
+            "-e", esptool_repo_path
+        ], env=os.environ)
+        
+        return
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Failed to install esptool: {e}")
+        sys.exit(1)
 
 
-# Install Python dependencies and esptool
+# Install espressif32 Python dependencies
 install_python_deps()
-esptool_binary_path = install_esptool()
+# Install esptool after dependencies
+install_esptool()
 
 
 def BeforeUpload(target, source, env):
