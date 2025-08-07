@@ -2559,8 +2559,7 @@ with open(partitions_csv) as fp:
 env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
 
 if (env.get("PIO_ESP32_SECURE_BOOT_ENABLED", False)
-    or env.get("PIO_ESP32_SECURE_FLASH_ENCRYPTION_ENABLED", False))
-    and not flag_custom_sdkonfig:
+    or env.get("PIO_ESP32_SECURE_FLASH_ENCRYPTION_ENABLED", False)) and not flag_custom_sdkonfig:
     #
     # Configure application partition offset
     #
