@@ -1154,10 +1154,9 @@ def build_bootloader(sdk_config, bootloader_offset):
         target_configs, ["STATIC_LIBRARY", "OBJECT_LIBRARY"]
     )
 
-    if env.get("PIO_ESP32_SECURE_BOOT_ENABLED") and not flag_custom_sdkonfig:
-        if not env.get(
-            "PIO_ESP32_SECURE_BOOT_BUILD_SIGNED_BINARIES", False
-        ) and sdk_config.get("SECURE_BOOT_V2_ENABLED"):
+    if (env.get("PIO_ESP32_SECURE_BOOT_ENABLED") and not flag_custom_sdkonfig and
+        not env.get("PIO_ESP32_SECURE_BOOT_BUILD_SIGNED_BINARIES", False) and 
+        sdk_config.get("SECURE_BOOT_V2_ENABLED")):
             # When CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES is disabled,
             # the bootloader will use the --pad-to-size option in elf2image
             # command of esptool for sector padding, with a size of
