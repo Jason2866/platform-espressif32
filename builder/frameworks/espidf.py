@@ -1380,7 +1380,7 @@ def get_partition_info(pt_path, pt_offset, pt_params):
         "offset",
     ]
 
-    if pt_params["name"] == "boot":
+    if pt_params.get("name") == "boot":
         cmd.append("--partition-boot-default")
     else:
         cmd.extend(
@@ -1411,8 +1411,11 @@ def get_partition_info(pt_path, pt_offset, pt_params):
 
 def get_app_partition_offset(pt_table, pt_offset):
     # Get the default boot partition offset
-    app_params = get_partition_info(pt_table, pt_offset, {"name": "boot"})
-    return app_params.get("offset", "0x10000")
+    ota_app_params = get_partition_info(pt_table, pt_offset, {"type": "app", "subtype": "ota_0"})
+    if ota_app_params.get("offset"):
+        return ota_app_params["offset"]
+    factory_app_params = get_partition_info(pt_table, pt_offset, {"type": "app", "subtype": "factory"})
+    return factory_app_params.get("offset", "0x10000")
 
 
 def preprocess_linker_file(src_ld_script, target_ld_script):
