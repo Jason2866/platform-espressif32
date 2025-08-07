@@ -2529,50 +2529,16 @@ def _parse_size(value):
 # Configure application partition offset
 #
 
-partitions_csv = env.subst("$PARTITIONS_TABLE_CSV")
-result = []
-next_offset = 0
-bound = 0x10000
-with open(partitions_csv) as fp:
-    for line in fp.readlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        tokens = [t.strip() for t in line.split(",")]
-        if len(tokens) < 5:
-            continue
-        partition = {
-            "name": tokens[0],
-            "type": tokens[1],
-            "subtype": tokens[2],
-            "offset": tokens[3] or next_offset,
-            "size": tokens[4],
-            "flags": tokens[5] if len(tokens) > 5 else None
-        }
-        result.append(partition)
-        next_offset = _parse_size(partition["offset"])
-        if (partition["subtype"] == "ota_0"):
-            bound = next_offset
-        next_offset = (next_offset + bound - 1) & ~(bound - 1)
+app_offset = get_app_partition_offset(
+    env.subst("$PARTITIONS_TABLE_CSV"),
+    partition_table_offset
+)
 
-env.Replace(ESP32_APP_OFFSET=str(hex(bound)))
+# Use the bootloader offset if bootloader is the target
+if env.get("PIO_ESP32_SINGLE_BOOTLOADER_TARGET", False):
+    app_offset = bootloader_offset
 
-if (env.get("PIO_ESP32_SECURE_BOOT_ENABLED", False)
-    or env.get("PIO_ESP32_SECURE_FLASH_ENCRYPTION_ENABLED", False)) and not flag_custom_sdkonfig:
-    #
-    # Configure application partition offset
-    #
-
-    app_offset = get_app_partition_offset(
-        env.subst("$PARTITIONS_TABLE_CSV"),
-        partition_table_offset
-    )
-
-    # Use the bootloader offset if bootloader is the target
-    if env.get("PIO_ESP32_SINGLE_BOOTLOADER_TARGET", False):
-        app_offset = bootloader_offset
-
-    env.Replace(ESP32_APP_OFFSET=app_offset)
+env.Replace(ESP32_APP_OFFSET=app_offset)
 
 #
 # Propagate application offset to debug configurations
