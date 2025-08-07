@@ -33,27 +33,27 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/0508-2046-5.4/framework-arduinoespressif32-release_v5.4-e120496e.zip"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/0608-1914-5.4/framework-arduinoespressif32-release_v5.4-d1c3f760.zip"
     },
     "framework-espidf": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.2.250702/esp-idf-v5.4.2.zip"
+      "version": "https://github.com/tasmota/esp-idf/releases/download/v5.4.2.250804/esp-idf-v5.4.2.zip"
     },
     "toolchain-xtensa-esp-elf": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "14.2.0+20241119",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-14.2.0_20241119.zip"
+      "package-version": "14.2.0+20250730",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-14.2.0_20250730.zip"
     },
     "toolchain-riscv32-esp": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "14.2.0+20241119",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/riscv32-esp-elf-14.2.0_20241119.zip"
+      "package-version": "14.2.0+20250730",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/riscv32-esp-elf-14.2.0_20250730.zip"
     },
     "toolchain-esp32ulp": {
       "type": "toolchain",
