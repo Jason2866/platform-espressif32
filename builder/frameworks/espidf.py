@@ -1210,7 +1210,7 @@ def build_bootloader(sdk_config, bootloader_offset):
 
     if env.get("PIO_ESP32_ENCRYPTION_REQUIRED", False) and env.get(
         "PIO_ESP32_SECURE_FLASH_ENCRYPTION_ENABLED"
-    ) and flag_custom_sdkonfig == False:
+    ) and not flag_custom_sdkonfig:
         bootloader_image_name = "bootloader-encrypted"
         bootloader_binary = env.Clone(
             FLASH_IMAGE_OFFSET=bootloader_offset
