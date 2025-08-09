@@ -468,6 +468,11 @@ class Espressif32Platform(PlatformBase):
         ):
             return False
 
+        # safe piopm file currently installed
+        piopm_data = dict()
+        with open(paths['piopm_path'], "r") as f:
+            piopm_data = json.load(f)
+
         # Copy tool files
         tools_path_default = os.path.join(
             os.path.expanduser("~"), ".platformio"
@@ -483,6 +488,8 @@ class Espressif32Platform(PlatformBase):
 
         tl_path = f"file://{os.path.join(tools_path_default, 'tools', tool_name)}"
         pm.install(tl_path)
+        with open(paths["piopm_path"], "w", encoding="utf-8") as f:
+            json.dump(piopm_data, f)
 
         logger.info(f"Tool {tool_name} successfully installed")
         return True
@@ -572,10 +579,8 @@ class Espressif32Platform(PlatformBase):
         # Debug tools when needed
         if self._needs_debug_tools(variables, targets):
             for debug_tool in mcu_config["debug_tools"]:
-                #self.install_tool(debug_tool)
-                self.packages[debug_tool]["optional"] = False
-            #self.install_tool("tool-openocd-esp32")
-            self.packages["tool-openocd-esp32"]["optional"] = False
+                self.install_tool(debug_tool)
+            self.install_tool("tool-openocd-esp32")
 
     def _configure_installer(self) -> None:
         """Configure the ESP-IDF tools installer with proper version checking."""
