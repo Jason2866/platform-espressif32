@@ -1484,7 +1484,7 @@ def generate_mbedtls_bundle(sdk_config):
 
 def install_python_deps():
     PYTHON_EXE = env.subst("$PYTHONEXE")
-    UV_EXE = os.path.join(os.path.dirname(PYTHON_EXE), "uv")
+    UV_EXE = os.path.join(os.path.dirname(PYTHON_EXE), "uv" + (".exe" if IS_WINDOWS else ""))
     print(f"Debug - PYTHON_EXE: {PYTHON_EXE}")
     print(f"Debug - UV_EXE: {UV_EXE}")
     def _get_installed_uv_packages(python_exe_path):
