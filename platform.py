@@ -547,7 +547,7 @@ class Espressif32Platform(PlatformBase):
         """Check if debug tools are needed based on build configuration."""
         return bool(
             variables.get("build_type") or
-            "debug" in targets or
+            "__debug" in targets or
             variables.get("upload_protocol")
         )
 
@@ -572,8 +572,10 @@ class Espressif32Platform(PlatformBase):
         # Debug tools when needed
         if self._needs_debug_tools(variables, targets):
             for debug_tool in mcu_config["debug_tools"]:
-                self.install_tool(debug_tool)
-            self.install_tool("tool-openocd-esp32")
+                #self.install_tool(debug_tool)
+                self.packages[debug_tool]["optional"] = False
+            #self.install_tool("tool-openocd-esp32")
+            self.packages["tool-openocd-esp32"]["optional"] = False
 
     def _configure_installer(self) -> None:
         """Configure the ESP-IDF tools installer with proper version checking."""
