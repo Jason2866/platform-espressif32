@@ -708,7 +708,7 @@ toolchain_arch = "xtensa-%s" % mcu
 filesystem = board.get("build.filesystem", "littlefs")
 
 # Set toolchain architecture for RISC-V based ESP32 variants
-if mcu in ("esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32h2", "esp32p4"):
+if mcu not in ("esp32", "esp32s2", "esp32s3"):
     toolchain_arch = "riscv32-esp"
 
 # Initialize integration extra data if not present
@@ -736,13 +736,10 @@ env.Replace(
     GDB=join(
         platform.get_package_dir(
             "tool-riscv32-esp-elf-gdb"
-            if mcu in (
-                "esp32c2",
-                "esp32c3",
-                "esp32c5",
-                "esp32c6",
-                "esp32h2",
-                "esp32p4",
+            if mcu not in (
+                "esp32",
+                "esp32s2",
+                "esp32s3",
             )
             else "tool-xtensa-esp-elf-gdb"
         )
