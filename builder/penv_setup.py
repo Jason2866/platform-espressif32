@@ -103,7 +103,7 @@ def get_packages_to_install(deps, installed_packages):
             # If version can't be parsed, fall back to accepting any installed version.
             m = re.search(r'/v?(\d+\.\d+\.\d+(?:\.\d+)?)(?:\.(?:zip|tar\.gz|tar\.bz2))?$', spec)
             if m:
-                expected_ver = semantic_version.Version(m.group(1))
+                expected_ver = pepver_to_semver(m.group(1))
                 if installed_packages.get(name) != expected_ver:
                     # Reinstall to align with the pinned URL version
                     yield package
