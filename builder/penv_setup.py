@@ -85,10 +85,11 @@ def setup_python_paths(penv_dir):
 def get_packages_to_install(deps, installed_packages):
     """
     Generator for Python packages that need to be installed.
+    Compares package names case-insensitively.
     
     Args:
         deps (dict): Dictionary of package names and version specifications
-        installed_packages (dict): Dictionary of currently installed packages
+        installed_packages (dict): Dictionary of currently installed packages (keys should be lowercase)
         
     Yields:
         str: Package name that needs to be installed
@@ -244,9 +245,15 @@ def install_python_deps(python_exe, uv_executable):
 def install_esptool(env, platform, python_exe, uv_executable):
     """
     Install esptool from package folder "tool-esptoolpy" using uv package manager.
-
+    
+    Args:
+        env: SCons environment object
+        platform: PlatformIO platform object  
+        python_exe (str): Path to Python executable in virtual environment
+        uv_executable (str): Path to uv executable
+    
     Raises:
-        SystemExit: If esptool installation fails
+        SystemExit: If esptool installation fails or package directory not found
     """
     try:
         subprocess.check_call(
@@ -281,8 +288,16 @@ def setup_python_environment(env, platform, platformio_dir):
     """
     Main function to setup the Python virtual environment and dependencies.
     
+    Args:
+        env: SCons environment object
+        platform: PlatformIO platform object
+        platformio_dir (str): Path to PlatformIO core directory
+    
     Returns:
         tuple[str, str]: (Path to penv Python executable, Path to esptool script)
+        
+    Raises:
+        SystemExit: If Python version < 3.10 or dependency installation fails
     """
     # Check Python version requirement
     if sys.version_info < (3, 10):
