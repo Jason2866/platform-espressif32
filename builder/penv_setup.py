@@ -290,10 +290,6 @@ def install_esptool(env, platform, python_exe, uv_executable):
     except subprocess.CalledProcessError:
         sys.exit(1)
 
-    except subprocess.CalledProcessError as e:
-        print(f"Error: Failed to install esptool: {e}")
-        sys.exit(1)
-
 
 def setup_python_environment(env, platform, platformio_dir):
     """
