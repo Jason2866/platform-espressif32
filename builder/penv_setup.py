@@ -108,7 +108,7 @@ def get_packages_to_install(deps, installed_packages):
             else:
                 continue
         else:
-            version_spec = semantic_version.Spec(spec)
+            version_spec = semantic_version.SimpleSpec(spec)
             if not version_spec.match(installed_packages[package]):
                 yield package
 
