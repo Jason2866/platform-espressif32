@@ -21,6 +21,7 @@ from SCons.Script import Builder
 Import("env")
 
 board = env.BoardConfig()
+is_xtensa = mcu in ("esp32","esp32s2","esp32s3")
 
 #
 # Embedded files helpers
@@ -110,14 +111,14 @@ env.Append(
                 " ".join(
                     [
                         "riscv32-esp-elf-objcopy"
-                        if mcu not in ("esp32","esp32s2","esp32s3")
+                        if not is_xtensa
                         else "xtensa-%s-elf-objcopy" % mcu,
                         "--input-target",
                         "binary",
                         "--output-target",
-                        "elf32-littleriscv" if mcu not in ("esp32","esp32s2","esp32s3") else "elf32-xtensa-le",
+                        "elf32-littleriscv" if not is_xtensa else "elf32-xtensa-le",
                         "--binary-architecture",
-                        "riscv" if mcu not in ("esp32","esp32s2","esp32s3") else "xtensa",
+                        "riscv" if not is_xtensa else "xtensa",
                         "--rename-section",
                         ".data=.rodata.embedded",
                         "$SOURCE",
