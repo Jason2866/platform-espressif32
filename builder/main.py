@@ -701,7 +701,7 @@ if upload_protocol == "espota":
 # Configure upload protocol: esptool
 elif upload_protocol == "esptool":
     env.Replace(
-        UPLOADER=objcopy_value,
+        UPLOADER=uploader_path,
         UPLOADERFLAGS=[
             "--chip",
             mcu,
