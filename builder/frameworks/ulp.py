@@ -31,13 +31,14 @@ ULP_BUILD_DIR = os.path.join(
     BUILD_DIR, "esp-idf", project_config["name"].replace("__idf_", ""), "ulp_main"
 )
 
+is_xtensa = idf_variant in ("esp32","esp32s2","esp32s3")
 
 def prepare_ulp_env_vars(env):
     ulp_env.PrependENVPath("IDF_PATH", FRAMEWORK_DIR)
 
     toolchain_path = platform.get_package_dir(
         "toolchain-xtensa-esp-elf"
-        if idf_variant in ("esp32","esp32s2","esp32s3")
+        if is_xtensa
         else "toolchain-riscv32-esp"
     )
 
