@@ -312,7 +312,9 @@ def setup_python_environment(env, platform, platformio_dir):
     uv_executable = get_executable_path(penv_dir, "uv")
     
     # Install espressif32 Python dependencies
-    install_python_deps(penv_python, uv_executable)
+    if not install_python_deps(penv_python, uv_executable):
+        sys.stderr.write("Error: Failed to install Python dependencies into penv\n")
+        sys.exit(1)
     # Install esptool after dependencies
     install_esptool(env, platform, penv_python, uv_executable)
     
