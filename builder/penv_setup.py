@@ -94,22 +94,23 @@ def get_packages_to_install(deps, installed_packages):
         str: Package name that needs to be installed
     """
     for package, spec in deps.items():
-        if package not in installed_packages:
+        name = package.lower()
+        if name not in installed_packages:
             yield package
-        elif package == "platformio":
+        elif name == "platformio":
             # Enforce the version from the direct URL if it looks like one.
             # If version can't be parsed, fall back to accepting any installed version.
             m = re.search(r'/v?(\d+\.\d+\.\d+(?:\.\d+)?)(?:\.(?:zip|tar\.gz|tar\.bz2))?$', spec)
             if m:
                 expected_ver = semantic_version.Version(m.group(1))
-                if installed_packages.get(package) != expected_ver:
+                if installed_packages.get(name) != expected_ver:
                     # Reinstall to align with the pinned URL version
                     yield package
             else:
                 continue
         else:
             version_spec = semantic_version.SimpleSpec(spec)
-            if not version_spec.match(installed_packages[package]):
+            if not version_spec.match(installed_packages[name]):
                 yield package
 
 
@@ -178,7 +179,7 @@ def install_python_deps(python_exe, uv_executable):
                 if content:
                     packages = json.loads(content)
                     for p in packages:
-                        result[p["name"]] = pepver_to_semver(p["version"])
+                        result[p["name"].lower()] = pepver_to_semver(p["version"])
             else:
                 print(f"Warning: uv pip list failed with exit code {result_obj.returncode}")
                 if result_obj.stderr:
@@ -281,7 +282,7 @@ def setup_python_environment(env, platform, platformio_dir):
     Main function to setup the Python virtual environment and dependencies.
     
     Returns:
-        str: Path to the Python executable in the virtual environment
+        tuple[str, str]: (Path to penv Python executable, Path to esptool script)
     """
     # Check Python version requirement
     if sys.version_info < (3, 10):
