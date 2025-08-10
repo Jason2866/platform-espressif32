@@ -414,11 +414,12 @@ def switch_off_ldf():
 # Initialize board configuration and MCU settings
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
+is_xtensa = mcu in ("esp32","esp32s2","esp32s3")
 toolchain_arch = "xtensa-%s" % mcu
 filesystem = board.get("build.filesystem", "littlefs")
 
 # Set toolchain architecture for RISC-V based ESP32 variants
-if mcu not in ("esp32", "esp32s2", "esp32s3"):
+if not is_xtensa:
     toolchain_arch = "riscv32-esp"
 
 # Initialize integration extra data if not present
@@ -446,11 +447,7 @@ env.Replace(
     GDB=join(
         platform.get_package_dir(
             "tool-riscv32-esp-elf-gdb"
-            if mcu not in (
-                "esp32",
-                "esp32s2",
-                "esp32s3",
-            )
+            if not is_xtensa
             else "tool-xtensa-esp-elf-gdb"
         )
         or "",
