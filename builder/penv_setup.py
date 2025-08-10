@@ -245,6 +245,7 @@ def install_python_deps(python_exe, uv_executable):
 def install_esptool(env, platform, python_exe, uv_executable):
     """
     Install esptool from package folder "tool-esptoolpy" using uv package manager.
+    Ensures esptool is installed from the specific tool-esptoolpy package directory.
     
     Args:
         env: SCons environment object
@@ -255,29 +256,39 @@ def install_esptool(env, platform, python_exe, uv_executable):
     Raises:
         SystemExit: If esptool installation fails or package directory not found
     """
-    try:
-        subprocess.check_call(
-            [python_exe, "-c", "import esptool"], 
-            stdout=subprocess.DEVNULL, 
-            stderr=subprocess.DEVNULL
-        )
-        return
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
-
     esptool_repo_path = env.subst(platform.get_package_dir("tool-esptoolpy") or "")
     if not esptool_repo_path or not os.path.isdir(esptool_repo_path):
-        print("Error: esptool package directory not found")
         sys.exit(1)
+
+    # Check if esptool is already installed from the correct path
+    try:
+        result = subprocess.run(
+            [python_exe, "-c", 
+             "import esptool; "
+             "import os; "
+             f"expected_path = os.path.normpath(r'{esptool_repo_path}'); "
+             "actual_path = os.path.normpath(os.path.dirname(esptool.__file__)); "
+             "print('MATCH' if expected_path in actual_path else 'MISMATCH')"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0 and "MATCH" in result.stdout:
+            return
+            
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        pass
 
     try:
         subprocess.check_call([
-            uv_executable, "pip", "install", "--quiet",
+            uv_executable, "pip", "install", "--quiet", "--force-reinstall",
             f"--python={python_exe}",
             "-e", esptool_repo_path
         ])
 
-        return
+    except subprocess.CalledProcessError:
+        sys.exit(1)
 
     except subprocess.CalledProcessError as e:
         print(f"Error: Failed to install esptool: {e}")
