@@ -757,7 +757,7 @@ elif upload_protocol == "esptool":
                 "detect",
                 "$FS_START",
             ],
-            UPLOADCMD='"$UPLOADER" $UPLOADERFLAGS $SOURCE',
+            UPLOADCMD='$UPLOADER $UPLOADERFLAGS $SOURCE',
         )
 
     upload_actions = [
