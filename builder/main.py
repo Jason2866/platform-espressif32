@@ -426,7 +426,7 @@ if "INTEGRATION_EXTRA_DATA" not in env:
     env["INTEGRATION_EXTRA_DATA"] = {}
 
 # Take care of possible whitespaces in path
-objcopy_value = (
+uploader_path = (
     f'"{esptool_binary_path}"' 
     if ' ' in esptool_binary_path 
     else esptool_binary_path
@@ -457,7 +457,7 @@ env.Replace(
         "bin",
         "%s-elf-gdb" % toolchain_arch,
     ),
-    OBJCOPY=objcopy_value,
+    OBJCOPY=uploader_path,
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
     ARFLAGS=["rc"],
@@ -467,7 +467,7 @@ env.Replace(
     SIZECHECKCMD="$SIZETOOL -A -d $SOURCES",
     SIZEPRINTCMD="$SIZETOOL -B -d $SOURCES",
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
-    ERASECMD='"$OBJCOPY" $ERASEFLAGS erase-flash',
+    ERASECMD='$OBJCOPY $ERASEFLAGS erase-flash',
     MKFSTOOL="mk%s" % filesystem,
 
     ESP32_FS_IMAGE_NAME=env.get(
