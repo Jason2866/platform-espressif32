@@ -96,10 +96,9 @@ def generate_ulp_config(target_config):
         else:
             ulp_toolchain = "toolchain-lp-core-riscv.cmake"
 
- #       comp_includes_list = get_component_includes(target_config)
- #       plain_includes_list = app_includes["plain_includes"]
- #       comp_includes = ";".join(comp_includes_list + plain_includes_list)
-        comp_includes = ";".join(get_component_includes(target_config))
+        comp_includes_list = get_component_includes(target_config)
+        plain_includes_list = app_includes["plain_includes"]
+        comp_includes = ";".join(comp_includes_list + plain_includes_list)
 
         cmd = (
             os.path.join(platform.get_package_dir("tool-cmake"), "bin", "cmake"),
