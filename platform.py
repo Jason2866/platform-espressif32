@@ -167,7 +167,6 @@ class Espressif32Platform(PlatformBase):
         if self._packages_dir is None:
             config = ProjectConfig.get_instance()
             self._packages_dir = config.get("platformio", "packages_dir")
-            print(f"Using packages_dir: {self._packages_dir}")
         return self._packages_dir
 
     def _check_tl_install_version(self) -> bool:
