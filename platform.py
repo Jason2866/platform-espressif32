@@ -471,11 +471,8 @@ class Espressif32Platform(PlatformBase):
             return False
 
         # Copy tool files
-        tools_path_default = os.path.join(
-            os.path.expanduser("~"), ".platformio"
-        )
         target_package_path = os.path.join(
-            tools_path_default, "tools", tool_name, "package.json"
+            IDF_TOOLS_PATH, "tools", tool_name, "package.json"
         )
 
         if not safe_copy_file(paths['package_path'], target_package_path):
@@ -483,7 +480,7 @@ class Espressif32Platform(PlatformBase):
 
         safe_remove_directory(paths['tool_path'])
 
-        tl_path = f"file://{os.path.join(tools_path_default, 'tools', tool_name)}"
+        tl_path = f"file://{os.path.join(IDF_TOOLS_PATH, 'tools', tool_name)}"
         pm.install(tl_path)
 
         logger.info(f"Tool {tool_name} successfully installed")
