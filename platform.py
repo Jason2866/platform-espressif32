@@ -74,8 +74,10 @@ CHECK_PACKAGES = [
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
 
-# Clear IDF_TOOLS_PATH, if set tools may be installed in the wrong place
-os.environ["IDF_TOOLS_PATH"] = ""
+# Set IDF_TOOLS_PATH to Pio core_dir
+PROJECT_CORE_DIR=ProjectConfig.get_instance().get("platformio", "core_dir")
+IDF_TOOLS_PATH=os.path.join(PROJECT_CORE_DIR)
+os.environ["IDF_TOOLS_PATH"] = IDF_TOOLS_PATH
 
 # Global variables
 python_exe = get_pythonexe_path()
@@ -165,6 +167,7 @@ class Espressif32Platform(PlatformBase):
         if self._packages_dir is None:
             config = ProjectConfig.get_instance()
             self._packages_dir = config.get("platformio", "packages_dir")
+            print(f"Using packages_dir: {self._packages_dir}")
         return self._packages_dir
 
     def _check_tl_install_version(self) -> bool:
