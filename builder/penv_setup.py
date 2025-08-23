@@ -41,6 +41,7 @@ python_deps = {
     "intelhex": ">=2.3.0",
     "rich": ">=14.0.0",
     "cryptography": ">=45.0.3",
+    "certifi": ">=2025.8.3",
     "ecdsa": ">=0.19.1",
     "bitstring": ">=4.3.1",
     "reedsolo": ">=1.5.3,<1.8",
