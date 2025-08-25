@@ -44,7 +44,6 @@ from platformio import fs
 from platformio.compat import IS_WINDOWS
 from platformio.proc import exec_command
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
-# from platformio.project.config import ProjectConfig
 from platformio.package.version import get_original_version, pepver_to_semver
 
 
