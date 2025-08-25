@@ -46,15 +46,16 @@ from platformio.proc import exec_command
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
 from platformio.package.version import get_original_version, pepver_to_semver
 
+
+env = DefaultEnvironment()
+env.SConscript("_embed_files.py", exports="env")
+platform = env.PioPlatform()
+
 penv_setup_path = os.path.join(platform.get_dir(), "builder")
 if penv_setup_path not in sys.path:
     sys.path.insert(0, penv_setup_path)
 
 from penv_setup import get_executable_path
-
-
-env = DefaultEnvironment()
-env.SConscript("_embed_files.py", exports="env")
 
 # remove maybe existing old map file in project root
 map_file = os.path.join(env.subst("$PROJECT_DIR"), env.subst("$PROGNAME") + ".map")
@@ -64,7 +65,6 @@ if os.path.exists(map_file):
 # Allow changes in folders of managed components
 os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
 
-platform = env.PioPlatform()
 config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
