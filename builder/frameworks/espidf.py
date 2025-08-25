@@ -1510,7 +1510,6 @@ def install_python_deps():
         return
 
     deps = {
-        "uv": ">=0.1.0",
         # https://github.com/platformio/platformio-core/issues/4614
         "urllib3": "<2",
         # https://github.com/platformio/platform-espressif32/issues/635
@@ -1561,9 +1560,7 @@ def get_idf_venv_dir():
     # as an IDF component requires a different version of the IDF package and
     # hence a different set of Python deps or their versions
     idf_version = get_framework_version()
-    return os.path.join(
-        env.subst("$PROJECT_CORE_DIR"), "penv", ".espidf-" + idf_version
-    )
+    return os.path.join(PLATFORMIO_DIR, "penv", f".espidf-{idf_version}")
 
 
 def ensure_python_venv_available():
