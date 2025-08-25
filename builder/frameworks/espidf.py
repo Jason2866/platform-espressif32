@@ -87,6 +87,15 @@ PLATFORMIO_DIR = env.subst("$PROJECT_CORE_DIR")
 assert os.path.isdir(FRAMEWORK_DIR)
 assert os.path.isdir(TOOLCHAIN_DIR)
 
+penv_setup_path = os.path.join(platform.get_dir(), "builder")
+if penv_setup_path not in sys.path:
+    sys.path.insert(0, penv_setup_path)
+
+from penv_setup import get_executable_path
+
+def _get_uv_exe():
+    return get_executable_path(os.path.join(PLATFORMIO_DIR, "penv"), "uv")
+
 def create_silent_action(action_func):
     """Create a silent SCons action that suppresses output"""
     silent_action = env.Action(action_func)
@@ -1479,14 +1488,6 @@ def generate_mbedtls_bundle(sdk_config):
             "Generating assembly for certificate bundle...",
         )
     )
-
-
-def _get_uv_exe():
-    penv_setup_path = os.path.join(platform.get_dir(), "builder")
-    if penv_setup_path not in sys.path:
-        sys.path.insert(0, penv_setup_path)
-    from penv_setup import get_executable_path  # local import to avoid global dependency
-    return get_executable_path(os.path.join(PLATFORMIO_DIR, "penv"), "uv")
 
 
 def install_python_deps():
