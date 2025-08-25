@@ -605,7 +605,7 @@ def firmware_metrics(target, source, env):
         print("Check your Python installation.")
     except Exception as e:
         print(f"Error: Failed to run firmware metrics: {e}")
-        print("Make sure esp-idf-size is installed: pip install esp-idf-size")
+        print(f'Make sure esp-idf-size is installed: uv pip install --python "{PYTHON_EXE}" esp-idf-size')
 
 
 #
