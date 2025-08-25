@@ -346,7 +346,6 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
 
 if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK"):
     HandleArduinoIDFsettings(env)
-#    LIB_SOURCE = os.path.join(ProjectConfig.get_instance().get("platformio", "platforms_dir"), "espressif32", "builder", "build_lib")
     LIB_SOURCE = os.path.join(PLATFORMIO_DIR, "platforms", "espressif32", "builder", "build_lib")
     if not bool(os.path.exists(os.path.join(PROJECT_DIR, ".dummy"))):
         shutil.copytree(LIB_SOURCE, os.path.join(PROJECT_DIR, ".dummy"))
@@ -1625,7 +1624,7 @@ def ensure_python_venv_available():
         # Use uv to create a standalone IDF virtual env
         env.Execute(
             env.VerboseAction(
-                '"%s" venv --clear "%s"' % (uv_path, venv_dir),
+                '"%s" venv --clear --quiet "%s"' % (uv_path, venv_dir),
                 "Creating a new virtual environment for IDF Python dependencies using uv",
             )
         )
