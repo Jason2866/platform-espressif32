@@ -21,6 +21,7 @@ https://github.com/espressif/esp-idf
 """
 
 import copy
+import importlib.util
 import json
 import subprocess
 import sys
@@ -51,11 +52,11 @@ env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
 platform = env.PioPlatform()
 
-penv_setup_path = os.path.join(platform.get_dir(), "builder")
-if penv_setup_path not in sys.path:
-    sys.path.insert(0, penv_setup_path)
-
-from penv_setup import get_executable_path
+_penv_setup_file = os.path.join(platform.get_dir(), "builder", "penv_setup.py")
+_spec = importlib.util.spec_from_file_location("penv_setup", _penv_setup_file)
+_penv_setup = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_penv_setup)  # type: ignore[attr-defined]
+get_executable_path = _penv_setup.get_executable_path
 
 # remove maybe existing old map file in project root
 map_file = os.path.join(env.subst("$PROJECT_DIR"), env.subst("$PROGNAME") + ".map")
