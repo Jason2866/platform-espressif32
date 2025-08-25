@@ -1482,8 +1482,13 @@ def generate_mbedtls_bundle(sdk_config):
 
 
 def install_python_deps():
-    PYTHON_EXE = env.subst("$PYTHONEXE")
-    UV_EXE = os.path.join(os.path.dirname(PYTHON_EXE), "uv" + (".exe" if IS_WINDOWS else ""))
+    penv_setup_path = os.path.join(platform.get_dir(), "builder")
+    sys.path.insert(0, penv_setup_path)
+    from penv_setup import get_executable_path
+
+    penv_dir = os.path.join(PLATFORMIO_DIR, "penv")
+    UV_EXE = get_executable_path(penv_dir, "uv")
+
     def _get_installed_uv_packages(python_exe_path):
         result = {}
         try:
