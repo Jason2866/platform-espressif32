@@ -1604,7 +1604,7 @@ def ensure_python_venv_available():
             return True
 
     def _create_venv(venv_dir):
-        penv_setup_path = os.path.join(PLATFORMIO_DIR, "platforms", "espressif32")
+        penv_setup_path = os.path.join(PLATFORMIO_DIR, "platforms", "espressif32", "builder")
         sys.path.insert(0, penv_setup_path)
 
         from penv_setup import get_executable_path
