@@ -83,8 +83,7 @@ TOOLCHAIN_DIR = platform.get_package_dir(
     if mcu in ("esp32", "esp32s2", "esp32s3")
     else "toolchain-riscv32-esp"
 )
-# PLATFORMIO_DIR = ProjectConfig.get_instance().get("platformio", "core_dir")
-PLATFORMIO_DIR = env.get("PLATFORMIO_CORE_DIR")
+PLATFORMIO_DIR = os.path.join(ProjectConfig.get_instance().get("platformio"))
 
 
 assert os.path.isdir(FRAMEWORK_DIR)
