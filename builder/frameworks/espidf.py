@@ -83,6 +83,7 @@ TOOLCHAIN_DIR = platform.get_package_dir(
     if mcu in ("esp32", "esp32s2", "esp32s3")
     else "toolchain-riscv32-esp"
 )
+PLATFORMIO_DIR = ProjectConfig.get_instance().get("platformio", "core_dir")
 
 
 assert os.path.isdir(FRAMEWORK_DIR)
@@ -1601,11 +1602,11 @@ def ensure_python_venv_available():
             return True
 
     def _create_venv(venv_dir):
-        pip_path = os.path.join(
-            venv_dir,
-            "Scripts" if IS_WINDOWS else "bin",
-            "pip" + (".exe" if IS_WINDOWS else ""),
-        )
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from penv_setup import get_executable_path
+
+        penv_dir = os.path.join(PLATFORMIO_DIR, "penv")
+        uv_path = get_executable_path(penv_dir, "uv")
 
         if os.path.isdir(venv_dir):
             try:
@@ -1618,17 +1619,20 @@ def ensure_python_venv_available():
                 )
                 env.Exit(1)
 
-        # Use the built-in PlatformIO Python to create a standalone IDF virtual env
+        # Use uv to create a standalone IDF virtual env
         env.Execute(
             env.VerboseAction(
-                '"$PYTHONEXE" -m venv --clear "%s"' % venv_dir,
-                "Creating a new virtual environment for IDF Python dependencies",
+                '"%s" venv --clear "%s"' % (uv_path, venv_dir),
+                "Creating a new virtual environment for IDF Python dependencies using uv",
             )
         )
 
+        # Verify that the venv was created successfully by checking for Python executable
+        python_path = get_executable_path(venv_dir, "python")
+        
         assert os.path.isfile(
-            pip_path
-        ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
+            python_path
+        ), "Error: Failed to create a proper virtual environment. Missing the Python executable!"
 
     venv_dir = get_idf_venv_dir()
     venv_data_file = os.path.join(venv_dir, "pio-idf-venv.json")
