@@ -93,8 +93,6 @@ if penv_setup_path not in sys.path:
 
 from penv_setup import get_executable_path
 
-def _get_uv_exe():
-    return get_executable_path(os.path.join(PLATFORMIO_DIR, "penv"), "uv")
 
 def create_silent_action(action_func):
     """Create a silent SCons action that suppresses output"""
@@ -1488,6 +1486,10 @@ def generate_mbedtls_bundle(sdk_config):
             "Generating assembly for certificate bundle...",
         )
     )
+
+
+def _get_uv_exe():
+    return get_executable_path(os.path.join(PLATFORMIO_DIR, "penv"), "uv")
 
 
 def install_python_deps():
