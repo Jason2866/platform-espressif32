@@ -44,7 +44,7 @@ from platformio import fs
 from platformio.compat import IS_WINDOWS
 from platformio.proc import exec_command
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
-from platformio.project.config import ProjectConfig
+# from platformio.project.config import ProjectConfig
 from platformio.package.version import get_original_version, pepver_to_semver
 
 
@@ -83,7 +83,6 @@ TOOLCHAIN_DIR = platform.get_package_dir(
     if mcu in ("esp32", "esp32s2", "esp32s3")
     else "toolchain-riscv32-esp"
 )
-# PLATFORMIO_DIR = ProjectConfig.get_instance().get("platformio", "core_dir")
 PLATFORMIO_DIR = env.subst("$PROJECT_CORE_DIR")
 
 assert os.path.isdir(FRAMEWORK_DIR)
