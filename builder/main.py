@@ -464,7 +464,8 @@ env.Replace(
     SIZECHECKCMD="$SIZETOOL -A -d $SOURCES",
     SIZEPRINTCMD="$SIZETOOL -B -d $SOURCES",
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
-    ERASECMD='$OBJCOPY $ERASEFLAGS erase-flash',
+    ERASETOOL=uploader_path,
+    ERASECMD='$ERASETOOL $ERASEFLAGS erase-flash',
     MKFSTOOL="mk%s" % filesystem,
 
     ESP32_FS_IMAGE_NAME=env.get(
@@ -495,7 +496,7 @@ env.Append(
             action=env.VerboseAction(
                 " ".join(
                     [
-                        "$OBJCOPY",
+                        "$ERASETOOL",
                         "--chip",
                         mcu,
                         "elf2image",
