@@ -1481,13 +1481,16 @@ def generate_mbedtls_bundle(sdk_config):
     )
 
 
-def install_python_deps():
+def _get_uv_exe():
     penv_setup_path = os.path.join(platform.get_dir(), "builder")
-    sys.path.insert(0, penv_setup_path)
-    from penv_setup import get_executable_path
+    if penv_setup_path not in sys.path:
+        sys.path.insert(0, penv_setup_path)
+    from penv_setup import get_executable_path  # local import to avoid global dependency
+    return get_executable_path(os.path.join(PLATFORMIO_DIR, "penv"), "uv")
 
-    penv_dir = os.path.join(PLATFORMIO_DIR, "penv")
-    UV_EXE = get_executable_path(penv_dir, "uv")
+
+def install_python_deps():
+    UV_EXE = _get_uv_exe()
 
     def _get_installed_uv_packages(python_exe_path):
         result = {}
@@ -1602,13 +1605,7 @@ def ensure_python_venv_available():
             return True
 
     def _create_venv(venv_dir):
-        penv_setup_path = os.path.join(platform.get_dir(), "builder")
-        sys.path.insert(0, penv_setup_path)
-
-        from penv_setup import get_executable_path
-
-        penv_dir = os.path.join(PLATFORMIO_DIR, "penv")
-        uv_path = get_executable_path(penv_dir, "uv")
+        uv_path = _get_uv_exe()
 
         if os.path.isdir(venv_dir):
             try:
