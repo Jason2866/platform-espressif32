@@ -33,7 +33,6 @@ PLATFORMIO_URL_VERSION_RE = re.compile(
 
 # Python dependencies required for the build process
 python_deps = {
-    "uv": ">=0.1.0",
     "platformio": "https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.18.zip",
     "pyyaml": ">=6.0.2",
     "rich-click": ">=1.8.6",
