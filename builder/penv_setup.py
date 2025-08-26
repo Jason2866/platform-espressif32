@@ -95,16 +95,16 @@ def setup_pipenv_in_package(env, penv_dir):
                 uv_cmd = "uv"
                 
             result = subprocess.run(
-                [uv_cmd, "venv", "--clear", penv_dir],
+                [uv_cmd, "venv", "--clear", f"--python={python_exe}", penv_dir],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=90
             )
             if result.returncode == 0:
                 uv_success = True
                 print(f"Created pioarduino Python virtual environment using uv: {penv_dir}")
 
-        except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
+        except Exception:
             pass
         
         # Fallback to python -m venv if uv failed or is not available
@@ -199,7 +199,7 @@ def install_python_deps(python_exe, external_uv_executable):
             [penv_uv_executable, "--version"],
             capture_output=True,
             text=True,
-            timeout=3
+            timeout=10
         )
         uv_in_penv_available = result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -214,7 +214,7 @@ def install_python_deps(python_exe, external_uv_executable):
                     [external_uv_executable, "pip", "install", "uv>=0.1.0", f"--python={python_exe}", "--quiet"],
                     capture_output=True,
                     text=True,
-                    timeout=30  # 30 second timeout
+                    timeout=120
                 )
                 if result.returncode != 0:
                     if result.stderr:
@@ -236,7 +236,7 @@ def install_python_deps(python_exe, external_uv_executable):
                     [python_exe, "-m", "pip", "install", "uv>=0.1.0", "--quiet"],
                     capture_output=True,
                     text=True,
-                    timeout=30  # 30 second timeout
+                    timeout=120
                 )
                 if result.returncode != 0:
                     if result.stderr:
@@ -268,7 +268,7 @@ def install_python_deps(python_exe, external_uv_executable):
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
-                timeout=30  # 30 second timeout
+                timeout=120
             )
             
             if result_obj.returncode == 0:
@@ -316,7 +316,7 @@ def install_python_deps(python_exe, external_uv_executable):
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30  # 30 second timeout for package installation
+                timeout=120
             )
             
             if result.returncode != 0:
@@ -390,7 +390,7 @@ def install_esptool(env, platform, python_exe, uv_executable):
             uv_executable, "pip", "install", "--quiet", "--force-reinstall",
             f"--python={python_exe}",
             "-e", esptool_repo_path
-        ])
+        ], timeout=60)
 
     except subprocess.CalledProcessError as e:
         sys.stderr.write(
