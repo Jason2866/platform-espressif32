@@ -76,10 +76,14 @@ def setup_pipenv_in_package(env, penv_dir):
     """
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
     First tries to create with uv, falls back to python -m venv if uv is not available.
+    
+    Returns:
+        str or None: Path to uv executable if uv was used, None if python -m venv was used
     """
     if not os.path.exists(penv_dir):
         # First try to create virtual environment with uv
         uv_success = False
+        uv_cmd = None
         try:
             # Derive uv path from PYTHONEXE path
             python_exe = env.subst("$PYTHONEXE")
@@ -106,6 +110,7 @@ def setup_pipenv_in_package(env, penv_dir):
         
         # Fallback to python -m venv if uv failed or is not available
         if not uv_success:
+            uv_cmd = None
             env.Execute(
                 env.VerboseAction(
                     '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
@@ -114,16 +119,14 @@ def setup_pipenv_in_package(env, penv_dir):
             )
         
         # Verify that the virtual environment was created properly
-        if uv_success:
-            # For uv-created environments, check for python executable
-            assert os.path.isfile(
-                get_executable_path(penv_dir, "python")
-            ), "Error: Failed to create a proper virtual environment. Missing the `python` binary!"
-        else:
-            # For python -m venv created environments, check for pip
-            assert os.path.isfile(
-                get_executable_path(penv_dir, "pip")
-            ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
+        # Check for python executable
+        assert os.path.isfile(
+            get_executable_path(penv_dir, "python")
+        ), f"Error: Failed to create a proper virtual environment. Missing the `python` binary! Created with uv: {uv_success}"
+        
+        return uv_cmd if uv_success else None
+    
+    return None
 
 
 def setup_python_paths(penv_dir):
@@ -175,46 +178,80 @@ def get_packages_to_install(deps, installed_packages):
                 yield package
 
 
-def install_python_deps(python_exe, uv_executable):
+def install_python_deps(python_exe, external_uv_executable):
     """
-    Ensure uv package manager is available and install required Python dependencies.
+    Ensure uv package manager is available in penv and install required Python dependencies.
+    
+    Args:
+        python_exe: Path to Python executable in the penv
+        external_uv_executable: Path to external uv executable used to create the penv (can be None)
     
     Returns:
         bool: True if successful, False otherwise
     """
+    # Get the penv directory to locate uv within it
+    penv_dir = os.path.dirname(os.path.dirname(python_exe))
+    penv_uv_executable = get_executable_path(penv_dir, "uv")
+    
+    # Check if uv is available in the penv
+    uv_in_penv_available = False
     try:
         result = subprocess.run(
-            [uv_executable, "--version"],
+            [penv_uv_executable, "--version"],
             capture_output=True,
             text=True,
             timeout=3
         )
-        uv_available = result.returncode == 0
+        uv_in_penv_available = result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        uv_available = False
+        uv_in_penv_available = False
     
-    if not uv_available:
-        try:
-            result = subprocess.run(
-                [python_exe, "-m", "pip", "install", "uv>=0.1.0", "-q", "-q", "-q"],
-                capture_output=True,
-                text=True,
-                timeout=30  # 30 second timeout
-            )
-            if result.returncode != 0:
-                if result.stderr:
-                    print(f"Error output: {result.stderr.strip()}")
+    # Install uv into penv if not available
+    if not uv_in_penv_available:
+        if external_uv_executable:
+            # Use external uv to install uv into the penv
+            try:
+                result = subprocess.run(
+                    [external_uv_executable, "pip", "install", "uv>=0.1.0", f"--python={python_exe}", "--quiet"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30  # 30 second timeout
+                )
+                if result.returncode != 0:
+                    if result.stderr:
+                        print(f"Error output: {result.stderr.strip()}")
+                    return False
+            except subprocess.TimeoutExpired:
+                print("Error: uv installation timed out")
                 return False
-
-        except subprocess.TimeoutExpired:
-            print("Error: uv installation timed out")
-            return False
-        except FileNotFoundError:
-            print("Error: Python executable not found")
-            return False
-        except Exception as e:
-            print(f"Error installing uv package manager: {e}")
-            return False
+            except FileNotFoundError:
+                print("Error: External uv executable not found")
+                return False
+            except Exception as e:
+                print(f"Error installing uv package manager into penv: {e}")
+                return False
+        else:
+            # No external uv available, use pip to install uv into penv
+            try:
+                result = subprocess.run(
+                    [python_exe, "-m", "pip", "install", "uv>=0.1.0", "--quiet"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30  # 30 second timeout
+                )
+                if result.returncode != 0:
+                    if result.stderr:
+                        print(f"Error output: {result.stderr.strip()}")
+                    return False
+            except subprocess.TimeoutExpired:
+                print("Error: uv installation via pip timed out")
+                return False
+            except FileNotFoundError:
+                print("Error: Python executable not found")
+                return False
+            except Exception as e:
+                print(f"Error installing uv package manager via pip: {e}")
+                return False
 
     
     def _get_installed_uv_packages():
@@ -226,7 +263,7 @@ def install_python_deps(python_exe, uv_executable):
         """
         result = {}
         try:
-            cmd = [uv_executable, "pip", "list", f"--python={python_exe}", "--format=json"]
+            cmd = [penv_uv_executable, "pip", "list", f"--python={python_exe}", "--format=json"]
             result_obj = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -270,7 +307,7 @@ def install_python_deps(python_exe, uv_executable):
                 packages_list.append(f"{p}{spec}")
         
         cmd = [
-            uv_executable, "pip", "install",
+            penv_uv_executable, "pip", "install",
             f"--python={python_exe}",
             "--quiet", "--upgrade"
         ] + packages_list
@@ -390,7 +427,7 @@ def setup_python_environment(env, platform, platformio_dir):
     penv_dir = os.path.join(platformio_dir, "penv")
     
     # Setup virtual environment if needed
-    setup_pipenv_in_package(env, penv_dir)
+    used_uv_executable = setup_pipenv_in_package(env, penv_dir)
     
     # Set Python Scons Var to env Python
     penv_python = get_executable_path(penv_dir, "python")
@@ -408,7 +445,7 @@ def setup_python_environment(env, platform, platformio_dir):
 
     # Install espressif32 Python dependencies
     if has_internet_connection() or github_actions:
-        if not install_python_deps(penv_python, uv_executable):
+        if not install_python_deps(penv_python, used_uv_executable):
             sys.stderr.write("Error: Failed to install Python dependencies into penv\n")
             sys.exit(1)
     else:
