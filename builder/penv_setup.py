@@ -453,4 +453,15 @@ def setup_python_environment(env, platform, platformio_dir):
     # Install esptool after dependencies
     install_esptool(env, platform, penv_python, uv_executable)
 
+    def setup_certifi_env():
+        import certifi
+        cert_path = certifi.where()
+        os.environ["CERTIFI_PATH"] = cert_path
+        os.environ["SSL_CERT_FILE"] = cert_path
+        os.environ["REQUESTS_CA_BUNDLE"] = cert_path
+        os.environ["CURL_CA_BUNDLE"] = cert_path
+        return cert_path
+
+    cert_path = setup_certifi_env()
+
     return penv_python, esptool_binary_path
