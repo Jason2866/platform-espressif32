@@ -447,8 +447,13 @@ def setup_python_environment(env, platform, platformio_dir):
     # Install esptool after dependencies
     install_esptool(env, platform, penv_python, uv_executable)
 
+    # Setup certifi environment variables
     def setup_certifi_env():
-        import certifi
+        try:
+            import certifi
+        except ImportError:
+            print("Info: certifi not available; skipping CA environment setup.")
+            return
         cert_path = certifi.where()
         os.environ["CERTIFI_PATH"] = cert_path
         os.environ["SSL_CERT_FILE"] = cert_path
