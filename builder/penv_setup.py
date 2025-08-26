@@ -75,17 +75,47 @@ def get_executable_path(penv_dir, executable_name):
 def setup_pipenv_in_package(env, penv_dir):
     """
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
+    First tries to create with uv, falls back to python -m venv if uv is not available.
     """
     if not os.path.exists(penv_dir):
-        env.Execute(
-            env.VerboseAction(
-                '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
-                "Creating pioarduino Python virtual environment: %s" % penv_dir,
+        # First try to create virtual environment with uv
+        uv_success = False
+        try:
+            # Derive uv path from PYTHONEXE path
+            python_exe = env.subst("$PYTHONEXE")
+            python_dir = os.path.dirname(python_exe)
+            uv_exe_suffix = ".exe" if IS_WINDOWS else ""
+            uv_cmd = os.path.join(python_dir, f"uv{uv_exe_suffix}")
+            
+            # Fall back to system uv if derived path doesn't exist
+            if not os.path.isfile(uv_cmd):
+                uv_cmd = "uv"
+                
+            result = subprocess.run(
+                [uv_cmd, "venv", "--clear", penv_dir],
+                capture_output=True,
+                text=True,
+                timeout=30
             )
-        )
+            if result.returncode == 0:
+                uv_success = True
+                print(f"Created pioarduino Python virtual environment using uv: {penv_dir}")
+
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
+            pass
+        
+        # Fallback to python -m venv if uv failed or is not available
+        if not uv_success:
+            env.Execute(
+                env.VerboseAction(
+                    '"$PYTHONEXE" -m venv --clear "%s"' % penv_dir,
+                    "Created pioarduino Python virtual environment: %s" % penv_dir,
+                )
+            )
+        
         assert os.path.isfile(
             get_executable_path(penv_dir, "pip")
-        ), "Error: Failed to create a proper virtual environment. Missing the `pip` binary!"
+        ), "Error: Failed to create a proper virtual environment. Missing the `uv` or `pip` binary!"
 
 
 def setup_python_paths(penv_dir):
