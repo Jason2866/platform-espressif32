@@ -129,9 +129,6 @@ def setup_pipenv_in_package(env, penv_dir):
 
 def setup_python_paths(penv_dir):
     """Setup Python module search paths using the penv_dir."""    
-    # Add penv_dir to module search path
-    site.addsitedir(penv_dir)
-    
     # Add site-packages directory
     python_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
     site_packages = (
