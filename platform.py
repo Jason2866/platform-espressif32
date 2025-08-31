@@ -41,8 +41,6 @@ from platformio.project.config import ProjectConfig
 from platformio.package.manager.tool import ToolPackageManager
 
 # Constants
-RETRY_LIMIT = 3
-SUBPROCESS_TIMEOUT = 300
 DEFAULT_DEBUG_SPEED = "5000"
 DEFAULT_APP_OFFSET = "0x10000"
 tl_install_name = "tool-esp_install"
@@ -87,10 +85,18 @@ CHECK_PACKAGES = [
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
 
-# Set IDF_TOOLS_PATH to Pio core_dir
-PROJECT_CORE_DIR=ProjectConfig.get_instance().get("platformio", "core_dir")
-IDF_TOOLS_PATH=os.path.join(PROJECT_CORE_DIR)
+# exit without git
+if not shutil.which("git"):
+    print("Git not found in PATH, please install Git.", file=sys.stderr)
+    print("Git is needed for Platform espressif32 to work.", file=sys.stderr)
+    raise SystemExit(1)
+
+PROJECT_CORE_DIR = ProjectConfig.get_instance().get("platformio", "core_dir")
+PROJECT_PACKAGES_DIR = ProjectConfig.get_instance().get("platformio", "packages_dir")
+# set IDF env vars to avoid issues with IDF installs
+IDF_TOOLS_PATH = PROJECT_CORE_DIR
 os.environ["IDF_TOOLS_PATH"] = IDF_TOOLS_PATH
+os.environ['IDF_PATH'] = os.path.join(PROJECT_PACKAGES_DIR, tl_install_name)
 
 # Global variables
 python_exe = get_pythonexe_path()
@@ -382,7 +388,11 @@ class Espressif32Platform(PlatformBase):
         }
 
     def _run_idf_tools_install(self, tools_json_path: str, idf_tools_path: str) -> bool:
-        """Execute idf_tools.py install command with timeout and error handling."""
+        """
+        Execute idf_tools.py install command.
+        Note: No timeout is set to allow installations to complete on slow networks.
+        The tool-esp_install handles the retry logic.
+        """
         cmd = [
             python_exe,
             idf_tools_path,
@@ -394,11 +404,11 @@ class Espressif32Platform(PlatformBase):
         ]
 
         try:
+            logger.info(f"Installing tools via idf_tools.py (this may take several minutes)...")
             result = subprocess.run(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=SUBPROCESS_TIMEOUT,
                 check=False
             )
 
@@ -409,9 +419,6 @@ class Espressif32Platform(PlatformBase):
             logger.debug("idf_tools.py executed successfully")
             return True
 
-        except subprocess.TimeoutExpired:
-            logger.error(f"Timeout in idf_tools.py after {SUBPROCESS_TIMEOUT}s")
-            return False
         except (subprocess.SubprocessError, OSError) as e:
             logger.error(f"Error in idf_tools.py: {e}")
             return False
@@ -451,14 +458,8 @@ class Espressif32Platform(PlatformBase):
             logger.error(f"Error reading package data for {tool_name}: {e}")
             return False
 
-    def install_tool(self, tool_name: str, retry_count: int = 0) -> bool:
-        """Install a tool with optimized retry mechanism."""
-        if retry_count >= RETRY_LIMIT:
-            logger.error(
-                f"Installation of {tool_name} failed after {RETRY_LIMIT} attempts"
-            )
-            return False
-
+    def install_tool(self, tool_name: str) -> bool:
+        """Install a tool."""
         self.packages[tool_name]["optional"] = False
         paths = self._get_tool_paths(tool_name)
         status = self._check_tool_status(tool_name)
@@ -470,7 +471,7 @@ class Espressif32Platform(PlatformBase):
         # Case 2: Tool already installed, version check
         if (status['has_idf_tools'] and status['has_piopm'] and
                 not status['has_tools_json']):
-            return self._handle_existing_tool(tool_name, paths, retry_count)
+            return self._handle_existing_tool(tool_name, paths)
 
         logger.debug(f"Tool {tool_name} already configured")
         return True
@@ -498,9 +499,7 @@ class Espressif32Platform(PlatformBase):
         logger.info(f"Tool {tool_name} successfully installed")
         return True
 
-    def _handle_existing_tool(
-        self, tool_name: str, paths: Dict[str, str], retry_count: int
-    ) -> bool:
+    def _handle_existing_tool(self, tool_name: str, paths: Dict[str, str]) -> bool:
         """Handle already installed tools with version checking."""
         if self._check_tool_version(tool_name):
             # Version matches, use tool
@@ -515,7 +514,7 @@ class Espressif32Platform(PlatformBase):
         # Remove the main tool directory (if it still exists after cleanup)
         safe_remove_directory(paths['tool_path'])
 
-        return self.install_tool(tool_name, retry_count + 1)
+        return self.install_tool(tool_name)
 
     def _configure_arduino_framework(self, frameworks: List[str]) -> None:
         """Configure Arduino framework dependencies."""
