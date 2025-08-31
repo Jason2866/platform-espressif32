@@ -92,11 +92,11 @@ if not shutil.which("git"):
     raise SystemExit(1)
 
 PROJECT_CORE_DIR = ProjectConfig.get_instance().get("platformio", "core_dir")
-PROJECT_PACKAGES_DIR = ProjectConfig.get_instance().get("platformio", "packages_dir")
+# PROJECT_PACKAGES_DIR = ProjectConfig.get_instance().get("platformio", "packages_dir")
 # set IDF env vars to avoid issues with IDF installs
 IDF_TOOLS_PATH = PROJECT_CORE_DIR
 os.environ["IDF_TOOLS_PATH"] = IDF_TOOLS_PATH
-os.environ['IDF_PATH'] = os.path.join(PROJECT_PACKAGES_DIR, tl_install_name)
+# os.environ['IDF_PATH'] = os.path.join(PROJECT_PACKAGES_DIR, tl_install_name)
 
 # Global variables
 python_exe = get_pythonexe_path()
