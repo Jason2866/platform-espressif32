@@ -96,7 +96,7 @@ PLATFORMIO_DIR = env.subst("$PROJECT_CORE_DIR")
 if not os.path.isdir(FRAMEWORK_DIR):
     sys.stderr.write(f"Error: Missing framework directory '{FRAMEWORK_DIR}'\n")
     env.Exit(1)
-if not os.path.isdir(TOOLCHAIN_DIR):
+if not TOOLCHAIN_DIR or not os.path.isdir(TOOLCHAIN_DIR):
     sys.stderr.write(f"Error: Missing toolchain directory '{TOOLCHAIN_DIR}'\n")
     env.Exit(1)
 
@@ -108,8 +108,11 @@ def create_silent_action(action_func):
     return silent_action
 
 if "arduino" in env.subst("$PIOFRAMEWORK"):
-    arduino_pkg_dir = Path(platform.get_package_dir("framework-arduinoespressif32"))
-    # Rename using the symlink path (do not resolve before rename)
+    _arduino_pkg_dir = platform.get_package_dir("framework-arduinoespressif32")
+    if not _arduino_pkg_dir or not os.path.isdir(_arduino_pkg_dir):
+        sys.stderr.write(f"Error: Missing Arduino framework directory '{_arduino_pkg_dir}'\n")
+        env.Exit(1)
+    arduino_pkg_dir = Path(_arduino_pkg_dir)
     if "@" in arduino_pkg_dir.name:
         new_dir = arduino_pkg_dir.with_name(arduino_pkg_dir.name.replace("@", "-"))
         os.rename(str(arduino_pkg_dir), str(new_dir))
@@ -2104,7 +2107,6 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
 if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
     def idf_custom_component(source, target, env):
         try:
-            # Add this check before using ARDUINO_FRAMEWORK_DIR
             if "arduino" in env.subst("$PIOFRAMEWORK"):
                 shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"),
                             str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
