@@ -84,7 +84,8 @@ IDF5 = (
     .startswith("5")
 )
 IDF_ENV_VERSION = "1.0.0"
-FRAMEWORK_DIR = platform.get_package_dir("framework-espidf")
+FRAMEWORK_DIR_PATH = Path(platform.get_package_dir("framework-espidf")).resolve()
+FRAMEWORK_DIR = str(FRAMEWORK_DIR_PATH)
 TOOLCHAIN_DIR = platform.get_package_dir(
     "toolchain-xtensa-esp-elf"
     if mcu in ("esp32", "esp32s2", "esp32s3")
@@ -103,7 +104,8 @@ def create_silent_action(action_func):
     return silent_action
 
 if "arduino" in env.subst("$PIOFRAMEWORK"):
-    ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
+    ARDUINO_FRAMEWORK_DIR_PATH = Path(platform.get_package_dir("framework-arduinoespressif32")).resolve()
+    ARDUINO_FRAMEWORK_DIR = str(ARDUINO_FRAMEWORK_DIR_PATH)
     # Possible package names in 'package@version' format is not compatible with CMake
     if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
         new_path = os.path.join(
@@ -1924,7 +1926,9 @@ except:
 # Remove project source files from following build stages as they're
 # built as part of the framework
 def _skip_prj_source_files(node):
-    if node.srcnode().get_path().lower().startswith(PROJECT_SRC_DIR.lower()):
+    resolved_project_src = str(Path(PROJECT_SRC_DIR).resolve())
+    resolved_node_path = str(Path(node.srcnode().get_path()).resolve())
+    if resolved_node_path.lower().startswith(resolved_project_src.lower()):
         return None
     return node
 
