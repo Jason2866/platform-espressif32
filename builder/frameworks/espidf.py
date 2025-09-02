@@ -104,16 +104,16 @@ def create_silent_action(action_func):
     return silent_action
 
 if "arduino" in env.subst("$PIOFRAMEWORK"):
-    ARDUINO_FRAMEWORK_DIR_PATH = Path(platform.get_package_dir("framework-arduinoespressif32")).resolve()
+    arduino_pkg_dir = Path(platform.get_package_dir("framework-arduinoespressif32"))
+    # Rename using the symlink path (do not resolve before rename)
+    if "@" in arduino_pkg_dir.name:
+        new_dir = arduino_pkg_dir.with_name(arduino_pkg_dir.name.replace("@", "-"))
+        os.rename(str(arduino_pkg_dir), str(new_dir))
+        arduino_pkg_dir = new_dir
+    ARDUINO_FRAMEWORK_DIR_PATH = arduino_pkg_dir.resolve()
     ARDUINO_FRAMEWORK_DIR = str(ARDUINO_FRAMEWORK_DIR_PATH)
-    # Possible package names in 'package@version' format is not compatible with CMake
-    if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
-        new_path = str(Path(os.path.dirname(ARDUINO_FRAMEWORK_DIR)) / 
-                      os.path.basename(ARDUINO_FRAMEWORK_DIR).replace("@", "-"))
-        os.rename(ARDUINO_FRAMEWORK_DIR, new_path)
-        ARDUINO_FRAMEWORK_DIR = new_path
     assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
-    arduino_libs_mcu = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs" / mcu)
+    arduino_libs_mcu = str(ARDUINO_FRAMEWORK_DIR_PATH / "tools" / "esp32-arduino-libs" / mcu)
 
 BUILD_DIR = env.subst("$BUILD_DIR")
 PROJECT_DIR = env.subst("$PROJECT_DIR")
@@ -981,8 +981,8 @@ def compile_source_files(
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
     # Canonical, symlink-resolved absolute path of the components directory
-    components_dir_path = Path(FRAMEWORK_DIR) / "components"
-    components_dir = str(components_dir_path.resolve())
+    components_dir_path = (Path(FRAMEWORK_DIR) / "components").resolve()
+    components_dir = str(components_dir_path)
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
@@ -997,9 +997,15 @@ def compile_source_files(
                 src_path = str(Path(project_src_dir) / src_path)
 
             obj_path = str(Path("$BUILD_DIR") / (prepend_dir or ""))
-            resolved_src_path = str(Path(src_path).resolve())
-            if resolved_src_path.lower().startswith(components_dir.lower()):
-                obj_path = str(Path(obj_path) / os.path.relpath(resolved_src_path, components_dir))
+            src_path_obj = Path(src_path).resolve()
+            try:
+                rel = src_path_obj.relative_to(components_dir_path)
+                obj_path = str(Path(obj_path) / str(rel))
+            except ValueError:
+                if not os.path.isabs(source["path"]):
+                    obj_path = str(Path(obj_path) / source["path"])
+                else:
+                    obj_path = str(Path(obj_path) / os.path.basename(src_path))
             else:
                 if not os.path.isabs(source["path"]):
                     obj_path = str(Path(obj_path) / source["path"])
@@ -1017,7 +1023,7 @@ def compile_source_files(
                         if preserve_source_file_extension
                         else os.path.splitext(obj_path)[0]
                     ) + ".o",
-                    source=os.path.realpath(src_path),
+                    source=str(src_path_obj),
                 )
             )
 
