@@ -53,14 +53,14 @@ env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
 platform = env.PioPlatform()
 
-_penv_setup_file = os.path.join(platform.get_dir(), "builder", "penv_setup.py")
+_penv_setup_file = str(Path(platform.get_dir()) / "builder" / "penv_setup.py")
 _spec = importlib.util.spec_from_file_location("penv_setup", _penv_setup_file)
 _penv_setup = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_penv_setup)  # type: ignore[attr-defined]
 get_executable_path = _penv_setup.get_executable_path
 
 # remove maybe existing old map file in project root
-map_file = os.path.join(env.subst("$PROJECT_DIR"), env.subst("$PROGNAME") + ".map")
+map_file = str(Path(env.subst("$PROJECT_DIR")) / (env.subst("$PROGNAME") + ".map"))
 if os.path.exists(map_file):
     os.remove(map_file)
 
@@ -108,22 +108,20 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     ARDUINO_FRAMEWORK_DIR = str(ARDUINO_FRAMEWORK_DIR_PATH)
     # Possible package names in 'package@version' format is not compatible with CMake
     if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
-        new_path = os.path.join(
-            os.path.dirname(ARDUINO_FRAMEWORK_DIR),
-            os.path.basename(ARDUINO_FRAMEWORK_DIR).replace("@", "-"),
-        )
+        new_path = str(Path(os.path.dirname(ARDUINO_FRAMEWORK_DIR)) / 
+                      os.path.basename(ARDUINO_FRAMEWORK_DIR).replace("@", "-"))
         os.rename(ARDUINO_FRAMEWORK_DIR, new_path)
         ARDUINO_FRAMEWORK_DIR = new_path
     assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
-    arduino_libs_mcu = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu)
+    arduino_libs_mcu = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs" / mcu)
 
 BUILD_DIR = env.subst("$BUILD_DIR")
 PROJECT_DIR = env.subst("$PROJECT_DIR")
 PROJECT_SRC_DIR = env.subst("$PROJECT_SRC_DIR")
-CMAKE_API_REPLY_PATH = os.path.join(".cmake", "api", "v1", "reply")
+CMAKE_API_REPLY_PATH = str(Path(".cmake") / "api" / "v1" / "reply")
 SDKCONFIG_PATH = os.path.expandvars(board.get(
         "build.esp-idf.sdkconfig_path",
-        os.path.join(PROJECT_DIR, "sdkconfig.%s" % env.subst("$PIOENV")),
+        str(Path(PROJECT_DIR) / ("sdkconfig.%s" % env.subst("$PIOENV"))),
 ))
 
 def contains_path_traversal(url):
@@ -190,7 +188,7 @@ def HandleArduinoIDFsettings(env):
             if "file://" in file_entry:
                 file_ref = file_entry[7:] if file_entry.startswith("file://") else file_entry
                 filename = os.path.basename(file_ref)
-                file_path = join(PROJECT_DIR, filename)
+                file_path = str(Path(PROJECT_DIR) / filename)
                 if os.path.exists(file_path):
                     try:
                         with open(file_path, 'r') as f:
@@ -261,8 +259,8 @@ def HandleArduinoIDFsettings(env):
             print("Error: Arduino framework required for sdkconfig processing")
             return
         """Write the final sdkconfig.defaults file with checksum."""
-        sdkconfig_src = join(ARDUINO_FRAMEWORK_DIR, "tools", "esp32-arduino-libs", mcu, "sdkconfig")
-        sdkconfig_dst = join(PROJECT_DIR, "sdkconfig.defaults")
+        sdkconfig_src = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs" / mcu / "sdkconfig")
+        sdkconfig_dst = str(Path(PROJECT_DIR) / "sdkconfig.defaults")
         
         # Generate checksum for validation (maintains original logic)
         checksum = get_MD5_hash(checksum_source.strip() + mcu)
@@ -355,10 +353,10 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
 
 if flag_custom_sdkonfig == True and "arduino" in env.subst("$PIOFRAMEWORK") and "espidf" not in env.subst("$PIOFRAMEWORK"):
     HandleArduinoIDFsettings(env)
-    LIB_SOURCE = os.path.join(platform.get_dir(), "builder", "build_lib")
-    if not bool(os.path.exists(os.path.join(PROJECT_DIR, ".dummy"))):
-        shutil.copytree(LIB_SOURCE, os.path.join(PROJECT_DIR, ".dummy"))
-    PROJECT_SRC_DIR = os.path.join(PROJECT_DIR, ".dummy")
+    LIB_SOURCE = str(Path(platform.get_dir()) / "builder" / "build_lib")
+    if not bool(os.path.exists(str(Path(PROJECT_DIR) / ".dummy"))):
+        shutil.copytree(LIB_SOURCE, str(Path(PROJECT_DIR) / ".dummy"))
+    PROJECT_SRC_DIR = str(Path(PROJECT_DIR) / ".dummy")
     env.Replace(
         PROJECT_SRC_DIR=PROJECT_SRC_DIR,
         BUILD_FLAGS="",
@@ -386,15 +384,15 @@ def get_project_lib_includes(env):
     return paths
 
 def is_cmake_reconfigure_required(cmake_api_reply_dir):
-    cmake_cache_file = os.path.join(BUILD_DIR, "CMakeCache.txt")
+    cmake_cache_file = str(Path(BUILD_DIR) / "CMakeCache.txt")
     cmake_txt_files = [
-        os.path.join(PROJECT_DIR, "CMakeLists.txt"),
-        os.path.join(PROJECT_SRC_DIR, "CMakeLists.txt"),
+        str(Path(PROJECT_DIR) / "CMakeLists.txt"),
+        str(Path(PROJECT_SRC_DIR) / "CMakeLists.txt"),
     ]
-    cmake_preconf_dir = os.path.join(BUILD_DIR, "config")
-    deafult_sdk_config = os.path.join(PROJECT_DIR, "sdkconfig.defaults")
-    idf_deps_lock = os.path.join(PROJECT_DIR, "dependencies.lock")
-    ninja_buildfile = os.path.join(BUILD_DIR, "build.ninja")
+    cmake_preconf_dir = str(Path(BUILD_DIR) / "config")
+    deafult_sdk_config = str(Path(PROJECT_DIR) / "sdkconfig.defaults")
+    idf_deps_lock = str(Path(PROJECT_DIR) / "dependencies.lock")
+    ninja_buildfile = str(Path(BUILD_DIR) / "build.ninja")
 
     for d in (cmake_api_reply_dir, cmake_preconf_dir):
         if not os.path.isdir(d) or not os.listdir(d):
@@ -428,8 +426,8 @@ def is_proper_idf_project():
     return all(
         os.path.isfile(path)
         for path in (
-            os.path.join(PROJECT_DIR, "CMakeLists.txt"),
-            os.path.join(PROJECT_SRC_DIR, "CMakeLists.txt"),
+            str(Path(PROJECT_DIR) / "CMakeLists.txt"),
+            str(Path(PROJECT_SRC_DIR) / "CMakeLists.txt"),
         )
     )
 
@@ -463,25 +461,25 @@ idf_component_register(SRCS ${app_sources})
 
     if not os.listdir(PROJECT_SRC_DIR):
         # create a default main file to make CMake happy during first init
-        with open(os.path.join(PROJECT_SRC_DIR, "main.c"), "w") as fp:
+        with open(str(Path(PROJECT_SRC_DIR) / "main.c"), "w") as fp:
             fp.write("void app_main() {}")
 
     project_dir = PROJECT_DIR
-    if not os.path.isfile(os.path.join(project_dir, "CMakeLists.txt")):
-        with open(os.path.join(project_dir, "CMakeLists.txt"), "w") as fp:
+    if not os.path.isfile(str(Path(project_dir) / "CMakeLists.txt")):
+        with open(str(Path(project_dir) / "CMakeLists.txt"), "w") as fp:
             fp.write(root_cmake_tpl % os.path.basename(project_dir))
 
     project_src_dir = PROJECT_SRC_DIR
-    if not os.path.isfile(os.path.join(project_src_dir, "CMakeLists.txt")):
-        with open(os.path.join(project_src_dir, "CMakeLists.txt"), "w") as fp:
+    if not os.path.isfile(str(Path(project_src_dir) / "CMakeLists.txt")):
+        with open(str(Path(project_src_dir) / "CMakeLists.txt"), "w") as fp:
             fp.write(prj_cmake_tpl % normalize_path(PROJECT_SRC_DIR))
 
 
 def get_cmake_code_model(src_dir, build_dir, extra_args=None):
-    cmake_api_dir = os.path.join(build_dir, ".cmake", "api", "v1")
-    cmake_api_query_dir = os.path.join(cmake_api_dir, "query")
-    cmake_api_reply_dir = os.path.join(cmake_api_dir, "reply")
-    query_file = os.path.join(cmake_api_query_dir, "codemodel-v2")
+    cmake_api_dir = str(Path(build_dir) / ".cmake" / "api" / "v1")
+    cmake_api_query_dir = str(Path(cmake_api_dir) / "query")
+    cmake_api_reply_dir = str(Path(cmake_api_dir) / "reply")
+    query_file = str(Path(cmake_api_query_dir) / "codemodel-v2")
 
     if not os.path.isfile(query_file):
         os.makedirs(os.path.dirname(query_file))
@@ -500,7 +498,7 @@ def get_cmake_code_model(src_dir, build_dir, extra_args=None):
     codemodel = {}
     for target in os.listdir(cmake_api_reply_dir):
         if target.startswith("codemodel-v2"):
-            with open(os.path.join(cmake_api_reply_dir, target), "r") as fp:
+            with open(str(Path(cmake_api_reply_dir) / target), "r") as fp:
                 codemodel = json.load(fp)
 
     assert codemodel["version"]["major"] == 2
@@ -510,9 +508,9 @@ def get_cmake_code_model(src_dir, build_dir, extra_args=None):
 def populate_idf_env_vars(idf_env):
     idf_env["IDF_PATH"] = fs.to_unix_path(FRAMEWORK_DIR)
     additional_packages = [
-        os.path.join(TOOLCHAIN_DIR, "bin"),
+        str(Path(TOOLCHAIN_DIR) / "bin"),
         platform.get_package_dir("tool-ninja"),
-        os.path.join(platform.get_package_dir("tool-cmake"), "bin"),
+        str(Path(platform.get_package_dir("tool-cmake")) / "bin"),
         os.path.dirname(get_python_exe()),
     ]
 
@@ -528,7 +526,7 @@ def populate_idf_env_vars(idf_env):
 
 def get_target_config(project_configs, target_index, cmake_api_reply_dir):
     target_json = project_configs.get("targets")[target_index].get("jsonFile", "")
-    target_config_file = os.path.join(cmake_api_reply_dir, target_json)
+    target_config_file = str(Path(cmake_api_reply_dir) / target_json)
     if not os.path.isfile(target_config_file):
         sys.stderr.write("Error: Couldn't find target config %s\n" % target_json)
         env.Exit(1)
@@ -556,12 +554,12 @@ def build_library(
     lib_name = lib_config["nameOnDisk"]
     lib_path = lib_config["paths"]["build"]
     if prepend_dir:
-        lib_path = os.path.join(prepend_dir, lib_path)
+        lib_path = str(Path(prepend_dir) / lib_path)
     lib_objects = compile_source_files(
         lib_config, default_env, project_src_dir, prepend_dir, debug_allowed
     )
     return default_env.Library(
-        target=os.path.join("$BUILD_DIR", lib_path, lib_name), source=lib_objects
+        target=str(Path("$BUILD_DIR") / lib_path / lib_name), source=lib_objects
     )
 
 
@@ -653,7 +651,7 @@ def extract_link_args(target_config):
                     if archive_path.startswith(".."):
                         # Precompiled archives from project component
                         _add_archive(
-                            os.path.normpath(os.path.join(BUILD_DIR, archive_path)),
+                            os.path.normpath(str(Path(BUILD_DIR) / archive_path)),
                             link_args,
                         )
                     else:
@@ -710,7 +708,7 @@ def get_app_flags(app_config, default_config):
 
 
 def get_sdk_configuration():
-    config_path = os.path.join(BUILD_DIR, "config", "sdkconfig.json")
+    config_path = str(Path(BUILD_DIR) / "config" / "sdkconfig.json")
     if not os.path.isfile(config_path):
         print('Warning: Could not find "sdkconfig.json" file\n')
 
@@ -725,7 +723,7 @@ def load_component_paths(framework_components_dir, ignored_component_prefixes=No
     def _scan_components_from_framework():
         result = []
         for component in os.listdir(framework_components_dir):
-            component_path = os.path.join(framework_components_dir, component)
+            component_path = str(Path(framework_components_dir) / component)
             if component.startswith(ignored_component_prefixes) or not os.path.isdir(
                 component_path
             ):
@@ -737,7 +735,7 @@ def load_component_paths(framework_components_dir, ignored_component_prefixes=No
     # First of all, try to load the list of used components from the project description
     components = []
     ignored_component_prefixes = ignored_component_prefixes or []
-    project_description_file = os.path.join(BUILD_DIR, "project_description.json")
+    project_description_file = str(Path(BUILD_DIR) / "project_description.json")
     if os.path.isfile(project_description_file):
         with open(project_description_file) as fp:
             try:
@@ -763,7 +761,7 @@ def extract_linker_script_fragments_backup(framework_components_dir, sdk_config)
 
     result = []
     for component_path in project_components:
-        linker_fragment = os.path.join(component_path, "linker.lf")
+        linker_fragment = str(Path(component_path) / "linker.lf")
         if os.path.isfile(linker_fragment):
             result.append(linker_fragment)
 
@@ -772,29 +770,27 @@ def extract_linker_script_fragments_backup(framework_components_dir, sdk_config)
         env.Exit(1)
 
     if mcu not in ("esp32", "esp32s2", "esp32s3"):
-        result.append(os.path.join(framework_components_dir, "riscv", "linker.lf"))
+        result.append(str(Path(framework_components_dir) / "riscv" / "linker.lf"))
 
     # Add extra linker fragments
     for fragment in (
-        os.path.join("esp_system", "app.lf"),
-        os.path.join("esp_common", "common.lf"),
-        os.path.join("esp_common", "soc.lf"),
-        os.path.join("newlib", "system_libs.lf"),
-        os.path.join("newlib", "newlib.lf"),
+        str(Path("esp_system") / "app.lf"),
+        str(Path("esp_common") / "common.lf"),
+        str(Path("esp_common") / "soc.lf"),
+        str(Path("newlib") / "system_libs.lf"),
+        str(Path("newlib") / "newlib.lf"),
     ):
-        result.append(os.path.join(framework_components_dir, fragment))
+        result.append(str(Path(framework_components_dir) / fragment))
 
     if sdk_config.get("SPIRAM_CACHE_WORKAROUND", False):
         result.append(
-            os.path.join(
-                framework_components_dir, "newlib", "esp32-spiram-rom-functions-c.lf"
-            )
+            str(Path(framework_components_dir) / "newlib" / "esp32-spiram-rom-functions-c.lf")
         )
 
     if board.get("build.esp-idf.extra_lf_files", ""):
         result.extend(
             [
-                lf if os.path.isabs(lf) else os.path.join(PROJECT_DIR, lf)
+                lf if os.path.isabs(lf) else str(Path(PROJECT_DIR) / lf)
                 for lf in board.get("build.esp-idf.extra_lf_files").splitlines()
                 if lf.strip()
             ]
@@ -809,7 +805,7 @@ def extract_linker_script_fragments(
     def _normalize_fragment_path(base_dir, fragment_path):
         if not os.path.isabs(fragment_path):
             fragment_path = os.path.abspath(
-                os.path.join(base_dir, fragment_path)
+                str(Path(base_dir) / fragment_path)
             )
         if not os.path.isfile(fragment_path):
             print("Warning! The `%s` fragment is not found!" % fragment_path)
@@ -877,31 +873,27 @@ def create_custom_libraries_list(ldgen_libraries_file, ignore_targets):
 def generate_project_ld_script(sdk_config, ignore_targets=None):
     ignore_targets = ignore_targets or []
     linker_script_fragments = extract_linker_script_fragments(
-        os.path.join(BUILD_DIR, "build.ninja"),
-        os.path.join(FRAMEWORK_DIR, "components"),
+        str(Path(BUILD_DIR) / "build.ninja"),
+        str(Path(FRAMEWORK_DIR) / "components"),
         sdk_config
     )
 
     # Create a new file to avoid automatically generated library entry as files
     # from this library are built internally by PlatformIO
     libraries_list = create_custom_libraries_list(
-        os.path.join(BUILD_DIR, "ldgen_libraries"), ignore_targets
+        str(Path(BUILD_DIR) / "ldgen_libraries"), ignore_targets
     )
 
     args = {
-        "script": os.path.join(FRAMEWORK_DIR, "tools", "ldgen", "ldgen.py"),
+        "script": str(Path(FRAMEWORK_DIR) / "tools" / "ldgen" / "ldgen.py"),
         "config": SDKCONFIG_PATH,
         "fragments": " ".join(
             ['"%s"' % fs.to_unix_path(f) for f in linker_script_fragments]
         ),
-        "kconfig": os.path.join(FRAMEWORK_DIR, "Kconfig"),
-        "env_file": os.path.join("$BUILD_DIR", "config.env"),
+        "kconfig": str(Path(FRAMEWORK_DIR) / "Kconfig"),
+        "env_file": str(Path("$BUILD_DIR") / "config.env"),
         "libraries_list": libraries_list,
-        "objdump": os.path.join(
-            TOOLCHAIN_DIR,
-            "bin",
-            env.subst("$CC").replace("-gcc", "-objdump"),
-        ),
+        "objdump": str(Path(TOOLCHAIN_DIR) / "bin" / env.subst("$CC").replace("-gcc", "-objdump")),
     }
 
     cmd = (
@@ -912,30 +904,17 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
         '--objdump "{objdump}"'
     ).format(**args)
 
-    initial_ld_script = os.path.join(
-        FRAMEWORK_DIR,
-        "components",
-        "esp_system",
-        "ld",
-        idf_variant,
-        "sections.ld.in",
-    )
+    initial_ld_script = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "sections.ld.in")
 
     framework_version = [int(v) for v in get_framework_version().split(".")]
     if framework_version[:2] > [5, 2]:
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
-            os.path.join(
-                BUILD_DIR,
-                "esp-idf",
-                "esp_system",
-                "ld",
-                "sections.ld.in",
-            )
+            str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "sections.ld.in"),
         )
 
     return env.Command(
-        os.path.join("$BUILD_DIR", "sections.ld"),
+        str(Path("$BUILD_DIR") / "sections.ld"),
         initial_ld_script,
         env.VerboseAction(cmd, "Generating project linker script $TARGET"),
     )
