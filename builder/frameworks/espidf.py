@@ -981,8 +981,8 @@ def compile_source_files(
                 src_dir = str(Path(project_src_dir) / config["paths"]["source"])
             src_path = source.get("path")
             if not os.path.isabs(src_path):
-                # Resolve relative to the component's source dir
-                src_path = str(Path(src_dir) / src_path)
+                # For cases when sources are located near CMakeLists.txt
+                src_path = str(Path(project_src_dir) / src_path)
 
             obj_path = str(Path("$BUILD_DIR") / (prepend_dir or ""))
             src_path_obj = Path(src_path).resolve()
