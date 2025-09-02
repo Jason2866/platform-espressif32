@@ -2100,9 +2100,11 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
 if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
     def idf_custom_component(source, target, env):
         try:
-            shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"),
-                        str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
-            print("*** Original Arduino \"idf_component.yml\" restored ***")
+            # Add this check before using ARDUINO_FRAMEWORK_DIR
+            if "arduino" in env.subst("$PIOFRAMEWORK"):
+                shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"),
+                            str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
+                print("*** Original Arduino \"idf_component.yml\" restored ***")
         except (FileNotFoundError, PermissionError, OSError):
             try:
                 shutil.copy(str(Path(PROJECT_SRC_DIR) / "idf_component.yml.orig"), str(Path(PROJECT_SRC_DIR) / "idf_component.yml"))
