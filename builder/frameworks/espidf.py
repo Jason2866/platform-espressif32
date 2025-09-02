@@ -89,8 +89,12 @@ TOOLCHAIN_DIR = platform.get_package_dir(
 )
 PLATFORMIO_DIR = env.subst("$PROJECT_CORE_DIR")
 
-assert os.path.isdir(FRAMEWORK_DIR)
-assert os.path.isdir(TOOLCHAIN_DIR)
+if not os.path.isdir(FRAMEWORK_DIR):
+    sys.stderr.write(f"Error: Missing framework directory '{FRAMEWORK_DIR}'\n")
+    env.Exit(1)
+if not os.path.isdir(TOOLCHAIN_DIR):
+    sys.stderr.write(f"Error: Missing toolchain directory '{TOOLCHAIN_DIR}'\n")
+    env.Exit(1)
 
 
 def create_silent_action(action_func):
@@ -730,14 +734,10 @@ def load_component_paths(framework_components_dir, ignored_component_prefixes=No
             try:
                 data = json.load(fp)
                 for path in data.get("build_component_paths", []):
-                    if not os.path.basename(path).startswith(
-                        ignored_component_prefixes
-                    ):
+                    if not os.path.basename(path).startswith(ignored_component_prefixes):
                         components.append(path)
-            except:
-                print(
-                    "Warning: Could not find load components from project description!\n"
-                )
+            except (OSError, ValueError) as e:
+                print(f"Warning: Could not load components from project description: {e}\n")
 
     return components or _scan_components_from_framework()
 
@@ -1537,7 +1537,7 @@ def ensure_python_venv_available():
                     )
                     return True
                 return False
-        except:
+        except (OSError, ValueError):
             return True
 
     def _create_venv(venv_dir):
@@ -2100,9 +2100,10 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
 if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
     def idf_custom_component(source, target, env):
         try:
-            shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"), str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
+            shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"),
+                        str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
             print("*** Original Arduino \"idf_component.yml\" restored ***")
-        except:
+        except (FileNotFoundError, PermissionError, OSError):
             try:
                 shutil.copy(str(Path(PROJECT_SRC_DIR) / "idf_component.yml.orig"), str(Path(PROJECT_SRC_DIR) / "idf_component.yml"))
                 print("*** Original \"idf_component.yml\" restored ***")
