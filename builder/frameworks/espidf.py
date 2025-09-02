@@ -80,7 +80,11 @@ flag_custom_component_add = False
 flag_custom_component_remove = False
 
 IDF_ENV_VERSION = "1.0.0"
-FRAMEWORK_DIR_PATH = Path(platform.get_package_dir("framework-espidf")).resolve()
+_framework_pkg_dir = platform.get_package_dir("framework-espidf")
+if not _framework_pkg_dir or not os.path.isdir(_framework_pkg_dir):
+    sys.stderr.write(f"Error: Missing framework directory '{_framework_pkg_dir}'\n")
+    env.Exit(1)
+FRAMEWORK_DIR_PATH = Path(_framework_pkg_dir).resolve()
 FRAMEWORK_DIR = str(FRAMEWORK_DIR_PATH)
 TOOLCHAIN_DIR = platform.get_package_dir(
     "toolchain-xtensa-esp-elf"
