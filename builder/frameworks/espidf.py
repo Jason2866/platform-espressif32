@@ -78,11 +78,6 @@ flag_custom_sdkonfig = False
 flag_custom_component_add = False
 flag_custom_component_remove = False
 
-IDF5 = (
-    platform.get_package_version("framework-espidf")
-    .split(".")[1]
-    .startswith("5")
-)
 IDF_ENV_VERSION = "1.0.0"
 FRAMEWORK_DIR_PATH = Path(platform.get_package_dir("framework-espidf")).resolve()
 FRAMEWORK_DIR = str(FRAMEWORK_DIR_PATH)
@@ -270,8 +265,6 @@ def HandleArduinoIDFsettings(env):
             # Write checksum header (critical for compilation decision logic)
             dst.write(f"# TASMOTA__{checksum}\n")
             
-            processed_flags = set()
-            
             # Process each line from source sdkconfig
             for line in src:
                 flag_name = extract_flag_name(line)
@@ -290,7 +283,6 @@ def HandleArduinoIDFsettings(env):
                         dst.write(cleaned_flag + "\n")
                         print(f"Replace: {line.strip()} with: {cleaned_flag}")
                         idf_config_flags.remove(custom_flag)
-                        processed_flags.add(custom_flag_name)
                         flag_replaced = True
                         break
                 
@@ -391,7 +383,7 @@ def is_cmake_reconfigure_required(cmake_api_reply_dir):
         str(Path(PROJECT_SRC_DIR) / "CMakeLists.txt"),
     ]
     cmake_preconf_dir = str(Path(BUILD_DIR) / "config")
-    deafult_sdk_config = str(Path(PROJECT_DIR) / "sdkconfig.defaults")
+    default_sdk_config = str(Path(PROJECT_DIR) / "sdkconfig.defaults")
     idf_deps_lock = str(Path(PROJECT_DIR) / "dependencies.lock")
     ninja_buildfile = str(Path(BUILD_DIR) / "build.ninja")
 
@@ -406,8 +398,8 @@ def is_cmake_reconfigure_required(cmake_api_reply_dir):
         SDKCONFIG_PATH
     ) > os.path.getmtime(cmake_cache_file):
         return True
-    if os.path.isfile(deafult_sdk_config) and os.path.getmtime(
-        deafult_sdk_config
+    if os.path.isfile(default_sdk_config) and os.path.getmtime(
+        default_sdk_config
     ) > os.path.getmtime(cmake_cache_file):
         return True
     if os.path.isfile(idf_deps_lock) and os.path.getmtime(
