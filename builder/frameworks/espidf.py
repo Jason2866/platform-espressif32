@@ -982,7 +982,6 @@ def compile_source_files(
     objects = []
     # Canonical, symlink-resolved absolute path of the components directory
     components_dir_path = (Path(FRAMEWORK_DIR) / "components").resolve()
-    components_dir = str(components_dir_path)
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
@@ -1692,7 +1691,7 @@ if os.path.isfile(str(Path(PROJECT_SRC_DIR) / "sdkconfig.h")):
 # folder CMake won't generate dependencies properly
 extra_components = []
 if PROJECT_SRC_DIR != str(Path(PROJECT_DIR) / "main"):
-    extra_components.append(PROJECT_SRC_DIR)
+    extra_components.append(str(Path(PROJECT_SRC_DIR).resolve()))
 if "arduino" in env.subst("$PIOFRAMEWORK"):
     print(
         "Warning! Arduino framework as an ESP-IDF component doesn't handle "
@@ -1713,7 +1712,7 @@ os.environ["ESP_IDF_VERSION"] = major_version
 extra_cmake_args = [
     "-DIDF_TARGET=" + idf_variant,
     "-DPYTHON_DEPS_CHECKED=1",
-    "-DEXTRA_COMPONENT_DIRS:PATH=" + ";".join(extra_components),
+    "-DEXTRA_COMPONENT_DIRS:PATH=" + ";".join(str(Path(p).resolve()) for p in extra_components),
     "-DPYTHON=" + get_python_exe(),
     "-DSDKCONFIG=" + SDKCONFIG_PATH,
     f"-DESP_IDF_VERSION={major_version}",
@@ -1852,11 +1851,13 @@ except:
 # Remove project source files from following build stages as they're
 # built as part of the framework
 def _skip_prj_source_files(node):
-    resolved_project_src = str(Path(PROJECT_SRC_DIR).resolve())
-    resolved_node_path = str(Path(node.srcnode().get_path()).resolve())
-    if resolved_node_path.lower().startswith(resolved_project_src.lower()):
+    project_src_resolved = Path(PROJECT_SRC_DIR).resolve()
+    node_path_resolved = Path(node.srcnode().get_path()).resolve()
+    try:
+        node_path_resolved.relative_to(project_src_resolved)
         return None
-    return node
+    except ValueError:
+        return node
 
 
 env.AddBuildMiddleware(_skip_prj_source_files)
@@ -2071,8 +2072,10 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
         try:
             os.remove(str(Path(env.subst("$PROJECT_DIR")) / "dependencies.lock"))
             os.remove(str(Path(env.subst("$PROJECT_DIR")) / "CMakeLists.txt"))
-        except:
+        except FileNotFoundError:
             pass
+        except OSError as e:
+            print(f"Warning: cleanup failed: {e}")
         print("*** Copied compiled %s IDF libraries to Arduino framework ***" % idf_variant)
 
         PYTHON_EXE = env.subst("$PYTHONEXE")
