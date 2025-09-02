@@ -1625,34 +1625,21 @@ generate_default_component()
 #
 
 if not board.get("build.ldscript", ""):
-    initial_ld_script = board.get("build.esp-idf.ldscript", os.path.join(
-        FRAMEWORK_DIR,
-        "components",
-        "esp_system",
-        "ld",
-        idf_variant,
-        "memory.ld.in",
-    ))
+    initial_ld_script = board.get("build.esp-idf.ldscript", str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "memory.ld.in"))
 
     framework_version = [int(v) for v in get_framework_version().split(".")]
     if framework_version[:2] > [5, 2]:
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
-            os.path.join(
-                BUILD_DIR,
-                "esp-idf",
-                "esp_system",
-                "ld",
-                "memory.ld.in",
-            )
+            str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "memory.ld.in")
         )
 
     linker_script = env.Command(
-        os.path.join("$BUILD_DIR", "memory.ld"),
+        str(Path("$BUILD_DIR") / "memory.ld"),
         initial_ld_script,
         env.VerboseAction(
             '$CC -I"$BUILD_DIR/config" -I"%s" -C -P -x c -E $SOURCE -o $TARGET'
-            % os.path.join(FRAMEWORK_DIR, "components", "esp_system", "ld"),
+            % str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
             "Generating LD script $TARGET",
         ),
     )
@@ -1684,7 +1671,7 @@ if env.subst("$SRC_FILTER"):
         )
     )
 
-if os.path.isfile(os.path.join(PROJECT_SRC_DIR, "sdkconfig.h")):
+if os.path.isfile(str(Path(PROJECT_SRC_DIR) / "sdkconfig.h")):
     print(
         "Warning! Starting with ESP-IDF v4.0, new project structure is required: \n"
         "https://docs.platformio.org/en/latest/frameworks/espidf.html#project-structure"
@@ -1698,7 +1685,7 @@ if os.path.isfile(os.path.join(PROJECT_SRC_DIR, "sdkconfig.h")):
 # default 'src' folder we need to add this as an extra component. If there is no 'main'
 # folder CMake won't generate dependencies properly
 extra_components = []
-if PROJECT_SRC_DIR != os.path.join(PROJECT_DIR, "main"):
+if PROJECT_SRC_DIR != str(Path(PROJECT_DIR) / "main"):
     extra_components.append(PROJECT_SRC_DIR)
 if "arduino" in env.subst("$PIOFRAMEWORK"):
     print(
@@ -1708,7 +1695,7 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     extra_components.append(ARDUINO_FRAMEWORK_DIR)
     # Add path to internal Arduino libraries so that the LDF will be able to find them
     env.Append(
-        LIBSOURCE_DIRS=[os.path.join(ARDUINO_FRAMEWORK_DIR, "libraries")]
+        LIBSOURCE_DIRS=[str(Path(ARDUINO_FRAMEWORK_DIR) / "libraries")]
     )
 
 # Set ESP-IDF version environment variables (needed for proper Kconfig processing)
@@ -1730,7 +1717,7 @@ extra_cmake_args = [
 
 # This will add the linker flag for the map file
 extra_cmake_args.append(
-    f'-DCMAKE_EXE_LINKER_FLAGS=-Wl,-Map={fs.to_unix_path(os.path.join(BUILD_DIR, env.subst("$PROGNAME") + ".map"))}'
+    f'-DCMAKE_EXE_LINKER_FLAGS=-Wl,-Map={fs.to_unix_path(str(Path(BUILD_DIR) / (env.subst("$PROGNAME") + ".map")))}'
 )
 
 # Add any extra args from board config
@@ -1753,7 +1740,7 @@ if not project_codemodel:
     env.Exit(1)
 
 target_configs = load_target_configurations(
-    project_codemodel, os.path.join(BUILD_DIR, CMAKE_API_REPLY_PATH)
+    project_codemodel, str(Path(BUILD_DIR) / CMAKE_API_REPLY_PATH)
 )
 
 sdk_config = get_sdk_configuration()
@@ -1872,27 +1859,25 @@ env.AddBuildMiddleware(_skip_prj_source_files)
 # Generate partition table
 #
 
-fwpartitions_dir = os.path.join(FRAMEWORK_DIR, "components", "partition_table")
+fwpartitions_dir = str(Path(FRAMEWORK_DIR) / "components" / "partition_table")
 partitions_csv = board.get("build.partitions", "partitions_singleapp.csv")
 partition_table_offset = sdk_config.get("PARTITION_TABLE_OFFSET", 0x8000)
 
 env.Replace(
     PARTITIONS_TABLE_CSV=os.path.abspath(
-        os.path.join(fwpartitions_dir, partitions_csv)
-        if os.path.isfile(os.path.join(fwpartitions_dir, partitions_csv))
+        str(Path(fwpartitions_dir) / partitions_csv)
+        if os.path.isfile(str(Path(fwpartitions_dir) / partitions_csv))
         else partitions_csv
     )
 )
 
 partition_table = env.Command(
-    os.path.join("$BUILD_DIR", "partitions.bin"),
+    str(Path("$BUILD_DIR") / "partitions.bin"),
     "$PARTITIONS_TABLE_CSV",
     env.VerboseAction(
         '"$ESPIDF_PYTHONEXE" "%s" -q --offset "%s" --flash-size "%s" $SOURCE $TARGET'
         % (
-            os.path.join(
-                FRAMEWORK_DIR, "components", "partition_table", "gen_esp32part.py"
-            ),
+            str(Path(FRAMEWORK_DIR) / "components" / "partition_table" / "gen_esp32part.py"),
             partition_table_offset,
             board.get("upload.flash_size", "4MB"),
         ),
@@ -1920,11 +1905,11 @@ env.Prepend(
                 "upload.bootloader_offset",
                 "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
             ),
-            os.path.join("$BUILD_DIR", "bootloader.bin"),
+            str(Path("$BUILD_DIR") / "bootloader.bin"),
         ),
         (
             board.get("upload.partition_table_offset", hex(partition_table_offset)),
-            os.path.join("$BUILD_DIR", "partitions.bin"),
+            str(Path("$BUILD_DIR") / "partitions.bin"),
         ),
     ],
 )
@@ -2037,7 +2022,7 @@ env["BUILDERS"]["ElfToBin"].action = action
 # Compile ULP sources in 'ulp' folder
 #
 
-ulp_dir = os.path.join(PROJECT_DIR, "ulp")
+ulp_dir = str(Path(PROJECT_DIR) / "ulp")
 if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "esp32c3", "esp32h2"):
     env.SConscript("ulp.py", exports="env sdk_config project_config app_includes idf_variant")
 
@@ -2047,45 +2032,45 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 
 if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PIOFRAMEWORK")):
     def idf_lib_copy(source, target, env):
-        env_build = join(env["PROJECT_BUILD_DIR"],env["PIOENV"])
-        sdkconfig_h_path = join(env_build,"config","sdkconfig.h")
-        arduino_libs = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs")
-        lib_src = join(env_build,"esp-idf")
-        lib_dst = join(arduino_libs,mcu,"lib")
-        ld_dst = join(arduino_libs,mcu,"ld")
-        mem_var = join(arduino_libs,mcu,board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")))
-        src = [join(lib_src,x) for x in os.listdir(lib_src)]
+        env_build = str(Path(env["PROJECT_BUILD_DIR"]) / env["PIOENV"])
+        sdkconfig_h_path = str(Path(env_build) / "config" / "sdkconfig.h")
+        arduino_libs = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs")
+        lib_src = str(Path(env_build) / "esp-idf")
+        lib_dst = str(Path(arduino_libs) / mcu / "lib")
+        ld_dst = str(Path(arduino_libs) / mcu / "ld")
+        mem_var = str(Path(arduino_libs) / mcu / board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")))
+        src = [str(Path(lib_src) / x) for x in os.listdir(lib_src)]
         src = [folder for folder in src if not os.path.isfile(folder)] # folders only
         for folder in src:
-            files = [join(folder,x) for x in os.listdir(folder)]
+            files = [str(Path(folder) / x) for x in os.listdir(folder)]
             for file in files:
                 if file.strip().endswith(".a"):
-                    shutil.copyfile(file,join(lib_dst,file.split(os.path.sep)[-1]))
+                    shutil.copyfile(file, str(Path(lib_dst) / file.split(os.path.sep)[-1]))
 
-        shutil.move(join(lib_dst,"libspi_flash.a"),join(mem_var,"libspi_flash.a"))
-        shutil.move(join(env_build,"memory.ld"),join(ld_dst,"memory.ld"))
+        shutil.move(str(Path(lib_dst) / "libspi_flash.a"), str(Path(mem_var) / "libspi_flash.a"))
+        shutil.move(str(Path(env_build) / "memory.ld"), str(Path(ld_dst) / "memory.ld"))
         if mcu == "esp32s3":
-            shutil.move(join(lib_dst,"libesp_psram.a"),join(mem_var,"libesp_psram.a"))
-            shutil.move(join(lib_dst,"libesp_system.a"),join(mem_var,"libesp_system.a"))
-            shutil.move(join(lib_dst,"libfreertos.a"),join(mem_var,"libfreertos.a"))
-            shutil.move(join(lib_dst,"libbootloader_support.a"),join(mem_var,"libbootloader_support.a"))
-            shutil.move(join(lib_dst,"libesp_hw_support.a"),join(mem_var,"libesp_hw_support.a"))
-            shutil.move(join(lib_dst,"libesp_lcd.a"),join(mem_var,"libesp_lcd.a"))
+            shutil.move(str(Path(lib_dst) / "libesp_psram.a"), str(Path(mem_var) / "libesp_psram.a"))
+            shutil.move(str(Path(lib_dst) / "libesp_system.a"), str(Path(mem_var) / "libesp_system.a"))
+            shutil.move(str(Path(lib_dst) / "libfreertos.a"), str(Path(mem_var) / "libfreertos.a"))
+            shutil.move(str(Path(lib_dst) / "libbootloader_support.a"), str(Path(mem_var) / "libbootloader_support.a"))
+            shutil.move(str(Path(lib_dst) / "libesp_hw_support.a"), str(Path(mem_var) / "libesp_hw_support.a"))
+            shutil.move(str(Path(lib_dst) / "libesp_lcd.a"), str(Path(mem_var) / "libesp_lcd.a"))
 
-        shutil.copyfile(sdkconfig_h_path,join(mem_var,"include","sdkconfig.h"))
-        if not bool(os.path.isfile(join(arduino_libs,mcu,"sdkconfig.orig"))):
-            shutil.move(join(arduino_libs,mcu,"sdkconfig"),join(arduino_libs,mcu,"sdkconfig.orig"))
-        shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(arduino_libs,mcu,"sdkconfig"))
-        shutil.copyfile(join(env.subst("$PROJECT_DIR"),"sdkconfig."+env["PIOENV"]),join(arduino_libs,"sdkconfig"))
+        shutil.copyfile(sdkconfig_h_path, str(Path(mem_var) / "include" / "sdkconfig.h"))
+        if not bool(os.path.isfile(str(Path(arduino_libs) / mcu / "sdkconfig.orig"))):
+            shutil.move(str(Path(arduino_libs) / mcu / "sdkconfig"), str(Path(arduino_libs) / mcu / "sdkconfig.orig"))
+        shutil.copyfile(str(Path(env.subst("$PROJECT_DIR")) / ("sdkconfig." + env["PIOENV"])), str(Path(arduino_libs) / mcu / "sdkconfig"))
+        shutil.copyfile(str(Path(env.subst("$PROJECT_DIR")) / ("sdkconfig." + env["PIOENV"])), str(Path(arduino_libs) / "sdkconfig"))
         try:
-            os.remove(join(env.subst("$PROJECT_DIR"),"dependencies.lock"))
-            os.remove(join(env.subst("$PROJECT_DIR"),"CMakeLists.txt"))
+            os.remove(str(Path(env.subst("$PROJECT_DIR")) / "dependencies.lock"))
+            os.remove(str(Path(env.subst("$PROJECT_DIR")) / "CMakeLists.txt"))
         except:
             pass
         print("*** Copied compiled %s IDF libraries to Arduino framework ***" % idf_variant)
 
         PYTHON_EXE = env.subst("$PYTHONEXE")
-        pio_exe_path = os.path.join(os.path.dirname(PYTHON_EXE), "pio" + (".exe" if IS_WINDOWS else ""))
+        pio_exe_path = str(Path(os.path.dirname(PYTHON_EXE)) / ("pio" + (".exe" if IS_WINDOWS else "")))
         pio_cmd = env["PIOENV"]
         env.Execute(
             env.VerboseAction(
@@ -2098,7 +2083,7 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
         )
         if flag_custom_component_add == True or flag_custom_component_remove == True:
             try:
-                shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
+                shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"), str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
                 print("*** Original Arduino \"idf_component.yml\" restored ***")
             except:
                 print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***")
@@ -2112,15 +2097,15 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
 if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True or flag_custom_component_remove == True):
     def idf_custom_component(source, target, env):
         try:
-            shutil.copy(join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml.orig"),join(ARDUINO_FRAMEWORK_DIR,"idf_component.yml"))
+            shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"), str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
             print("*** Original Arduino \"idf_component.yml\" restored ***")
         except:
             try:
-                shutil.copy(join(PROJECT_SRC_DIR,"idf_component.yml.orig"),join(PROJECT_SRC_DIR,"idf_component.yml"))
+                shutil.copy(str(Path(PROJECT_SRC_DIR) / "idf_component.yml.orig"), str(Path(PROJECT_SRC_DIR) / "idf_component.yml"))
                 print("*** Original \"idf_component.yml\" restored ***")
             except: # no "idf_component.yml" in source folder
                 try:
-                    os.remove(join(PROJECT_SRC_DIR,"idf_component.yml"))
+                    os.remove(str(Path(PROJECT_SRC_DIR) / "idf_component.yml"))
                     print("*** pioarduino generated \"idf_component.yml\" removed ***")
                 except:
                     print("*** no custom \"idf_component.yml\" found for removing ***")
@@ -2131,6 +2116,7 @@ if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True
             component_manager.restore_pioarduino_build_py()
     silent_action = create_silent_action(idf_custom_component)
     env.AddPostAction("checkprogsize", silent_action)
+
 #
 # Process OTA partition and image
 #
@@ -2143,9 +2129,9 @@ ota_partition_params = get_partition_info(
 
 if ota_partition_params["size"] and ota_partition_params["offset"]:
     # Generate an empty image if OTA is enabled in partition table
-    ota_partition_image = os.path.join("$BUILD_DIR", "ota_data_initial.bin")
+    ota_partition_image = str(Path("$BUILD_DIR") / "ota_data_initial.bin")
     if "arduino" in env.subst("$PIOFRAMEWORK"):
-        ota_partition_image = os.path.join(ARDUINO_FRAMEWORK_DIR, "tools", "partitions", "boot_app0.bin")
+        ota_partition_image = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "partitions" / "boot_app0.bin")
     else:
         generate_empty_partition_image(ota_partition_image, ota_partition_params["size"])
 
@@ -2159,10 +2145,10 @@ if ota_partition_params["size"] and ota_partition_params["offset"]:
             )
         ]
     )
-    EXTRA_IMG_DIR = join(env.subst("$PROJECT_DIR"), "variants", "tasmota")
+    EXTRA_IMG_DIR = str(Path(env.subst("$PROJECT_DIR")) / "variants" / "tasmota")
     env.Append(
         FLASH_EXTRA_IMAGES=[
-            (offset, join(EXTRA_IMG_DIR, img)) for offset, img in board.get("upload.arduino.flash_extra_images", [])
+            (offset, str(Path(EXTRA_IMG_DIR) / img)) for offset, img in board.get("upload.arduino.flash_extra_images", [])
         ]
     )
 
