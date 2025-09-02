@@ -1017,9 +1017,10 @@ def compile_source_files(
                 src_path = os.path.join(project_src_dir, src_path)
 
             obj_path = os.path.join("$BUILD_DIR", prepend_dir or "")
-            if str(Path(src_path).resolve()).lower().startswith(components_dir.lower()):
+            resolved_src_path = str(Path(src_path).resolve())
+            if resolved_src_path.lower().startswith(components_dir.lower()):
                 obj_path = os.path.join(
-                    obj_path, os.path.relpath(src_path, components_dir)
+                    obj_path, os.path.relpath(resolved_src_path, components_dir)
                 )
             else:
                 if not os.path.isabs(source["path"]):
