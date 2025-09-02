@@ -2112,11 +2112,11 @@ if "espidf" in env.subst("$PIOFRAMEWORK") and (flag_custom_component_add == True
             try:
                 shutil.copy(str(Path(PROJECT_SRC_DIR) / "idf_component.yml.orig"), str(Path(PROJECT_SRC_DIR) / "idf_component.yml"))
                 print("*** Original \"idf_component.yml\" restored ***")
-            except: # no "idf_component.yml" in source folder
+            except (FileNotFoundError, PermissionError, OSError): # no "idf_component.yml" in source folder
                 try:
                     os.remove(str(Path(PROJECT_SRC_DIR) / "idf_component.yml"))
                     print("*** pioarduino generated \"idf_component.yml\" removed ***")
-                except:
+                except (FileNotFoundError, PermissionError, OSError):
                     print("*** no custom \"idf_component.yml\" found for removing ***")
         if "arduino" in env.subst("$PIOFRAMEWORK"):
             # Restore original pioarduino-build.py, only used with Arduino
