@@ -32,6 +32,7 @@ import re
 import requests
 import platform as sys_platform
 from pathlib import Path
+from urllib.parse import urlsplit, unquote
 
 import click
 import semantic_version
@@ -121,16 +122,10 @@ SDKCONFIG_PATH = os.path.expandvars(board.get(
 ))
 
 def contains_path_traversal(url):
-    """Check for Path Traversal patterns"""
-    dangerous_patterns = [
-        '../', '..\\',  # Standard Path Traversal
-        '%2e%2e%2f', '%2e%2e%5c',  # URL-encoded
-        '..%2f', '..%5c',  # Mixed
-        '%252e%252e%252f',  # Double encoded
-    ]
-    
-    url_lower = url.lower()
-    return any(pattern in url_lower for pattern in dangerous_patterns)
+    """Best-effort detection of path traversal sequences."""
+    path = unquote(unquote(urlsplit(url).path)).replace("\\", "/")
+    parts = [p for p in path.split("/") if p not in ("", ".")]
+    return any(p == ".." for p in parts)
 
 #
 # generate modified Arduino IDF sdkconfig, applying settings from "custom_sdkconfig"
@@ -709,7 +704,7 @@ def get_sdk_configuration():
     try:
         with open(config_path, "r") as fp:
             return json.load(fp)
-    except:
+    except (OSError, json.JSONDecodeError):
         return {}
 
 
@@ -1569,10 +1564,9 @@ def ensure_python_venv_available():
 
         # Verify that the venv was created successfully by checking for Python executable
         python_path = get_executable_path(venv_dir, "python")
-        
-        assert os.path.isfile(
-            python_path
-        ), "Error: Failed to create a proper virtual environment. Missing the Python executable!"
+        if not os.path.isfile(python_path):
+            sys.stderr.write("Error: Failed to create a proper virtual environment. Missing the Python executable!\n")
+            env.Exit(1)
 
     venv_dir = get_idf_venv_dir()
     venv_data_file = str(Path(venv_dir) / "pio-idf-venv.json")
