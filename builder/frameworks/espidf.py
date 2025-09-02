@@ -493,6 +493,7 @@ def get_cmake_code_model(src_dir, build_dir, extra_args=None):
         if target.startswith("codemodel-v2"):
             with open(str(Path(cmake_api_reply_dir) / target), "r") as fp:
                 codemodel = json.load(fp)
+            break
 
     assert codemodel["version"]["major"] == 2
     return codemodel
