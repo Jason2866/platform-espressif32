@@ -981,8 +981,8 @@ def compile_source_files(
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
     # Canonical, symlink-resolved absolute path of the components directory
-    components_dir_path = Path(FRAMEWORK_DIR, "components").resolve()
-    components_dir = str(components_dir_path)
+    components_dir_path = Path(FRAMEWORK_DIR) / "components"
+    components_dir = str(components_dir_path.resolve())
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
@@ -990,23 +990,21 @@ def compile_source_files(
         if compile_group_idx is not None:
             src_dir = config["paths"]["source"]
             if not os.path.isabs(src_dir):
-                src_dir = os.path.join(project_src_dir, config["paths"]["source"])
+                src_dir = str(Path(project_src_dir) / config["paths"]["source"])
             src_path = source.get("path")
             if not os.path.isabs(src_path):
                 # For cases when sources are located near CMakeLists.txt
-                src_path = os.path.join(project_src_dir, src_path)
+                src_path = str(Path(project_src_dir) / src_path)
 
-            obj_path = os.path.join("$BUILD_DIR", prepend_dir or "")
+            obj_path = str(Path("$BUILD_DIR") / (prepend_dir or ""))
             resolved_src_path = str(Path(src_path).resolve())
             if resolved_src_path.lower().startswith(components_dir.lower()):
-                obj_path = os.path.join(
-                    obj_path, os.path.relpath(resolved_src_path, components_dir)
-                )
+                obj_path = str(Path(obj_path) / os.path.relpath(resolved_src_path, components_dir))
             else:
                 if not os.path.isabs(source["path"]):
-                    obj_path = os.path.join(obj_path, source["path"])
+                    obj_path = str(Path(obj_path) / source["path"])
                 else:
-                    obj_path = os.path.join(obj_path, os.path.basename(src_path))
+                    obj_path = str(Path(obj_path) / os.path.basename(src_path))
 
             preserve_source_file_extension = board.get(
                 "build.esp-idf.preserve_source_file_extension", "yes"
@@ -1047,7 +1045,7 @@ def RunMenuconfig(target, source, env):
 
     rc = subprocess.call(
         [
-            os.path.join(platform.get_package_dir("tool-cmake"), "bin", "cmake"),
+            str(Path(platform.get_package_dir("tool-cmake")) / "bin" / "cmake"),
             "--build",
             BUILD_DIR,
             "--target",
@@ -1063,7 +1061,7 @@ def RunMenuconfig(target, source, env):
 
 def run_cmake(src_dir, build_dir, extra_args=None):
     cmd = [
-        os.path.join(platform.get_package_dir("tool-cmake") or "", "bin", "cmake"),
+        str(Path(platform.get_package_dir("tool-cmake") or "") / "bin" / "cmake"),
         "-S",
         src_dir,
         "-B",
@@ -1105,12 +1103,10 @@ def find_lib_deps(components_map, elf_config, link_args, ignore_components=None)
 
 
 def build_bootloader(sdk_config):
-    bootloader_src_dir = os.path.join(
-        FRAMEWORK_DIR, "components", "bootloader", "subproject"
-    )
+    bootloader_src_dir = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject")
     code_model = get_cmake_code_model(
         bootloader_src_dir,
-        os.path.join(BUILD_DIR, "bootloader"),
+        str(Path(BUILD_DIR) / "bootloader"),
         [
             "-DIDF_TARGET=" + idf_variant,
             "-DPYTHON_DEPS_CHECKED=1",
@@ -1119,8 +1115,7 @@ def build_bootloader(sdk_config):
             "-DSDKCONFIG=" + SDKCONFIG_PATH,
             "-DPROJECT_SOURCE_DIR=" + PROJECT_DIR,
             "-DLEGACY_INCLUDE_COMMON_HEADERS=",
-            "-DEXTRA_COMPONENT_DIRS="
-            + os.path.join(FRAMEWORK_DIR, "components", "bootloader"),
+            "-DEXTRA_COMPONENT_DIRS=" + str(Path(FRAMEWORK_DIR) / "components" / "bootloader"),
         ],
     )
 
@@ -1130,7 +1125,7 @@ def build_bootloader(sdk_config):
 
     target_configs = load_target_configurations(
         code_model,
-        os.path.join(BUILD_DIR, "bootloader", ".cmake", "api", "v1", "reply"),
+        str(Path(BUILD_DIR) / "bootloader" / ".cmake" / "api" / "v1" / "reply"),
     )
 
     elf_config = get_project_elf(target_configs)
@@ -1170,9 +1165,9 @@ def build_bootloader(sdk_config):
     )
 
     return bootloader_env.ElfToBin(
-        os.path.join("$BUILD_DIR", "bootloader"),
+        str(Path("$BUILD_DIR") / "bootloader"),
         bootloader_env.Program(
-            os.path.join("$BUILD_DIR", "bootloader.elf"), bootloader_libs
+            str(Path("$BUILD_DIR") / "bootloader.elf"), bootloader_libs
         ),
     )
 
@@ -1227,18 +1222,18 @@ def generate_default_component():
 file(GLOB component_sources *.c* *.S)
 idf_component_register(SRCS ${component_sources})
 """
-    dummy_component_path = os.path.join(FRAMEWORK_DIR, "components", "__pio_env")
+    dummy_component_path = str(Path(FRAMEWORK_DIR) / "components" / "__pio_env")
     if os.path.isdir(dummy_component_path):
         return
 
     os.makedirs(dummy_component_path)
 
     for ext in (".cpp", ".c", ".S"):
-        dummy_file = os.path.join(dummy_component_path, "__dummy" + ext)
+        dummy_file = str(Path(dummy_component_path) / ("__dummy" + ext))
         if not os.path.isfile(dummy_file):
             open(dummy_file, "a").close()
 
-    component_cmake = os.path.join(dummy_component_path, "CMakeLists.txt")
+    component_cmake = str(Path(dummy_component_path) / "CMakeLists.txt")
     if not os.path.isfile(component_cmake):
         with open(component_cmake, "w") as fp:
             fp.write(prj_cmake_tpl)
@@ -1259,9 +1254,7 @@ def find_default_component(target_configs):
 
 def get_framework_version():
     def _extract_from_cmake_version_file():
-        version_cmake_file = os.path.join(
-            FRAMEWORK_DIR, "tools", "cmake", "version.cmake"
-        )
+        version_cmake_file = str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "version.cmake")
         if not os.path.isfile(version_cmake_file):
             return
 
@@ -1285,7 +1278,7 @@ def get_framework_version():
 
 
 def create_version_file():
-    version_file = os.path.join(FRAMEWORK_DIR, "version.txt")
+    version_file = str(Path(FRAMEWORK_DIR) / "version.txt")
     if not os.path.isfile(version_file):
         with open(version_file, "w") as fp:
             fp.write(get_framework_version())
@@ -1298,12 +1291,7 @@ def generate_empty_partition_image(binary_path, image_size):
         env.VerboseAction(
             '"$ESPIDF_PYTHONEXE" "%s" %s $TARGET'
             % (
-                os.path.join(
-                    FRAMEWORK_DIR,
-                    "components",
-                    "partition_table",
-                    "gen_empty_partition.py",
-                ),
+                str(Path(FRAMEWORK_DIR) / "components" / "partition_table" / "gen_empty_partition.py"),
                 image_size,
             ),
             "Generating an empty partition $TARGET",
@@ -1323,7 +1311,7 @@ def get_partition_info(pt_path, pt_offset, pt_params):
 
     cmd = [
         get_python_exe(),
-        os.path.join(FRAMEWORK_DIR, "components", "partition_table", "parttool.py"),
+        str(Path(FRAMEWORK_DIR) / "components" / "partition_table" / "parttool.py"),
         "-q",
         "--partition-table-offset",
         hex(pt_offset),
@@ -1380,32 +1368,14 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
         env.VerboseAction(
             " ".join(
                 [
-                    os.path.join(
-                        platform.get_package_dir("tool-cmake"),
-                        "bin",
-                        "cmake",
-                    ),
-                    "-DCC=%s"
-                    % os.path.join(
-                        TOOLCHAIN_DIR,
-                        "bin",
-                        "$CC",
-                    ),
+                    str(Path(platform.get_package_dir("tool-cmake")) / "bin" / "cmake"),
+                    "-DCC=%s" % str(Path(TOOLCHAIN_DIR) / "bin" / "$CC"),
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
-                    "-DCONFIG_DIR=%s" % os.path.join(BUILD_DIR, "config"),
-                    "-DLD_DIR=%s"
-                    % os.path.join(
-                        FRAMEWORK_DIR, "components", "esp_system", "ld"
-                    ),
+                    "-DCONFIG_DIR=%s" % str(Path(BUILD_DIR) / "config"),
+                    "-DLD_DIR=%s" % str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
                     "-P",
-                    os.path.join(
-                        "$BUILD_DIR",
-                        "esp-idf",
-                        "esp_system",
-                        "ld",
-                        "linker_script_generator.cmake",
-                    ),
+                    str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake"),
                 ]
             ),
             "Generating LD script $TARGET",
@@ -1414,25 +1384,23 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
 
 
 def generate_mbedtls_bundle(sdk_config):
-    bundle_path = os.path.join("$BUILD_DIR", "x509_crt_bundle")
+    bundle_path = str(Path("$BUILD_DIR") / "x509_crt_bundle")
     if os.path.isfile(env.subst(bundle_path)):
         return
 
-    default_crt_dir = os.path.join(
-        FRAMEWORK_DIR, "components", "mbedtls", "esp_crt_bundle"
-    )
+    default_crt_dir = str(Path(FRAMEWORK_DIR) / "components" / "mbedtls" / "esp_crt_bundle")
 
-    cmd = [get_python_exe(), os.path.join(default_crt_dir, "gen_crt_bundle.py")]
+    cmd = [get_python_exe(), str(Path(default_crt_dir) / "gen_crt_bundle.py")]
 
     crt_args = ["--input"]
     if sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL", False):
-        crt_args.append(os.path.join(default_crt_dir, "cacrt_all.pem"))
-        crt_args.append(os.path.join(default_crt_dir, "cacrt_local.pem"))
+        crt_args.append(str(Path(default_crt_dir) / "cacrt_all.pem"))
+        crt_args.append(str(Path(default_crt_dir) / "cacrt_local.pem"))
     elif sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN", False):
-        crt_args.append(os.path.join(default_crt_dir, "cacrt_all.pem"))
-        crt_args.append(os.path.join(default_crt_dir, "cacrt_local.pem"))
+        crt_args.append(str(Path(default_crt_dir) / "cacrt_all.pem"))
+        crt_args.append(str(Path(default_crt_dir) / "cacrt_local.pem"))
         cmd.extend(
-            ["--filter", os.path.join(default_crt_dir, "cmn_crt_authorities.csv")]
+            ["--filter", str(Path(default_crt_dir) / "cmn_crt_authorities.csv")]
         )
 
     if sdk_config.get("MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE", False):
@@ -1446,27 +1414,17 @@ def generate_mbedtls_bundle(sdk_config):
 
     # Use exec_command to change working directory
     exec_command(cmd + crt_args, cwd=BUILD_DIR)
-    bundle_path = os.path.join("$BUILD_DIR", "x509_crt_bundle")
+    bundle_path = str(Path("$BUILD_DIR") / "x509_crt_bundle")
     env.Execute(
         env.VerboseAction(
             " ".join(
                 [
-                    os.path.join(
-                        env.PioPlatform().get_package_dir("tool-cmake"),
-                        "bin",
-                        "cmake",
-                    ),
+                    str(Path(env.PioPlatform().get_package_dir("tool-cmake")) / "bin" / "cmake"),
                     "-DDATA_FILE=" + bundle_path,
                     "-DSOURCE_FILE=%s.S" % bundle_path,
                     "-DFILE_TYPE=BINARY",
                     "-P",
-                    os.path.join(
-                        FRAMEWORK_DIR,
-                        "tools",
-                        "cmake",
-                        "scripts",
-                        "data_file_embed_asm.cmake",
-                    ),
+                    str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "scripts" / "data_file_embed_asm.cmake"),
                 ]
             ),
             "Generating assembly for certificate bundle...",
@@ -1475,7 +1433,7 @@ def generate_mbedtls_bundle(sdk_config):
 
 
 def _get_uv_exe():
-    return get_executable_path(os.path.join(PLATFORMIO_DIR, "penv"), "uv")
+    return get_executable_path(str(Path(PLATFORMIO_DIR) / "penv"), "uv")
 
 
 def install_python_deps():
@@ -1497,7 +1455,7 @@ def install_python_deps():
 
         return result
 
-    skip_python_packages = os.path.join(FRAMEWORK_DIR, ".pio_skip_pypackages")
+    skip_python_packages = str(Path(FRAMEWORK_DIR) / ".pio_skip_pypackages")
     if os.path.isfile(skip_python_packages):
         return
 
@@ -1552,7 +1510,7 @@ def get_idf_venv_dir():
     # as an IDF component requires a different version of the IDF package and
     # hence a different set of Python deps or their versions
     idf_version = get_framework_version()
-    return os.path.join(PLATFORMIO_DIR, "penv", f".espidf-{idf_version}")
+    return str(Path(PLATFORMIO_DIR) / "penv" / f".espidf-{idf_version}")
 
 
 def ensure_python_venv_available():
@@ -1623,7 +1581,7 @@ def ensure_python_venv_available():
         ), "Error: Failed to create a proper virtual environment. Missing the Python executable!"
 
     venv_dir = get_idf_venv_dir()
-    venv_data_file = os.path.join(venv_dir, "pio-idf-venv.json")
+    venv_data_file = str(Path(venv_dir) / "pio-idf-venv.json")
     if not os.path.isfile(venv_data_file) or _is_venv_outdated(venv_data_file):
         _create_venv(venv_dir)
         install_python_deps()
@@ -1636,11 +1594,7 @@ def ensure_python_venv_available():
 
 
 def get_python_exe():
-    python_exe_path = os.path.join(
-        get_idf_venv_dir(),
-        "Scripts" if IS_WINDOWS else "bin",
-        "python" + (".exe" if IS_WINDOWS else ""),
-    )
+    python_exe_path = str(Path(get_idf_venv_dir()) / ("Scripts" if IS_WINDOWS else "bin") / ("python" + (".exe" if IS_WINDOWS else "")))
 
     assert os.path.isfile(python_exe_path), (
         "Error: Missing Python executable file `%s`" % python_exe_path
