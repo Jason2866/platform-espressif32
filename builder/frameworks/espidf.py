@@ -999,10 +999,9 @@ def compile_source_files(
 ):
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
-    # The source "path" will have had any symlinks resolved, so resolve any
-    components_dir = str(
-        Path(fs.to_unix_path(os.path.join(FRAMEWORK_DIR, "components"))).resolve()
-    )
+    # Canonical, symlink-resolved absolute path of the components directory
+    components_dir_path = Path(FRAMEWORK_DIR, "components").resolve()
+    components_dir = str(components_dir_path)
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
