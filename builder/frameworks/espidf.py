@@ -112,7 +112,8 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
         arduino_pkg_dir = new_dir
     ARDUINO_FRAMEWORK_DIR_PATH = arduino_pkg_dir.resolve()
     ARDUINO_FRAMEWORK_DIR = str(ARDUINO_FRAMEWORK_DIR_PATH)
-    assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
+    if not ARDUINO_FRAMEWORK_DIR or not os.path.isdir(ARDUINO_FRAMEWORK_DIR):
+        raise RuntimeError(f"Arduino framework directory not found: {ARDUINO_FRAMEWORK_DIR}")
     arduino_libs_mcu = str(ARDUINO_FRAMEWORK_DIR_PATH / "tools" / "esp32-arduino-libs" / mcu)
 
 BUILD_DIR = env.subst("$BUILD_DIR")
