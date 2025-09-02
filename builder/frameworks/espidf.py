@@ -983,9 +983,6 @@ def compile_source_files(
             continue
         compile_group_idx = source.get("compileGroupIndex")
         if compile_group_idx is not None:
-            src_dir = config["paths"]["source"]
-            if not os.path.isabs(src_dir):
-                src_dir = str(Path(project_src_dir) / config["paths"]["source"])
             src_path = source.get("path")
             if not os.path.isabs(src_path):
                 # For cases when sources are located near CMakeLists.txt
@@ -1222,7 +1219,7 @@ idf_component_register(SRCS ${component_sources})
     if os.path.isdir(dummy_component_path):
         return
 
-    os.makedirs(dummy_component_path)
+    os.makedirs(dummy_component_path, exist_ok=True)
 
     for ext in (".cpp", ".c", ".S"):
         dummy_file = str(Path(dummy_component_path) / ("__dummy" + ext))
@@ -1591,9 +1588,9 @@ def ensure_python_venv_available():
 def get_python_exe():
     python_exe_path = str(Path(get_idf_venv_dir()) / ("Scripts" if IS_WINDOWS else "bin") / ("python" + (".exe" if IS_WINDOWS else "")))
 
-    assert os.path.isfile(python_exe_path), (
-        "Error: Missing Python executable file `%s`" % python_exe_path
-    )
+    if not os.path.isfile(python_exe_path):
+        sys.stderr.write("Error: Missing Python executable file `%s`\n" % python_exe_path)
+        env.Exit(1)
 
     return python_exe_path
 
@@ -2028,7 +2025,7 @@ if os.path.isdir(ulp_dir) and os.listdir(ulp_dir) and mcu not in ("esp32c2", "es
 #
 
 if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PIOFRAMEWORK")):
-    def idf_lib_copy(source, target, env):
+    def idf_lib_copy(_source, _target, env):
         def _replace_move(src, dst):
             dst_p = Path(dst)
             dst_p.parent.mkdir(parents=True, exist_ok=True)
@@ -2036,7 +2033,10 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
                 os.remove(dst)
             except FileNotFoundError:
                 pass
-            shutil.move(src, dst)
+            try:
+                os.replace(src, dst)
+            except OSError:
+                shutil.move(src, dst)
         env_build = str(Path(env["PROJECT_BUILD_DIR"]) / env["PIOENV"])
         sdkconfig_h_path = str(Path(env_build) / "config" / "sdkconfig.h")
         arduino_libs = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs")
