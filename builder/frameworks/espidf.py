@@ -120,7 +120,8 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     ARDUINO_FRAMEWORK_DIR_PATH = arduino_pkg_dir.resolve()
     ARDUINO_FRAMEWORK_DIR = str(ARDUINO_FRAMEWORK_DIR_PATH)
     if not ARDUINO_FRAMEWORK_DIR or not os.path.isdir(ARDUINO_FRAMEWORK_DIR):
-        raise RuntimeError(f"Arduino framework directory not found: {ARDUINO_FRAMEWORK_DIR}")
+        sys.stderr.write(f"Error: Arduino framework directory not found: {ARDUINO_FRAMEWORK_DIR}\n")
+        env.Exit(1)
     arduino_libs_mcu = str(ARDUINO_FRAMEWORK_DIR_PATH / "tools" / "esp32-arduino-libs" / mcu)
 
 BUILD_DIR = env.subst("$BUILD_DIR")
@@ -2095,7 +2096,7 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
             try:
                 shutil.copy(str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml.orig"), str(Path(ARDUINO_FRAMEWORK_DIR) / "idf_component.yml"))
                 print("*** Original Arduino \"idf_component.yml\" restored ***")
-            except:
+            except (FileNotFoundError, PermissionError, OSError):
                 print("*** Original Arduino \"idf_component.yml\" couldnt be restored ***")
             # Restore original pioarduino-build.py
             from component_manager import ComponentManager
