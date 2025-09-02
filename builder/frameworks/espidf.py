@@ -483,8 +483,8 @@ def get_cmake_code_model(src_dir, build_dir, extra_args=None):
     query_file = str(Path(cmake_api_query_dir) / "codemodel-v2")
 
     if not os.path.isfile(query_file):
-        os.makedirs(os.path.dirname(query_file))
-        open(query_file, "a").close()  # create an empty file
+        Path(cmake_api_query_dir).mkdir(parents=True, exist_ok=True)
+        Path(query_file).touch()
 
     if not is_proper_idf_project():
         create_default_project_files()
@@ -1006,11 +1006,6 @@ def compile_source_files(
                     obj_path = str(Path(obj_path) / source["path"])
                 else:
                     obj_path = str(Path(obj_path) / os.path.basename(src_path))
-            else:
-                if not os.path.isabs(source["path"]):
-                    obj_path = str(Path(obj_path) / source["path"])
-                else:
-                    obj_path = str(Path(obj_path) / os.path.basename(src_path))
 
             preserve_source_file_extension = board.get(
                 "build.esp-idf.preserve_source_file_extension", "yes"
@@ -1067,7 +1062,7 @@ def RunMenuconfig(target, source, env):
 
 def run_cmake(src_dir, build_dir, extra_args=None):
     cmd = [
-        str(Path(platform.get_package_dir("tool-cmake") or "") / "bin" / "cmake"),
+        str(Path(platform.get_package_dir("tool-cmake")) / "bin" / "cmake"),
         "-S",
         src_dir,
         "-B",
