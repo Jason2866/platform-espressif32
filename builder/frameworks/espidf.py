@@ -1373,7 +1373,7 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
         env.VerboseAction(
             " ".join(
                 [
-                    str(Path(platform.get_package_dir("tool-cmake")) / "bin" / "cmake"),
+                    CMAKE_EXE,
                     "-DCC=%s" % str(Path(TOOLCHAIN_DIR) / "bin" / "$CC"),
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
@@ -1918,12 +1918,10 @@ env.Prepend(
 if "arduino" in env.subst("$PIOFRAMEWORK"):
     arduino_candidates = [n for n in target_configs if n.startswith("__idf_framework-arduinoespressif32")]
     if arduino_candidates:
-        arduino_config_name = arduino_candidates[0]
-        env.AppendUnique(
-            CPPDEFINES=extract_defines(
-                target_configs.get(arduino_config_name, {}).get("compileGroups", [])[0]
-            )
-        )
+        arduino_cfg = target_configs.get(arduino_candidates[0], {})
+        cg_list = arduino_cfg.get("compileGroups", [])
+        if cg_list:
+            env.AppendUnique(CPPDEFINES=extract_defines(cg_list[0]))
 
 # Project files should be compiled only when a special
 # option is enabled when running 'test' command
