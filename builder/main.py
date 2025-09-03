@@ -445,9 +445,16 @@ env.Replace(
     AS="%s-elf-as" % toolchain_arch,
     CC="%s-elf-gcc" % toolchain_arch,
     CXX="%s-elf-g++" % toolchain_arch,
-    GDB=str(Path(platform.get_package_dir("tool-riscv32-esp-elf-gdb")
-        if not is_xtensa
-        else platform.get_package_dir("tool-xtensa-esp-elf-gdb")) or "") / "bin" / f"{toolchain_arch}-elf-gdb",
+    GDB=join(
+        platform.get_package_dir(
+            "tool-riscv32-esp-elf-gdb"
+            if not is_xtensa
+            else "tool-xtensa-esp-elf-gdb"
+        )
+        or "",
+        "bin",
+        "%s-elf-gdb" % toolchain_arch,
+    ),
     OBJCOPY=uploader_path,
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
