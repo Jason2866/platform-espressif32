@@ -990,6 +990,8 @@ class LibraryIgnoreHandler:
         if "arduino" not in self.config.env.subst("$PIOFRAMEWORK"):
             return
         
+        if not self.config.arduino_libs_mcu:
+            return
         build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
         backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
         
