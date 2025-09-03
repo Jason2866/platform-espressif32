@@ -668,7 +668,10 @@ class LibraryIgnoreHandler:
         libraries_mapping = {}
         
         # Path to Arduino Core Libraries
-        arduino_libs_dir = str(Path(self.config.arduino_framework_dir) / "libraries")
+        afd = self.config.arduino_framework_dir
+        if not afd:
+            return libraries_mapping
+        arduino_libs_dir = str(Path(afd).resolve() / "libraries")
         
         if not os.path.exists(arduino_libs_dir):
             return libraries_mapping
