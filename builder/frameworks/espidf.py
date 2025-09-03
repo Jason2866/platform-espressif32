@@ -1913,14 +1913,15 @@ env.Prepend(
 # Propagate Arduino defines to the main build environment
 #
 
-arduino_candidates = [n for n in target_configs if n.startswith("__idf_framework-arduinoespressif32")]
-if arduino_candidates:
-    arduino_config_name = arduino_candidates[0]
-    env.AppendUnique(
-        CPPDEFINES=extract_defines(
-            target_configs.get(arduino_config_name, {}).get("compileGroups", [])[0]
+if "arduino" in env.subst("$PIOFRAMEWORK"):
+    arduino_candidates = [n for n in target_configs if n.startswith("__idf_framework-arduinoespressif32")]
+    if arduino_candidates:
+        arduino_config_name = arduino_candidates[0]
+        env.AppendUnique(
+            CPPDEFINES=extract_defines(
+                target_configs.get(arduino_config_name, {}).get("compileGroups", [])[0]
+            )
         )
-    )
 
 # Project files should be compiled only when a special
 # option is enabled when running 'test' command
