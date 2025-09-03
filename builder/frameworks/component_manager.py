@@ -13,7 +13,7 @@ import shutil
 import re
 import yaml
 from yaml import SafeLoader
-from os.path import join
+from pathlib import Path
 from typing import Set, Optional, Dict, Any, List, Tuple
 
 
@@ -50,7 +50,7 @@ class ComponentManagerConfig:
         # Get Arduino framework installation directory
         self.arduino_framework_dir = self.platform.get_package_dir("framework-arduinoespressif32")
         # Get MCU-specific Arduino libraries directory
-        self.arduino_libs_mcu = join(self.arduino_framework_dir, "tools", "esp32-arduino-libs", self.mcu)
+        self.arduino_libs_mcu = str(Path(self.arduino_framework_dir) / "tools" / "esp32-arduino-libs" / self.mcu)
 
 
 class ComponentLogger:
@@ -228,13 +228,13 @@ class ComponentHandler:
             Absolute path to the component YAML file
         """
         # Try Arduino framework first
-        framework_yml = join(self.config.arduino_framework_dir, "idf_component.yml")
+        framework_yml = str(Path(self.config.arduino_framework_dir) / "idf_component.yml")
         if os.path.exists(framework_yml):
             self._create_backup(framework_yml)
             return framework_yml
         
         # Try project source directory
-        project_yml = join(self.config.project_src_dir, "idf_component.yml")
+        project_yml = str(Path(self.config.project_src_dir) / "idf_component.yml")
         if os.path.exists(project_yml):
             self._create_backup(project_yml)
             return project_yml
@@ -417,8 +417,8 @@ class ComponentHandler:
         if "arduino" not in self.config.env.subst("$PIOFRAMEWORK"):
             return
         
-        build_py_path = join(self.config.arduino_libs_mcu, "pioarduino-build.py")
-        backup_path = join(self.config.arduino_libs_mcu, f"pioarduino-build.py.{self.config.mcu}")
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
+        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
         
         if os.path.exists(build_py_path) and not os.path.exists(backup_path):
             shutil.copy2(build_py_path, backup_path)
@@ -446,7 +446,7 @@ class ComponentHandler:
         Args:
             component: Component name in filesystem format
         """
-        include_path = join(self.config.arduino_libs_mcu, "include", component)
+        include_path = str(Path(self.config.arduino_libs_mcu) / "include" / component)
         
         if os.path.exists(include_path):
             shutil.rmtree(include_path)
@@ -459,7 +459,7 @@ class ComponentHandler:
         for all components that were removed from the project. Uses
         multiple regex patterns to catch different include path formats.
         """
-        build_py_path = join(self.config.arduino_libs_mcu, "pioarduino-build.py")
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
         
         if not os.path.exists(build_py_path):
             return
@@ -665,14 +665,14 @@ class LibraryIgnoreHandler:
         libraries_mapping = {}
         
         # Path to Arduino Core Libraries
-        arduino_libs_dir = join(self.config.arduino_framework_dir, "libraries")
+        arduino_libs_dir = str(Path(self.config.arduino_framework_dir) / "libraries")
         
         if not os.path.exists(arduino_libs_dir):
             return libraries_mapping
         
         try:
             for entry in os.listdir(arduino_libs_dir):
-                lib_path = join(arduino_libs_dir, entry)
+                lib_path = str(Path(arduino_libs_dir) / entry)
                 if os.path.isdir(lib_path):
                     lib_name = self._get_library_name_from_properties(lib_path)
                     if lib_name:
@@ -697,7 +697,7 @@ class LibraryIgnoreHandler:
         Returns:
             Official library name or None if not found or readable
         """
-        prop_path = join(lib_dir, "library.properties")
+        prop_path = str(Path(lib_dir) / "library.properties")
         if not os.path.isfile(prop_path):
             return None
         
@@ -886,7 +886,7 @@ class LibraryIgnoreHandler:
         components when dependencies are detected. Uses multiple regex
         patterns to catch different include path formats.
         """
-        build_py_path = join(self.config.arduino_libs_mcu, "pioarduino-build.py")
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
         
         if not os.path.exists(build_py_path):
             self.logger.log_change("Build file not found")
@@ -987,8 +987,8 @@ class LibraryIgnoreHandler:
         if "arduino" not in self.config.env.subst("$PIOFRAMEWORK"):
             return
         
-        build_py_path = join(self.config.arduino_libs_mcu, "pioarduino-build.py")
-        backup_path = join(self.config.arduino_libs_mcu, f"pioarduino-build.py.{self.config.mcu}")
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
+        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
         
         if os.path.exists(build_py_path) and not os.path.exists(backup_path):
             shutil.copy2(build_py_path, backup_path)
@@ -1002,7 +1002,7 @@ class BackupManager:
     framework build scripts, ensuring that original files can be restored
     when needed or when builds are cleaned.
     """
-    
+
     def __init__(self, config: ComponentManagerConfig):
         """
         Initialize the backup manager with configuration access.
@@ -1014,7 +1014,7 @@ class BackupManager:
             config: Configuration manager instance providing access to paths
         """
         self.config = config
-    
+
     def backup_pioarduino_build_py(self) -> None:
         """
         Create backup of the original pioarduino-build.py file.
@@ -1025,13 +1025,13 @@ class BackupManager:
         """
         if "arduino" not in self.config.env.subst("$PIOFRAMEWORK"):
             return
-        
-        build_py_path = join(self.config.arduino_libs_mcu, "pioarduino-build.py")
-        backup_path = join(self.config.arduino_libs_mcu, f"pioarduino-build.py.{self.config.mcu}")
-        
+
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
+        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
+
         if os.path.exists(build_py_path) and not os.path.exists(backup_path):
             shutil.copy2(build_py_path, backup_path)
-    
+
     def restore_pioarduino_build_py(self, target=None, source=None, env=None) -> None:
         """
         Restore the original pioarduino-build.py from backup.
@@ -1045,9 +1045,9 @@ class BackupManager:
             source: Build source (unused, for PlatformIO compatibility)
             env: Environment (unused, for PlatformIO compatibility)
         """
-        build_py_path = join(self.config.arduino_libs_mcu, "pioarduino-build.py")
-        backup_path = join(self.config.arduino_libs_mcu, f"pioarduino-build.py.{self.config.mcu}")
-        
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
+        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
+
         if os.path.exists(backup_path):
             shutil.copy2(backup_path, build_py_path)
             os.remove(backup_path)
@@ -1055,21 +1055,19 @@ class BackupManager:
 
 class ComponentManager:
     """
-    Main component manager that orchestrates all operations.
+    Main component manager class that orchestrates all component operations.
     
-    Primary interface for component management operations, coordinating
-    between specialized handlers for components, libraries, and backups.
-    Uses composition pattern to organize functionality into focused classes.
+    This class provides the primary interface for PlatformIO build scripts,
+    coordinating between component handling, library ignore processing,
+    and build script restoration operations.
     """
     
     def __init__(self, env):
         """
-        Initialize the ComponentManager with composition pattern.
+        Initialize the component manager with PlatformIO environment.
         
-        Creates and configures all specialized handler instances using
-        the composition pattern for better separation of concerns and
-        maintainability. Each handler focuses on a specific aspect
-        of component management.
+        Sets up all necessary configuration, logging, and handler instances
+        for managing ESP-IDF components within Arduino framework projects.
         
         Args:
             env: PlatformIO environment object containing project configuration
@@ -1077,69 +1075,51 @@ class ComponentManager:
         self.config = ComponentManagerConfig(env)
         self.logger = ComponentLogger()
         self.component_handler = ComponentHandler(self.config, self.logger)
-        self.library_handler = LibraryIgnoreHandler(self.config, self.logger)
-        self.backup_manager = BackupManager(self.config)
+        self.lib_ignore_handler = LibraryIgnoreHandler(self.config, self.logger)
     
-    def handle_component_settings(self, add_components: bool = False, remove_components: bool = False) -> None:
+    def handle_component_settings(self) -> None:
         """
-        Handle component operations by delegating to specialized handlers.
+        Main entry point for component management operations.
         
-        Main entry point for component management operations. Coordinates
-        component addition/removal and library ignore processing, then
-        provides a summary of all changes made during the session.
-        
-        Args:
-            add_components: Whether to process component additions from configuration
-            remove_components: Whether to process component removals from configuration
+        Processes both component additions/removals and library ignore
+        operations based on the project configuration. Determines which
+        operations to perform based on configured options.
         """
-        self.component_handler.handle_component_settings(add_components, remove_components)
-        self.library_handler.handle_lib_ignore()
+        # Check for component operations
+        has_add = self.config.config.has_option(f"env:{self.config.env['PIOENV']}", "custom_component_add")
+        has_remove = self.config.config.has_option(f"env:{self.config.env['PIOENV']}", "custom_component_remove")
+        has_lib_ignore = self.config.config.has_option(f"env:{self.config.env['PIOENV']}", "lib_ignore")
         
-        # Print summary
-        changes = self.logger.get_changes_summary()
-        if changes:
-            self.logger.log_change(f"Session completed with {len(changes)} changes")
+        # Handle component operations
+        if has_add or has_remove:
+            self.component_handler.handle_component_settings(
+                add_components=has_add,
+                remove_components=has_remove
+            )
+        
+        # Handle library ignore operations
+        if has_lib_ignore:
+            self.lib_ignore_handler.handle_lib_ignore()
     
-    def handle_lib_ignore(self) -> None:
+    def restore_pioarduino_build_py(self) -> None:
         """
-        Delegate lib_ignore handling to specialized handler.
+        Restore the original pioarduino-build.py file from backup.
         
-        Provides direct access to library ignore processing for cases
-        where only library handling is needed without component operations.
+        Restores the Arduino build script from its backup copy and
+        cleans up temporary backup files. This method is typically
+        called after build completion to restore the original state.
         """
-        self.library_handler.handle_lib_ignore()
-    
-    def restore_pioarduino_build_py(self, target=None, source=None, env=None) -> None:
-        """
-        Delegate backup restoration to backup manager.
+        if "arduino" not in self.config.env.subst("$PIOFRAMEWORK"):
+            return
         
-        Provides access to backup restoration functionality, typically
-        used during clean operations or build environment resets.
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
+        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
         
-        Args:
-            target: Build target (unused, for PlatformIO compatibility)
-            source: Build source (unused, for PlatformIO compatibility)
-            env: Environment (unused, for PlatformIO compatibility)
-        """
-        self.backup_manager.restore_pioarduino_build_py(target, source, env)
-    
-    def get_changes_summary(self) -> List[str]:
-        """
-        Get summary of changes from logger.
-        
-        Provides access to the complete list of changes made during
-        the current session for reporting or debugging purposes.
-        
-        Returns:
-            List of change messages in chronological order
-        """
-        return self.logger.get_changes_summary()
-    
-    def print_changes_summary(self) -> None:
-        """
-        Print changes summary via logger.
-        
-        Outputs a formatted summary of all changes made during the
-        session, useful for build reporting and debugging.
-        """
-        self.logger.print_changes_summary()
+        try:
+            if os.path.exists(backup_path):
+                if os.path.exists(build_py_path):
+                    os.remove(build_py_path)
+                shutil.move(backup_path, build_py_path)
+                self.logger.log_change("Restored original build file")
+        except Exception as e:
+            self.logger.log_change(f"Error restoring build file: {str(e)}")
