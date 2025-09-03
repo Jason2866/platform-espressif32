@@ -446,11 +446,11 @@ def normalize_path(path):
     return fs.to_unix_path(path)
 
 
-CMK_DIR = platform.get_package_dir("tool-cmake")
-if not CMK_DIR or not os.path.isdir(CMK_DIR):
-    sys.stderr.write(f"Error: Missing CMake package directory '{CMK_DIR}'\n")
+CMK_TOOL = platform.get_package_dir("tool-cmake")
+if not CMK_TOOL or not os.path.isdir(CMK_TOOL):
+    sys.stderr.write(f"Error: Missing CMake package directory '{CMK_TOOL}'\n")
     env.Exit(1)
-CMAKE_EXE = str(Path(CMK_DIR) / "bin" / "cmake")
+CMAKE_DIR = str(Path(CMK_DIR) / "bin" / "cmake")
 
 
 def create_default_project_files():
@@ -522,7 +522,7 @@ def populate_idf_env_vars(idf_env):
     additional_packages = [
         str(Path(TOOLCHAIN_DIR) / "bin"),
         NINJA_DIR,
-        CMAKE_EXE,
+        CMAKE_DIR,
         os.path.dirname(get_python_exe()),
     ]
 
@@ -1050,7 +1050,7 @@ def RunMenuconfig(target, source, env):
 
     rc = subprocess.call(
         [
-            CMAKE_EXE,
+            CMAKE_DIR,
             "--build",
             BUILD_DIR,
             "--target",
@@ -1066,7 +1066,7 @@ def RunMenuconfig(target, source, env):
 
 def run_cmake(src_dir, build_dir, extra_args=None):
     cmd = [
-        CMAKE_EXE,
+        CMAKE_DIR,
         "-S",
         src_dir,
         "-B",
