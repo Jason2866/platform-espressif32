@@ -1424,7 +1424,7 @@ def generate_mbedtls_bundle(sdk_config):
         env.VerboseAction(
             " ".join(
                 [
-                    CMAKE_EXE,
+                    CMAKE_DIR,
                     "-DDATA_FILE=" + bundle_path,
                     "-DSOURCE_FILE=%s.S" % bundle_path,
                     "-DFILE_TYPE=BINARY",
