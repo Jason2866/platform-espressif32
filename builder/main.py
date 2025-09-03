@@ -560,11 +560,11 @@ def firmware_metrics(target, source, env):
         return
 
     map_file = str(Path(env.subst("$BUILD_DIR")) / (env.subst("$PROGNAME") + ".map"))
-    if not isfile(map_file):
+    if not Path(map_file).is_file():
         # map file can be in project dir
         map_file = str(Path(get_project_dir()) / (env.subst("$PROGNAME") + ".map"))
 
-    if not isfile(map_file):
+    if not Path(map_file).is_file():
         print(f"Error: Map file not found: {map_file}")
         print("Make sure the project is built first with 'pio run'")
         return
@@ -692,7 +692,7 @@ if upload_protocol == "espota":
             "espressif32.html#over-the-air-ota-update\n"
         )
     env.Replace(
-        UPLOADER=str(Path(FRAMEWORK_DIR) / "tools" / "espota.py"),
+        UPLOADER=str(Path(FRAMEWORK_DIR).resolve() / "tools" / "espota.py"),
         UPLOADERFLAGS=["--debug", "--progress", "-i", "$UPLOAD_PORT"],
         UPLOADCMD=f'"{PYTHON_EXE}" "$UPLOADER" $UPLOADERFLAGS -f $SOURCE',
     )
