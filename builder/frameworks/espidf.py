@@ -1420,7 +1420,7 @@ def generate_mbedtls_bundle(sdk_config):
         env.VerboseAction(
             " ".join(
                 [
-                    str(Path(env.PioPlatform().get_package_dir("tool-cmake")) / "bin" / "cmake"),
+                    CMAKE_EXE,
                     "-DDATA_FILE=" + bundle_path,
                     "-DSOURCE_FILE=%s.S" % bundle_path,
                     "-DFILE_TYPE=BINARY",
@@ -1671,12 +1671,6 @@ if env.subst("$SRC_FILTER"):
         )
     )
 
-if os.path.isfile(str(Path(PROJECT_SRC_DIR) / "sdkconfig.h")):
-    print(
-        "Warning! Starting with ESP-IDF v4.0, new project structure is required: \n"
-        "https://docs.platformio.org/en/latest/frameworks/espidf.html#project-structure"
-    )
-
 #
 # Initial targets loading
 #
@@ -1688,10 +1682,6 @@ extra_components = []
 if PROJECT_SRC_DIR != str(Path(PROJECT_DIR) / "main"):
     extra_components.append(str(Path(PROJECT_SRC_DIR).resolve()))
 if "arduino" in env.subst("$PIOFRAMEWORK"):
-    print(
-        "Warning! Arduino framework as an ESP-IDF component doesn't handle "
-        "the `variant` field! The default `esp32` variant will be used."
-    )
     extra_components.append(ARDUINO_FRAMEWORK_DIR)
     # Add path to internal Arduino libraries so that the LDF will be able to find them
     env.Append(
