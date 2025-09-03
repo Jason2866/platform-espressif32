@@ -1913,15 +1913,9 @@ env.Prepend(
 # Propagate Arduino defines to the main build environment
 #
 
-if "arduino" in env.subst("$PIOFRAMEWORK"):
-    arduino_config_name = list(
-        filter(
-            lambda config_name: config_name.startswith(
-                "__idf_framework-arduinoespressif32"
-            ),
-            target_configs,
-        )
-    )[0]
+arduino_candidates = [n for n in target_configs if n.startswith("__idf_framework-arduinoespressif32")]
+if arduino_candidates:
+    arduino_config_name = arduino_candidates[0]
     env.AppendUnique(
         CPPDEFINES=extract_defines(
             target_configs.get(arduino_config_name, {}).get("compileGroups", [])[0]
