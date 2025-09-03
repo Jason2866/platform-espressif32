@@ -450,7 +450,8 @@ CMK_DIR = platform.get_package_dir("tool-cmake")
 if not CMK_DIR or not os.path.isdir(CMK_DIR):
     sys.stderr.write(f"Error: Missing CMake package directory '{CMK_DIR}'\n")
     env.Exit(1)
-CMAKE_EXE = str(Path(CMK_DIR) / "bin" / "cmake")
+cmake_name = "cmake.exe" if IS_WINDOWS else "cmake"
+CMAKE_EXE = str(Path(CMK_DIR) / "bin" / _cmake_name)
 
 
 def create_default_project_files():
@@ -515,10 +516,14 @@ def get_cmake_code_model(src_dir, build_dir, extra_args=None):
 
 def populate_idf_env_vars(idf_env):
     idf_env["IDF_PATH"] = fs.to_unix_path(FRAMEWORK_DIR)
+    NINJA_DIR = platform.get_package_dir("tool-ninja")
+    if not NINJA_DIR or not os.path.isdir(NINJA_DIR):
+        sys.stderr.write(f"Error: Missing ninja package directory '{NINJA_DIR}'\n")
+        env.Exit(1)
     additional_packages = [
         str(Path(TOOLCHAIN_DIR) / "bin"),
-        platform.get_package_dir("tool-ninja"),
-        CMAKE_EXE
+        NINJA_DIR,
+        str(Path(CMAKE_EXE).parent),
         os.path.dirname(get_python_exe()),
     ]
 
