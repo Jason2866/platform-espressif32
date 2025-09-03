@@ -450,7 +450,7 @@ CMK_TOOL = platform.get_package_dir("tool-cmake")
 if not CMK_TOOL or not os.path.isdir(CMK_TOOL):
     sys.stderr.write(f"Error: Missing CMake package directory '{CMK_TOOL}'\n")
     env.Exit(1)
-CMAKE_DIR = str(Path(CMK_DIR) / "bin" / "cmake")
+CMAKE_DIR = str(Path(CMK_TOOL) / "bin" / "cmake")
 
 
 def create_default_project_files():
