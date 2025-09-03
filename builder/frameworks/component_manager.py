@@ -1055,19 +1055,21 @@ class BackupManager:
 
 class ComponentManager:
     """
-    Main component manager class that orchestrates all component operations.
+    Main component manager that orchestrates all operations.
     
-    This class provides the primary interface for PlatformIO build scripts,
-    coordinating between component handling, library ignore processing,
-    and build script restoration operations.
+    Primary interface for component management operations, coordinating
+    between specialized handlers for components, libraries, and backups.
+    Uses composition pattern to organize functionality into focused classes.
     """
     
     def __init__(self, env):
         """
-        Initialize the component manager with PlatformIO environment.
+        Initialize the ComponentManager with composition pattern.
         
-        Sets up all necessary configuration, logging, and handler instances
-        for managing ESP-IDF components within Arduino framework projects.
+        Creates and configures all specialized handler instances using
+        the composition pattern for better separation of concerns and
+        maintainability. Each handler focuses on a specific aspect
+        of component management.
         
         Args:
             env: PlatformIO environment object containing project configuration
@@ -1075,51 +1077,69 @@ class ComponentManager:
         self.config = ComponentManagerConfig(env)
         self.logger = ComponentLogger()
         self.component_handler = ComponentHandler(self.config, self.logger)
-        self.lib_ignore_handler = LibraryIgnoreHandler(self.config, self.logger)
+        self.library_handler = LibraryIgnoreHandler(self.config, self.logger)
+        self.backup_manager = BackupManager(self.config)
     
-    def handle_component_settings(self) -> None:
+    def handle_component_settings(self, add_components: bool = False, remove_components: bool = False) -> None:
         """
-        Main entry point for component management operations.
+        Handle component operations by delegating to specialized handlers.
         
-        Processes both component additions/removals and library ignore
-        operations based on the project configuration. Determines which
-        operations to perform based on configured options.
+        Main entry point for component management operations. Coordinates
+        component addition/removal and library ignore processing, then
+        provides a summary of all changes made during the session.
+        
+        Args:
+            add_components: Whether to process component additions from configuration
+            remove_components: Whether to process component removals from configuration
         """
-        # Check for component operations
-        has_add = self.config.config.has_option(f"env:{self.config.env['PIOENV']}", "custom_component_add")
-        has_remove = self.config.config.has_option(f"env:{self.config.env['PIOENV']}", "custom_component_remove")
-        has_lib_ignore = self.config.config.has_option(f"env:{self.config.env['PIOENV']}", "lib_ignore")
+        self.component_handler.handle_component_settings(add_components, remove_components)
+        self.library_handler.handle_lib_ignore()
         
-        # Handle component operations
-        if has_add or has_remove:
-            self.component_handler.handle_component_settings(
-                add_components=has_add,
-                remove_components=has_remove
-            )
-        
-        # Handle library ignore operations
-        if has_lib_ignore:
-            self.lib_ignore_handler.handle_lib_ignore()
+        # Print summary
+        changes = self.logger.get_changes_summary()
+        if changes:
+            self.logger.log_change(f"Session completed with {len(changes)} changes")
     
-    def restore_pioarduino_build_py(self) -> None:
+    def handle_lib_ignore(self) -> None:
         """
-        Restore the original pioarduino-build.py file from backup.
+        Delegate lib_ignore handling to specialized handler.
         
-        Restores the Arduino build script from its backup copy and
-        cleans up temporary backup files. This method is typically
-        called after build completion to restore the original state.
+        Provides direct access to library ignore processing for cases
+        where only library handling is needed without component operations.
         """
-        if "arduino" not in self.config.env.subst("$PIOFRAMEWORK"):
-            return
+        self.library_handler.handle_lib_ignore()
+    
+    def restore_pioarduino_build_py(self, target=None, source=None, env=None) -> None:
+        """
+        Delegate backup restoration to backup manager.
         
-        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
-        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
+        Provides access to backup restoration functionality, typically
+        used during clean operations or build environment resets.
         
-        try:
-            if os.path.exists(backup_path):
-                if os.path.exists(build_py_path):
-                    os.remove(build_py_path)
-                shutil.move(backup_path, build_py_path)
-                self.logger.log_change("Restored original build file")
-        except Exception as e:
-            self.logger.log_change(f"Error restoring build file: {str(e)}")
+        Args:
+            target: Build target (unused, for PlatformIO compatibility)
+            source: Build source (unused, for PlatformIO compatibility)
+            env: Environment (unused, for PlatformIO compatibility)
+        """
+        self.backup_manager.restore_pioarduino_build_py(target, source, env)
+    
+    def get_changes_summary(self) -> List[str]:
+        """
+        Get summary of changes from logger.
+        
+        Provides access to the complete list of changes made during
+        the current session for reporting or debugging purposes.
+        
+        Returns:
+            List of change messages in chronological order
+        """
+        return self.logger.get_changes_summary()
+    
+    def print_changes_summary(self) -> None:
+        """
+        Print changes summary via logger.
+        
+        Outputs a formatted summary of all changes made during the
+        session, useful for build reporting and debugging.
+        """
+        self.logger.print_changes_summary()
