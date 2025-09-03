@@ -925,7 +925,7 @@ class LibraryIgnoreHandler:
                     rf'.*"[^"]*{re.escape(lib_name)}[^"]*include[^"]*"[^,\n]*,?\n',
                     rf'.*join\([^)]*"include"[^)]*"{re.escape(lib_name)}"[^)]*\),?\n',
                     rf'.*"{re.escape(lib_name)}/include"[^,\n]*,?\n',
-                    rf'\s*"[^"]*/{re.escape(lib_name)}/[^"]*",?\n',
+                    rf'\s*"[^"]*[\\/]{re.escape(lib_name)}[\\/][^"]*",?\n',
                     # pathlib-style: Path(...)/"include"/"<name>"
                     rf'.*Path\([^)]*\)\s*/\s*"include"\s*/\s*"{re.escape(lib_name)}"[^,\n]*,?\n',
                     rf'.*Path\([^)]*{re.escape(lib_name)}[^)]*\)\s*/\s*"include"[^,\n]*,?\n'
