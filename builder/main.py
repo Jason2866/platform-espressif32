@@ -19,6 +19,7 @@ import shlex
 import subprocess
 import sys
 from os.path import isfile, join
+from pathlib import Path
 
 from SCons.Script import (
     ARGUMENTS,
@@ -444,16 +445,9 @@ env.Replace(
     AS="%s-elf-as" % toolchain_arch,
     CC="%s-elf-gcc" % toolchain_arch,
     CXX="%s-elf-g++" % toolchain_arch,
-    GDB=join(
-        platform.get_package_dir(
-            "tool-riscv32-esp-elf-gdb"
-            if not is_xtensa
-            else "tool-xtensa-esp-elf-gdb"
-        )
-        or "",
-        "bin",
-        "%s-elf-gdb" % toolchain_arch,
-    ),
+    GDB=str(Path(platform.get_package_dir("tool-riscv32-esp-elf-gdb")
+        if not is_xtensa
+        else platform.get_package_dir("tool-xtensa-esp-elf-gdb")) or "") / "bin" / f"{toolchain_arch}-elf-gdb",
     OBJCOPY=uploader_path,
     RANLIB="%s-elf-gcc-ranlib" % toolchain_arch,
     SIZETOOL="%s-elf-size" % toolchain_arch,
@@ -558,12 +552,12 @@ def firmware_metrics(target, source, env):
         print("Firmware metrics can not be shown. Set the terminal codepage to \"utf-8\"")
         return
 
-    map_file = os.path.join(env.subst("$BUILD_DIR"), env.subst("$PROGNAME") + ".map")
-    if not os.path.isfile(map_file):
+    map_file = str(Path(env.subst("$BUILD_DIR")) / (env.subst("$PROGNAME") + ".map"))
+    if not isfile(map_file):
         # map file can be in project dir
-        map_file = os.path.join(get_project_dir(), env.subst("$PROGNAME") + ".map")
+        map_file = str(Path(get_project_dir()) / (env.subst("$PROGNAME") + ".map"))
 
-    if not os.path.isfile(map_file):
+    if not isfile(map_file):
         print(f"Error: Map file not found: {map_file}")
         print("Make sure the project is built first with 'pio run'")
         return
@@ -614,12 +608,12 @@ def firmware_metrics(target, source, env):
 
 target_elf = None
 if "nobuild" in COMMAND_LINE_TARGETS:
-    target_elf = join("$BUILD_DIR", "${PROGNAME}.elf")
+    target_elf = str(Path("$BUILD_DIR") / "${PROGNAME}.elf")
     if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         fetch_fs_size(env)
-        target_firm = join("$BUILD_DIR", "${ESP32_FS_IMAGE_NAME}.bin")
+        target_firm = str(Path("$BUILD_DIR") / "${ESP32_FS_IMAGE_NAME}.bin")
     else:
-        target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
+        target_firm = str(Path("$BUILD_DIR") / "${PROGNAME}.bin")
 else:
     target_elf = env.BuildProgram()
     silent_action = env.Action(firmware_metrics)
@@ -628,12 +622,12 @@ else:
     env.AddPostAction(target_elf, silent_action)
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         target_firm = env.DataToBin(
-            join("$BUILD_DIR", "${ESP32_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR"
+            str(Path("$BUILD_DIR") / "${ESP32_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR"
         )
         env.NoCache(target_firm)
         AlwaysBuild(target_firm)
     else:
-        target_firm = env.ElfToBin(join("$BUILD_DIR", "${PROGNAME}"), target_elf)
+        target_firm = env.ElfToBin(str(Path("$BUILD_DIR") / "${PROGNAME}"), target_elf)
         env.Depends(target_firm, "checkprogsize")
 
 # Configure platform targets
@@ -691,7 +685,7 @@ if upload_protocol == "espota":
             "espressif32.html#over-the-air-ota-update\n"
         )
     env.Replace(
-        UPLOADER=join(FRAMEWORK_DIR, "tools", "espota.py"),
+        UPLOADER=str(Path(FRAMEWORK_DIR) / "tools" / "espota.py"),
         UPLOADERFLAGS=["--debug", "--progress", "-i", "$UPLOAD_PORT"],
         UPLOADCMD=f'"{PYTHON_EXE}" "$UPLOADER" $UPLOADERFLAGS -f $SOURCE',
     )
