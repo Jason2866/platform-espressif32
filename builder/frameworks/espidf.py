@@ -93,9 +93,6 @@ TOOLCHAIN_DIR = platform.get_package_dir(
 )
 PLATFORMIO_DIR = env.subst("$PROJECT_CORE_DIR")
 
-if not os.path.isdir(FRAMEWORK_DIR):
-    sys.stderr.write(f"Error: Missing framework directory '{FRAMEWORK_DIR}'\n")
-    env.Exit(1)
 if not TOOLCHAIN_DIR or not os.path.isdir(TOOLCHAIN_DIR):
     sys.stderr.write(f"Error: Missing toolchain directory '{TOOLCHAIN_DIR}'\n")
     env.Exit(1)
@@ -115,8 +112,11 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     arduino_pkg_dir = Path(_arduino_pkg_dir)
     if "@" in arduino_pkg_dir.name:
         new_dir = arduino_pkg_dir.with_name(arduino_pkg_dir.name.replace("@", "-"))
-        os.rename(str(arduino_pkg_dir), str(new_dir))
-        arduino_pkg_dir = new_dir
+        if new_dir.exists():
+            arduino_pkg_dir = new_dir
+        else:
+            os.rename(str(arduino_pkg_dir), str(new_dir))
+            arduino_pkg_dir = new_dir
     ARDUINO_FRAMEWORK_DIR_PATH = arduino_pkg_dir.resolve()
     ARDUINO_FRAMEWORK_DIR = str(ARDUINO_FRAMEWORK_DIR_PATH)
     if not ARDUINO_FRAMEWORK_DIR or not os.path.isdir(ARDUINO_FRAMEWORK_DIR):
@@ -1033,13 +1033,20 @@ def run_tool(cmd):
         print(result["err"])
 
 
+CMK_DIR = platform.get_package_dir("tool-cmake")
+if not CMK_DIR or not os.path.isdir(CMK_DIR):
+    sys.stderr.write(f"Error: Missing CMake package directory '{CMK_DIR}'\n")
+    env.Exit(1)
+CMAKE_EXE = str(Path(CMK_DIR) / "bin" / "cmake")
+
+
 def RunMenuconfig(target, source, env):
     idf_env = os.environ.copy()
     populate_idf_env_vars(idf_env)
 
     rc = subprocess.call(
         [
-            str(Path(platform.get_package_dir("tool-cmake")) / "bin" / "cmake"),
+            CMAKE_EXE,
             "--build",
             BUILD_DIR,
             "--target",
@@ -1055,7 +1062,7 @@ def RunMenuconfig(target, source, env):
 
 def run_cmake(src_dir, build_dir, extra_args=None):
     cmd = [
-        str(Path(platform.get_package_dir("tool-cmake")) / "bin" / "cmake"),
+        CMAKE_EXE,
         "-S",
         src_dir,
         "-B",
@@ -1828,7 +1835,7 @@ try:
     ld_index = extra_flags.index("memory.ld")
     extra_flags.pop(ld_index)
     extra_flags.pop(ld_index - 1)
-except:
+except (ValueError, IndexError):
     print("Warning! Couldn't find the main linker script in the CMake code model.")
 
 #
@@ -1843,9 +1850,10 @@ def _skip_prj_source_files(node):
     node_path_resolved = Path(node.srcnode().get_path()).resolve()
     try:
         node_path_resolved.relative_to(project_src_resolved)
-        return None
     except ValueError:
         return node
+    else:
+        return None
 
 
 env.AddBuildMiddleware(_skip_prj_source_files)
