@@ -929,7 +929,6 @@ class LibraryIgnoreHandler:
                     # pathlib-style: Path(...)/"include"/"<name>"
                     rf'.*Path\([^)]*\)\s*/\s*"include"\s*/\s*"{re.escape(lib_name)}"[^,\n]*,?\n',
                     rf'.*Path\([^)]*{re.escape(lib_name)}[^)]*\)\s*/\s*"include"[^,\n]*,?\n'
-                 ]
                 ]
                 
                 removed_count = 0
