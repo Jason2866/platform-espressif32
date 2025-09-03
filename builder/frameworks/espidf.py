@@ -264,6 +264,9 @@ def HandleArduinoIDFsettings(env):
         """Write the final sdkconfig.defaults file with checksum."""
         sdkconfig_src = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs" / mcu / "sdkconfig")
         sdkconfig_dst = str(Path(PROJECT_DIR) / "sdkconfig.defaults")
+        if not os.path.isfile(sdkconfig_src):
+            sys.stderr.write(f"Error: Missing Arduino sdkconfig template at '{sdkconfig_src}'\n")
+            env.Exit(1)
         
         # Generate checksum for validation (maintains original logic)
         checksum = get_MD5_hash(checksum_source.strip() + mcu)
