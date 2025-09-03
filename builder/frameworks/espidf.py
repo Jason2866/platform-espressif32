@@ -450,8 +450,7 @@ CMK_DIR = platform.get_package_dir("tool-cmake")
 if not CMK_DIR or not os.path.isdir(CMK_DIR):
     sys.stderr.write(f"Error: Missing CMake package directory '{CMK_DIR}'\n")
     env.Exit(1)
-cmake_name = "cmake.exe" if IS_WINDOWS else "cmake"
-CMAKE_EXE = str(Path(CMK_DIR) / "bin" / _cmake_name)
+CMAKE_EXE = str(Path(CMK_DIR) / "bin" / "cmake")
 
 
 def create_default_project_files():
@@ -523,7 +522,7 @@ def populate_idf_env_vars(idf_env):
     additional_packages = [
         str(Path(TOOLCHAIN_DIR) / "bin"),
         NINJA_DIR,
-        str(Path(CMAKE_EXE).parent),
+        CMAKE_EXE,
         os.path.dirname(get_python_exe()),
     ]
 
