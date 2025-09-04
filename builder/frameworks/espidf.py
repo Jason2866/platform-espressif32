@@ -58,6 +58,8 @@ _component_manager_file = Path(platform.get_dir()) / "builder" / "frameworks" / 
 _cm_spec = importlib.util.spec_from_file_location("component_manager", _component_manager_file)
 _component_manager = importlib.util.module_from_spec(_cm_spec)
 _cm_spec.loader.exec_module(_component_manager)
+sys.modules["component_manager"] = _component_manager
+
 _penv_setup_file = str(Path(platform.get_dir()) / "builder" / "penv_setup.py")
 _spec = importlib.util.spec_from_file_location("penv_setup", _penv_setup_file)
 _penv_setup = importlib.util.module_from_spec(_spec)
