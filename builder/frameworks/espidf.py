@@ -192,8 +192,13 @@ def HandleArduinoIDFsettings(env):
             # Handle local files
             if "file://" in file_entry:
                 file_ref = file_entry[7:] if file_entry.startswith("file://") else file_entry
-                filename = os.path.basename(file_ref)
-                file_path = join(PROJECT_DIR, filename)
+
+                if os.path.isabs(file_ref):
+                    file_path = file_ref
+                else:
+                    # if it's a relative path, try relative to PROJECT_DIR
+                    file_path = join(PROJECT_DIR, file_ref)
+                
                 if os.path.exists(file_path):
                     try:
                         with open(file_path, 'r') as f:
