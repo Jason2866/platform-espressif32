@@ -47,6 +47,12 @@ from platformio.proc import exec_command
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
 from platformio.package.version import get_original_version, pepver_to_semver
 
+# Import component manager from the same directory
+_component_manager_file = os.path.join(os.path.dirname(__file__), "component_manager.py")
+_cm_spec = importlib.util.spec_from_file_location("component_manager", _component_manager_file)
+_component_manager = importlib.util.module_from_spec(_cm_spec)
+_cm_spec.loader.exec_module(_component_manager)
+
 
 env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
@@ -1093,6 +1099,26 @@ def run_cmake(src_dir, build_dir, extra_args=None):
     run_tool(cmd)
 
 
+def get_lib_ignore_components():
+    """
+    Get components to ignore from lib_ignore project option using component_manager.
+    This ensures consistency with the Arduino framework's lib_ignore handling.
+    """
+    try:
+        # Create a LibraryIgnoreHandler instance to process lib_ignore
+        config = _component_manager.ComponentManagerConfig(env)
+        logger = _component_manager.ComponentLogger()
+        lib_handler = _component_manager.LibraryIgnoreHandler(config, logger)
+        
+        # Get the processed lib_ignore entries (already converted to component names)
+        lib_ignore_entries = lib_handler._get_lib_ignore_entries()
+        
+        return lib_ignore_entries
+    except Exception as e:
+        print(f"[ESP-IDF] Warning: Could not process lib_ignore: {e}")
+        return []
+
+
 def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
     ignore_components = ignore_components or []
     result = [
@@ -1885,8 +1911,14 @@ env.AddPlatformTarget(
 # Process main parts of the framework
 #
 
+# Get components to ignore from lib_ignore option
+lib_ignore_components = get_lib_ignore_components()
+if lib_ignore_components:
+    print(f"[ESP-IDF] Ignoring components based on lib_ignore: {', '.join(lib_ignore_components)}")
+ignore_components_list = [project_target_name] + lib_ignore_components
+
 libs = find_lib_deps(
-    framework_components_map, elf_config, link_args, [project_target_name]
+    framework_components_map, elf_config, link_args, ignore_components_list
 )
 
 # Extra flags which need to be explicitly specified in LINKFLAGS section because SCons
