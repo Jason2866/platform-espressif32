@@ -1403,7 +1403,7 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
         env.VerboseAction(
             " ".join(
                 [
-                    CMAKE_DIR,
+                    f'"{CMAKE_DIR}"',
                     "-DCC=%s" % str(Path(TOOLCHAIN_DIR) / "bin" / "$CC"),
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
