@@ -1844,7 +1844,7 @@ env.AddPlatformTarget(
 lib_ignore_components = get_lib_ignore_components()
 if lib_ignore_components:
     print(f"[ESP-IDF] Ignoring components based on lib_ignore: {', '.join(lib_ignore_components)}")
-ignore_components_list = [project_target_name] + lib_ignore_components
+ignore_components_list = [project_target_name, *lib_ignore_components]
 
 libs = find_lib_deps(
     framework_components_map, elf_config, link_args, ignore_components_list
