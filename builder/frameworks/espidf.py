@@ -27,7 +27,7 @@ import subprocess
 import sys
 import shutil
 import os
-from pathlib import Path
+from os.path import basename, isfile, join
 import re
 import requests
 import platform as sys_platform
