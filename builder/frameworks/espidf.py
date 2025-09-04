@@ -201,7 +201,7 @@ def HandleArduinoIDFsettings(env):
                     file_path = file_ref
                 else:
                     # if it's a relative path, try relative to PROJECT_DIR
-                    file_path = join(PROJECT_DIR, file_ref)
+                    file_path = str(Path(PROJECT_DIR) / file_ref)
                 if os.path.exists(file_path):
                     try:
                         with open(file_path, 'r') as f:
