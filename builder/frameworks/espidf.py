@@ -64,6 +64,7 @@ _penv_setup_file = str(Path(platform.get_dir()) / "builder" / "penv_setup.py")
 _spec = importlib.util.spec_from_file_location("penv_setup", _penv_setup_file)
 _penv_setup = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_penv_setup)  # type: ignore[attr-defined]
+sys.modules["penv_setup"] = _penv_setup
 get_executable_path = _penv_setup.get_executable_path
 
 # remove maybe existing old map file in project root
