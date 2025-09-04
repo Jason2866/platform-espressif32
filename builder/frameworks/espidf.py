@@ -28,6 +28,7 @@ import sys
 import shutil
 import os
 from os.path import join
+from pathlib import Path
 import re
 import requests
 import platform as sys_platform
@@ -47,18 +48,17 @@ from platformio.proc import exec_command
 from platformio.builder.tools.piolib import ProjectAsLibBuilder
 from platformio.package.version import get_original_version, pepver_to_semver
 
-# Import component manager from the same directory
-_component_manager_file = os.path.join(os.path.dirname(__file__), "component_manager.py")
-_cm_spec = importlib.util.spec_from_file_location("component_manager", _component_manager_file)
-_component_manager = importlib.util.module_from_spec(_cm_spec)
-_cm_spec.loader.exec_module(_component_manager)
-
 
 env = DefaultEnvironment()
 env.SConscript("_embed_files.py", exports="env")
 platform = env.PioPlatform()
 
-_penv_setup_file = os.path.join(platform.get_dir(), "builder", "penv_setup.py")
+_component_manager_file = Path(platform.get_dir()) / "builder" / "frameworks" / "component_manager.py"
+_cm_spec = importlib.util.spec_from_file_location("component_manager", _component_manager_file)
+_component_manager = importlib.util.module_from_spec(_cm_spec)
+_cm_spec.loader.exec_module(_component_manager)
+
+_penv_setup_file = Path(platform.get_dir()) / "builder" / "penv_setup.py"
 _spec = importlib.util.spec_from_file_location("penv_setup", _penv_setup_file)
 _penv_setup = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_penv_setup)  # type: ignore[attr-defined]
@@ -111,14 +111,11 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     ARDUINO_FRAMEWORK_DIR = platform.get_package_dir("framework-arduinoespressif32")
     # Possible package names in 'package@version' format is not compatible with CMake
     if "@" in os.path.basename(ARDUINO_FRAMEWORK_DIR):
-        new_path = os.path.join(
-            os.path.dirname(ARDUINO_FRAMEWORK_DIR),
-            os.path.basename(ARDUINO_FRAMEWORK_DIR).replace("@", "-"),
-        )
+        new_path = Path(ARDUINO_FRAMEWORK_DIR).parent / os.path.basename(ARDUINO_FRAMEWORK_DIR).replace("@", "-")
         os.rename(ARDUINO_FRAMEWORK_DIR, new_path)
-        ARDUINO_FRAMEWORK_DIR = new_path
+        ARDUINO_FRAMEWORK_DIR = str(new_path)
     assert ARDUINO_FRAMEWORK_DIR and os.path.isdir(ARDUINO_FRAMEWORK_DIR)
-    arduino_libs_mcu = join(ARDUINO_FRAMEWORK_DIR,"tools","esp32-arduino-libs",mcu)
+    arduino_libs_mcu = Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs" / mcu
 
 BUILD_DIR = env.subst("$BUILD_DIR")
 PROJECT_DIR = env.subst("$PROJECT_DIR")
