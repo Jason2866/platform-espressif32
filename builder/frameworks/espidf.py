@@ -830,9 +830,12 @@ def extract_linker_script_fragments(
 
         return fragment_path
 
-    assert os.path.isfile(
-        ninja_buildfile
-    ), "Cannot extract linker fragments! Ninja build file is missing!"
+    if not os.path.isfile(ninja_buildfile):
+        sys.stderr.write(
+            "Error: Missing Ninja build file '%s' for linker fragment extraction\n"
+            % ninja_buildfile
+        )
+        env.Exit(1)
 
     result = []
     with open(ninja_buildfile, encoding="utf8") as fp:
@@ -1632,12 +1635,10 @@ def ensure_python_venv_available():
 
 
 def get_python_exe():
-    python_exe_path = str(Path(get_idf_venv_dir()) / ("Scripts" if IS_WINDOWS else "bin") / ("python" + (".exe" if IS_WINDOWS else "")))
-
+    python_exe_path = get_executable_path(get_idf_venv_dir(), "python")
     if not os.path.isfile(python_exe_path):
         sys.stderr.write("Error: Missing Python executable file `%s`\n" % python_exe_path)
         env.Exit(1)
-
     return python_exe_path
 
 
