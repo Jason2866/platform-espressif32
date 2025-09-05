@@ -1995,7 +1995,7 @@ if "__test" not in COMMAND_LINE_TARGETS or env.GetProjectOption(
         PIOBUILDFILES=compile_source_files(
             target_configs.get(project_target_name),
             project_env,
-            project_env.subst("$PROJECT_DIR"),
+            project_env.subst("$PROJECT_SRC_DIR"),
         )
     )
 
