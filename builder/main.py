@@ -508,8 +508,8 @@ env.Append(
                         "--flash-size",
                         board.get("upload.flash_size", "4MB"),
                         "-o",
-                        "$TARGET",
-                        "$SOURCES",
+                        "\"$TARGET\"",
+                        "\"$SOURCES\"",
                     ]
                 ),
                 "Building $TARGET",
