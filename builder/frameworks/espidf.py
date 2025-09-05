@@ -1106,7 +1106,10 @@ def get_lib_ignore_components():
         lib_handler = _component_manager.LibraryIgnoreHandler(config, logger)
         
         # Get the processed lib_ignore entries (already converted to component names)
-        lib_ignore_entries = lib_handler._get_lib_ignore_entries()
+        get_entries = getattr(lib_handler, "get_lib_ignore_entries", None)
+        lib_ignore_entries = (
+            get_entries() if callable(get_entries) else lib_handler._get_lib_ignore_entries()
+        )
         
         return lib_ignore_entries
     except (OSError, ValueError, RuntimeError, KeyError) as e:
