@@ -25,10 +25,10 @@ board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 is_xtensa = mcu in ("esp32", "esp32s2", "esp32s3")
 
-cmake_dir = env.PioPlatform().get_package_dir("tool-cmake")
+cmake_dir = str(env.PioPlatform().get_package_dir("tool-cmake"))
 cmake_cmd = f'"{Path(cmake_dir) / "bin" / "cmake"}"'
 
-idf_dir = env.PioPlatform().get_package_dir("framework-espidf")
+idf_dir = str(env.PioPlatform().get_package_dir("framework-espidf"))
 data_embed_script = (
     f'"{Path(idf_dir) / "tools" / "cmake" / "scripts" / "data_file_embed_asm.cmake"}"'
 )
