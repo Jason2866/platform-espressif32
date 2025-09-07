@@ -202,7 +202,7 @@ class ComponentHandler:
             if self.removed_components:
                 self._cleanup_removed_components()
 
-    def _process_component_removals(self, component_ Dict[str, Any]) -> None:
+    def _process_component_removals(self, component_data: Dict[str, Any]) -> None:
         """
         Process component removal requests from project configuration.
 
@@ -211,7 +211,7 @@ class ComponentHandler:
         Handles errors gracefully and logs all operations.
 
         Args:
-            component_ Component configuration data dictionary containing dependencies
+            component_data: Component configuration data dictionary containing dependencies
         """
         try:
             remove_option = self.config.env.GetProjectOption("custom_component_remove", None)
@@ -222,7 +222,7 @@ class ComponentHandler:
         except Exception as e:
             self.logger.log_change(f"Error removing components: {str(e)}")
 
-    def _process_component_additions(self, component_ Dict[str, Any]) -> None:
+    def _process_component_additions(self, component_data: Dict[str, Any]) -> None:
         """
         Process component addition requests from project configuration.
 
@@ -231,7 +231,7 @@ class ComponentHandler:
         Handles errors gracefully and logs all operations.
 
         Args:
-            component_ Component configuration data dictionary containing dependencies
+            component_data: Component configuration data dictionary containing dependencies
         """
         try:
             add_option = self.config.env.GetProjectOption("custom_component_add", None)
@@ -326,7 +326,7 @@ class ComponentHandler:
         except Exception:
             return {"dependencies": {}}
 
-    def _save_component_yml(self, file_path: str,  Dict[str, Any]) -> None:
+    def _save_component_yml(self, file_path: str, data: Dict[str, Any]) -> None:
         """
         Save component data to YAML file safely.
 
@@ -336,7 +336,7 @@ class ComponentHandler:
 
         Args:
             file_path: Absolute path to the YAML file to write
-             Component data dictionary to serialize
+            data: Component data dictionary to serialize
         """
         try:
             with open(file_path, "w", encoding='utf-8') as f:
@@ -344,7 +344,7 @@ class ComponentHandler:
         except Exception:
             pass
 
-    def _remove_components(self, component_ Dict[str, Any], components_to_remove: list) -> None:
+    def _remove_components(self, component_data: Dict[str, Any], components_to_remove: list) -> None:
         """
         Remove specified components from the configuration.
 
@@ -353,7 +353,7 @@ class ComponentHandler:
         components for later cleanup operations and logs all actions.
 
         Args:
-            component_ Component configuration data dictionary
+            component_data: Component configuration data dictionary
             components_to_remove: List of component names to remove
         """
         dependencies = component_data.setdefault("dependencies", {})
@@ -373,7 +373,7 @@ class ComponentHandler:
             else:
                 self.logger.log_change(f"Component not found: {component}")
 
-    def _add_components(self, component_ Dict[str, Any], components_to_add: list) -> None:
+    def _add_components(self, component_data: Dict[str, Any], components_to_add: list) -> None:
         """
         Add specified components to the configuration.
 
@@ -382,7 +382,7 @@ class ComponentHandler:
         already exist and filters out entries that are too short to be valid.
 
         Args:
-            component_ Component configuration data dictionary
+            component_data: Component configuration data dictionary
             components_to_add: List of component entries to add (format: name@version or name)
         """
         dependencies = component_data.setdefault("dependencies", {})
