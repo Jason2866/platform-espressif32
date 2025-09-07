@@ -389,7 +389,7 @@ class ComponentHandler:
 
         for component in components_to_add:
             component = component.strip()
-            if len(component) <= 4:  # Skip too short entries
+            if not component:  # Skip empty entrys
                 continue
 
             component_name, version = self._parse_component_entry(component)
