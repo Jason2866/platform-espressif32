@@ -1141,10 +1141,69 @@ class LibraryIgnoreHandler:
             os.remove(backup_path)
 
 
+class BackupManager:
+    """
+    Handles backup and restore operations for build files.
+    
+    Manages the creation and restoration of backup files for the Arduino
+    framework build scripts, ensuring that original files can be restored
+    when needed or when builds are cleaned.
+    """
+
+    def __init__(self, config: ComponentManagerConfig):
+        """
+        Initialize the backup manager with configuration access.
+
+        Sets up the backup manager with access to configuration paths
+        and settings needed for backup and restore operations.
+
+        Args:
+            config: Configuration manager instance providing access to paths
+        """
+        self.config = config
+
+    def backup_pioarduino_build_py(self) -> None:
+        """
+        Create backup of the original pioarduino-build.py file.
+
+        Creates a backup copy of the Arduino framework's build script
+        with MCU-specific naming to prevent conflicts between different
+        ESP32 variants. Only creates backup if it doesn't already exist.
+        """
+        if "arduino" not in self.config.env.subst("$PIOFRAMEWORK"):
+            return
+
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
+        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
+
+        if os.path.exists(build_py_path) and not os.path.exists(backup_path):
+            shutil.copy2(build_py_path, backup_path)
+
+    def restore_pioarduino_build_py(self, target=None, source=None, env=None) -> None:
+        """
+        Restore the original pioarduino-build.py from backup.
+
+        Restores the original Arduino build script from the backup copy
+        and removes the backup file. This is typically called during
+        clean operations or when resetting the build environment.
+
+        Args:
+            target: Build target (unused, for PlatformIO compatibility)
+            source: Build source (unused, for PlatformIO compatibility)
+            env: Environment (unused, for PlatformIO compatibility)
+        """
+        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
+        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
+
+        if os.path.exists(backup_path):
+            shutil.copy2(backup_path, build_py_path)
+            os.remove(backup_path)
+
+
 class ComponentManager:
     """
     Main component manager that orchestrates all operations.
-    
+
     Primary interface for component management operations, coordinating
     between specialized handlers for components, libraries, and backups.
     Uses composition pattern to organize functionality into focused classes.
@@ -1153,12 +1212,12 @@ class ComponentManager:
     def __init__(self, env):
         """
         Initialize the ComponentManager with composition pattern.
-        
+
         Creates and configures all specialized handler instances using
         the composition pattern for better separation of concerns and
         maintainability. Each handler focuses on a specific aspect
         of component management.
-        
+
         Args:
             env: PlatformIO environment object containing project configuration
         """
@@ -1171,11 +1230,11 @@ class ComponentManager:
     def handle_component_settings(self, add_components: bool = False, remove_components: bool = False) -> None:
         """
         Handle component operations by delegating to specialized handlers.
-        
+
         Main entry point for component management operations. Coordinates
         component addition/removal and library ignore processing, then
         provides a summary of all changes made during the session.
-        
+
         Args:
             add_components: Whether to process component additions from configuration
             remove_components: Whether to process component removals from configuration
@@ -1191,7 +1250,7 @@ class ComponentManager:
     def handle_lib_ignore(self) -> None:
         """
         Delegate lib_ignore handling to specialized handler.
-        
+
         Provides direct access to library ignore processing for cases
         where only library handling is needed without component operations.
         """
@@ -1200,10 +1259,10 @@ class ComponentManager:
     def restore_pioarduino_build_py(self, target=None, source=None, env=None) -> None:
         """
         Delegate backup restoration to backup manager.
-        
+
         Provides access to backup restoration functionality, typically
         used during clean operations or build environment resets.
-        
+
         Args:
             target: Build target (unused, for PlatformIO compatibility)
             source: Build source (unused, for PlatformIO compatibility)
@@ -1214,10 +1273,10 @@ class ComponentManager:
     def get_changes_summary(self) -> List[str]:
         """
         Get summary of changes from logger.
-        
+
         Provides access to the complete list of changes made during
         the current session for reporting or debugging purposes.
-        
+
         Returns:
             List of change messages in chronological order
         """
@@ -1226,7 +1285,7 @@ class ComponentManager:
     def print_changes_summary(self) -> None:
         """
         Print changes summary via logger.
-        
+
         Outputs a formatted summary of all changes made during the
         session, useful for build reporting and debugging.
         """
