@@ -1120,26 +1120,6 @@ class LibraryIgnoreHandler:
         if os.path.exists(build_py_path) and not os.path.exists(backup_path):
             shutil.copy2(build_py_path, backup_path)
 
-    def restore_pioarduino_build_py(self, target=None, source=None, env=None) -> None:
-        """
-        Restore the original pioarduino-build.py from backup.
-        
-        Restores the original Arduino build script from the backup copy
-        and removes the backup file. This is typically called during
-        clean operations or when resetting the build environment.
-        
-        Args:
-            target: Build target (unused, for PlatformIO compatibility)
-            source: Build source (unused, for PlatformIO compatibility)
-            env: Environment (unused, for PlatformIO compatibility)
-        """
-        build_py_path = str(Path(self.config.arduino_libs_mcu) / "pioarduino-build.py")
-        backup_path = str(Path(self.config.arduino_libs_mcu) / f"pioarduino-build.py.{self.config.mcu}")
-
-        if os.path.exists(backup_path):
-            shutil.copy2(backup_path, build_py_path)
-            os.remove(backup_path)
-
 
 class BackupManager:
     """
