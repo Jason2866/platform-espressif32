@@ -6,6 +6,16 @@ addition/removal, library ignore processing, and build script modifications.
 It supports managing ESP-IDF components within Arduino framework projects,
 allowing developers to add or remove specific components and handle library
 dependencies efficiently.
+
+Configuration Options:
+- custom_remove_include: Set to True to enable lib_ignore processing.
+  When disabled (default), lib_ignore entries will be ignored and no include path 
+  modifications will be made to the build script. This ensures that include path
+  modifications only happen when explicitly requested.
+  
+  Usage in platformio.ini:
+  [env:myenv]
+  custom_remove_include = true
 """
 
 import os
@@ -47,6 +57,10 @@ class ComponentManagerConfig:
         self.mcu = self.board.get("build.mcu", "esp32").lower()
         # Get project source directory path
         self.project_src_dir = env.subst("$PROJECT_SRC_DIR")
+        
+        # Check if lib_ignore processing should be enabled (disabled by default)
+        custom_remove_include_value = env.GetProjectOption("custom_remove_include", False)
+        self.custom_remove_include = str(custom_remove_include_value).lower() in ('true', '1', 'yes', 'on')
 
         # Cache expensive operations using lazy loading
         self._arduino_framework_dir = None
@@ -592,6 +606,10 @@ class LibraryIgnoreHandler:
         processes lib_ignore entries from the current environment, and removes
         corresponding include paths from the build script using optimized algorithms.
         """
+        # Check if lib_ignore processing is enabled (disabled by default)
+        if not self.config.custom_remove_include:
+            return
+        
         # Create backup before processing lib_ignore
         if not self.ignored_libs:
             self._backup_pioarduino_build_py()
@@ -1223,7 +1241,10 @@ class ComponentManager:
             remove_components: Whether to process component removals from configuration
         """
         self.component_handler.handle_component_settings(add_components, remove_components)
-        self.library_handler.handle_lib_ignore()
+        
+        # Only process lib_ignore if explicitly enabled
+        if self.config.custom_remove_include:
+            self.library_handler.handle_lib_ignore()
 
         # Print summary
         changes = self.logger.get_changes_summary()
@@ -1237,7 +1258,9 @@ class ComponentManager:
         Provides direct access to library ignore processing for cases
         where only library handling is needed without component operations.
         """
-        self.library_handler.handle_lib_ignore()
+        # Only process lib_ignore if explicitly enabled
+        if self.config.custom_remove_include:
+            self.library_handler.handle_lib_ignore()
 
     def restore_pioarduino_build_py(self, target=None, source=None, env=None) -> None:
         """
