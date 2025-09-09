@@ -33,7 +33,7 @@ import sys
 import shutil
 import logging
 from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Union
 
 from platformio.compat import IS_WINDOWS
 from platformio.public import PlatformBase, to_unix_path
@@ -121,52 +121,54 @@ def safe_file_operation(operation_func):
 
 
 @safe_file_operation
-def safe_remove_file(path: str) -> bool:
-    """Safely remove a file with error handling."""
-    if os.path.exists(path) and os.path.isfile(path):
-        os.remove(path)
+def safe_remove_file(path: Union[str, Path]) -> bool:
+    """Safely remove a file with error handling using pathlib."""
+    path = Path(path)
+    if path.exists() and path.is_file():
+        path.unlink()
         logger.debug(f"File removed: {path}")
     return True
 
 
 @safe_file_operation
-def safe_remove_directory(path: str) -> bool:
-    """Safely remove directories with error handling."""
-    if os.path.exists(path) and os.path.isdir(path):
+def safe_remove_directory(path: Union[str, Path]) -> bool:
+    """Safely remove directories with error handling using pathlib."""
+    path = Path(path)
+    if path.exists() and path.is_dir():
         shutil.rmtree(path)
         logger.debug(f"Directory removed: {path}")
     return True
 
 
 @safe_file_operation
-def safe_remove_directory_pattern(base_path: str, pattern: str) -> bool:
-    """Safely remove directories matching a pattern with error handling."""
-    if not os.path.exists(base_path):
+def safe_remove_directory_pattern(base_path: Union[str, Path], pattern: str) -> bool:
+    """Safely remove directories matching a pattern with error handling using pathlib."""
+    base_path = Path(base_path)
+    if not base_path.exists():
         return True
     # Find all directories matching the pattern in the base directory
-    for item in os.listdir(base_path):
-        item_path = Path(base_path) / item
-        if item_path.is_dir() and fnmatch.fnmatch(item, pattern):
-            shutil.rmtree(str(item_path))
-            logger.debug(f"Directory removed: {item_path}")
+    for item in base_path.iterdir():
+        if item.is_dir() and fnmatch.fnmatch(item.name, pattern):
+            shutil.rmtree(item)
+            logger.debug(f"Directory removed: {item}")
     return True
 
 
 @safe_file_operation
-def safe_copy_file(src: str, dst: str) -> bool:
-    """Safely copy files with error handling."""
-    dst_path = Path(dst)
-    dst_path.parent.mkdir(parents=True, exist_ok=True)
+def safe_copy_file(src: Union[str, Path], dst: Union[str, Path]) -> bool:
+    """Safely copy files with error handling using pathlib."""
+    src, dst = Path(src), Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, dst)
     logger.debug(f"File copied: {src} -> {dst}")
     return True
 
 
 @safe_file_operation
-def safe_copy_directory(src: str, dst: str) -> bool:
-    """Safely copy directories with error handling."""
-    dst_path = Path(dst)
-    dst_path.parent.mkdir(parents=True, exist_ok=True)
+def safe_copy_directory(src: Union[str, Path], dst: Union[str, Path]) -> bool:
+    """Safely copy directories with error handling using pathlib."""
+    src, dst = Path(src), Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(src, dst, dirs_exist_ok=True)
     logger.debug(f"Directory copied: {src} -> {dst}")
     return True
@@ -300,11 +302,11 @@ class Espressif32Platform(PlatformBase):
             old_tl_install_exists = old_tl_install_path.exists()
             if old_tl_install_exists:
                 # remove outdated tl-install
-                safe_remove_directory(str(old_tl_install_path))
+                safe_remove_directory(old_tl_install_path)
 
             if tl_install_path.exists():
                 logger.info(f"Removing old {tl_install_name} installation")
-                safe_remove_directory(str(tl_install_path))
+                safe_remove_directory(tl_install_path)
 
             logger.info(f"Installing {tl_install_name} version {version}")
             self.packages[tl_install_name]["optional"] = False
@@ -312,7 +314,7 @@ class Espressif32Platform(PlatformBase):
             pm.install(version)
             # Ensure backward compatibility by removing pio install status indicator
             tl_piopm_path = tl_install_path / ".piopm"
-            safe_remove_file(str(tl_piopm_path))
+            safe_remove_file(tl_piopm_path)
 
             if (tl_install_path / "package.json").exists():
                 logger.info(f"{tl_install_name} successfully installed and verified")
@@ -321,7 +323,7 @@ class Espressif32Platform(PlatformBase):
                 # Handle old tl-install to keep backwards compatibility
                 if old_tl_install_exists:
                     # Copy tool-esp_install content to tl-install location
-                    if safe_copy_directory(str(tl_install_path), str(old_tl_install_path)):
+                    if safe_copy_directory(tl_install_path, old_tl_install_path):
                         logger.info(f"Content copied from {tl_install_name} to old tl-install location")
                     else:
                         logger.warning("Failed to copy content to old tl-install location")
@@ -348,15 +350,15 @@ class Espressif32Platform(PlatformBase):
             
         try:
             # Remove directories with '@' in their name (e.g., tool-name@version, tool-name@src)
-            safe_remove_directory_pattern(str(packages_path), f"{tool_name}@*")
+            safe_remove_directory_pattern(packages_path, f"{tool_name}@*")
             
             # Remove directories with version suffixes (e.g., tool-name.12345)
-            safe_remove_directory_pattern(str(packages_path), f"{tool_name}.*")
+            safe_remove_directory_pattern(packages_path, f"{tool_name}.*")
             
             # Also check for any directory that starts with tool_name and contains '@'
             for item in packages_path.iterdir():
                 if item.name.startswith(tool_name) and '@' in item.name and item.is_dir():
-                    safe_remove_directory(str(item))
+                    safe_remove_directory(item)
                     logger.debug(f"Removed versioned directory: {item}")
                         
         except OSError as e:
@@ -485,7 +487,7 @@ class Espressif32Platform(PlatformBase):
         # Copy tool files
         target_package_path = Path(IDF_TOOLS_PATH) / "tools" / tool_name / "package.json"
 
-        if not safe_copy_file(paths['package_path'], str(target_package_path)):
+        if not safe_copy_file(paths['package_path'], target_package_path):
             return False
 
         safe_remove_directory(paths['tool_path'])
@@ -593,7 +595,7 @@ class Espressif32Platform(PlatformBase):
         # Remove pio install marker to avoid issues when switching versions
         old_tl_piopm_path = Path(self.packages_dir) / "tl-install" / ".piopm"
         if old_tl_piopm_path.exists():
-            safe_remove_file(str(old_tl_piopm_path))
+            safe_remove_file(old_tl_piopm_path)
         
         # Check if idf_tools.py is available
         installer_path = Path(self.packages_dir) / tl_install_name / "tools" / "idf_tools.py"
@@ -634,7 +636,7 @@ class Espressif32Platform(PlatformBase):
                     package_data = json.load(f)
                 version = package_data.get('version', '')
                 if not version.startswith("3."):
-                    piopm_path.unlink()
+                    safe_remove_file(piopm_path)
                     logger.info(f"Incompatible mklittlefs version {version} removed (required: 3.x)")
             except (json.JSONDecodeError, KeyError) as e:
                 logger.error(f"Error reading mklittlefs package  {e}")
@@ -660,8 +662,8 @@ class Espressif32Platform(PlatformBase):
         if mklittlefs4_dir.exists():
             package_src = mklittlefs_dir / "package.json"
             package_dst = mklittlefs4_dir / "package.json"
-            safe_copy_file(str(package_src), str(package_dst))
-            shutil.copytree(str(mklittlefs4_dir), str(mklittlefs_dir), dirs_exist_ok=True)
+            safe_copy_file(package_src, package_dst)
+            shutil.copytree(mklittlefs4_dir, mklittlefs_dir, dirs_exist_ok=True)
             self.packages.pop("tool-mkfatfs", None)
 
     def _handle_littlefs_tool(self, for_download: bool) -> None:
