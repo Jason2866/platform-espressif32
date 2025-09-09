@@ -215,7 +215,7 @@ class Espressif32Platform(PlatformBase):
             return True
         
         # Check if tool is already installed
-        tl_install_path = Path(self.packages_dir) / tl_install_name
+        tl_install_path = self.packages_dir / tl_install_name
         package_json_path = tl_install_path / "package.json"
         
         if not package_json_path.exists():
