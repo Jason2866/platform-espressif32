@@ -526,6 +526,8 @@ class Espressif32Platform(PlatformBase):
         if "arduino" not in frameworks:
             return
 
+        safe_remove_directory_pattern(Path(self.packages_dir), f"framework-arduinoespressif32@*")
+        safe_remove_directory_pattern(Path(self.packages_dir), f"framework-arduinoespressif32.*")
         self.packages["framework-arduinoespressif32"]["optional"] = False
 
     def _configure_espidf_framework(
@@ -540,6 +542,8 @@ class Espressif32Platform(PlatformBase):
 
         if custom_sdkconfig is not None or len(str(board_sdkconfig)) > 3:
             frameworks.append("espidf")
+            safe_remove_directory_pattern(Path(self.packages_dir), f"framework-espidf@*")
+            safe_remove_directory_pattern(Path(self.packages_dir), f"framework-espidf.*")
             self.packages["framework-espidf"]["optional"] = False
 
     def _get_mcu_config(self, mcu: str) -> Optional[Dict]:
