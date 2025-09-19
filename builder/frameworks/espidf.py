@@ -1004,9 +1004,9 @@ def compile_source_files(
     # Canonical, symlink-resolved absolute path of the components directory
     components_dir_path = (Path(FRAMEWORK_DIR) / "components").resolve()
     for source in config.get("sources", []):
-        if source["path"].endswith(".rule"):
+        src_path = source["path"]
+        if src_path.endswith(".rule"):
             continue
-        src_path = source.get("path")
         # Always skip dummy_src.c to avoid duplicate build actions
         if os.path.basename(src_path) == "dummy_src.c":
             continue
