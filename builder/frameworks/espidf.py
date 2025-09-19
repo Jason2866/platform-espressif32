@@ -1036,23 +1036,16 @@ def compile_source_files(
                 "build.esp-idf.preserve_source_file_extension", "yes"
             ) == "yes"
 
-            obj_target = (
-                obj_path
-                if preserve_source_file_extension
-                else os.path.splitext(obj_path)[0]
-            ) + ".o"
-            # Only add if this object file is not already in the list
-            # If it's a dummy_src.c.o duplicate, skip it to avoid build conflicts
-            if any(getattr(obj, 'target', None) == obj_target for obj in objects):
-                if os.path.basename(obj_target) == "dummy_src.c.o":
-                    continue
-            else:
-                objects.append(
-                    build_envs[compile_group_idx].StaticObject(
-                        target=obj_target,
-                        source=str(src_path_obj),
-                    )
+            objects.append(
+                build_envs[compile_group_idx].StaticObject(
+                    target=(
+                        obj_path
+                        if preserve_source_file_extension
+                        else os.path.splitext(obj_path)[0]
+                    ) + ".o",
+                    source=str(src_path_obj),
                 )
+            )
 
     return objects
 
