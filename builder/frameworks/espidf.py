@@ -1004,11 +1004,14 @@ def compile_source_files(
     # Canonical, symlink-resolved absolute path of the components directory
     components_dir_path = (Path(FRAMEWORK_DIR) / "components").resolve()
     for source in config.get("sources", []):
-        if source["path"].endswith(".rule"):
+        src_path = source["path"]
+        if src_path.endswith(".rule"):
+            continue
+        # Always skip dummy_src.c to avoid duplicate build actions
+        if os.path.basename(src_path) == "dummy_src.c":
             continue
         compile_group_idx = source.get("compileGroupIndex")
         if compile_group_idx is not None:
-            src_path = source.get("path")
             if not os.path.isabs(src_path):
                 # For cases when sources are located near CMakeLists.txt
                 src_path = str(Path(project_src_dir) / src_path)
