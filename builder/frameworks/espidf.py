@@ -1006,9 +1006,12 @@ def compile_source_files(
     for source in config.get("sources", []):
         if source["path"].endswith(".rule"):
             continue
+        src_path = source.get("path")
+        # Always skip dummy_src.c to avoid duplicate build actions
+        if os.path.basename(src_path) == "dummy_src.c":
+            continue
         compile_group_idx = source.get("compileGroupIndex")
         if compile_group_idx is not None:
-            src_path = source.get("path")
             if not os.path.isabs(src_path):
                 # For cases when sources are located near CMakeLists.txt
                 src_path = str(Path(project_src_dir) / src_path)
@@ -1033,16 +1036,23 @@ def compile_source_files(
                 "build.esp-idf.preserve_source_file_extension", "yes"
             ) == "yes"
 
-            objects.append(
-                build_envs[compile_group_idx].StaticObject(
-                    target=(
-                        obj_path
-                        if preserve_source_file_extension
-                        else os.path.splitext(obj_path)[0]
-                    ) + ".o",
-                    source=str(src_path_obj),
+            obj_target = (
+                obj_path
+                if preserve_source_file_extension
+                else os.path.splitext(obj_path)[0]
+            ) + ".o"
+            # Only add if this object file is not already in the list
+            # If it's a dummy_src.c.o duplicate, skip it to avoid build conflicts
+            if any(getattr(obj, 'target', None) == obj_target for obj in objects):
+                if os.path.basename(obj_target) == "dummy_src.c.o":
+                    continue
+            else:
+                objects.append(
+                    build_envs[compile_group_idx].StaticObject(
+                        target=obj_target,
+                        source=str(src_path_obj),
+                    )
                 )
-            )
 
     return objects
 
