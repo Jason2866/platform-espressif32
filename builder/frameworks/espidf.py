@@ -1428,7 +1428,8 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
                     f'-DCONFIG_DIR="{str(Path(BUILD_DIR) / "config")}"',
                     f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
                     "-P",
-                    f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
+                    f'"{str(Path(FRAMEWORK_DIR) / "tools" /"cmake" / "linker_script_preprocessor.cmake")}"',
+#                    f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
                 ]
             ),
             "Generating LD script $TARGET",
