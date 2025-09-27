@@ -549,7 +549,7 @@ def populate_idf_env_vars(idf_env):
     ]
 
     idf_env["PATH"] = os.pathsep.join([*additional_packages, idf_env["PATH"]])
-    idf_env["ESP_ROM_ELF_DIR"] = platform.get_package_dir("tool-esp-rom-elfs")
+    idf_env["ESP_ROM_ELF_DIR"] = ROM_ELFS_DIR
 
 
 def get_target_config(project_configs, target_index, cmake_api_reply_dir):
