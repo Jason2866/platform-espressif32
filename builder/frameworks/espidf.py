@@ -1231,27 +1231,21 @@ def build_bootloader(sdk_config):
                 # Try to find the corresponding .ld.in file
                 linker_script_in = linker_script.replace(".ld", ".ld.in")
                 if os.path.isfile(linker_script_in):
-                    # Create preprocessed version
+                    # Use the existing preprocess_linker_file function with bootloader-specific configuration
                     script_name = os.path.basename(linker_script)
                     target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
                     
-                    preprocessed_script = env.Command(
-                        target_script,
+                    # Bootloader needs its own config directory and additional include paths
+                    bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
+                    bootloader_extra_includes = [
+                        str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)
+                    ]
+                    
+                    preprocessed_script = preprocess_linker_file(
                         linker_script_in,
-                        env.VerboseAction(
-                            " ".join(
-                                [
-                                    f'"{CMAKE_DIR}"',
-                                    f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
-                                    "-DSOURCE=$SOURCE",
-                                    "-DTARGET=$TARGET",
-                                    f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "bootloader" / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
-                                    "-P",
-                                    f'"{str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")}"',
-                                ]
-                            ),
-                            "Generating bootloader LD script $TARGET",
-                        ),
+                        target_script,
+                        config_dir=bootloader_config_dir,
+                        extra_include_dirs=bootloader_extra_includes
                     )
                     
                     bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
@@ -1472,7 +1466,28 @@ def get_app_partition_offset(pt_table, pt_offset):
     return factory_app_params.get("offset", "0x10000")
 
 
-def preprocess_linker_file(src_ld_script, target_ld_script):
+def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, extra_include_dirs=None):
+    """
+    Preprocess a linker script file (.ld.in) to generate the final .ld file.
+    
+    Args:
+        src_ld_script: Source .ld.in file path
+        target_ld_script: Target .ld file path  
+        config_dir: Configuration directory (defaults to BUILD_DIR/config for main app)
+        extra_include_dirs: Additional include directories (list)
+    """
+    if config_dir is None:
+        config_dir = str(Path(BUILD_DIR) / "config")
+    
+    include_dirs = [f'"{config_dir}"']
+    include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}"')
+    include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"')
+    
+    if extra_include_dirs:
+        include_dirs.extend(f'"{dir_path}"' for dir_path in extra_include_dirs)
+    
+    cflags_value = "-I" + " -I".join(include_dirs)
+    
     return env.Command(
         target_ld_script,
         src_ld_script,
@@ -1483,8 +1498,7 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
                     f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
-#                    f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
-                    f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
+                    f'-DCFLAGS="{cflags_value}"',
                     "-P",
                     f'"{str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")}"',
                 ]
