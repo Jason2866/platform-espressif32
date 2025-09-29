@@ -1295,9 +1295,17 @@ def build_bootloader(sdk_config):
                         processed_extra_flags.extend(["-T", target_script])
                     else:
                         processed_extra_flags.extend(["-T", linker_script_in])
-                else:
-                    # No bootloader .ld file and no .ld.in template found - fall back to original
-                    processed_extra_flags.extend(["-T", linker_script])
+                elif script_basename in ["bootloader.ld", "bootloader_segments.ld"]:
+                    # Critical bootloader scripts missing - this should be an error
+                    sys.stderr.write(f"Error: Missing critical bootloader linker script '{linker_script}'\n")
+                    sys.stderr.write(f"Expected either:\n")
+                    sys.stderr.write(f"  - {bootloader_script_path}\n")
+                    sys.stderr.write(f"  - {bootloader_script_in_path}\n")
+                    sys.stderr.write(f"Check your ESP-IDF installation and framework version compatibility.\n")
+                    env.Exit(1)
+                
+                # For non-critical scripts, fall back to original path
+                processed_extra_flags.extend(["-T", linker_script])
             else:
                 # Use the original file if it exists
                 processed_extra_flags.extend(["-T", linker_script])
