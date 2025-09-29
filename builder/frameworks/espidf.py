@@ -1511,7 +1511,7 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
         config_dir = str(Path(BUILD_DIR) / "config")
     
     include_dirs = [f'"{config_dir}"']
-    include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}"')
+#    include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}"')
     include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"')
     
     if extra_include_dirs:
