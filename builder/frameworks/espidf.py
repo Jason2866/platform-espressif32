@@ -1188,7 +1188,6 @@ def find_lib_deps(components_map, elf_config, link_args, ignore_components=None)
 
 def build_bootloader(sdk_config):
     bootloader_src_dir = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject")
-    
     code_model = get_cmake_code_model(
         bootloader_src_dir,
         str(Path(BUILD_DIR) / "bootloader"),
