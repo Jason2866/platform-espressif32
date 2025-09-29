@@ -1218,94 +1218,51 @@ def build_bootloader(sdk_config):
 
     bootloader_env.MergeFlags(link_args)
     
-    # Handle ESP-IDF 6.0 linker script preprocessing for .ld.in files
-    # Check all linker scripts and preprocess .ld.in files or handle missing .ld files
+    # ESP-IDF 6.0: Handle .ld.in preprocessing for bootloader if needed
+    extra_flags = filter_args(link_args["LINKFLAGS"], ["-T", "-u"])
     processed_extra_flags = []
     
-    # Bootloader preprocessing configuration (defined once, reused)
-    bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
-    bootloader_extra_includes = [
-        str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)
-    ]
+    for i in range(0, len(extra_flags), 2):
+        if i + 1 < len(extra_flags) and extra_flags[i] == "-T":
+            linker_script = extra_flags[i + 1]
+            
+            # If .ld file is missing, try to find and preprocess .ld.in
+            if linker_script.endswith(".ld") and not os.path.isfile(linker_script):
+                script_name = os.path.basename(linker_script)
+                
+                # For ESP32-P4, check for revision-specific script first
+                if idf_variant == "esp32p4" and script_name == "bootloader.ld":
+                    sdk_config = get_sdk_configuration()
+                    if sdk_config.get("ESP32P4_REV_MIN_300", False):
+                        script_name = "bootloader.rev3.ld"
+                
+                # Look for .ld.in version
+                script_in = script_name.replace(".ld", ".ld.in")
+                ld_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_in)
+                
+                if os.path.isfile(ld_in_path):
+                    target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
+                    preprocessed_script = preprocess_linker_file(
+                        ld_in_path, 
+                        target_script,
+                        config_dir=str(Path(BUILD_DIR) / "bootloader" / "config"),
+                        extra_include_dirs=[str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)]
+                    )
+                    bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
+                    processed_extra_flags.extend(["-T", target_script])
+                else:
+                    processed_extra_flags.extend(["-T", linker_script])  # Use original
+            else:
+                processed_extra_flags.extend(["-T", linker_script])  # Use as-is
+        else:
+            processed_extra_flags.append(extra_flags[i] if i < len(extra_flags) else "")
     
-    # Add bootloader.rom.ld as required by ESP-IDF 6.0 bootloader CMakeLists.txt
+    # Add bootloader.rom.ld if available
     bootloader_rom_ld = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rom.ld")
     if os.path.isfile(bootloader_rom_ld):
         processed_extra_flags.extend(["-T", bootloader_rom_ld])
     
-    i = 0
-    while i < len(extra_flags):
-        if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
-            linker_script = extra_flags[i + 1]
-            
-            # Check if this is a .ld.in file that needs preprocessing
-            if linker_script.endswith(".ld.in"):
-                # Direct .ld.in file - preprocess it
-                script_name = os.path.basename(linker_script).replace(".ld.in", ".ld")
-                target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
-                
-                preprocessed_script = preprocess_linker_file(
-                    linker_script,
-                    target_script,
-                    config_dir=bootloader_config_dir,
-                    extra_include_dirs=bootloader_extra_includes
-                )
-                
-                bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                processed_extra_flags.extend(["-T", target_script])
-                
-            # Check if this is a .ld file that doesn't exist (needs .ld.in preprocessing)
-            elif linker_script.endswith(".ld") and not os.path.isfile(linker_script):
-                # Construct paths directly based on ESP-IDF 6.0 bootloader structure
-                script_basename = os.path.basename(linker_script)
-                script_name_in = script_basename.replace(".ld", ".ld.in")
-                
-                # Check bootloader linker scripts (bootloader doesn't use ROM scripts)
-                bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
-                bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
-                
-                # ESP32-P4 specific: Check for bootloader.rev3.ld.in based on CONFIG_ESP32P4_REV_MIN_300
-                if idf_variant == "esp32p4" and script_basename == "bootloader.ld":
-                    sdk_config = get_sdk_configuration()
-                    if sdk_config.get("ESP32P4_REV_MIN_300", False):
-                        bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
-                        if os.path.isfile(bootloader_rev3_path):
-                            bootloader_script_in_path = bootloader_rev3_path
-                
-                linker_script_in = None
-                if os.path.isfile(bootloader_script_path):
-                    linker_script_in = bootloader_script_path
-                elif os.path.isfile(bootloader_script_in_path):
-                    linker_script_in = bootloader_script_in_path
-                
-                if linker_script_in:
-                    if linker_script_in.endswith(".ld.in"):
-                        # Preprocess .ld.in file
-                        target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
-                        
-                        preprocessed_script = preprocess_linker_file(
-                            linker_script_in,
-                            target_script,
-                            config_dir=bootloader_config_dir,
-                            extra_include_dirs=bootloader_extra_includes
-                        )
-                        
-                        bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                        processed_extra_flags.extend(["-T", target_script])
-                    else:
-                        processed_extra_flags.extend(["-T", linker_script_in])
-                else:
-                    # Fall back to original file if no alternatives found
-                    processed_extra_flags.extend(["-T", linker_script])
-            else:
-                # Use the original file if it exists
-                processed_extra_flags.extend(["-T", linker_script])
-            i += 2
-        else:
-            processed_extra_flags.append(extra_flags[i])
-            i += 1
-    
-    bootloader_env.Append(LINKFLAGS=processed_extra_flags)
+    link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags))) + processed_extra_flags
     bootloader_libs = find_lib_deps(components_map, elf_config, link_args)
 
     bootloader_env.Prepend(__RPATH="-Wl,--start-group ")
