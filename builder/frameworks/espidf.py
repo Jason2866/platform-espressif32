@@ -1218,7 +1218,56 @@ def build_bootloader(sdk_config):
 
     bootloader_env.MergeFlags(link_args)
     
-    bootloader_env.Append(LINKFLAGS=extra_flags)
+    # Handle ESP-IDF 6.0 bootloader.ld -> bootloader.ld.in transition
+    # If CMake still references .ld files that don't exist, map them to .ld.in and preprocess
+    processed_extra_flags = []
+    i = 0
+    while i < len(extra_flags):
+        if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
+            linker_script = extra_flags[i + 1]
+            
+            # Check if this is a bootloader.ld file that doesn't exist
+            if linker_script.endswith("bootloader.ld") and not os.path.isfile(linker_script):
+                # Try to find the corresponding .ld.in file
+                linker_script_in = linker_script.replace(".ld", ".ld.in")
+                if os.path.isfile(linker_script_in):
+                    # Create preprocessed version
+                    script_name = os.path.basename(linker_script)
+                    target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
+                    
+                    preprocessed_script = env.Command(
+                        target_script,
+                        linker_script_in,
+                        env.VerboseAction(
+                            " ".join(
+                                [
+                                    f'"{CMAKE_DIR}"',
+                                    f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
+                                    "-DSOURCE=$SOURCE",
+                                    "-DTARGET=$TARGET",
+                                    f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "bootloader" / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
+                                    "-P",
+                                    f'"{str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")}"',
+                                ]
+                            ),
+                            "Generating bootloader LD script $TARGET",
+                        ),
+                    )
+                    
+                    bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
+                    processed_extra_flags.extend(["-T", target_script])
+                else:
+                    # Fall back to original file if .ld.in doesn't exist
+                    processed_extra_flags.extend(["-T", linker_script])
+            else:
+                # Use the original file if it exists or is not a bootloader.ld file
+                processed_extra_flags.extend(["-T", linker_script])
+            i += 2
+        else:
+            processed_extra_flags.append(extra_flags[i])
+            i += 1
+
+    bootloader_env.Append(LINKFLAGS=processed_extra_flags)
     bootloader_libs = find_lib_deps(components_map, elf_config, link_args)
 
     bootloader_env.Prepend(__RPATH="-Wl,--start-group ")
