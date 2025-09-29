@@ -105,6 +105,37 @@ if not TOOLCHAIN_DIR or not os.path.isdir(TOOLCHAIN_DIR):
     env.Exit(1)
 
 
+def get_framework_version():
+    def _extract_from_cmake_version_file():
+        version_cmake_file = str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "version.cmake")
+        if not os.path.isfile(version_cmake_file):
+            return
+
+        with open(version_cmake_file, encoding="utf8") as fp:
+            pattern = r"set\(IDF_VERSION_(MAJOR|MINOR|PATCH) (\d+)\)"
+            matches = re.findall(pattern, fp.read())
+            if len(matches) != 3:
+                return
+            # If found all three parts of the version
+            return ".".join([match[1] for match in matches])
+
+    pkg = platform.get_package("framework-espidf")
+    version = get_original_version(str(pkg.metadata.version.truncate()))
+    if not version:
+        # Fallback value extracted directly from the cmake version file
+        version = _extract_from_cmake_version_file()
+        if not version:
+            version = "0.0.0"
+
+    return version
+
+
+# Configure ESP-IDF version environment variables
+framework_version = get_framework_version()
+major_version = framework_version.split('.')[0] + '.' + framework_version.split('.')[1]
+os.environ["ESP_IDF_VERSION"] = major_version
+
+
 def create_silent_action(action_func):
     """Create a silent SCons action that suppresses output"""
     silent_action = env.Action(action_func)
@@ -1158,10 +1189,6 @@ def find_lib_deps(components_map, elf_config, link_args, ignore_components=None)
 def build_bootloader(sdk_config):
     bootloader_src_dir = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject")
     
-    # Configure ESP-IDF version environment variables for bootloader CMake
-    framework_version = get_framework_version()
-    major_version = framework_version.split('.')[0] + '.' + framework_version.split('.')[1]
-    
     code_model = get_cmake_code_model(
         bootloader_src_dir,
         str(Path(BUILD_DIR) / "bootloader"),
@@ -1255,16 +1282,11 @@ def build_bootloader(sdk_config):
                 script_basename = os.path.basename(linker_script)
                 script_name_in = script_basename.replace(".ld", ".ld.in")
                 
-                # Skip ROM scripts for bootloader - they're not needed and cause issues
-                if script_basename.endswith(".rom.ld"):
-                    # ROM scripts are not used in bootloader, skip them
-                    continue
-                
-                # Check bootloader linker scripts (non-ROM scripts)
+                # Check bootloader linker scripts (bootloader doesn't use ROM scripts)
                 bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
                 bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
                 
-                # ESP32-P4 specific: Use rev3 version if configured and available
+                # ESP32-P4 specific: Check for bootloader.rev3.ld.in based on CONFIG_ESP32P4_REV_MIN_300
                 if idf_variant == "esp32p4" and script_basename == "bootloader.ld":
                     sdk_config = get_sdk_configuration()
                     if sdk_config.get("ESP32P4_REV_MIN_300", False):
@@ -1272,7 +1294,6 @@ def build_bootloader(sdk_config):
                         if os.path.isfile(bootloader_rev3_path):
                             bootloader_script_in_path = bootloader_rev3_path
                 
-                # Priority order: .ld file first, then .ld.in template (potentially rev3 version)
                 linker_script_in = None
                 if os.path.isfile(bootloader_script_path):
                     linker_script_in = bootloader_script_path
@@ -1295,14 +1316,9 @@ def build_bootloader(sdk_config):
                         processed_extra_flags.extend(["-T", target_script])
                     else:
                         processed_extra_flags.extend(["-T", linker_script_in])
-                elif script_basename in ["bootloader.ld", "bootloader_segments.ld"]:
-                    # Critical bootloader scripts missing - this should be an error
-                    sys.stderr.write(f"Error: Missing critical bootloader linker script '{linker_script}'\n")
-                    sys.stderr.write(f"Expected either:\n")
-                    sys.stderr.write(f"  - {bootloader_script_path}\n")
-                    sys.stderr.write(f"  - {bootloader_script_in_path}\n")
-                    sys.stderr.write(f"Check your ESP-IDF installation and framework version compatibility.\n")
-                    env.Exit(1)
+                else:
+                    # Fall back to original file if no alternatives found
+                    processed_extra_flags.extend(["-T", linker_script])
             else:
                 # Use the original file if it exists
                 processed_extra_flags.extend(["-T", linker_script])
@@ -1407,31 +1423,6 @@ def find_default_component(target_configs):
     env.Exit(1)
 
 
-def get_framework_version():
-    def _extract_from_cmake_version_file():
-        version_cmake_file = str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "version.cmake")
-        if not os.path.isfile(version_cmake_file):
-            return
-
-        with open(version_cmake_file, encoding="utf8") as fp:
-            pattern = r"set\(IDF_VERSION_(MAJOR|MINOR|PATCH) (\d+)\)"
-            matches = re.findall(pattern, fp.read())
-            if len(matches) != 3:
-                return
-            # If found all three parts of the version
-            return ".".join([match[1] for match in matches])
-
-    pkg = platform.get_package("framework-espidf")
-    version = get_original_version(str(pkg.metadata.version.truncate()))
-    if not version:
-        # Fallback value extracted directly from the cmake version file
-        version = _extract_from_cmake_version_file()
-        if not version:
-            version = "0.0.0"
-
-    return version
-
-
 def create_version_file():
     version_file = str(Path(FRAMEWORK_DIR) / "version.txt")
     if not os.path.isfile(version_file):
@@ -1530,7 +1521,6 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
         config_dir = str(Path(BUILD_DIR) / "config")
     
     include_dirs = [f'"{config_dir}"']
-#    include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}"')
     include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"')
     
     if extra_include_dirs:
@@ -1859,11 +1849,6 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     env.Append(
         LIBSOURCE_DIRS=[str(Path(ARDUINO_FRAMEWORK_DIR) / "libraries")]
     )
-
-# Configure ESP-IDF version environment variables for Kconfig processing
-framework_version = get_framework_version()
-major_version = framework_version.split('.')[0] + '.' + framework_version.split('.')[1]
-os.environ["ESP_IDF_VERSION"] = major_version
 
 # Setup CMake configuration arguments
 extra_cmake_args = [
