@@ -1226,9 +1226,29 @@ def build_bootloader(sdk_config):
         if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
             linker_script = extra_flags[i + 1]
             if linker_script.endswith(".ld.in"):
-                # Preprocess the .ld.in file to create the .ld file
+                # For bootloader, create a custom preprocessing function with bootloader-specific paths
                 target_script = linker_script.replace(".ld.in", ".ld")
-                preprocessed_script = preprocess_linker_file(linker_script, target_script)
+                
+                # Create custom preprocessing command for bootloader
+                preprocessed_script = env.Command(
+                    target_script,
+                    linker_script,
+                    env.VerboseAction(
+                        " ".join(
+                            [
+                                f'"{CMAKE_DIR}"',
+                                f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
+                                "-DSOURCE=$SOURCE",
+                                "-DTARGET=$TARGET",
+                                f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "bootloader" / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
+                                "-P",
+                                f'"{str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")}"',
+                            ]
+                        ),
+                        "Generating bootloader LD script $TARGET",
+                    ),
+                )
+                
                 bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
                 processed_extra_flags.extend(["-T", target_script])
             else:
