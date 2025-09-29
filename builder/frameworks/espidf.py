@@ -1454,7 +1454,8 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
                     f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
-                    f'-DCFLAGS=-I\\"{str(Path(BUILD_DIR) / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\"',
+#                    f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
+                    f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant)}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
                     "-P",
                     f'"{str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")}"',
                 ]
