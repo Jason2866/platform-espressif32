@@ -1212,14 +1212,10 @@ def build_bootloader(sdk_config):
     )
     link_args = extract_link_args(elf_config)
     extra_flags = filter_args(link_args["LINKFLAGS"], ["-T", "-u"])
-    link_args["LINKFLAGS"] = sorted(
-        list(set(link_args["LINKFLAGS"]) - set(extra_flags))
-    )
 
     bootloader_env.MergeFlags(link_args)
     
     # ESP-IDF 6.0: Handle .ld.in preprocessing for bootloader if needed
-    extra_flags = filter_args(link_args["LINKFLAGS"], ["-T", "-u"])
     processed_extra_flags = []
     
     for i in range(0, len(extra_flags), 2):
