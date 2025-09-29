@@ -1215,9 +1215,7 @@ def build_bootloader(sdk_config):
 
     bootloader_env.MergeFlags(link_args)
     
-    # ESP-IDF 6.0: Handle .ld.in preprocessing for bootloader if needed
-    processed_extra_flags = []
-    
+    # ESP-IDF 6.0: Add preprocessed .ld files for missing bootloader linker scripts
     for i in range(0, len(extra_flags), 2):
         if i + 1 < len(extra_flags) and extra_flags[i] == "-T":
             linker_script = extra_flags[i + 1]
@@ -1245,15 +1243,8 @@ def build_bootloader(sdk_config):
                         extra_include_dirs=[str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)]
                     )
                     bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                    processed_extra_flags.extend(["-T", target_script])
-                else:
-                    processed_extra_flags.extend(["-T", linker_script])  # Use original
-            else:
-                processed_extra_flags.extend(["-T", linker_script])  # Use as-is
-        else:
-            processed_extra_flags.append(extra_flags[i] if i < len(extra_flags) else "")
-    
-    link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags))) + processed_extra_flags
+                    # Use AppendUnique to automatically avoid duplicates
+                    bootloader_env.AppendUnique(LINKFLAGS=["-T", target_script])
     bootloader_libs = find_lib_deps(components_map, elf_config, link_args)
 
     bootloader_env.Prepend(__RPATH="-Wl,--start-group ")
