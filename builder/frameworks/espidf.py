@@ -1209,7 +1209,27 @@ def build_bootloader(sdk_config):
     )
 
     bootloader_env.MergeFlags(link_args)
-    bootloader_env.Append(LINKFLAGS=extra_flags)
+    
+    # Process bootloader linker script files - convert .ld.in to .ld if needed
+    processed_extra_flags = []
+    i = 0
+    while i < len(extra_flags):
+        if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
+            linker_script = extra_flags[i + 1]
+            if linker_script.endswith(".ld.in"):
+                # Preprocess the .ld.in file to create the .ld file
+                target_script = linker_script.replace(".ld.in", ".ld")
+                preprocessed_script = preprocess_linker_file(linker_script, target_script)
+                bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
+                processed_extra_flags.extend(["-T", target_script])
+            else:
+                processed_extra_flags.extend(["-T", linker_script])
+            i += 2
+        else:
+            processed_extra_flags.append(extra_flags[i])
+            i += 1
+    
+    bootloader_env.Append(LINKFLAGS=processed_extra_flags)
     bootloader_libs = find_lib_deps(components_map, elf_config, link_args)
 
     bootloader_env.Prepend(__RPATH="-Wl,--start-group ")
