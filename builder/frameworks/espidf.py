@@ -1260,36 +1260,66 @@ def build_bootloader(sdk_config):
             # Check if this is a .ld file that doesn't exist (needs .ld.in preprocessing)
             elif linker_script.endswith(".ld") and not os.path.isfile(linker_script):
                 print(f"DEBUG: Found missing .ld file: {linker_script}")
-                # Try to find the corresponding .ld.in file
-                linker_script_in = linker_script.replace(".ld", ".ld.in")
-                print(f"DEBUG: Looking for .ld.in file: {linker_script_in}")
-                print(f"DEBUG: .ld.in file exists: {os.path.isfile(linker_script_in)}")
                 
-                if os.path.isfile(linker_script_in):
-                    print(f"DEBUG: Using .ld.in file: {linker_script_in}")
-                    # Use the existing preprocess_linker_file function with bootloader-specific configuration
-                    script_name = os.path.basename(linker_script)
-                    target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
-                    
-                    # Bootloader needs its own config directory and additional include paths
-                    bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
-                    bootloader_extra_includes = [
-                        str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)
-                    ]
-                    
-                    preprocessed_script = preprocess_linker_file(
-                        linker_script_in,
-                        target_script,
-                        config_dir=bootloader_config_dir,
-                        extra_include_dirs=bootloader_extra_includes
-                    )
-                    
-                    bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                    processed_extra_flags.extend(["-T", target_script])
-                    print(f"DEBUG: Added preprocessed script from .ld.in: {target_script}")
+                # Search for .ld.in files in ESP-IDF component directories
+                script_basename = os.path.basename(linker_script)
+                script_name_in = script_basename.replace(".ld", ".ld.in")
+                
+                # Common ESP-IDF directories where linker scripts are located
+                search_dirs = [
+                    str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant),
+                    str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant),
+                    str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
+                    str(Path(FRAMEWORK_DIR) / "components" / "esp_rom" / idf_variant),
+                    str(Path(FRAMEWORK_DIR) / "components" / "esp_rom"),
+                    str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld"),
+                ]
+                
+                linker_script_in = None
+                for search_dir in search_dirs:
+                    candidate = str(Path(search_dir) / script_name_in)
+                    if os.path.isfile(candidate):
+                        linker_script_in = candidate
+                        print(f"DEBUG: Found .ld.in file: {linker_script_in}")
+                        break
+                    # Also check for the original .ld file in case it exists
+                    candidate_ld = str(Path(search_dir) / script_basename)
+                    if os.path.isfile(candidate_ld):
+                        linker_script_in = candidate_ld
+                        print(f"DEBUG: Found existing .ld file: {linker_script_in}")
+                        break
+                
+                if linker_script_in:
+                    if linker_script_in.endswith(".ld.in"):
+                        print(f"DEBUG: Preprocessing .ld.in file: {linker_script_in}")
+                        # Use the existing preprocess_linker_file function with bootloader-specific configuration
+                        target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
+                        
+                        # Bootloader needs its own config directory and additional include paths
+                        bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
+                        bootloader_extra_includes = [
+                            str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant),
+                            str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant),
+                            str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
+                            str(Path(FRAMEWORK_DIR) / "components" / "esp_rom" / idf_variant),
+                        ]
+                        
+                        preprocessed_script = preprocess_linker_file(
+                            linker_script_in,
+                            target_script,
+                            config_dir=bootloader_config_dir,
+                            extra_include_dirs=bootloader_extra_includes
+                        )
+                        
+                        bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
+                        processed_extra_flags.extend(["-T", target_script])
+                        print(f"DEBUG: Added preprocessed script from .ld.in: {target_script}")
+                    else:
+                        print(f"DEBUG: Using found .ld file: {linker_script_in}")
+                        processed_extra_flags.extend(["-T", linker_script_in])
                 else:
-                    print(f"DEBUG: .ld.in file not found, using original: {linker_script}")
-                    # Fall back to original file if .ld.in doesn't exist
+                    print(f"DEBUG: No .ld.in or .ld file found for: {script_basename}, using original: {linker_script}")
+                    # Fall back to original file if no alternatives found
                     processed_extra_flags.extend(["-T", linker_script])
             else:
                 print(f"DEBUG: Using existing file: {linker_script}")
