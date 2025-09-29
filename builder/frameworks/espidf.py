@@ -1303,9 +1303,6 @@ def build_bootloader(sdk_config):
                     sys.stderr.write(f"  - {bootloader_script_in_path}\n")
                     sys.stderr.write(f"Check your ESP-IDF installation and framework version compatibility.\n")
                     env.Exit(1)
-                
-                # For non-critical scripts, fall back to original path
-                processed_extra_flags.extend(["-T", linker_script])
             else:
                 # Use the original file if it exists
                 processed_extra_flags.extend(["-T", linker_script])
