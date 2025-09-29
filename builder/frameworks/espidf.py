@@ -1253,11 +1253,6 @@ def build_bootloader(sdk_config):
         else:
             processed_extra_flags.append(extra_flags[i] if i < len(extra_flags) else "")
     
-    # Add bootloader.rom.ld if available
-    bootloader_rom_ld = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rom.ld")
-    if os.path.isfile(bootloader_rom_ld):
-        processed_extra_flags.extend(["-T", bootloader_rom_ld])
-    
     link_args["LINKFLAGS"] = sorted(list(set(link_args["LINKFLAGS"]) - set(extra_flags))) + processed_extra_flags
     bootloader_libs = find_lib_deps(components_map, elf_config, link_args)
 
