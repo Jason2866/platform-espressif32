@@ -1259,11 +1259,6 @@ def build_bootloader(sdk_config):
         if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
             linker_script = extra_flags[i + 1]
             
-            # Skip ROM scripts - not needed for bootloader
-            if linker_script.endswith(".rom.ld"):
-                i += 2
-                continue
-            
             # Process .ld.in templates directly
             if linker_script.endswith(".ld.in"):
                 script_name = os.path.basename(linker_script).replace(".ld.in", ".ld")
@@ -1308,10 +1303,10 @@ def build_bootloader(sdk_config):
                     bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
                     processed_extra_flags.extend(["-T", target_script])
                 else:
-                    # Pass through if no template found
+                    # Pass through if no template found (e.g., ROM scripts)
                     processed_extra_flags.extend(["-T", linker_script])
             else:
-                # Pass through any other linker flags unchanged
+                # Pass through any other linker flags unchanged (including ROM scripts)
                 processed_extra_flags.extend(["-T", linker_script])
             i += 2
         else:
