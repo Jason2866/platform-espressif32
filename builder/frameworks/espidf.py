@@ -1255,7 +1255,12 @@ def build_bootloader(sdk_config):
                 script_basename = os.path.basename(linker_script)
                 script_name_in = script_basename.replace(".ld", ".ld.in")
                 
-                # Check bootloader linker scripts (bootloader doesn't use ROM scripts)
+                # Skip ROM scripts for bootloader - they're not needed and cause issues
+                if script_basename.endswith(".rom.ld"):
+                    # ROM scripts are not used in bootloader, skip them
+                    continue
+                
+                # Check bootloader linker scripts (non-ROM scripts)
                 bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
                 bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
                 
@@ -1291,13 +1296,8 @@ def build_bootloader(sdk_config):
                     else:
                         processed_extra_flags.extend(["-T", linker_script_in])
                 else:
-                    # No .ld file and no .ld.in template found - this will cause linker errors
-                    sys.stderr.write(f"Error: Missing bootloader linker script '{linker_script}'\n")
-                    sys.stderr.write(f"Expected either:\n")
-                    sys.stderr.write(f"  - {bootloader_script_path}\n")
-                    sys.stderr.write(f"  - {bootloader_script_in_path}\n")
-                    sys.stderr.write(f"Check your ESP-IDF installation and framework version compatibility.\n")
-                    env.Exit(1)
+                    # No bootloader .ld file and no .ld.in template found - fall back to original
+                    processed_extra_flags.extend(["-T", linker_script])
             else:
                 # Use the original file if it exists
                 processed_extra_flags.extend(["-T", linker_script])
