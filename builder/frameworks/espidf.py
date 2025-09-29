@@ -1157,6 +1157,11 @@ def find_lib_deps(components_map, elf_config, link_args, ignore_components=None)
 
 def build_bootloader(sdk_config):
     bootloader_src_dir = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject")
+    
+    # Configure ESP-IDF version environment variables for bootloader CMake
+    framework_version = get_framework_version()
+    major_version = framework_version.split('.')[0] + '.' + framework_version.split('.')[1]
+    
     code_model = get_cmake_code_model(
         bootloader_src_dir,
         str(Path(BUILD_DIR) / "bootloader"),
@@ -1169,6 +1174,9 @@ def build_bootloader(sdk_config):
             "-DPROJECT_SOURCE_DIR=" + PROJECT_DIR,
             "-DLEGACY_INCLUDE_COMMON_HEADERS=",
             "-DEXTRA_COMPONENT_DIRS=" + str(Path(FRAMEWORK_DIR) / "components" / "bootloader"),
+            f"-DESP_IDF_VERSION={major_version}",
+            f"-DESP_IDF_VERSION_MAJOR={framework_version.split('.')[0]}",
+            f"-DESP_IDF_VERSION_MINOR={framework_version.split('.')[1]}",
         ],
     )
 
