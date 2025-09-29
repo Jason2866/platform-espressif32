@@ -1259,7 +1259,7 @@ def build_bootloader(sdk_config):
                 bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
                 bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
                 
-                # ESP32-P4 specific: Check for bootloader.rev3.ld.in based on CONFIG_ESP32P4_REV_MIN_300
+                # ESP32-P4 specific: Use rev3 version if configured and available
                 if idf_variant == "esp32p4" and script_basename == "bootloader.ld":
                     sdk_config = get_sdk_configuration()
                     if sdk_config.get("ESP32P4_REV_MIN_300", False):
@@ -1267,6 +1267,7 @@ def build_bootloader(sdk_config):
                         if os.path.isfile(bootloader_rev3_path):
                             bootloader_script_in_path = bootloader_rev3_path
                 
+                # Priority order: .ld file first, then .ld.in template (potentially rev3 version)
                 linker_script_in = None
                 if os.path.isfile(bootloader_script_path):
                     linker_script_in = bootloader_script_path
