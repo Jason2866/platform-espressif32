@@ -1265,14 +1265,19 @@ def build_bootloader(sdk_config):
                 script_basename = os.path.basename(linker_script)
                 script_name_in = script_basename.replace(".ld", ".ld.in")
                 
-                # Common ESP-IDF directories where linker scripts are located
+                # ESP-IDF 6.0 directories where linker scripts are located (based on Tasmota ESP-IDF structure)
                 search_dirs = [
+                    # Bootloader-specific linker scripts
                     str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant),
+                    str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld"),
+                    # ROM linker scripts for each chip
+                    str(Path(FRAMEWORK_DIR) / "components" / "esp_rom" / idf_variant / "ld"),
+                    str(Path(FRAMEWORK_DIR) / "components" / "esp_rom" / idf_variant),
+                    # System linker scripts
                     str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant),
                     str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
-                    str(Path(FRAMEWORK_DIR) / "components" / "esp_rom" / idf_variant),
+                    # Fallback directories
                     str(Path(FRAMEWORK_DIR) / "components" / "esp_rom"),
-                    str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld"),
                 ]
                 
                 linker_script_in = None
