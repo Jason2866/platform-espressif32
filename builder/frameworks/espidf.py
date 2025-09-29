@@ -1211,6 +1211,7 @@ def build_bootloader(sdk_config):
     bootloader_env.MergeFlags(link_args)
     
     # Process bootloader linker script files - convert .ld.in to .ld if needed
+    # ESP-IDF 6.0 renamed bootloader.ld to bootloader.ld.in and requires preprocessing
     processed_extra_flags = []
     i = 0
     while i < len(extra_flags):
@@ -1445,7 +1446,7 @@ def preprocess_linker_file(src_ld_script, target_ld_script):
                     f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
-                    f'-DCFLAGS="-I\\"{str(Path(BUILD_DIR) / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\""',
+                    f'-DCFLAGS=-I\\"{str(Path(BUILD_DIR) / "config")}\\" -I\\"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}\\"',
                     "-P",
                     f'"{str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")}"',
                 ]
