@@ -1221,6 +1221,13 @@ def build_bootloader(sdk_config):
     # Handle ESP-IDF 6.0 linker script preprocessing for .ld.in files
     # Check all linker scripts and preprocess .ld.in files or handle missing .ld files
     processed_extra_flags = []
+    
+    # Bootloader preprocessing configuration (defined once, reused)
+    bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
+    bootloader_extra_includes = [
+        str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)
+    ]
+    
     i = 0
     while i < len(extra_flags):
         if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
@@ -1231,12 +1238,6 @@ def build_bootloader(sdk_config):
                 # Direct .ld.in file - preprocess it
                 script_name = os.path.basename(linker_script).replace(".ld.in", ".ld")
                 target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
-                
-                # Bootloader needs its own config directory and additional include paths
-                bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
-                bootloader_extra_includes = [
-                    str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)
-                ]
                 
                 preprocessed_script = preprocess_linker_file(
                     linker_script,
@@ -1254,12 +1255,11 @@ def build_bootloader(sdk_config):
                 script_basename = os.path.basename(linker_script)
                 script_name_in = script_basename.replace(".ld", ".ld.in")
                 
-                linker_script_in = None
-                
                 # Check bootloader linker scripts (bootloader doesn't use ROM scripts)
                 bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
                 bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
                 
+                linker_script_in = None
                 if os.path.isfile(bootloader_script_path):
                     linker_script_in = bootloader_script_path
                 elif os.path.isfile(bootloader_script_in_path):
@@ -1267,14 +1267,8 @@ def build_bootloader(sdk_config):
                 
                 if linker_script_in:
                     if linker_script_in.endswith(".ld.in"):
-                        # Use the existing preprocess_linker_file function with bootloader-specific configuration
+                        # Preprocess .ld.in file
                         target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
-                        
-                        # Bootloader needs its own config directory and additional include paths
-                        bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
-                        bootloader_extra_includes = [
-                            str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant),
-                        ]
                         
                         preprocessed_script = preprocess_linker_file(
                             linker_script_in,
