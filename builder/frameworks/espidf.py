@@ -1227,7 +1227,9 @@ def build_bootloader(sdk_config):
             linker_script = extra_flags[i + 1]
             if linker_script.endswith(".ld.in"):
                 # For bootloader, create a custom preprocessing function with bootloader-specific paths
-                target_script = linker_script.replace(".ld.in", ".ld")
+                # Use absolute path for target script in bootloader directory
+                script_name = os.path.basename(linker_script).replace(".ld.in", ".ld")
+                target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
                 
                 # Create custom preprocessing command for bootloader
                 preprocessed_script = env.Command(
