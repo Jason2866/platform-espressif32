@@ -1228,6 +1228,11 @@ def build_bootloader(sdk_config):
         str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)
     ]
     
+    # Add bootloader.rom.ld as required by ESP-IDF 6.0 bootloader CMakeLists.txt
+    bootloader_rom_ld = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rom.ld")
+    if os.path.isfile(bootloader_rom_ld):
+        processed_extra_flags.extend(["-T", bootloader_rom_ld])
+    
     i = 0
     while i < len(extra_flags):
         if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
@@ -1258,6 +1263,14 @@ def build_bootloader(sdk_config):
                 # Check bootloader linker scripts (bootloader doesn't use ROM scripts)
                 bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
                 bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
+                
+                # ESP32-P4 specific: Check for bootloader.rev3.ld.in based on CONFIG_ESP32P4_REV_MIN_300
+                if idf_variant == "esp32p4" and script_basename == "bootloader.ld":
+                    sdk_config = get_sdk_configuration()
+                    if sdk_config.get("ESP32P4_REV_MIN_300", False):
+                        bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
+                        if os.path.isfile(bootloader_rev3_path):
+                            bootloader_script_in_path = bootloader_rev3_path
                 
                 linker_script_in = None
                 if os.path.isfile(bootloader_script_path):
