@@ -958,8 +958,8 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
 
     initial_ld_script = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "sections.ld.in")
 
-    framework_version = [int(v) for v in get_framework_version().split(".")]
-    if framework_version[:2] > [5, 2]:
+    framework_version_list = [int(v) for v in get_framework_version().split(".")]
+    if framework_version_list[:2] > [5, 2]:
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "sections.ld.in"),
@@ -1789,8 +1789,8 @@ generate_default_component()
 if not board.get("build.ldscript", ""):
     initial_ld_script = board.get("build.esp-idf.ldscript", str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "memory.ld.in"))
 
-    framework_version = [int(v) for v in get_framework_version().split(".")]
-    if framework_version[:2] > [5, 2]:
+    framework_version_list = [int(v) for v in get_framework_version().split(".")]
+    if framework_version_list[:2] > [5, 2]:
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "memory.ld.in")
