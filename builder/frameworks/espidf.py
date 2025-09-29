@@ -1264,7 +1264,7 @@ def build_bootloader(sdk_config):
                 i += 2
                 continue
             
-            # All bootloader scripts are .ld.in templates that need preprocessing
+            # Process .ld.in templates directly
             if linker_script.endswith(".ld.in"):
                 script_name = os.path.basename(linker_script).replace(".ld.in", ".ld")
                 target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
@@ -1278,6 +1278,38 @@ def build_bootloader(sdk_config):
                 
                 bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
                 processed_extra_flags.extend(["-T", target_script])
+            # Handle .ld files that need to be generated from .ld.in templates
+            elif linker_script.endswith(".ld"):
+                script_basename = os.path.basename(linker_script)
+                script_name_in = script_basename.replace(".ld", ".ld.in")
+                
+                # Find the corresponding .ld.in template
+                bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
+                
+                # ESP32-P4 specific: Check for bootloader.rev3.ld.in
+                if idf_variant == "esp32p4" and script_basename == "bootloader.ld":
+                    sdk_config = get_sdk_configuration()
+                    if sdk_config.get("ESP32P4_REV_MIN_300", False):
+                        bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
+                        if os.path.isfile(bootloader_rev3_path):
+                            bootloader_script_in_path = bootloader_rev3_path
+                
+                # Preprocess the .ld.in template to generate the .ld file
+                if os.path.isfile(bootloader_script_in_path):
+                    target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
+                    
+                    preprocessed_script = preprocess_linker_file(
+                        bootloader_script_in_path,
+                        target_script,
+                        config_dir=bootloader_config_dir,
+                        extra_include_dirs=bootloader_extra_includes
+                    )
+                    
+                    bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
+                    processed_extra_flags.extend(["-T", target_script])
+                else:
+                    # Pass through if no template found
+                    processed_extra_flags.extend(["-T", linker_script])
             else:
                 # Pass through any other linker flags unchanged
                 processed_extra_flags.extend(["-T", linker_script])
