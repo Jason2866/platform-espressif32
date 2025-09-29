@@ -1250,25 +1250,20 @@ def build_bootloader(sdk_config):
                 
             # Check if this is a .ld file that doesn't exist (needs .ld.in preprocessing)
             elif linker_script.endswith(".ld") and not os.path.isfile(linker_script):
-                # Construct paths directly based on ESP-IDF 6.0 structure
+                # Construct paths directly based on ESP-IDF 6.0 bootloader structure
                 script_basename = os.path.basename(linker_script)
                 script_name_in = script_basename.replace(".ld", ".ld.in")
                 
                 linker_script_in = None
                 
-                # Check ROM linker scripts first
-                rom_script_path = str(Path(FRAMEWORK_DIR) / "components" / "esp_rom" / idf_variant / "ld" / script_basename)
-                if os.path.isfile(rom_script_path):
-                    linker_script_in = rom_script_path
-                # Check bootloader linker scripts
-                else:
-                    bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
-                    bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
-                    
-                    if os.path.isfile(bootloader_script_path):
-                        linker_script_in = bootloader_script_path
-                    elif os.path.isfile(bootloader_script_in_path):
-                        linker_script_in = bootloader_script_in_path
+                # Check bootloader linker scripts (bootloader doesn't use ROM scripts)
+                bootloader_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
+                bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
+                
+                if os.path.isfile(bootloader_script_path):
+                    linker_script_in = bootloader_script_path
+                elif os.path.isfile(bootloader_script_in_path):
+                    linker_script_in = bootloader_script_in_path
                 
                 if linker_script_in:
                     if linker_script_in.endswith(".ld.in"):
@@ -1279,9 +1274,6 @@ def build_bootloader(sdk_config):
                         bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
                         bootloader_extra_includes = [
                             str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant),
-                            str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant),
-                            str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
-                            str(Path(FRAMEWORK_DIR) / "components" / "esp_rom" / idf_variant),
                         ]
                         
                         preprocessed_script = preprocess_linker_file(
