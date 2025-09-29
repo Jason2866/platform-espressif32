@@ -1563,7 +1563,7 @@ def generate_mbedtls_bundle(sdk_config):
 
     crt_args.append("-q")
 
-    # Use exec_command to change working directory 
+    # Use exec_command to change working directory
     exec_command(cmd + crt_args, cwd=BUILD_DIR)
     env.Execute(
         env.VerboseAction(
