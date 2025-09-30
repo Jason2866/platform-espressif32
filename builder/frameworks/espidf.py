@@ -1497,11 +1497,21 @@ def get_app_partition_offset(pt_table, pt_offset):
     return factory_app_params.get("offset", "0x10000")
 
 
-def preprocess_linker_file(src_ld_script, target_ld_script):
+def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, extra_include_dirs=None):
     """
     Preprocess a linker script file (.ld.in) using CMake and generated linker_script_generator.cmake.
     This is the original working method that uses a CMake script generated in the build directory.
+    
+    Args:
+        src_ld_script: Source .ld.in file path
+        target_ld_script: Target .ld file path
+        config_dir: Configuration directory (defaults to BUILD_DIR/config for main app)
+        extra_include_dirs: Additional include directories (list)
     """
+    # Use default config directory if not specified
+    if config_dir is None:
+        config_dir = str(Path(BUILD_DIR) / "config")
+    
     # Ensure the esp-idf/esp_system/ld directory exists in build directory
     ld_build_dir = str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld")
     Path(ld_build_dir).mkdir(parents=True, exist_ok=True)
@@ -1521,6 +1531,34 @@ string(REPLACE "\\\\n" "\\n" TEXT "${PREPROCESSED_LINKER_SCRIPT}")
 file(WRITE "${TARGET}" "${TEXT}")
 """)
     
+    # Build include directories list
+    ld_include_dir = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")
+    include_dirs = f'"{config_dir}" "{ld_include_dir}"'
+    
+    if extra_include_dirs:
+        for include_dir in extra_include_dirs:
+            include_dirs += f' "{include_dir}"'
+    
+    # Create an enhanced generator script if we have extra include dirs
+    if extra_include_dirs:
+        enhanced_generator = str(Path(ld_build_dir) / f"linker_script_generator_{len(extra_include_dirs)}.cmake")
+        if not os.path.isfile(enhanced_generator):
+            include_flags = ' '.join([f'"-I" "{inc}"' for inc in extra_include_dirs])
+            with open(enhanced_generator, "w") as f:
+                f.write(f"""execute_process(COMMAND "${{CC}}" "-C" "-P" "-x" "c" "-E" "-I" "${{CONFIG_DIR}}" "-I" "${{LD_DIR}}" {include_flags} "${{SOURCE}}"
+                RESULT_VARIABLE RET_CODE
+                OUTPUT_VARIABLE PREPROCESSED_LINKER_SCRIPT
+                ERROR_VARIABLE ERROR_VAR)
+if(RET_CODE AND NOT RET_CODE EQUAL 0)
+    message(FATAL_ERROR "Can't generate ${{TARGET}}\\nRET_CODE: ${{RET_CODE}}\\nERROR_MESSAGE: ${{ERROR_VAR}}")
+endif()
+string(REPLACE "\\\\n" "\\n" TEXT "${{PREPROCESSED_LINKER_SCRIPT}}")
+file(WRITE "${{TARGET}}" "${{TEXT}}")
+""")
+        generator_script = enhanced_generator
+    else:
+        generator_script = linker_script_generator
+    
     return env.Command(
         target_ld_script,
         src_ld_script,
@@ -1531,10 +1569,10 @@ file(WRITE "${TARGET}" "${TEXT}")
                     f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
-                    f'-DCONFIG_DIR="{str(Path(BUILD_DIR) / "config")}"',
-                    f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
+                    f'-DCONFIG_DIR="{config_dir}"',
+                    f'-DLD_DIR="{ld_include_dir}"',
                     "-P",
-                    f'"{linker_script_generator}"',
+                    f'"{generator_script}"',
                 ]
             ),
             "Generating LD script $TARGET",
