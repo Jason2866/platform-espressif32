@@ -959,11 +959,15 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
     initial_ld_script = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "sections.ld.in")
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
-    if framework_version_list[:2] >= [6, 0]:
+    print(f"[DEBUG] Framework version: {get_framework_version()}, parsed: {framework_version_list[:2]}")
+    if framework_version_list[:2] > [5, 2]:
+        print("[DEBUG] Using IDF 5.3+ linker preprocessing for sections.ld.in")
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "sections.ld.in"),
         )
+    else:
+        print("[DEBUG] Using IDF 5.2 and below - no preprocessing for sections.ld.in")
 
     return env.Command(
         str(Path("$BUILD_DIR") / "sections.ld"),
@@ -1493,31 +1497,29 @@ def get_app_partition_offset(pt_table, pt_offset):
     return factory_app_params.get("offset", "0x10000")
 
 
-def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, extra_include_dirs=None):
+def preprocess_linker_file(src_ld_script, target_ld_script):
     """
-    Preprocess a linker script file (.ld.in) to generate the final .ld file.
-    
-    Args:
-        src_ld_script: Source .ld.in file path
-        target_ld_script: Target .ld file path  
-        config_dir: Configuration directory (defaults to BUILD_DIR/config for main app)
-        extra_include_dirs: Additional include directories (list)
+    Preprocess a linker script file (.ld.in) using CMake and generated linker_script_generator.cmake.
+    This is the original working method that uses a CMake script generated in the build directory.
     """
-    if config_dir is None:
-        config_dir = str(Path(BUILD_DIR) / "config")
+    # Ensure the esp-idf/esp_system/ld directory exists in build directory
+    ld_build_dir = str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld")
+    Path(ld_build_dir).mkdir(parents=True, exist_ok=True)
     
-    # Convert all paths to forward slashes for CMake compatibility on Windows
-    config_dir = fs.to_unix_path(config_dir)
-    src_ld_script = fs.to_unix_path(src_ld_script)
-    target_ld_script = fs.to_unix_path(target_ld_script)
-    
-    include_dirs = [f'"{config_dir}"']
-    include_dirs.append(f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"))}"')
-    
-    if extra_include_dirs:
-        include_dirs.extend(f'"{fs.to_unix_path(dir_path)}"' for dir_path in extra_include_dirs)
-    
-    cflags_value = "-I" + " -I".join(include_dirs)
+    # Create the linker_script_generator.cmake file (equivalent to what ld.cmake does)
+    linker_script_generator = str(Path(ld_build_dir) / "linker_script_generator.cmake")
+    if not os.path.isfile(linker_script_generator):
+        with open(linker_script_generator, "w") as f:
+            f.write("""execute_process(COMMAND "${CC}" "-C" "-P" "-x" "c" "-E" "-I" "${CONFIG_DIR}" "-I" "${LD_DIR}" "${SOURCE}"
+                RESULT_VARIABLE RET_CODE
+                OUTPUT_VARIABLE PREPROCESSED_LINKER_SCRIPT
+                ERROR_VARIABLE ERROR_VAR)
+if(RET_CODE AND NOT RET_CODE EQUAL 0)
+    message(FATAL_ERROR "Can't generate ${TARGET}\\nRET_CODE: ${RET_CODE}\\nERROR_MESSAGE: ${ERROR_VAR}")
+endif()
+string(REPLACE "\\\\n" "\\n" TEXT "${PREPROCESSED_LINKER_SCRIPT}")
+file(WRITE "${TARGET}" "${TEXT}")
+""")
     
     return env.Command(
         target_ld_script,
@@ -1526,12 +1528,13 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
             " ".join(
                 [
                     f'"{CMAKE_DIR}"',
-                    f'-DCC="{fs.to_unix_path(str(Path(TOOLCHAIN_DIR) / "bin" / "$CC"))}"',
-                    f'-DSOURCE="{src_ld_script}"',
-                    f'-DTARGET="{target_ld_script}"',
-                    f'-DCFLAGS="{cflags_value}"',
+                    f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
+                    "-DSOURCE=$SOURCE",
+                    "-DTARGET=$TARGET",
+                    f'-DCONFIG_DIR="{str(Path(BUILD_DIR) / "config")}"',
+                    f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
                     "-P",
-                    f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake"))}"',
+                    f'"{linker_script_generator}"',
                 ]
             ),
             "Generating LD script $TARGET",
@@ -1781,11 +1784,15 @@ if not board.get("build.ldscript", ""):
     initial_ld_script = board.get("build.esp-idf.ldscript", str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "memory.ld.in"))
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
-    if framework_version_list[:2] >= [6, 0]:
+    print(f"[DEBUG] Framework version: {get_framework_version()}, parsed: {framework_version_list[:2]}")
+    if framework_version_list[:2] > [5, 2]:
+        print("[DEBUG] Using IDF 5.3+ linker preprocessing for memory.ld.in")
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "memory.ld.in")
         )
+    else:
+        print("[DEBUG] Using IDF 5.2 and below - no preprocessing for memory.ld.in")
 
     linker_script = env.Command(
         str(Path("$BUILD_DIR") / "memory.ld"),
