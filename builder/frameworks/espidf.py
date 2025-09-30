@@ -200,6 +200,27 @@ if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
 if "espidf.custom_sdkconfig" in board:
     flag_custom_sdkonfig = True
 
+# Check for board-specific configurations that require sdkconfig generation
+def has_board_specific_config_global():
+    """Check if board has configuration that needs to be applied to sdkconfig."""
+    # Check for PSRAM support
+    extra_flags = board.get("build.extra_flags", [])
+    has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
+    
+    # Check for special memory types  
+    memory_type = board.get("build.arduino.memory_type") or board.get("build.memory_type")
+    has_special_memory = memory_type and ("opi" in memory_type.lower())
+    
+    # Check for non-default flash frequency
+    f_flash = board.get("build.f_flash", "80000000L")
+    flash_freq = str(f_flash).replace("000000L", "").replace("L", "")
+    has_custom_flash_freq = flash_freq != "80"
+    
+    return has_psram or has_special_memory or has_custom_flash_freq
+
+if has_board_specific_config_global():
+    flag_custom_sdkonfig = True
+
 def HandleArduinoIDFsettings(env):
     """
     Handles Arduino IDF settings configuration with custom sdkconfig support.
@@ -266,22 +287,112 @@ def HandleArduinoIDFsettings(env):
             return line.split("=")[0]
         return None
 
+    def generate_board_specific_config():
+        """Generate board-specific sdkconfig settings from board.json manifest."""
+        board_config_flags = []
+        
+        # Check for PSRAM support based on board flags
+        extra_flags = board.get("build.extra_flags", [])
+        has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
+        
+        if has_psram:
+            # Enable basic SPIRAM support
+            board_config_flags.append("CONFIG_SPIRAM=y")
+            
+            # Configure PSRAM type based on board configuration
+            psram_type = board.get("build.psram_type", "qio").lower()
+            
+            if psram_type == "opi":
+                # Octal PSRAM configuration for ESP32-S3
+                if mcu == "esp32s3":
+                    board_config_flags.extend([
+                        "CONFIG_SPIRAM_MODE_OCT=y",
+                        "# CONFIG_SPIRAM_MODE_QUAD is not set",
+                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y",
+                        "CONFIG_SPIRAM_SIZE_8MB=y",
+                        "CONFIG_SPIRAM_SPEED_80M=y",
+                        "CONFIG_SPIRAM_BOOT_INIT=y",
+                        "CONFIG_SPIRAM_USE_MALLOC=y",
+                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384",
+                        "CONFIG_SPIRAM_CACHE_WORKAROUND=y"
+                    ])
+                    
+            elif psram_type == "qio" or psram_type == "qspi":
+                # Quad PSRAM configuration
+                if mcu in ["esp32s2", "esp32s3"]:
+                    board_config_flags.extend([
+                        "CONFIG_SPIRAM_MODE_QUAD=y",
+                        "# CONFIG_SPIRAM_MODE_OCT is not set",
+                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y",
+                        "CONFIG_SPIRAM_SIZE_2MB=y",
+                        "CONFIG_SPIRAM_SPEED_80M=y",
+                        "CONFIG_SPIRAM_BOOT_INIT=y",
+                        "CONFIG_SPIRAM_USE_MALLOC=y",
+                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384"
+                    ])
+                elif mcu == "esp32":
+                    board_config_flags.extend([
+                        "CONFIG_SPIRAM_TYPE_ESPPSRAM32=y",
+                        "CONFIG_SPIRAM_SIZE_4MB=y",
+                        "CONFIG_SPIRAM_SPEED_40M=y",
+                        "CONFIG_SPIRAM_BOOT_INIT=y",
+                        "CONFIG_SPIRAM_USE_MALLOC=y",
+                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384",
+                        "CONFIG_SPIRAM_CACHE_WORKAROUND=y"
+                    ])
+        
+        # Handle memory type configuration
+        memory_type = board.get("build.arduino.memory_type") or board.get("build.memory_type")
+        if memory_type:
+            if "opi" in memory_type.lower():
+                # OPI memory configurations require specific flash settings
+                board_config_flags.extend([
+                    "CONFIG_ESPTOOLPY_FLASHMODE_OPI=y",
+                    "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set",
+                    "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
+                    "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set",
+                    "# CONFIG_ESPTOOLPY_FLASHMODE_DOUT is not set"
+                ])
+        
+        # Handle flash frequency based on board configuration
+        f_flash = board.get("build.f_flash", "80000000L")
+        flash_freq = str(f_flash).replace("000000L", "").replace("L", "")
+        if flash_freq == "80":
+            board_config_flags.append("CONFIG_ESPTOOLPY_FLASHFREQ_80M=y")
+        elif flash_freq == "40":
+            board_config_flags.extend([
+                "CONFIG_ESPTOOLPY_FLASHFREQ_40M=y",
+                "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set"
+            ])
+        elif flash_freq == "20":
+            board_config_flags.extend([
+                "CONFIG_ESPTOOLPY_FLASHFREQ_20M=y", 
+                "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set"
+            ])
+        
+        return board_config_flags
+
     def build_idf_config_flags():
         """Build complete IDF configuration flags from all sources."""
         flags = []
         
-        # Add board-specific flags first
-        if "espidf.custom_sdkconfig" in board:
-            board_flags = board.get("espidf.custom_sdkconfig", [])
-            if board_flags:
-                flags.extend(board_flags)
+        # FIRST: Add board-specific flags derived from board.json manifest
+        board_flags = generate_board_specific_config()
+        if board_flags:
+            flags.extend(board_flags)
         
-        # Add custom sdkconfig file content
+        # SECOND: Add board-specific flags from board manifest (espidf.custom_sdkconfig)
+        if "espidf.custom_sdkconfig" in board:
+            board_manifest_flags = board.get("espidf.custom_sdkconfig", [])
+            if board_manifest_flags:
+                flags.extend(board_manifest_flags)
+        
+        # THIRD: Add custom sdkconfig file content
         custom_file_content = load_custom_sdkconfig_file()
         if custom_file_content:
             flags.append(custom_file_content)
         
-        # Add project-level custom sdkconfig
+        # FOURTH: Add project-level custom sdkconfig (highest precedence for user overrides)
         if config.has_option("env:" + env["PIOENV"], "custom_sdkconfig"):
             custom_flags = env.GetProjectOption("custom_sdkconfig").rstrip("\n")
             if custom_flags:
@@ -357,16 +468,38 @@ def HandleArduinoIDFsettings(env):
                 print(f"Add: {cleaned_flag}")
                 dst.write(cleaned_flag + "\n")
 
+    def has_board_specific_config():
+        """Check if board has configuration that needs to be applied to sdkconfig."""
+        # Check for PSRAM support
+        extra_flags = board.get("build.extra_flags", [])
+        has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
+        
+        # Check for special memory types  
+        memory_type = board.get("build.arduino.memory_type") or board.get("build.memory_type")
+        has_special_memory = memory_type and ("opi" in memory_type.lower())
+        
+        # Check for non-default flash frequency
+        f_flash = board.get("build.f_flash", "80000000L")
+        flash_freq = str(f_flash).replace("000000L", "").replace("L", "")
+        has_custom_flash_freq = flash_freq != "80"
+        
+        return has_psram or has_special_memory or has_custom_flash_freq
+    
     # Main execution logic
     has_custom_config = (
         config.has_option("env:" + env["PIOENV"], "custom_sdkconfig") or
         "espidf.custom_sdkconfig" in board
     )
     
-    if not has_custom_config:
+    has_board_config = has_board_specific_config()
+    
+    if not has_custom_config and not has_board_config:
         return
     
-    print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
+    if has_board_config and not has_custom_config:
+        print("*** Apply board-specific settings to IDF sdkconfig.defaults ***")
+    else:
+        print("*** Add \"custom_sdkconfig\" settings to IDF sdkconfig.defaults ***")
     
     # Build complete configuration
     idf_config_flags = build_idf_config_flags()
