@@ -1273,40 +1273,47 @@ def build_bootloader(sdk_config):
                 
                 bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
                 processed_extra_flags.extend(["-T", target_script])
-            # Handle .ld files that need to be generated from .ld.in templates
+            # Handle .ld files - prioritize using original scripts when available
             elif linker_script.endswith(".ld"):
                 script_basename = os.path.basename(linker_script)
-                script_name_in = script_basename.replace(".ld", ".ld.in")
                 
-                # Find the corresponding .ld.in template
-                bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
+                # Check if the original .ld file exists in framework and use it directly
+                original_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
                 
-                # ESP32-P4 specific: Check for bootloader.rev3.ld.in
-                if idf_variant == "esp32p4" and script_basename == "bootloader.ld":
-                    sdk_config = get_sdk_configuration()
-                    if sdk_config.get("ESP32P4_REV_MIN_300", False):
-                        bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
-                        if os.path.isfile(bootloader_rev3_path):
-                            bootloader_script_in_path = bootloader_rev3_path
-                
-                # Preprocess the .ld.in template to generate the .ld file
-                if os.path.isfile(bootloader_script_in_path):
-                    target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
-                    
-                    preprocessed_script = preprocess_linker_file(
-                        bootloader_script_in_path,
-                        target_script,
-                        config_dir=bootloader_config_dir,
-                        extra_include_dirs=bootloader_extra_includes
-                    )
-                    
-                    bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                    processed_extra_flags.extend(["-T", target_script])
+                if os.path.isfile(original_script_path):
+                    # Use the original script directly - no preprocessing needed
+                    processed_extra_flags.extend(["-T", original_script_path])
                 else:
-                    # Pass through if no template found (e.g., ROM scripts)
-                    processed_extra_flags.extend(["-T", linker_script])
+                    # Only generate from template if no original .ld file exists
+                    script_name_in = script_basename.replace(".ld", ".ld.in")
+                    bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
+                    
+                    # ESP32-P4 specific: Check for bootloader.rev3.ld.in
+                    if idf_variant == "esp32p4" and script_basename == "bootloader.ld":
+                        sdk_config = get_sdk_configuration()
+                        if sdk_config.get("ESP32P4_REV_MIN_300", False):
+                            bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
+                            if os.path.isfile(bootloader_rev3_path):
+                                bootloader_script_in_path = bootloader_rev3_path
+                    
+                    # Preprocess the .ld.in template to generate the .ld file
+                    if os.path.isfile(bootloader_script_in_path):
+                        target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
+                        
+                        preprocessed_script = preprocess_linker_file(
+                            bootloader_script_in_path,
+                            target_script,
+                            config_dir=bootloader_config_dir,
+                            extra_include_dirs=bootloader_extra_includes
+                        )
+                        
+                        bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
+                        processed_extra_flags.extend(["-T", target_script])
+                    else:
+                        # Pass through if neither original nor template found (e.g., ROM scripts)
+                        processed_extra_flags.extend(["-T", linker_script])
             else:
-                # Pass through any other linker flags unchanged (including ROM scripts)
+                # Pass through any other linker flags unchanged
                 processed_extra_flags.extend(["-T", linker_script])
             i += 2
         else:
@@ -1495,65 +1502,18 @@ def get_app_partition_offset(pt_table, pt_offset):
 
 def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, extra_include_dirs=None):
     """
-    Preprocess a linker script file (.ld.in) using CMake and generated linker_script_generator.cmake.
-    This is the original working method that uses a CMake script generated in the build directory.
+    Preprocess a linker script file (.ld.in) using CMake and existing linker_script_generator.cmake.
+    This is the original simple method that references an existing CMake script.
     
     Args:
         src_ld_script: Source .ld.in file path
         target_ld_script: Target .ld file path
         config_dir: Configuration directory (defaults to BUILD_DIR/config for main app)
-        extra_include_dirs: Additional include directories (list)
+        extra_include_dirs: Additional include directories (list) - ignored in simple version
     """
     # Use default config directory if not specified
     if config_dir is None:
         config_dir = str(Path(BUILD_DIR) / "config")
-    
-    # Ensure the esp-idf/esp_system/ld directory exists in build directory
-    ld_build_dir = str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld")
-    Path(ld_build_dir).mkdir(parents=True, exist_ok=True)
-    
-    # Create the linker_script_generator.cmake file (equivalent to what ld.cmake does)
-    linker_script_generator = str(Path(ld_build_dir) / "linker_script_generator.cmake")
-    if not os.path.isfile(linker_script_generator):
-        with open(linker_script_generator, "w") as f:
-            f.write("""execute_process(COMMAND "${CC}" "-C" "-P" "-x" "c" "-E" "-I" "${CONFIG_DIR}" "-I" "${LD_DIR}" "${SOURCE}"
-                RESULT_VARIABLE RET_CODE
-                OUTPUT_VARIABLE PREPROCESSED_LINKER_SCRIPT
-                ERROR_VARIABLE ERROR_VAR)
-if(RET_CODE AND NOT RET_CODE EQUAL 0)
-    message(FATAL_ERROR "Can't generate ${TARGET}\\nRET_CODE: ${RET_CODE}\\nERROR_MESSAGE: ${ERROR_VAR}")
-endif()
-string(REPLACE "\\\\n" "\\n" TEXT "${PREPROCESSED_LINKER_SCRIPT}")
-file(WRITE "${TARGET}" "${TEXT}")
-""")
-    
-    # Build include directories list
-    ld_include_dir = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")
-    include_dirs = f'"{config_dir}" "{ld_include_dir}"'
-    
-    if extra_include_dirs:
-        for include_dir in extra_include_dirs:
-            include_dirs += f' "{include_dir}"'
-    
-    # Create an enhanced generator script if we have extra include dirs
-    if extra_include_dirs:
-        enhanced_generator = str(Path(ld_build_dir) / f"linker_script_generator_{len(extra_include_dirs)}.cmake")
-        if not os.path.isfile(enhanced_generator):
-            include_flags = ' '.join([f'"-I" "{inc}"' for inc in extra_include_dirs])
-            with open(enhanced_generator, "w") as f:
-                f.write(f"""execute_process(COMMAND "${{CC}}" "-C" "-P" "-x" "c" "-E" "-I" "${{CONFIG_DIR}}" "-I" "${{LD_DIR}}" {include_flags} "${{SOURCE}}"
-                RESULT_VARIABLE RET_CODE
-                OUTPUT_VARIABLE PREPROCESSED_LINKER_SCRIPT
-                ERROR_VARIABLE ERROR_VAR)
-if(RET_CODE AND NOT RET_CODE EQUAL 0)
-    message(FATAL_ERROR "Can't generate ${{TARGET}}\\nRET_CODE: ${{RET_CODE}}\\nERROR_MESSAGE: ${{ERROR_VAR}}")
-endif()
-string(REPLACE "\\\\n" "\\n" TEXT "${{PREPROCESSED_LINKER_SCRIPT}}")
-file(WRITE "${{TARGET}}" "${{TEXT}}")
-""")
-        generator_script = enhanced_generator
-    else:
-        generator_script = linker_script_generator
     
     return env.Command(
         target_ld_script,
@@ -1566,9 +1526,9 @@ file(WRITE "${{TARGET}}" "${{TEXT}}")
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
                     f'-DCONFIG_DIR="{config_dir}"',
-                    f'-DLD_DIR="{ld_include_dir}"',
+                    f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
                     "-P",
-                    f'"{generator_script}"',
+                    f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
                 ]
             ),
             "Generating LD script $TARGET",
