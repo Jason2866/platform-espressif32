@@ -299,13 +299,14 @@ def HandleArduinoIDFsettings(env):
             board_config_flags.append(f"CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
 
         # Set flash frequency and size directly from boards.json
-        flash_size = board.get("upload", {}).get("flash_size")
+        flash_size = board.get("upload", {}).get("flash_size", None)
         if flash_size:
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
 
-        f_flash = board.get("build.f_flash", "80000000L")
-        flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
-        board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
+        f_flash = board.get("build.f_flash", None)
+        if f_flash:
+            flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
 
         # Set PSRAM frequency
         f_boot = board.get("build.f_boot", None)
