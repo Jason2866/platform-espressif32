@@ -1502,38 +1502,63 @@ def get_app_partition_offset(pt_table, pt_offset):
 
 def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, extra_include_dirs=None):
     """
-    Preprocess a linker script file (.ld.in) using CMake and existing linker_script_generator.cmake.
-    This is the original simple method that references an existing CMake script.
+    Preprocess a linker script file (.ld.in) for both IDF 5.x and 6.x.
+    IDF 6.0+ uses direct preprocessing without linker_script_generator.cmake.
     
     Args:
         src_ld_script: Source .ld.in file path
         target_ld_script: Target .ld file path
         config_dir: Configuration directory (defaults to BUILD_DIR/config for main app)
-        extra_include_dirs: Additional include directories (list) - ignored in simple version
+        extra_include_dirs: Additional include directories (list)
     """
     # Use default config directory if not specified
     if config_dir is None:
         config_dir = str(Path(BUILD_DIR) / "config")
     
-    return env.Command(
-        target_ld_script,
-        src_ld_script,
-        env.VerboseAction(
-            " ".join(
-                [
-                    f'"{CMAKE_DIR}"',
-                    f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
-                    "-DSOURCE=$SOURCE",
-                    "-DTARGET=$TARGET",
-                    f'-DCONFIG_DIR="{config_dir}"',
-                    f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
-                    "-P",
-                    f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
-                ]
+    # Check IDF version to determine preprocessing method
+    framework_version = get_framework_version()
+    major_version = int(framework_version.split('.')[0])
+    
+    if major_version >= 6:
+        # IDF 6.0+: Use direct C preprocessor approach
+        include_dirs = [
+            str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
+            config_dir
+        ]
+        if extra_include_dirs:
+            include_dirs.extend(extra_include_dirs)
+        
+        include_args = " ".join([f'-I"{d}"' for d in include_dirs])
+        
+        return env.Command(
+            target_ld_script,
+            src_ld_script,
+            env.VerboseAction(
+                f'"{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}" -E -P -x c {include_args} -o $TARGET $SOURCE',
+                "Generating LD script $TARGET",
             ),
-            "Generating LD script $TARGET",
-        ),
-    )
+        )
+    else:
+        # IDF 5.x: Use legacy linker_script_generator.cmake method
+        return env.Command(
+            target_ld_script,
+            src_ld_script,
+            env.VerboseAction(
+                " ".join(
+                    [
+                        f'"{CMAKE_DIR}"',
+                        f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
+                        "-DSOURCE=$SOURCE",
+                        "-DTARGET=$TARGET",
+                        f'-DCONFIG_DIR="{config_dir}"',
+                        f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
+                        "-P",
+                        f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
+                    ]
+                ),
+                "Generating LD script $TARGET",
+            ),
+        )
 
 
 def generate_mbedtls_bundle(sdk_config):
