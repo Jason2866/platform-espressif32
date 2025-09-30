@@ -360,6 +360,12 @@ def HandleArduinoIDFsettings(env):
                 "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set"
             ])
         
+            # Handle flash size from board manifest
+            flash_size = None
+            if "upload" in board:
+                flash_size = board["upload"].get("flash_size")
+            if flash_size:
+                board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
         return board_config_flags
 
     def build_idf_config_flags():
