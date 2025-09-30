@@ -318,12 +318,17 @@ def HandleArduinoIDFsettings(env):
                     
             elif psram_type == "qio" or psram_type == "qspi":
                 # Quad PSRAM configuration
-                if mcu in ["esp32", "esp32s2", "esp32s3"]:
+                if mcu in ["esp32s2", "esp32s3"]:
                     board_config_flags.extend([
                         "CONFIG_SPIRAM_MODE_QUAD=y",
                         "# CONFIG_SPIRAM_MODE_OCT is not set"
                     ])
-        
+                if mcu in ["esp32"]:
+                    board_config_flags.extend([
+                        "# CONFIG_SPIRAM_MODE_OCT is not set",
+                        "# CONFIG_SPIRAM_MODE_QUAD is not set"
+                    ])
+
         # Handle memory type configuration
         memory_type = None
         build_section = board.get("build", {})
@@ -332,7 +337,18 @@ def HandleArduinoIDFsettings(env):
             memory_type = arduino_section["memory_type"]
         elif "memory_type" in build_section:
             memory_type = build_section["memory_type"]
-        if memory_type and "opi" in memory_type.lower():
+
+        flash_memory_type = None
+        psram_memory_type = None
+        if memory_type:
+            parts = memory_type.split("_")
+            if len(parts) == 2:
+                flash_memory_type, psram_memory_type = parts
+            else:
+                flash_memory_type = memory_type
+
+        # Use flash_memory_type for flash config
+        if flash_memory_type and "opi" in flash_memory_type.lower():
             # OPI memory configurations require specific flash settings
             board_config_flags.extend([
                 "CONFIG_ESPTOOLPY_FLASHMODE_DOUT=y",
@@ -340,6 +356,22 @@ def HandleArduinoIDFsettings(env):
                 "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
                 "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set"
             ])
+
+        # Use psram_memory_type for PSRAM config
+        if has_psram and psram_memory_type:
+            psram_type = psram_memory_type.lower()
+            if psram_type == "opi":
+                if mcu == "esp32s3":
+                    board_config_flags.extend([
+                        "CONFIG_SPIRAM_MODE_OCT=y",
+                        "# CONFIG_SPIRAM_MODE_QUAD is not set"
+                    ])
+            elif psram_type in ["qio", "qspi"]:
+                if mcu in ["esp32", "esp32s2", "esp32s3"]:
+                    board_config_flags.extend([
+                        "CONFIG_SPIRAM_MODE_QUAD=y",
+                        "# CONFIG_SPIRAM_MODE_OCT is not set"
+                    ])
         
         # Set flash frequency and size directly from boards.json
         f_flash = board.get("build.f_flash", "80000000L")
