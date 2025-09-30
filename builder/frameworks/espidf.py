@@ -200,8 +200,9 @@ if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
 if "espidf.custom_sdkconfig" in board:
     flag_custom_sdkonfig = True
 
+
 # Check for board-specific configurations that require sdkconfig generation
-def has_board_specific_config_global():
+def has_board_specific_config():
     """Check if board has configuration that needs to be applied to sdkconfig."""
     # Check for PSRAM support
     extra_flags = board.get("build.extra_flags", [])
@@ -219,7 +220,7 @@ def has_board_specific_config_global():
     
     return has_psram or has_special_memory
 
-if has_board_specific_config_global():
+if has_board_specific_config():
     flag_custom_sdkonfig = True
 
 def HandleArduinoIDFsettings(env):
@@ -488,23 +489,6 @@ def HandleArduinoIDFsettings(env):
                 print(f"Add: {cleaned_flag}")
                 dst.write(cleaned_flag + "\n")
 
-    def has_board_specific_config():
-        """Check if board has configuration that needs to be applied to sdkconfig."""
-        # Check for PSRAM support
-        extra_flags = board.get("build.extra_flags", [])
-        has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
-        
-        # Check for special memory types  
-        memory_type = None
-        build_section = board.get("build", {})
-        arduino_section = build_section.get("arduino", {})
-        if "memory_type" in arduino_section:
-            memory_type = arduino_section["memory_type"]
-        elif "memory_type" in build_section:
-            memory_type = build_section["memory_type"]
-        has_special_memory = memory_type and ("opi" in memory_type.lower())
-        
-        return has_psram or has_special_memory
     
     # Main execution logic
     has_custom_config = (
