@@ -300,20 +300,20 @@ def HandleArduinoIDFsettings(env):
         # Set CPU frequency
         f_cpu = board.get("build.f_cpu", None)
         if f_cpu:
-            cpu_freq = str(f_cpu).replace("L", "")
-            board_config_flags.append(f"CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ={int(int(cpu_freq)//1000000)}")
+            cpu_freq = str(f_cpu).replace("000000L", "m").replace("L", "m")
+            board_config_flags.append(f"CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
 
         # Set Flash frequency
         f_flash = board.get("build.f_flash", None)
         if f_flash:
-            flash_freq = str(f_flash).replace("L", "")
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ={int(int(flash_freq)//1000000)}")
+            flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ={flash_freq}")
 
         # Set PSRAM frequency
         f_boot = board.get("build.f_boot", None)
         if f_boot:
-            psram_freq = str(f_boot).replace("L", "")
-            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={int(int(psram_freq)//1000000)}")
+            psram_freq = str(f_boot).replace("000000L", "m").replace("L", "m")
+            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
 
 
         # Check for PSRAM support based on board flags
