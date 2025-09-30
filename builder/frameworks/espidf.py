@@ -307,13 +307,13 @@ def HandleArduinoIDFsettings(env):
         f_flash = board.get("build.f_flash", None)
         if f_flash:
             flash_freq = str(f_flash).replace("L", "")
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ={flash_freq}")
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ={int(int(flash_freq)//1000000)}")
 
         # Set PSRAM frequency
         f_boot = board.get("build.f_boot", None)
         if f_boot:
             psram_freq = str(f_boot).replace("L", "")
-            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
+            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={int(int(psram_freq)//1000000)}")
 
 
         # Check for PSRAM support based on board flags
