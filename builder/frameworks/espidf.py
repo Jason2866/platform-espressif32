@@ -344,28 +344,14 @@ def HandleArduinoIDFsettings(env):
                     "# CONFIG_ESPTOOLPY_FLASHMODE_DOUT is not set"
                 ])
         
-        # Handle flash frequency based on board configuration
+        # Set flash frequency and size directly from boards.json
         f_flash = board.get("build.f_flash", "80000000L")
-        flash_freq = str(f_flash).replace("000000L", "").replace("L", "")
-        if flash_freq == "80":
-            board_config_flags.append("CONFIG_ESPTOOLPY_FLASHFREQ_80M=y")
-        elif flash_freq == "40":
-            board_config_flags.extend([
-                "CONFIG_ESPTOOLPY_FLASHFREQ_40M=y",
-                "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set"
-            ])
-        elif flash_freq == "20":
-            board_config_flags.extend([
-                "CONFIG_ESPTOOLPY_FLASHFREQ_20M=y", 
-                "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set"
-            ])
-        
-            # Handle flash size from board manifest
-            flash_size = None
-            if "upload" in board:
-                flash_size = board["upload"].get("flash_size")
-            if flash_size:
-                board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
+        flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
+        board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
+
+        flash_size = board.get("upload", {}).get("flash_size")
+        if flash_size:
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
         return board_config_flags
 
     def build_idf_config_flags():
