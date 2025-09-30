@@ -295,8 +295,8 @@ def HandleArduinoIDFsettings(env):
         # Set CPU frequency
         f_cpu = board.get("build.f_cpu", None)
         if f_cpu:
-            cpu_freq = str(f_cpu).replace("000000L", "m").replace("L", "m")
-            board_config_flags.append(f"CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
+            cpu_freq = str(f_cpu).replace("000000L", "").replace("L", "")
+            board_config_flags.append(f"CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
 
         # Set flash frequency and size directly from boards.json
         flash_size = board.get("upload", {}).get("flash_size", None)
@@ -311,7 +311,7 @@ def HandleArduinoIDFsettings(env):
         # Set PSRAM frequency
         f_boot = board.get("build.f_boot", None)
         if f_boot:
-            psram_freq = str(f_boot).replace("000000L", "m").replace("L", "m")
+            psram_freq = str(f_boot).replace("000000L", "").replace("L", "")
             board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
 
         # Check for PSRAM support based on board flags
