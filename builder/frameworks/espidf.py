@@ -127,12 +127,22 @@ def get_framework_version():
         if not version:
             version = "0.0.0"
 
-    return version
+    # Normalize to semver (handles "6.0.0-rc1", VCS metadata, etc.)
+    try:
+        coerced = semantic_version.Version.coerce(version, partial=True)
+        major = coerced.major or 0
+        minor = coerced.minor or 0
+        patch = coerced.patch or 0
+        return f"{major}.{minor}.{patch}"
+    except (ValueError, TypeError):
+        m = re.match(r"(\d+)\.(\d+)\.(\d+)", str(version))
+        return ".".join(m.groups()) if m else "0.0.0"
 
 
 # Configure ESP-IDF version environment variables
 framework_version = get_framework_version()
-major_version = framework_version.split('.')[0] + '.' + framework_version.split('.')[1]
+_mv = framework_version.split(".")
+major_version = f"{_mv[0]}.{_mv[1] if len(_mv) > 1 else '0'}"
 os.environ["ESP_IDF_VERSION"] = major_version
 
 
