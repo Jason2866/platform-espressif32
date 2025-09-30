@@ -959,15 +959,11 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
     initial_ld_script = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "sections.ld.in")
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
-    print(f"[DEBUG] Framework version: {get_framework_version()}, parsed: {framework_version_list[:2]}")
     if framework_version_list[:2] > [5, 2]:
-        print("[DEBUG] Using IDF 5.3+ linker preprocessing for sections.ld.in")
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "sections.ld.in"),
         )
-    else:
-        print("[DEBUG] Using IDF 5.2 and below - no preprocessing for sections.ld.in")
 
     return env.Command(
         str(Path("$BUILD_DIR") / "sections.ld"),
@@ -1822,15 +1818,11 @@ if not board.get("build.ldscript", ""):
     initial_ld_script = board.get("build.esp-idf.ldscript", str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / "memory.ld.in"))
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
-    print(f"[DEBUG] Framework version: {get_framework_version()}, parsed: {framework_version_list[:2]}")
     if framework_version_list[:2] > [5, 2]:
-        print("[DEBUG] Using IDF 5.3+ linker preprocessing for memory.ld.in")
         initial_ld_script = preprocess_linker_file(
             initial_ld_script,
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "memory.ld.in")
         )
-    else:
-        print("[DEBUG] Using IDF 5.2 and below - no preprocessing for memory.ld.in")
 
     linker_script = env.Command(
         str(Path("$BUILD_DIR") / "memory.ld"),
