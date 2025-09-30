@@ -296,7 +296,26 @@ def HandleArduinoIDFsettings(env):
     def generate_board_specific_config():
         """Generate board-specific sdkconfig settings from board.json manifest."""
         board_config_flags = []
-        
+
+        # Set CPU frequency
+        f_cpu = board.get("build.f_cpu", None)
+        if f_cpu:
+            cpu_freq = str(f_cpu).replace("L", "")
+            board_config_flags.append(f"CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ={int(int(cpu_freq)//1000000)}")
+
+        # Set Flash frequency
+        f_flash = board.get("build.f_flash", None)
+        if f_flash:
+            flash_freq = str(f_flash).replace("L", "")
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ={flash_freq}")
+
+        # Set PSRAM frequency
+        f_boot = board.get("build.f_boot", None)
+        if f_boot:
+            psram_freq = str(f_boot).replace("L", "")
+            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
+
+
         # Check for PSRAM support based on board flags
         extra_flags = board.get("build.extra_flags", [])
         has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
