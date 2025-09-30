@@ -1502,8 +1502,8 @@ def get_app_partition_offset(pt_table, pt_offset):
 
 def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, extra_include_dirs=None):
     """
-    Preprocess a linker script file (.ld.in) for both IDF 5.x and 6.x.
-    IDF 6.0+ uses direct preprocessing without linker_script_generator.cmake.
+    Preprocess a linker script file (.ld.in) to generate the final .ld file.
+    Supports both IDF 5.x (linker_script_generator.cmake) and IDF 6.x (linker_script_preprocessor.cmake).
     
     Args:
         src_ld_script: Source .ld.in file path
@@ -1511,38 +1511,40 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
         config_dir: Configuration directory (defaults to BUILD_DIR/config for main app)
         extra_include_dirs: Additional include directories (list)
     """
-    # Use default config directory if not specified
     if config_dir is None:
         config_dir = str(Path(BUILD_DIR) / "config")
     
-    # Check IDF version to determine preprocessing method
-    framework_version = get_framework_version()
-    major_version = int(framework_version.split('.')[0])
+    # Convert all paths to forward slashes for CMake compatibility on Windows
+    config_dir = fs.to_unix_path(config_dir)
+    src_ld_script = fs.to_unix_path(src_ld_script)
+    target_ld_script = fs.to_unix_path(target_ld_script)
     
-    if major_version >= 6:
-        # IDF 6.0+: Use direct C preprocessor approach
-        include_dirs = [
-            str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
-            config_dir
-        ]
+    # Check IDF version to determine which CMake script to use
+    framework_version_list = [int(v) for v in get_framework_version().split(".")]
+    
+    # IDF 6.0+ uses linker_script_preprocessor.cmake with CFLAGS approach
+    if framework_version_list[0] >= 6:
+        include_dirs = [f'"{config_dir}"']
+        include_dirs.append(f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"))}"')
+        
         if extra_include_dirs:
-            include_dirs.extend(extra_include_dirs)
+            include_dirs.extend(f'"{fs.to_unix_path(dir_path)}"' for dir_path in extra_include_dirs)
         
-        include_args = " ".join([f'-I"{d}"' for d in include_dirs])
-        
-        # Build command as a list to avoid string formatting issues
-        cmd_parts = [
-            f'"{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
-            "-E", "-P", "-x", "c",
-            include_args,
-            "-o", "$TARGET", "$SOURCE"
-        ]
+        cflags_value = "-I" + " -I".join(include_dirs)
         
         return env.Command(
             target_ld_script,
             src_ld_script,
             env.VerboseAction(
-                " ".join(cmd_parts),
+                " ".join([
+                    f'"{CMAKE_DIR}"',
+                    f'-DCC="{fs.to_unix_path(str(Path(TOOLCHAIN_DIR) / "bin" / "$CC"))}"',
+                    f'-DSOURCE="{src_ld_script}"',
+                    f'-DTARGET="{target_ld_script}"',
+                    f'-DCFLAGS="{cflags_value}"',
+                    "-P",
+                    f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake"))}"',
+                ]),
                 "Generating LD script $TARGET",
             ),
         )
@@ -1552,18 +1554,16 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
             target_ld_script,
             src_ld_script,
             env.VerboseAction(
-                " ".join(
-                    [
-                        f'"{CMAKE_DIR}"',
-                        f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
-                        "-DSOURCE=$SOURCE",
-                        "-DTARGET=$TARGET",
-                        f'-DCONFIG_DIR="{config_dir}"',
-                        f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
-                        "-P",
-                        f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
-                    ]
-                ),
+                " ".join([
+                    f'"{CMAKE_DIR}"',
+                    f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
+                    "-DSOURCE=$SOURCE",
+                    "-DTARGET=$TARGET",
+                    f'-DCONFIG_DIR="{config_dir}"',
+                    f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
+                    "-P",
+                    f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
+                ]),
                 "Generating LD script $TARGET",
             ),
         )
