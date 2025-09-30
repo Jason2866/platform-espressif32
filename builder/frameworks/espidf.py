@@ -308,13 +308,9 @@ def HandleArduinoIDFsettings(env):
                     board_config_flags.extend([
                         "CONFIG_SPIRAM_MODE_OCT=y",
                         "# CONFIG_SPIRAM_MODE_QUAD is not set",
-                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y",
-                        "CONFIG_SPIRAM_SIZE_8MB=y",
-                        "CONFIG_SPIRAM_SPEED_80M=y",
                         "CONFIG_SPIRAM_BOOT_INIT=y",
                         "CONFIG_SPIRAM_USE_MALLOC=y",
-                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384",
-                        "CONFIG_SPIRAM_CACHE_WORKAROUND=y"
+                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384"
                     ])
                     
             elif psram_type == "qio" or psram_type == "qspi":
@@ -323,18 +319,12 @@ def HandleArduinoIDFsettings(env):
                     board_config_flags.extend([
                         "CONFIG_SPIRAM_MODE_QUAD=y",
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
-                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y",
-                        "CONFIG_SPIRAM_SIZE_2MB=y",
-                        "CONFIG_SPIRAM_SPEED_80M=y",
                         "CONFIG_SPIRAM_BOOT_INIT=y",
                         "CONFIG_SPIRAM_USE_MALLOC=y",
                         "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384"
                     ])
                 elif mcu == "esp32":
                     board_config_flags.extend([
-                        "CONFIG_SPIRAM_TYPE_ESPPSRAM32=y",
-                        "CONFIG_SPIRAM_SIZE_4MB=y",
-                        "CONFIG_SPIRAM_SPEED_40M=y",
                         "CONFIG_SPIRAM_BOOT_INIT=y",
                         "CONFIG_SPIRAM_USE_MALLOC=y",
                         "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384",
