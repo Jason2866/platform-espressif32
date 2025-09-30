@@ -455,7 +455,13 @@ def HandleArduinoIDFsettings(env):
         has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
         
         # Check for special memory types  
-        memory_type = board.get("build.arduino.memory_type") or board.get("build.memory_type")
+        memory_type = None
+        build_section = board.get("build", {})
+        arduino_section = build_section.get("arduino", {})
+        if "memory_type" in arduino_section:
+            memory_type = arduino_section["memory_type"]
+        elif "memory_type" in build_section:
+            memory_type = build_section["memory_type"]
         has_special_memory = memory_type and ("opi" in memory_type.lower())
         
         # Check for non-default flash frequency
