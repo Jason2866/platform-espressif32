@@ -217,12 +217,7 @@ def has_board_specific_config_global():
         memory_type = build_section["memory_type"]
     has_special_memory = memory_type and ("opi" in memory_type.lower())
     
-    # Check for non-default flash frequency
-    f_flash = board.get("build.f_flash", "80000000L")
-    flash_freq = str(f_flash).replace("000000L", "").replace("L", "")
-    has_custom_flash_freq = flash_freq != "80"
-    
-    return has_psram or has_special_memory or has_custom_flash_freq
+    return has_psram or has_special_memory
 
 if has_board_specific_config_global():
     flag_custom_sdkonfig = True
@@ -303,18 +298,20 @@ def HandleArduinoIDFsettings(env):
             cpu_freq = str(f_cpu).replace("000000L", "m").replace("L", "m")
             board_config_flags.append(f"CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
 
-        # Set Flash frequency
-        f_flash = board.get("build.f_flash", None)
-        if f_flash:
-            flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ={flash_freq}")
+        # Set flash frequency and size directly from boards.json
+        flash_size = board.get("upload", {}).get("flash_size")
+        if flash_size:
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
+
+        f_flash = board.get("build.f_flash", "80000000L")
+        flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
+        board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
 
         # Set PSRAM frequency
         f_boot = board.get("build.f_boot", None)
         if f_boot:
             psram_freq = str(f_boot).replace("000000L", "m").replace("L", "m")
             board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
-
 
         # Check for PSRAM support based on board flags
         extra_flags = board.get("build.extra_flags", [])
@@ -391,15 +388,7 @@ def HandleArduinoIDFsettings(env):
                         "CONFIG_SPIRAM_MODE_QUAD=y",
                         "# CONFIG_SPIRAM_MODE_OCT is not set"
                     ])
-        
-        # Set flash frequency and size directly from boards.json
-        f_flash = board.get("build.f_flash", "80000000L")
-        flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
-        board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
 
-        flash_size = board.get("upload", {}).get("flash_size")
-        if flash_size:
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
         return board_config_flags
 
     def build_idf_config_flags():
@@ -514,12 +503,7 @@ def HandleArduinoIDFsettings(env):
             memory_type = build_section["memory_type"]
         has_special_memory = memory_type and ("opi" in memory_type.lower())
         
-        # Check for non-default flash frequency
-        f_flash = board.get("build.f_flash", "80000000L")
-        flash_freq = str(f_flash).replace("000000L", "").replace("L", "")
-        has_custom_flash_freq = flash_freq != "80"
-        
-        return has_psram or has_special_memory or has_custom_flash_freq
+        return has_psram or has_special_memory
     
     # Main execution logic
     has_custom_config = (
