@@ -1506,11 +1506,16 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
     if config_dir is None:
         config_dir = str(Path(BUILD_DIR) / "config")
     
+    # Convert all paths to forward slashes for CMake compatibility on Windows
+    config_dir = fs.to_unix_path(config_dir)
+    src_ld_script = fs.to_unix_path(src_ld_script)
+    target_ld_script = fs.to_unix_path(target_ld_script)
+    
     include_dirs = [f'"{config_dir}"']
-    include_dirs.append(f'"{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"')
+    include_dirs.append(f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"))}"')
     
     if extra_include_dirs:
-        include_dirs.extend(f'"{dir_path}"' for dir_path in extra_include_dirs)
+        include_dirs.extend(f'"{fs.to_unix_path(dir_path)}"' for dir_path in extra_include_dirs)
     
     cflags_value = "-I" + " -I".join(include_dirs)
     
@@ -1521,12 +1526,12 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
             " ".join(
                 [
                     f'"{CMAKE_DIR}"',
-                    f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
-                    "-DSOURCE=$SOURCE",
-                    "-DTARGET=$TARGET",
+                    f'-DCC="{fs.to_unix_path(str(Path(TOOLCHAIN_DIR) / "bin" / "$CC"))}"',
+                    f'-DSOURCE="{src_ld_script}"',
+                    f'-DTARGET="{target_ld_script}"',
                     f'-DCFLAGS="{cflags_value}"',
                     "-P",
-                    f'"{str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")}"',
+                    f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake"))}"',
                 ]
             ),
             "Generating LD script $TARGET",
