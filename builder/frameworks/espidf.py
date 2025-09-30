@@ -319,17 +319,22 @@ def HandleArduinoIDFsettings(env):
                     ])
         
         # Handle memory type configuration
-        memory_type = board.get("build.arduino.memory_type") or board.get("build.memory_type")
-        if memory_type:
-            if "opi" in memory_type.lower():
-                # OPI memory configurations require specific flash settings
-                board_config_flags.extend([
-                    "CONFIG_ESPTOOLPY_FLASHMODE_OPI=y",
-                    "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set",
-                    "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
-                    "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set",
-                    "# CONFIG_ESPTOOLPY_FLASHMODE_DOUT is not set"
-                ])
+        memory_type = None
+        build_section = board.get("build", {})
+        arduino_section = build_section.get("arduino", {})
+        if "memory_type" in arduino_section:
+            memory_type = arduino_section["memory_type"]
+        elif "memory_type" in build_section:
+            memory_type = build_section["memory_type"]
+        if memory_type and "opi" in memory_type.lower():
+            # OPI memory configurations require specific flash settings
+            board_config_flags.extend([
+                "CONFIG_ESPTOOLPY_FLASHMODE_OPI=y",
+                "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set",
+                "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
+                "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set",
+                "# CONFIG_ESPTOOLPY_FLASHMODE_DOUT is not set"
+            ])
         
         # Set flash frequency and size directly from boards.json
         f_flash = board.get("build.f_flash", "80000000L")
