@@ -1530,11 +1530,19 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
         
         include_args = " ".join([f'-I"{d}"' for d in include_dirs])
         
+        # Build command as a list to avoid string formatting issues
+        cmd_parts = [
+            f'"{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
+            "-E", "-P", "-x", "c",
+            include_args,
+            "-o", "$TARGET", "$SOURCE"
+        ]
+        
         return env.Command(
             target_ld_script,
             src_ld_script,
             env.VerboseAction(
-                f'"{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}" -E -P -x c {include_args} -o $TARGET $SOURCE',
+                " ".join(cmd_parts),
                 "Generating LD script $TARGET",
             ),
         )
