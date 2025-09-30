@@ -307,28 +307,15 @@ def HandleArduinoIDFsettings(env):
                 if mcu == "esp32s3":
                     board_config_flags.extend([
                         "CONFIG_SPIRAM_MODE_OCT=y",
-                        "# CONFIG_SPIRAM_MODE_QUAD is not set",
-                        "CONFIG_SPIRAM_BOOT_INIT=y",
-                        "CONFIG_SPIRAM_USE_MALLOC=y",
-                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384"
+                        "# CONFIG_SPIRAM_MODE_QUAD is not set"
                     ])
                     
             elif psram_type == "qio" or psram_type == "qspi":
                 # Quad PSRAM configuration
-                if mcu in ["esp32s2", "esp32s3"]:
+                if mcu in ["esp32", "esp32s2", "esp32s3"]:
                     board_config_flags.extend([
                         "CONFIG_SPIRAM_MODE_QUAD=y",
-                        "# CONFIG_SPIRAM_MODE_OCT is not set",
-                        "CONFIG_SPIRAM_BOOT_INIT=y",
-                        "CONFIG_SPIRAM_USE_MALLOC=y",
-                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384"
-                    ])
-                elif mcu == "esp32":
-                    board_config_flags.extend([
-                        "CONFIG_SPIRAM_BOOT_INIT=y",
-                        "CONFIG_SPIRAM_USE_MALLOC=y",
-                        "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384",
-                        "CONFIG_SPIRAM_CACHE_WORKAROUND=y"
+                        "# CONFIG_SPIRAM_MODE_OCT is not set"
                     ])
         
         # Handle memory type configuration
