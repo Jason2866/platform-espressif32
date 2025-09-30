@@ -335,11 +335,10 @@ def HandleArduinoIDFsettings(env):
         if memory_type and "opi" in memory_type.lower():
             # OPI memory configurations require specific flash settings
             board_config_flags.extend([
-                "CONFIG_ESPTOOLPY_FLASHMODE_OPI=y",
+                "CONFIG_ESPTOOLPY_FLASHMODE_DOUT=y",
                 "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set",
                 "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
-                "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set",
-                "# CONFIG_ESPTOOLPY_FLASHMODE_DOUT is not set"
+                "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set"
             ])
         
         # Set flash frequency and size directly from boards.json
