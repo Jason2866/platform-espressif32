@@ -518,8 +518,7 @@ def HandleArduinoIDFsettings(env):
                     # Fallback to QUAD for non-S3 chips
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
-                        "CONFIG_SPIRAM_MODE_QUAD=y",
-                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y"
+                        "CONFIG_SPIRAM_MODE_QUAD=y"
                     ])
                     
             elif psram_type in ["qio", "qspi"]:
@@ -527,25 +526,12 @@ def HandleArduinoIDFsettings(env):
                 if mcu in ["esp32s2", "esp32s3"]:
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
-                        "# CONFIG_SPIRAM_TYPE_AUTO is not set",
-                        "CONFIG_SPIRAM_MODE_QUAD=y",
-                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y"
+                        "CONFIG_SPIRAM_MODE_QUAD=y"
                     ])
                 elif mcu == "esp32":
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
-                        "# CONFIG_SPIRAM_MODE_QUAD is not set",
-                        "# CONFIG_SPIRAM_TYPE_AUTO is not set",
-                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y"
-                    ])
-            else:
-                # Unknown PSRAM type, falling back to default QUAD configuration
-                if mcu in ["esp32s2", "esp32s3"]:
-                    board_config_flags.extend([
-                        "# CONFIG_SPIRAM_MODE_OCT is not set",
-                        "# CONFIG_SPIRAM_TYPE_AUTO is not set",
-                        "CONFIG_SPIRAM_MODE_QUAD=y",
-                        "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y"
+                        "# CONFIG_SPIRAM_MODE_QUAD is not set"
                     ])
 
         # Use flash_memory_type for flash config
@@ -588,25 +574,6 @@ def HandleArduinoIDFsettings(env):
         
         return "\n".join(flags) + "\n" if flags else ""
 
-    def add_flash_configuration(config_flags):
-        """Add flash frequency and mode configuration."""
-        if flash_frequency != "80":
-            config_flags += "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
-            config_flags += f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_frequency}M=y\n"
-            config_flags += f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_frequency}m\"\n"
-        
-        if flash_mode != "qio":
-            config_flags += "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
-        
-        flash_mode_flag = f"CONFIG_ESPTOOLPY_FLASHMODE_{flash_mode.upper()}=y\n"
-        if flash_mode_flag not in config_flags:
-            config_flags += flash_mode_flag
-        
-        # ESP32 specific SPIRAM configuration
-        if mcu == "esp32" and "CONFIG_FREERTOS_UNICORE=y" in config_flags:
-            config_flags += "# CONFIG_SPIRAM is not set\n"
-        
-        return config_flags
 
     def write_sdkconfig_file(idf_config_flags, checksum_source):
         if "arduino" not in env.subst("$PIOFRAMEWORK"):
@@ -675,7 +642,6 @@ def HandleArduinoIDFsettings(env):
     
     # Build complete configuration
     idf_config_flags = build_idf_config_flags()
-    # Note: add_flash_configuration is not needed anymore as board-specific config handles all settings
     
     # Convert to list for processing
     idf_config_list = [line for line in idf_config_flags.splitlines() if line.strip()]
