@@ -504,7 +504,7 @@ def HandleArduinoIDFsettings(env):
             
             # Configure PSRAM mode based on detected type
             if psram_type == "opi":
-                # Octal PSRAM configuration - primarily for ESP32-S3, but also handle other MCUs
+                # Octal PSRAM configuration (for ESP32-S3 only)
                 if mcu == "esp32s3":
                     board_config_flags.extend([
                         "CONFIG_IDF_EXPERIMENTAL_FEATURES=y",
