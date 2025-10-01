@@ -360,7 +360,10 @@ def HandleArduinoIDFsettings(env):
         f_flash_val = board.get("build.f_flash", None)
         if f_boot:
             psram_freq = str(f_boot).replace("000000L", "")
+            print(f"Debug: Board name: {board.get('name', 'Unknown')}")
+            print(f"Debug: Board ID: {env.subst('$BOARD')}")
             print(f"Debug: Original PSRAM freq from board: {psram_freq}")
+            print(f"Debug: Original Flash freq from board: {f_flash_val}")
             
             # Check for timing compatibility with OPI PSRAM
             if memory_type and "opi" in memory_type.lower() and mcu == "esp32s3":
