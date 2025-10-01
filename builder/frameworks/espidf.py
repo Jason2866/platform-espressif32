@@ -609,6 +609,7 @@ def HandleArduinoIDFsettings(env):
                     if flag_name == custom_flag_name:
                         cleaned_flag = custom_flag.replace("'", "")
                         dst.write(cleaned_flag + "\n")
+                        print(f"Replace: {line.strip()} with: {cleaned_flag}")
                         idf_config_flags.remove(custom_flag)
                         flag_replaced = True
                         break
@@ -619,6 +620,7 @@ def HandleArduinoIDFsettings(env):
             # Add any remaining new flags
             for remaining_flag in idf_config_flags:
                 cleaned_flag = remaining_flag.replace("'", "")
+                print(f"Add: {cleaned_flag}")
                 dst.write(cleaned_flag + "\n")
 
     
