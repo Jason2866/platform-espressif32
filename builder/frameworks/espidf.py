@@ -321,6 +321,16 @@ def HandleArduinoIDFsettings(env):
                 flash_memory_type, psram_memory_type = parts
             else:
                 flash_memory_type = memory_type
+                
+        # Check for additional flash configuration indicators
+        boot_mode = board.get("build", {}).get("boot", None)
+        flash_mode = board.get("build", {}).get("flash_mode", None)
+        
+        # Override flash_memory_type if boot mode indicates OPI
+        if boot_mode == "opi" or flash_mode in ["dout", "opi"]:
+            if not flash_memory_type or flash_memory_type.lower() != "opi":
+                flash_memory_type = "opi"
+                print(f"Info: Detected OPI Flash via boot_mode='{boot_mode}' or flash_mode='{flash_mode}'")
 
         # Set CPU frequency with platformio.ini override support
         # Priority: platformio.ini > board.json manifest
@@ -534,12 +544,15 @@ def HandleArduinoIDFsettings(env):
 
         # Use flash_memory_type for flash config
         if flash_memory_type and "opi" in flash_memory_type.lower():
-            # OPI memory configurations require specific flash settings
+            # OPI Flash configurations require specific settings
             board_config_flags.extend([
                 "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set",
-                "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
+                "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set", 
                 "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set",
-                "CONFIG_ESPTOOLPY_FLASHMODE_DOUT=y"
+                "CONFIG_ESPTOOLPY_FLASHMODE_DOUT=y",
+                "CONFIG_ESPTOOLPY_OCT_FLASH=y",
+                "# CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_STR is not set",
+                "CONFIG_ESPTOOLPY_FLASH_SAMPLE_MODE_DTR=y"
             ])
 
         return board_config_flags
