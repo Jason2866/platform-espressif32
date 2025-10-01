@@ -386,7 +386,16 @@ def HandleArduinoIDFsettings(env):
                 print(f"Debug: Using flash_size from board manifest: {flash_size}")
         
         if flash_size:
+            # Configure both string and boolean flash size formats
+            # Disable other flash size options first
+            flash_sizes = ["4MB", "8MB", "16MB", "32MB", "64MB", "128MB"]
+            for size in flash_sizes:
+                if size != flash_size:
+                    board_config_flags.append(f"# CONFIG_ESPTOOLPY_FLASHSIZE_{size} is not set")
+            
+            # Set the specific flash size configs
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE_{flash_size}=y")
 
         # Handle Flash and PSRAM frequency configuration with platformio.ini override support
         # Priority: platformio.ini > board.json manifest
