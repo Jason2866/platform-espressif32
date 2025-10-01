@@ -402,9 +402,22 @@ def HandleArduinoIDFsettings(env):
             # Enable basic SPIRAM support
             board_config_flags.append("CONFIG_SPIRAM=y")
             
-            # Configure PSRAM type based on board configuration
-            psram_type = board.get("build.psram_type", "qio").lower()
+            # Determine PSRAM type from multiple sources (unified logic)
+            psram_type = None
             
+            # Priority 1: Check psram_memory_type from memory_type field (e.g., "qio_opi")
+            if psram_memory_type:
+                psram_type = psram_memory_type.lower()
+            # Priority 2: Check build.psram_type field as fallback
+            elif "psram_type" in board.get("build", {}):
+                psram_type = board.get("build.psram_type", "qio").lower()
+            # Priority 3: Default to qio
+            else:
+                psram_type = "qio"
+            
+            print(f"Debug: Detected PSRAM type: {psram_type}")
+            
+            # Configure PSRAM mode based on detected type
             if psram_type == "opi":
                 # Octal PSRAM configuration for ESP32-S3
                 if mcu == "esp32s3":
@@ -413,19 +426,22 @@ def HandleArduinoIDFsettings(env):
                         "CONFIG_SPIRAM_MODE_OCT=y",
                         "# CONFIG_SPIRAM_MODE_QUAD is not set"
                     ])
+                    print(f"Debug: Configured OPI PSRAM for ESP32-S3")
                     
-            elif psram_type == "qio" or psram_type == "qspi":
+            elif psram_type in ["qio", "qspi"]:
                 # Quad PSRAM configuration
                 if mcu in ["esp32s2", "esp32s3"]:
                     board_config_flags.extend([
                         "CONFIG_SPIRAM_MODE_QUAD=y",
                         "# CONFIG_SPIRAM_MODE_OCT is not set"
                     ])
-                if mcu in ["esp32"]:
+                    print(f"Debug: Configured QUAD PSRAM for {mcu}")
+                elif mcu == "esp32":
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
                         "# CONFIG_SPIRAM_MODE_QUAD is not set"
                     ])
+                    print(f"Debug: Configured classic PSRAM for ESP32")
 
         # Use flash_memory_type for flash config
         if flash_memory_type and "opi" in flash_memory_type.lower():
@@ -436,22 +452,6 @@ def HandleArduinoIDFsettings(env):
                 "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
                 "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set"
             ])
-
-        # Use psram_memory_type for PSRAM config
-        if has_psram and psram_memory_type:
-            psram_type = psram_memory_type.lower()
-            if psram_type == "opi":
-                if mcu == "esp32s3":
-                    board_config_flags.extend([
-                        "CONFIG_SPIRAM_MODE_OCT=y",
-                        "# CONFIG_SPIRAM_MODE_QUAD is not set"
-                    ])
-            elif psram_type in ["qio", "qspi"]:
-                if mcu in ["esp32", "esp32s2", "esp32s3"]:
-                    board_config_flags.extend([
-                        "CONFIG_SPIRAM_MODE_QUAD=y",
-                        "# CONFIG_SPIRAM_MODE_OCT is not set"
-                    ])
 
         return board_config_flags
 
