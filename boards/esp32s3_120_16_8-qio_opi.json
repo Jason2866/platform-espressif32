@@ -6,7 +6,7 @@
     },
     "core": "esp32",
     "f_cpu": "240000000L",
-    "f_flash": "120000000L",
+    "f_flash": "80000000L",
     "f_boot": "120000000L",
     "boot": "qio",
     "flash_mode": "qio",
