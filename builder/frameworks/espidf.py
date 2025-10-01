@@ -339,8 +339,23 @@ def HandleArduinoIDFsettings(env):
 
         # Set PSRAM frequency
         f_boot = board.get("build.f_boot", None)
+        f_flash_val = board.get("build.f_flash", None)
         if f_boot:
             psram_freq = str(f_boot).replace("000000L", "")
+            
+            # Check for timing compatibility with OPI PSRAM
+            if memory_type and "opi" in memory_type.lower() and mcu == "esp32s3":
+                # For OPI PSRAM on ESP32-S3, ensure compatible timing
+                if f_flash_val:
+                    flash_freq_val = int(str(f_flash_val).replace("000000L", ""))
+                    psram_freq_val = int(psram_freq)
+                    
+                    # If PSRAM is 120MHz and Flash is 80MHz, adjust for compatibility
+                    if psram_freq_val == 120 and flash_freq_val == 80:
+                        # Use 80MHz for both to ensure compatibility
+                        psram_freq = "80"
+                        print(f"Warning: Adjusting PSRAM speed from 120MHz to 80MHz for OPI timing compatibility")
+            
             board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
             # Disable other SPIRAM speed options
             if psram_freq != "40":
