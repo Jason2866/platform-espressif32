@@ -474,8 +474,6 @@ def HandleArduinoIDFsettings(env):
             # For ESP32-S3, assume PSRAM capability (can be disabled later if not present)
             elif mcu == "esp32s3":
                 has_psram = True
-        else:
-            print(f"Info: PSRAM detected via -DBOARD_HAS_PSRAM flag")
         
         if has_psram:
             # Enable basic SPIRAM support
