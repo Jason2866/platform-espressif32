@@ -398,6 +398,31 @@ def HandleArduinoIDFsettings(env):
         extra_flags = board.get("build.extra_flags", [])
         has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
         
+        # Additional PSRAM detection methods
+        if not has_psram:
+            # Check if memory_type contains psram indicators
+            if memory_type and ("opi" in memory_type.lower() or "psram" in memory_type.lower()):
+                has_psram = True
+                print(f"Debug: PSRAM detected via memory_type: {memory_type}")
+            # Check build.psram_type
+            elif "psram_type" in board.get("build", {}):
+                has_psram = True
+                print(f"Debug: PSRAM detected via build.psram_type: {board.get('build', {}).get('psram_type')}")
+            # Check for SPIRAM mentions in extra_flags
+            elif any("SPIRAM" in str(flag) for flag in extra_flags):
+                has_psram = True
+                print(f"Debug: PSRAM detected via SPIRAM in extra_flags")
+            # For ESP32-S3, assume PSRAM capability (can be disabled later if not present)
+            elif mcu == "esp32s3":
+                has_psram = True
+                print(f"Debug: PSRAM assumed for ESP32-S3 (will use auto-detection)")
+        else:
+            print(f"Debug: PSRAM detected via -DBOARD_HAS_PSRAM flag")
+            
+        print(f"Debug: has_psram final result: {has_psram}")
+        print(f"Debug: extra_flags: {extra_flags}")
+        print(f"Debug: memory_type: {memory_type}")
+        
         if has_psram:
             # Enable basic SPIRAM support
             board_config_flags.append("CONFIG_SPIRAM=y")
