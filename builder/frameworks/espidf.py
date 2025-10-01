@@ -513,7 +513,7 @@ def HandleArduinoIDFsettings(env):
     
     # Build complete configuration
     idf_config_flags = build_idf_config_flags()
-    idf_config_flags = add_flash_configuration(idf_config_flags)
+    # Note: add_flash_configuration is not needed anymore as board-specific config handles all settings
     
     # Convert to list for processing
     idf_config_list = [line for line in idf_config_flags.splitlines() if line.strip()]
