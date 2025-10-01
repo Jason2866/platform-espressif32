@@ -570,7 +570,26 @@ def HandleArduinoIDFsettings(env):
             if custom_flags:
                 flags.append(custom_flags)
         
+        # FIFTH: Apply ESP32-specific compatibility fixes
+        all_flags_str = "\n".join(flags) + "\n" if flags else ""
+        esp32_compatibility_flags = apply_esp32_compatibility_fixes(all_flags_str)
+        if esp32_compatibility_flags:
+            flags.extend(esp32_compatibility_flags)
+        
         return "\n".join(flags) + "\n" if flags else ""
+
+    def apply_esp32_compatibility_fixes(config_flags_str):
+        """Apply ESP32-specific compatibility fixes based on final configuration."""
+        compatibility_flags = []
+        
+        # ESP32 specific SPIRAM configuration
+        # On ESP32, SPIRAM is not used with UNICORE mode
+        if mcu == "esp32" and "CONFIG_FREERTOS_UNICORE=y" in config_flags_str:
+            if "CONFIG_SPIRAM=y" in config_flags_str:
+                compatibility_flags.append("# CONFIG_SPIRAM is not set")
+                print("Info: ESP32 SPIRAM disabled since solo1 core mode is enabled")
+        
+        return compatibility_flags
 
 
     def write_sdkconfig_file(idf_config_flags, checksum_source):
