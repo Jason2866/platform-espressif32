@@ -341,50 +341,57 @@ def HandleArduinoIDFsettings(env):
         if flash_size:
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
 
+        # Handle Flash and PSRAM frequency configuration
+        # From 80MHz onwards, Flash and PSRAM frequencies must be identical
         f_flash = board.get("build.f_flash", None)
         f_boot = board.get("build.f_boot", None)
-        if f_flash:
-            # Use f_boot for compile-time flash frequency if available, otherwise f_flash
-            compile_flash_freq = f_boot if f_boot else f_flash
-            flash_freq = str(compile_flash_freq).replace("000000L", "m")
+        
+        # Determine the frequencies to use
+        esptool_flash_freq = f_flash  # Always use f_flash for esptool compatibility
+        compile_freq = f_boot if f_boot else f_flash  # Use f_boot for compile-time if available
+        
+        if f_flash and compile_freq:
+            # Ensure frequency compatibility (>= 80MHz must be identical for Flash and PSRAM)
+            compile_freq_val = int(str(compile_freq).replace("000000L", ""))
+            esptool_freq_val = int(str(esptool_flash_freq).replace("000000L", ""))
             
-            print(f"Debug: Using f_flash={f_flash} for esptool, f_boot={f_boot} for compile-time Flash frequency")
+            if compile_freq_val >= 80:
+                # Above 80MHz, both Flash and PSRAM must use same frequency
+                unified_freq = compile_freq_val
+                flash_freq_str = f"{unified_freq}m"
+                psram_freq_str = str(unified_freq)
+                
+                print(f"Debug: Unified frequency mode (>= 80MHz): {unified_freq}MHz for both Flash and PSRAM")
+                print(f"Debug: esptool Flash freq: {esptool_freq_val}MHz, compile Flash+PSRAM freq: {unified_freq}MHz")
+            else:
+                # Below 80MHz, frequencies can differ
+                flash_freq_str = str(compile_freq).replace("000000L", "m")
+                psram_freq_str = str(compile_freq).replace("000000L", "")
+                
+                print(f"Debug: Independent frequency mode (< 80MHz): Flash={flash_freq_str}, PSRAM={psram_freq_str}")
             
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
+            # Configure Flash frequency
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq_str}\"")
             # Disable other flash frequency options
             flash_freqs = ["20m", "26m", "40m", "80m", "120m"]
             for freq in flash_freqs:
-                if freq != flash_freq:
+                if freq != flash_freq_str:
                     board_config_flags.append(f"# CONFIG_ESPTOOLPY_FLASHFREQ_{freq.upper()} is not set")
             # Enable the specific flash frequency
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_freq.upper()}=y")
-            if int(flash_freq.replace("m", "")) > 80:
-                board_config_flags.append("CONFIG_IDF_EXPERIMENTAL_FEATURES=y")
-
-        # Set PSRAM frequency
-        f_boot = board.get("build.f_boot", None)
-        f_flash_val = board.get("build.f_flash", None)
-        
-        if f_boot:
-            # f_boot is used for both Flash and PSRAM frequency at compile/boot time
-            psram_freq = str(f_boot).replace("000000L", "")
-            print(f"Debug: Board name: {board.get('name', 'Unknown')}")
-            print(f"Debug: Board ID: {env.subst('$BOARD')}")
-            print(f"Debug: f_boot (PSRAM & compile Flash freq): {psram_freq}MHz")
-            print(f"Debug: f_flash (esptool Flash freq): {f_flash_val}")
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_freq_str.upper()}=y")
             
-            print(f"Debug: Final PSRAM freq: {psram_freq}")
-            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
+            # Configure PSRAM frequency (same as Flash for >= 80MHz)
+            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq_str}")
             # Disable other SPIRAM speed options
-            if psram_freq != "40":
-                board_config_flags.append("# CONFIG_SPIRAM_SPEED_40M is not set")
-            if psram_freq != "80":
-                board_config_flags.append("# CONFIG_SPIRAM_SPEED_80M is not set")
-            if psram_freq != "120":
-                board_config_flags.append("# CONFIG_SPIRAM_SPEED_120M is not set")
-            # Enable the specific speed option
-            board_config_flags.append(f"CONFIG_SPIRAM_SPEED_{psram_freq}M=y")
-            if int(psram_freq) > 80:
+            psram_freqs = ["40", "80", "120"]
+            for freq in psram_freqs:
+                if freq != psram_freq_str:
+                    board_config_flags.append(f"# CONFIG_SPIRAM_SPEED_{freq}M is not set")
+            # Enable the specific PSRAM speed
+            board_config_flags.append(f"CONFIG_SPIRAM_SPEED_{psram_freq_str}M=y")
+            
+            # Enable experimental features for frequencies > 80MHz
+            if compile_freq_val > 80:
                 board_config_flags.append("CONFIG_IDF_EXPERIMENTAL_FEATURES=y")
 
         # Check for PSRAM support based on board flags
