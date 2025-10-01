@@ -344,6 +344,13 @@ def HandleArduinoIDFsettings(env):
         f_flash = board.get("build.f_flash", None)
         if f_flash:
             flash_freq = str(f_flash).replace("000000L", "m")
+            
+            # Check if flash frequency is supported by esptool
+            # esptool v5.1.0 doesn't support 120m for flash frequency
+            if flash_freq == "120m" and memory_type and "opi" in memory_type.lower():
+                print(f"Warning: esptool doesn't support {flash_freq} flash frequency, using 80m instead")
+                flash_freq = "80m"
+            
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
             # Disable other flash frequency options
             flash_freqs = ["20m", "26m", "40m", "80m", "120m"]
@@ -373,12 +380,9 @@ def HandleArduinoIDFsettings(env):
                     psram_freq_val = int(psram_freq)
                     print(f"Debug: Flash freq: {flash_freq_val}MHz, PSRAM freq: {psram_freq_val}MHz")
                     
-                    # Only adjust if there's a known incompatible combination
-                    # 120MHz Flash + 120MHz PSRAM is valid for ESP32-S3 OPI
-                    if psram_freq_val == 120 and flash_freq_val == 80:
-                        # Use 80MHz for both to ensure compatibility
-                        psram_freq = "80"
-                        print(f"Warning: Adjusting PSRAM speed from 120MHz to 80MHz for OPI timing compatibility with 80MHz Flash")
+                    # If Flash was reduced to 80MHz due to esptool limitation, keep PSRAM at 120MHz
+                    # This is still a valid configuration for ESP32-S3 OPI PSRAM
+                    # No adjustment needed - 80MHz Flash + 120MHz PSRAM is supported
             
             print(f"Debug: Final PSRAM freq: {psram_freq}")
             board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
