@@ -79,7 +79,7 @@ config = env.GetProjectConfig()
 board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 flash_speed = board.get("build.f_flash", "40000000L")
-flash_frequency = str(flash_speed.replace("000000L", "m"))
+flash_frequency = str(flash_speed.replace("000000L", ""))
 flash_mode = board.get("build.flash_mode", "dio")
 idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
@@ -296,7 +296,7 @@ def HandleArduinoIDFsettings(env):
         # Set CPU frequency
         f_cpu = board.get("build.f_cpu", None)
         if f_cpu:
-            cpu_freq = str(f_cpu).replace("000000L", "").replace("L", "")
+            cpu_freq = str(f_cpu).replace("000000L", "")
             board_config_flags.append(f"CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
 
         # Set flash frequency and size directly from boards.json
@@ -306,14 +306,18 @@ def HandleArduinoIDFsettings(env):
 
         f_flash = board.get("build.f_flash", None)
         if f_flash:
-            flash_freq = str(f_flash).replace("000000L", "m").replace("L", "m")
+            flash_freq = str(f_flash).replace("000000L", "m")
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
+            if int(flash_freq.replace("m", "")) > 80:
+                board_config_flags.append("CONFIG_IDF_EXPERIMENTAL_FEATURES=y")
 
         # Set PSRAM frequency
         f_boot = board.get("build.f_boot", None)
         if f_boot:
-            psram_freq = str(f_boot).replace("000000L", "").replace("L", "")
+            psram_freq = str(f_boot).replace("000000L", "")
             board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
+            if int(psram_freq) > 80:
+                board_config_flags.append("CONFIG_IDF_EXPERIMENTAL_FEATURES=y")
 
         # Check for PSRAM support based on board flags
         extra_flags = board.get("build.extra_flags", [])
@@ -330,6 +334,7 @@ def HandleArduinoIDFsettings(env):
                 # Octal PSRAM configuration for ESP32-S3
                 if mcu == "esp32s3":
                     board_config_flags.extend([
+                        "CONFIG_IDF_EXPERIMENTAL_FEATURES=y",
                         "CONFIG_SPIRAM_MODE_OCT=y",
                         "# CONFIG_SPIRAM_MODE_QUAD is not set"
                     ])
@@ -423,10 +428,10 @@ def HandleArduinoIDFsettings(env):
 
     def add_flash_configuration(config_flags):
         """Add flash frequency and mode configuration."""
-        if flash_frequency != "80m":
+        if flash_frequency != "80":
             config_flags += "# CONFIG_ESPTOOLPY_FLASHFREQ_80M is not set\n"
-            config_flags += f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_frequency.upper()}=y\n"
-            config_flags += f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_frequency}\"\n"
+            config_flags += f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_frequency}M=y\n"
+            config_flags += f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_frequency}m\"\n"
         
         if flash_mode != "qio":
             config_flags += "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set\n"
