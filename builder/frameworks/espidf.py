@@ -298,6 +298,25 @@ def HandleArduinoIDFsettings(env):
         if f_cpu:
             cpu_freq = str(f_cpu).replace("000000L", "")
             board_config_flags.append(f"CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
+            # Disable other CPU frequency options and enable the specific one
+            common_cpu_freqs = ["80", "160", "240"]
+            for freq in common_cpu_freqs:
+                if freq != cpu_freq:
+                    if mcu == "esp32":
+                        board_config_flags.append(f"# CONFIG_ESP32_DEFAULT_CPU_FREQ_{freq} is not set")
+                    elif mcu in ["esp32s2", "esp32s3"]:
+                        board_config_flags.append(f"# CONFIG_ESP32S2_DEFAULT_CPU_FREQ_{freq} is not set" if mcu == "esp32s2" else f"# CONFIG_ESP32S3_DEFAULT_CPU_FREQ_{freq} is not set")
+                    elif mcu in ["esp32c2", "esp32c3", "esp32c6"]:
+                        board_config_flags.append(f"# CONFIG_ESP32C3_DEFAULT_CPU_FREQ_{freq} is not set")
+            # Enable the specific CPU frequency
+            if mcu == "esp32":
+                board_config_flags.append(f"CONFIG_ESP32_DEFAULT_CPU_FREQ_{cpu_freq}=y")
+            elif mcu == "esp32s2":
+                board_config_flags.append(f"CONFIG_ESP32S2_DEFAULT_CPU_FREQ_{cpu_freq}=y")
+            elif mcu == "esp32s3":
+                board_config_flags.append(f"CONFIG_ESP32S3_DEFAULT_CPU_FREQ_{cpu_freq}=y")
+            elif mcu in ["esp32c2", "esp32c3", "esp32c6"]:
+                board_config_flags.append(f"CONFIG_ESP32C3_DEFAULT_CPU_FREQ_{cpu_freq}=y")
 
         # Set flash frequency and size directly from boards.json
         flash_size = board.get("upload", {}).get("flash_size", None)
@@ -308,6 +327,13 @@ def HandleArduinoIDFsettings(env):
         if f_flash:
             flash_freq = str(f_flash).replace("000000L", "m")
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq}\"")
+            # Disable other flash frequency options
+            flash_freqs = ["20m", "26m", "40m", "80m", "120m"]
+            for freq in flash_freqs:
+                if freq != flash_freq:
+                    board_config_flags.append(f"# CONFIG_ESPTOOLPY_FLASHFREQ_{freq.upper()} is not set")
+            # Enable the specific flash frequency
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_freq.upper()}=y")
             if int(flash_freq.replace("m", "")) > 80:
                 board_config_flags.append("CONFIG_IDF_EXPERIMENTAL_FEATURES=y")
 
@@ -316,6 +342,15 @@ def HandleArduinoIDFsettings(env):
         if f_boot:
             psram_freq = str(f_boot).replace("000000L", "")
             board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq}")
+            # Disable other SPIRAM speed options
+            if psram_freq != "40":
+                board_config_flags.append("# CONFIG_SPIRAM_SPEED_40M is not set")
+            if psram_freq != "80":
+                board_config_flags.append("# CONFIG_SPIRAM_SPEED_80M is not set")
+            if psram_freq != "120":
+                board_config_flags.append("# CONFIG_SPIRAM_SPEED_120M is not set")
+            # Enable the specific speed option
+            board_config_flags.append(f"CONFIG_SPIRAM_SPEED_{psram_freq}M=y")
             if int(psram_freq) > 80:
                 board_config_flags.append("CONFIG_IDF_EXPERIMENTAL_FEATURES=y")
 
