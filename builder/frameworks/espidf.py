@@ -293,6 +293,24 @@ def HandleArduinoIDFsettings(env):
         """Generate board-specific sdkconfig settings from board.json manifest."""
         board_config_flags = []
 
+        # Handle memory type configuration first (needed for other configs)
+        memory_type = None
+        build_section = board.get("build", {})
+        arduino_section = build_section.get("arduino", {})
+        if "memory_type" in arduino_section:
+            memory_type = arduino_section["memory_type"]
+        elif "memory_type" in build_section:
+            memory_type = build_section["memory_type"]
+
+        flash_memory_type = None
+        psram_memory_type = None
+        if memory_type:
+            parts = memory_type.split("_")
+            if len(parts) == 2:
+                flash_memory_type, psram_memory_type = parts
+            else:
+                flash_memory_type = memory_type
+
         # Set CPU frequency
         f_cpu = board.get("build.f_cpu", None)
         if f_cpu:
@@ -401,24 +419,6 @@ def HandleArduinoIDFsettings(env):
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
                         "# CONFIG_SPIRAM_MODE_QUAD is not set"
                     ])
-
-        # Handle memory type configuration
-        memory_type = None
-        build_section = board.get("build", {})
-        arduino_section = build_section.get("arduino", {})
-        if "memory_type" in arduino_section:
-            memory_type = arduino_section["memory_type"]
-        elif "memory_type" in build_section:
-            memory_type = build_section["memory_type"]
-
-        flash_memory_type = None
-        psram_memory_type = None
-        if memory_type:
-            parts = memory_type.split("_")
-            if len(parts) == 2:
-                flash_memory_type, psram_memory_type = parts
-            else:
-                flash_memory_type = memory_type
 
         # Use flash_memory_type for flash config
         if flash_memory_type and "opi" in flash_memory_type.lower():
