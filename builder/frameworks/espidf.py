@@ -301,8 +301,6 @@ def HandleArduinoIDFsettings(env):
         if hasattr(env, 'GetProjectOption'):
             try:
                 memory_type = env.GetProjectOption("board_build.memory_type", None)
-                if memory_type:
-                    print(f"Debug: Using memory_type from platformio.ini: {memory_type}")
             except:
                 pass
         
@@ -312,10 +310,8 @@ def HandleArduinoIDFsettings(env):
             arduino_section = build_section.get("arduino", {})
             if "memory_type" in arduino_section:
                 memory_type = arduino_section["memory_type"]
-                print(f"Debug: Using memory_type from board.build.arduino: {memory_type}")
             elif "memory_type" in build_section:
                 memory_type = build_section["memory_type"]
-                print(f"Debug: Using memory_type from board.build: {memory_type}")
 
         flash_memory_type = None
         psram_memory_type = None
@@ -333,16 +329,12 @@ def HandleArduinoIDFsettings(env):
             # Check for board_build.f_cpu override in platformio.ini
             try:
                 f_cpu = env.GetProjectOption("board_build.f_cpu", None)
-                if f_cpu:
-                    print(f"Debug: Using f_cpu from platformio.ini: {f_cpu}")
             except:
                 pass
         
         # Fallback to board.json manifest
         if not f_cpu:
             f_cpu = board.get("build.f_cpu", None)
-            if f_cpu:
-                print(f"Debug: Using f_cpu from board manifest: {f_cpu}")
         
         if f_cpu:
             cpu_freq = str(f_cpu).replace("000000L", "")
@@ -374,16 +366,12 @@ def HandleArduinoIDFsettings(env):
             # Check for board_upload.flash_size override in platformio.ini
             try:
                 flash_size = env.GetProjectOption("board_upload.flash_size", None)
-                if flash_size:
-                    print(f"Debug: Using flash_size from platformio.ini: {flash_size}")
             except:
                 pass
         
         # Fallback to board.json manifest
         if not flash_size:
             flash_size = board.get("upload", {}).get("flash_size", None)
-            if flash_size:
-                print(f"Debug: Using flash_size from board manifest: {flash_size}")
         
         if flash_size:
             # Configure both string and boolean flash size formats
@@ -406,28 +394,20 @@ def HandleArduinoIDFsettings(env):
         if hasattr(env, 'GetProjectOption'):
             try:
                 f_flash = env.GetProjectOption("board_build.f_flash", None)
-                if f_flash:
-                    print(f"Debug: Using f_flash from platformio.ini: {f_flash}")
             except:
                 pass
         if not f_flash:
             f_flash = board.get("build.f_flash", None)
-            if f_flash:
-                print(f"Debug: Using f_flash from board manifest: {f_flash}")
         
         # Get f_boot with override support
         f_boot = None
         if hasattr(env, 'GetProjectOption'):
             try:
                 f_boot = env.GetProjectOption("board_build.f_boot", None)
-                if f_boot:
-                    print(f"Debug: Using f_boot from platformio.ini: {f_boot}")
             except:
                 pass
         if not f_boot:
             f_boot = board.get("build.f_boot", None)
-            if f_boot:
-                print(f"Debug: Using f_boot from board manifest: {f_boot}")
         
         # Determine the frequencies to use
         esptool_flash_freq = f_flash  # Always use f_flash for esptool compatibility
@@ -444,14 +424,13 @@ def HandleArduinoIDFsettings(env):
                 flash_freq_str = f"{unified_freq}m"
                 psram_freq_str = str(unified_freq)
                 
-                print(f"Debug: Unified frequency mode (>= 80MHz): {unified_freq}MHz for both Flash and PSRAM")
-                print(f"Debug: esptool Flash freq: {esptool_freq_val}MHz, compile Flash+PSRAM freq: {unified_freq}MHz")
+                print(f"Info: Unified frequency mode (>= 80MHz): {unified_freq}MHz for both Flash and PSRAM")
             else:
                 # Below 80MHz, frequencies can differ
                 flash_freq_str = str(compile_freq).replace("000000L", "m")
                 psram_freq_str = str(compile_freq).replace("000000L", "")
                 
-                print(f"Debug: Independent frequency mode (< 80MHz): Flash={flash_freq_str}, PSRAM={psram_freq_str}")
+                print(f"Info: Independent frequency mode (< 80MHz): Flash={flash_freq_str}, PSRAM={psram_freq_str}")
             
             # Configure Flash frequency
             # Disable other flash frequency options first
@@ -486,25 +465,17 @@ def HandleArduinoIDFsettings(env):
             # Check if memory_type contains psram indicators
             if memory_type and ("opi" in memory_type.lower() or "psram" in memory_type.lower()):
                 has_psram = True
-                print(f"Debug: PSRAM detected via memory_type: {memory_type}")
             # Check build.psram_type
             elif "psram_type" in board.get("build", {}):
                 has_psram = True
-                print(f"Debug: PSRAM detected via build.psram_type: {board.get('build', {}).get('psram_type')}")
             # Check for SPIRAM mentions in extra_flags
             elif any("SPIRAM" in str(flag) for flag in extra_flags):
                 has_psram = True
-                print(f"Debug: PSRAM detected via SPIRAM in extra_flags")
             # For ESP32-S3, assume PSRAM capability (can be disabled later if not present)
             elif mcu == "esp32s3":
                 has_psram = True
-                print(f"Debug: PSRAM assumed for ESP32-S3 (will use auto-detection)")
         else:
-            print(f"Debug: PSRAM detected via -DBOARD_HAS_PSRAM flag")
-            
-        print(f"Debug: has_psram final result: {has_psram}")
-        print(f"Debug: extra_flags: {extra_flags}")
-        print(f"Debug: memory_type: {memory_type}")
+            print(f"Info: PSRAM detected via -DBOARD_HAS_PSRAM flag")
         
         if has_psram:
             # Enable basic SPIRAM support
@@ -514,18 +485,11 @@ def HandleArduinoIDFsettings(env):
             # Priority: platformio.ini > memory_type > build.psram_type > default
             psram_type = None
             
-            # DEBUG: Print all relevant information
-            print(f"Debug: memory_type from board: {memory_type}")
-            print(f"Debug: psram_memory_type: {psram_memory_type}")
-            print(f"Debug: flash_memory_type: {flash_memory_type}")
-            print(f"Debug: build.psram_type: {board.get('build', {}).get('psram_type', 'NOT_SET')}")
-            
             # Priority 1: Check for platformio.ini override
             if hasattr(env, 'GetProjectOption'):
                 try:
                     psram_type = env.GetProjectOption("board_build.psram_type", None)
                     if psram_type:
-                        print(f"Debug: Using psram_type from platformio.ini: {psram_type}")
                         psram_type = psram_type.lower()
                 except:
                     pass
@@ -533,23 +497,16 @@ def HandleArduinoIDFsettings(env):
             # Priority 2: Check psram_memory_type from memory_type field (e.g., "qio_opi")
             if not psram_type and psram_memory_type:
                 psram_type = psram_memory_type.lower()
-                print(f"Debug: Using psram_memory_type: {psram_type}")
             # Priority 3: Check build.psram_type field as fallback
             elif not psram_type and "psram_type" in board.get("build", {}):
                 psram_type = board.get("build.psram_type", "qio").lower()
-                print(f"Debug: Using build.psram_type: {psram_type}")
             # Priority 4: Default to qio
             elif not psram_type:
                 psram_type = "qio"
-                print(f"Debug: Using default psram_type: {psram_type}")
-            
-            print(f"Debug: Final PSRAM type: {psram_type}")
-            print(f"Debug: MCU: {mcu}")
             
             # Configure PSRAM mode based on detected type
             if psram_type == "opi":
                 # Octal PSRAM configuration - primarily for ESP32-S3, but also handle other MCUs
-                print(f"Debug: Configuring OPI PSRAM for {mcu}")
                 if mcu == "esp32s3":
                     board_config_flags.extend([
                         "CONFIG_IDF_EXPERIMENTAL_FEATURES=y",
@@ -557,20 +514,16 @@ def HandleArduinoIDFsettings(env):
                         "CONFIG_SPIRAM_MODE_OCT=y",
                         "CONFIG_SPIRAM_TYPE_AUTO=y"
                     ])
-                    print(f"Debug: Applied ESP32-S3 OPI PSRAM config")
                 else:
-                    print(f"Warning: OPI PSRAM requested for {mcu}, but OPI is primarily supported on ESP32-S3")
                     # Fallback to QUAD for non-S3 chips
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
                         "CONFIG_SPIRAM_MODE_QUAD=y",
                         "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y"
                     ])
-                    print(f"Debug: Applied fallback QUAD PSRAM config for {mcu}")
                     
             elif psram_type in ["qio", "qspi"]:
                 # Quad PSRAM configuration
-                print(f"Debug: Configuring QUAD PSRAM for {mcu}")
                 if mcu in ["esp32s2", "esp32s3"]:
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
@@ -578,7 +531,6 @@ def HandleArduinoIDFsettings(env):
                         "CONFIG_SPIRAM_MODE_QUAD=y",
                         "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y"
                     ])
-                    print(f"Debug: Applied QUAD PSRAM config for {mcu}")
                 elif mcu == "esp32":
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
@@ -586,9 +538,8 @@ def HandleArduinoIDFsettings(env):
                         "# CONFIG_SPIRAM_TYPE_AUTO is not set",
                         "CONFIG_SPIRAM_TYPE_ESPPSRAM64=y"
                     ])
-                    print(f"Debug: Applied classic PSRAM config for ESP32")
             else:
-                print(f"Warning: Unknown PSRAM type '{psram_type}', falling back to default QUAD configuration")
+                # Unknown PSRAM type, falling back to default QUAD configuration
                 if mcu in ["esp32s2", "esp32s3"]:
                     board_config_flags.extend([
                         "# CONFIG_SPIRAM_MODE_OCT is not set",
@@ -671,16 +622,12 @@ def HandleArduinoIDFsettings(env):
         # Generate checksum for validation (maintains original logic)
         checksum = get_MD5_hash(checksum_source.strip() + mcu)
         
-        print(f"Debug: Writing sdkconfig with {len(idf_config_flags)} custom flags")
-        print(f"Debug: Custom flags to apply: {idf_config_flags}")
-        
         with open(sdkconfig_src, 'r', encoding='utf-8') as src, open(sdkconfig_dst, 'w', encoding='utf-8') as dst:
             # Write checksum header (critical for compilation decision logic)
             dst.write(f"# TASMOTA__{checksum}\n")
             
             # Process each line from source sdkconfig
             src_lines = src.readlines()
-            print(f"Debug: Processing {len(src_lines)} lines from Arduino template")
             
             for line in src_lines:
                 flag_name = extract_flag_name(line)
@@ -688,10 +635,6 @@ def HandleArduinoIDFsettings(env):
                 if flag_name is None:
                     dst.write(line)
                     continue
-                
-                # Special debug for SPIRAM related flags
-                if "SPIRAM" in line:
-                    print(f"Debug: Found SPIRAM line in template: {line.strip()}")
                 
                 # Check if we have a custom replacement for this flag
                 flag_replaced = False
@@ -701,24 +644,17 @@ def HandleArduinoIDFsettings(env):
                     if flag_name == custom_flag_name:
                         cleaned_flag = custom_flag.replace("'", "")
                         dst.write(cleaned_flag + "\n")
-                        print(f"Replace: {line.strip()} with: {cleaned_flag}")
                         idf_config_flags.remove(custom_flag)
                         flag_replaced = True
                         break
                 
                 if not flag_replaced:
                     dst.write(line)
-                    if "SPIRAM" in line:
-                        print(f"Debug: Kept original SPIRAM line: {line.strip()}")
             
             # Add any remaining new flags
-            print(f"Debug: Adding {len(idf_config_flags)} remaining flags")
             for remaining_flag in idf_config_flags:
                 cleaned_flag = remaining_flag.replace("'", "")
-                print(f"Add: {cleaned_flag}")
                 dst.write(cleaned_flag + "\n")
-                
-        print(f"Debug: Final sdkconfig.defaults written to: {sdkconfig_dst}")
 
     
     # Main execution logic
