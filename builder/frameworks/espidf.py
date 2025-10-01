@@ -293,14 +293,29 @@ def HandleArduinoIDFsettings(env):
         """Generate board-specific sdkconfig settings from board.json manifest."""
         board_config_flags = []
 
-        # Handle memory type configuration first (needed for other configs)
+        # Handle memory type configuration with platformio.ini override support
+        # Priority: platformio.ini > board.json manifest
         memory_type = None
-        build_section = board.get("build", {})
-        arduino_section = build_section.get("arduino", {})
-        if "memory_type" in arduino_section:
-            memory_type = arduino_section["memory_type"]
-        elif "memory_type" in build_section:
-            memory_type = build_section["memory_type"]
+        
+        # Check for memory_type override in platformio.ini
+        if hasattr(env, 'GetProjectOption'):
+            try:
+                memory_type = env.GetProjectOption("board_build.memory_type", None)
+                if memory_type:
+                    print(f"Debug: Using memory_type from platformio.ini: {memory_type}")
+            except:
+                pass
+        
+        # Fallback to board.json manifest
+        if not memory_type:
+            build_section = board.get("build", {})
+            arduino_section = build_section.get("arduino", {})
+            if "memory_type" in arduino_section:
+                memory_type = arduino_section["memory_type"]
+                print(f"Debug: Using memory_type from board.build.arduino: {memory_type}")
+            elif "memory_type" in build_section:
+                memory_type = build_section["memory_type"]
+                print(f"Debug: Using memory_type from board.build: {memory_type}")
 
         flash_memory_type = None
         psram_memory_type = None
@@ -311,8 +326,24 @@ def HandleArduinoIDFsettings(env):
             else:
                 flash_memory_type = memory_type
 
-        # Set CPU frequency
-        f_cpu = board.get("build.f_cpu", None)
+        # Set CPU frequency with platformio.ini override support
+        # Priority: platformio.ini > board.json manifest
+        f_cpu = None
+        if hasattr(env, 'GetProjectOption'):
+            # Check for board_build.f_cpu override in platformio.ini
+            try:
+                f_cpu = env.GetProjectOption("board_build.f_cpu", None)
+                if f_cpu:
+                    print(f"Debug: Using f_cpu from platformio.ini: {f_cpu}")
+            except:
+                pass
+        
+        # Fallback to board.json manifest
+        if not f_cpu:
+            f_cpu = board.get("build.f_cpu", None)
+            if f_cpu:
+                print(f"Debug: Using f_cpu from board manifest: {f_cpu}")
+        
         if f_cpu:
             cpu_freq = str(f_cpu).replace("000000L", "")
             board_config_flags.append(f"CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ={cpu_freq}")
@@ -336,15 +367,58 @@ def HandleArduinoIDFsettings(env):
             elif mcu in ["esp32c2", "esp32c3", "esp32c6"]:
                 board_config_flags.append(f"CONFIG_ESP32C3_DEFAULT_CPU_FREQ_{cpu_freq}=y")
 
-        # Set flash frequency and size directly from boards.json
-        flash_size = board.get("upload", {}).get("flash_size", None)
+        # Set flash size with platformio.ini override support
+        # Priority: platformio.ini > board.json manifest
+        flash_size = None
+        if hasattr(env, 'GetProjectOption'):
+            # Check for board_upload.flash_size override in platformio.ini
+            try:
+                flash_size = env.GetProjectOption("board_upload.flash_size", None)
+                if flash_size:
+                    print(f"Debug: Using flash_size from platformio.ini: {flash_size}")
+            except:
+                pass
+        
+        # Fallback to board.json manifest
+        if not flash_size:
+            flash_size = board.get("upload", {}).get("flash_size", None)
+            if flash_size:
+                print(f"Debug: Using flash_size from board manifest: {flash_size}")
+        
         if flash_size:
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHSIZE=\"{flash_size}\"")
 
-        # Handle Flash and PSRAM frequency configuration
+        # Handle Flash and PSRAM frequency configuration with platformio.ini override support
+        # Priority: platformio.ini > board.json manifest
         # From 80MHz onwards, Flash and PSRAM frequencies must be identical
-        f_flash = board.get("build.f_flash", None)
-        f_boot = board.get("build.f_boot", None)
+        
+        # Get f_flash with override support
+        f_flash = None
+        if hasattr(env, 'GetProjectOption'):
+            try:
+                f_flash = env.GetProjectOption("board_build.f_flash", None)
+                if f_flash:
+                    print(f"Debug: Using f_flash from platformio.ini: {f_flash}")
+            except:
+                pass
+        if not f_flash:
+            f_flash = board.get("build.f_flash", None)
+            if f_flash:
+                print(f"Debug: Using f_flash from board manifest: {f_flash}")
+        
+        # Get f_boot with override support
+        f_boot = None
+        if hasattr(env, 'GetProjectOption'):
+            try:
+                f_boot = env.GetProjectOption("board_build.f_boot", None)
+                if f_boot:
+                    print(f"Debug: Using f_boot from platformio.ini: {f_boot}")
+            except:
+                pass
+        if not f_boot:
+            f_boot = board.get("build.f_boot", None)
+            if f_boot:
+                print(f"Debug: Using f_boot from board manifest: {f_boot}")
         
         # Determine the frequencies to use
         esptool_flash_freq = f_flash  # Always use f_flash for esptool compatibility
@@ -427,7 +501,8 @@ def HandleArduinoIDFsettings(env):
             # Enable basic SPIRAM support
             board_config_flags.append("CONFIG_SPIRAM=y")
             
-            # Determine PSRAM type from multiple sources (unified logic)
+            # Determine PSRAM type with platformio.ini override support
+            # Priority: platformio.ini > memory_type > build.psram_type > default
             psram_type = None
             
             # DEBUG: Print all relevant information
@@ -436,16 +511,26 @@ def HandleArduinoIDFsettings(env):
             print(f"Debug: flash_memory_type: {flash_memory_type}")
             print(f"Debug: build.psram_type: {board.get('build', {}).get('psram_type', 'NOT_SET')}")
             
-            # Priority 1: Check psram_memory_type from memory_type field (e.g., "qio_opi")
-            if psram_memory_type:
+            # Priority 1: Check for platformio.ini override
+            if hasattr(env, 'GetProjectOption'):
+                try:
+                    psram_type = env.GetProjectOption("board_build.psram_type", None)
+                    if psram_type:
+                        print(f"Debug: Using psram_type from platformio.ini: {psram_type}")
+                        psram_type = psram_type.lower()
+                except:
+                    pass
+            
+            # Priority 2: Check psram_memory_type from memory_type field (e.g., "qio_opi")
+            if not psram_type and psram_memory_type:
                 psram_type = psram_memory_type.lower()
                 print(f"Debug: Using psram_memory_type: {psram_type}")
-            # Priority 2: Check build.psram_type field as fallback
-            elif "psram_type" in board.get("build", {}):
+            # Priority 3: Check build.psram_type field as fallback
+            elif not psram_type and "psram_type" in board.get("build", {}):
                 psram_type = board.get("build.psram_type", "qio").lower()
                 print(f"Debug: Using build.psram_type: {psram_type}")
-            # Priority 3: Default to qio
-            else:
+            # Priority 4: Default to qio
+            elif not psram_type:
                 psram_type = "qio"
                 print(f"Debug: Using default psram_type: {psram_type}")
             
