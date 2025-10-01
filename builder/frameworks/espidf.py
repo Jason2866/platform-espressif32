@@ -371,23 +371,23 @@ def HandleArduinoIDFsettings(env):
                 print(f"Debug: Independent frequency mode (< 80MHz): Flash={flash_freq_str}, PSRAM={psram_freq_str}")
             
             # Configure Flash frequency
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq_str}\"")
-            # Disable other flash frequency options
+            # Disable other flash frequency options first
             flash_freqs = ["20m", "26m", "40m", "80m", "120m"]
             for freq in flash_freqs:
                 if freq != flash_freq_str:
                     board_config_flags.append(f"# CONFIG_ESPTOOLPY_FLASHFREQ_{freq.upper()} is not set")
-            # Enable the specific flash frequency
+            # Then set the specific frequency configs
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ=\"{flash_freq_str}\"")
             board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ_{flash_freq_str.upper()}=y")
             
             # Configure PSRAM frequency (same as Flash for >= 80MHz)
-            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq_str}")
-            # Disable other SPIRAM speed options
+            # Disable other SPIRAM speed options first
             psram_freqs = ["40", "80", "120"]
             for freq in psram_freqs:
                 if freq != psram_freq_str:
                     board_config_flags.append(f"# CONFIG_SPIRAM_SPEED_{freq}M is not set")
-            # Enable the specific PSRAM speed
+            # Then set the specific SPIRAM configs
+            board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq_str}")
             board_config_flags.append(f"CONFIG_SPIRAM_SPEED_{psram_freq_str}M=y")
             
             # Enable experimental features for frequencies > 80MHz
@@ -419,21 +419,22 @@ def HandleArduinoIDFsettings(env):
             
             # Configure PSRAM mode based on detected type
             if psram_type == "opi":
-                # Octal PSRAM configuration for ESP32-S3
+                # Octal PSRAM configuration for ESP32-S3  
                 if mcu == "esp32s3":
                     board_config_flags.extend([
                         "CONFIG_IDF_EXPERIMENTAL_FEATURES=y",
+                        "# CONFIG_SPIRAM_MODE_QUAD is not set",
                         "CONFIG_SPIRAM_MODE_OCT=y",
-                        "# CONFIG_SPIRAM_MODE_QUAD is not set"
+                        "CONFIG_SPIRAM_TYPE_AUTO=y"
                     ])
-                    print(f"Debug: Configured OPI PSRAM for ESP32-S3")
+                    print(f"Debug: Configured OPI PSRAM for ESP32-S3 with AUTO type detection")
                     
             elif psram_type in ["qio", "qspi"]:
                 # Quad PSRAM configuration
                 if mcu in ["esp32s2", "esp32s3"]:
                     board_config_flags.extend([
-                        "CONFIG_SPIRAM_MODE_QUAD=y",
-                        "# CONFIG_SPIRAM_MODE_OCT is not set"
+                        "# CONFIG_SPIRAM_MODE_OCT is not set",
+                        "CONFIG_SPIRAM_MODE_QUAD=y"
                     ])
                     print(f"Debug: Configured QUAD PSRAM for {mcu}")
                 elif mcu == "esp32":
@@ -447,10 +448,10 @@ def HandleArduinoIDFsettings(env):
         if flash_memory_type and "opi" in flash_memory_type.lower():
             # OPI memory configurations require specific flash settings
             board_config_flags.extend([
-                "CONFIG_ESPTOOLPY_FLASHMODE_DOUT=y",
                 "# CONFIG_ESPTOOLPY_FLASHMODE_QIO is not set",
                 "# CONFIG_ESPTOOLPY_FLASHMODE_QOUT is not set",
-                "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set"
+                "# CONFIG_ESPTOOLPY_FLASHMODE_DIO is not set",
+                "CONFIG_ESPTOOLPY_FLASHMODE_DOUT=y"
             ])
 
         return board_config_flags
