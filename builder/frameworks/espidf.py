@@ -220,9 +220,6 @@ def has_board_specific_config():
     
     return has_psram or has_special_memory
 
-if has_board_specific_config():
-    flag_custom_sdkonfig = True
-
 def HandleArduinoIDFsettings(env):
     """
     Handles Arduino IDF settings configuration with custom sdkconfig support.
