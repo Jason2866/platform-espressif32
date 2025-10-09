@@ -30,7 +30,6 @@ import requests
 import shutil
 import subprocess
 import sys
-from os.path import join
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 
@@ -219,9 +218,6 @@ def has_board_specific_config():
     has_special_memory = memory_type and ("opi" in memory_type.lower())
     
     return has_psram or has_special_memory
-
-if has_board_specific_config():
-    flag_custom_sdkonfig = True
 
 def HandleArduinoIDFsettings(env):
     """
@@ -426,7 +422,6 @@ def HandleArduinoIDFsettings(env):
         if f_flash and compile_freq:
             # Ensure frequency compatibility (>= 80MHz must be identical for Flash and PSRAM)
             compile_freq_val = int(str(compile_freq).replace("000000L", ""))
-            esptool_freq_val = int(str(esptool_flash_freq).replace("000000L", ""))
             
             if compile_freq_val >= 80:
                 # Above 80MHz, both Flash and PSRAM must use same frequency
