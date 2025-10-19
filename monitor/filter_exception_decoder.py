@@ -26,7 +26,6 @@ from platformio.public import (
 )
 from platformio import fs
 from platformio.project.config import ProjectConfig
-from platformio.platform.factory import PlatformFactory
 
 # By design, __init__ is called inside miniterm and we can't pass context to it.
 # pylint: disable=attribute-defined-outside-init
@@ -117,15 +116,8 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         Uses platform.get_package_dir() to access tool-esp-rom-elfs.
         """
         try:
-            # Get platform instance from project config
-            platform_name = self.config.get("env:" + self.environment, "platform")
-            
-            # Handle platform with version/repository specification
-            if "@" in platform_name:
-                platform_name = platform_name.split("@")[0]
-            
-            # Get platform instance
-            platform = PlatformFactory.new(platform_name)
+            project_config = ProjectConfig.get_instance()
+            platform = project_config.get_platform_instance(self.environment)
             
             # Ensure tool-esp-rom-elfs is installed
             platform.ensure_tool_installed("tool-esp-rom-elfs")
