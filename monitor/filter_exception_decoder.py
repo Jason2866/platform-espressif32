@@ -24,8 +24,7 @@ from platformio.public import (
     DeviceMonitorFilterBase,
     load_build_metadata,
 )
-from platformio import fs
-from platformio.project.config import ProjectConfig
+from platformio.package.manager.tool import ToolPackageManager
 
 # By design, __init__ is called inside miniterm and we can't pass context to it.
 # pylint: disable=attribute-defined-outside-init
@@ -113,7 +112,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         the board name and MCU configuration.
         
         Args:
-             Build metadata dictionary containing board and MCU information
+            data: Build metadata dictionary containing board and MCU information
             
         Returns:
             str: Chip name (e.g., "esp32", "esp32s3") or "esp32" as fallback
@@ -139,9 +138,12 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         """
         Find the appropriate ROM ELF file for the specified chip.
         
-        Uses platform.get_package_dir() to access the tool-esp-rom-elfs package,
-        which is automatically installed if not present. The ROM ELF files are
-        required to decode addresses from ROM code regions.
+        Uses ToolPackageManager to access the tool-esp-rom-elfs package.
+        The package must be defined as a dependency in platform.json and
+        will be automatically installed when the platform is installed.
+        
+        Searches for ROM ELF files with various naming patterns and selects
+        the one with the lowest revision number for maximum compatibility.
         
         Args:
             chip_name: Name of the ESP32 chip variant (e.g., "esp32s3")
@@ -150,27 +152,43 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             str: Path to the ROM ELF file, or None if not found
         """
         try:
-            # Get platform instance from project config
-            project_config = ProjectConfig.get_instance()
-            platform = project_config.get_platform_instance(self.environment)
+            # Use ToolPackageManager to access already installed packages
+            pm = ToolPackageManager()
             
-            # Ensure tool-esp-rom-elfs is installed via platform
-            platform.ensure_tool_installed("tool-esp-rom-elfs")
+            # Get the tool-esp-rom-elfs package (must be defined in platform.json)
+            pkg = pm.get_package("tool-esp-rom-elfs")
             
-            # Get package directory via platform
-            rom_elfs_dir = platform.get_package_dir("tool-esp-rom-elfs")
-            
-            if not rom_elfs_dir or not os.path.isdir(rom_elfs_dir):
+            if not pkg:
                 sys.stderr.write(
-                    "%s: ROM ELFs directory not found\n"
+                    "%s: tool-esp-rom-elfs package not found. "
+                    "Ensure it is defined in platform.json dependencies.\n"
                     % self.__class__.__name__
                 )
                 return None
             
-            # Search for ROM ELF files matching the chip
-            # Pattern: <chip_name>_rev<rev>_rom.elf
-            pattern = os.path.join(rom_elfs_dir, f"{chip_name}_rev*.elf")
-            rom_files = glob.glob(pattern)
+            rom_elfs_dir = pkg.path
+            
+            if not rom_elfs_dir or not os.path.isdir(rom_elfs_dir):
+                sys.stderr.write(
+                    "%s: ROM ELFs directory not found at %s\n"
+                    % (self.__class__.__name__, rom_elfs_dir)
+                )
+                return None
+            
+            # Patterns commonly seen: <chip>_rev<rev>_rom.elf, <chip>_rev<rev>.elf, <chip>*_rom.elf
+            patterns = [
+                os.path.join(rom_elfs_dir, f"{chip_name}_rev*_rom.elf"),
+                os.path.join(rom_elfs_dir, f"{chip_name}_rev*.elf"),
+                os.path.join(rom_elfs_dir, f"{chip_name}*_rom.elf"),
+                os.path.join(rom_elfs_dir, f"{chip_name}*.elf"),
+            ]
+            
+            rom_files = []
+            for pattern in patterns:
+                rom_files.extend(glob.glob(pattern))
+            
+            # Remove duplicates and sort
+            rom_files = sorted(set(rom_files))
             
             if not rom_files:
                 sys.stderr.write(
@@ -179,12 +197,15 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
                 )
                 return None
             
-            # Sort by revision number and return the lowest (most compatible)
-            # This handles cases where specific revision isn't available
-            rom_files.sort()
+            # Sort by numeric revision (lowest first) if present; otherwise push to the end
+            def _rev_key(path):
+                m = re.search(r"_rev(\d+)", os.path.basename(path))
+                return int(m.group(1)) if m else 10**9
+            
+            rom_files.sort(key=_rev_key)
             return rom_files[0]
             
-        except Exception as e:
+        except (PlatformioException, OSError) as e:
             sys.stderr.write(
                 "%s: Error accessing ROM ELF package: %s\n"
                 % (self.__class__.__name__, e)
