@@ -24,6 +24,8 @@ from platformio.public import (
     DeviceMonitorFilterBase,
     load_build_metadata,
 )
+from platformio import fs
+from platformio.package.manager.tool import ToolPackageManager
 
 # By design, __init__ is called inside miniterm and we can't pass context to it.
 # pylint: disable=attribute-defined-outside-init
@@ -112,31 +114,59 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         """
         Find the appropriate ROM ELF file for the chip.
         Searches in .platformio/packages/tool-esp-rom-elfs/
+        Installs the package if not found.
         """
-        # Check if esp-rom-elfs package is available, install if missing
-        _rom_elfs_dir = platform.get_package_dir("tool-esp-rom-elfs")
-
-        # Install tool-esp-rom-elfs if not available
-        if not _rom_elfs_dir or not os.path.isdir(_rom_elfs_dir):
-            print("ESP ROM ELFs tool not found, installing...")
-            try:
-                platform.install_package("tool-esp-rom-elfs")
-                _rom_elfs_dir = platform.get_package_dir("tool-esp-rom-elfs")
-            except Exception as e:
-                print(f"Warning: Failed to install tool-esp-rom-elfs: {e}")
-        
-        # Search for ROM ELF files matching the chip
-        # Pattern: <chip_name>_rev<rev>_rom.elf
-        pattern = os.path.join(_rom_elfs_dir, f"{chip_name}_rev*.elf")
-        rom_files = glob.glob(pattern)
-        
-        if not rom_files:
+        try:
+            # Create package manager instance
+            pm = ToolPackageManager()
+            
+            # Try to get package directory
+            pkg = pm.get_package("tool-esp-rom-elfs")
+            
+            if pkg:
+                _rom_elfs_dir = pkg.path
+            else:
+                # Package not installed, try to install it
+                sys.stderr.write(
+                    "%s: ROM ELFs package not found, installing...\n"
+                    % self.__class__.__name__
+                )
+                try:
+                    pkg = pm.install("platformio/tool-esp-rom-elfs")
+                    _rom_elfs_dir = pkg.path
+                    sys.stderr.write(
+                        "%s: ROM ELFs package installed successfully\n"
+                        % self.__class__.__name__
+                    )
+                except Exception as e:
+                    sys.stderr.write(
+                        "%s: Failed to install tool-esp-rom-elfs: %s\n"
+                        % (self.__class__.__name__, e)
+                    )
+                    return None
+            
+            if not _rom_elfs_dir or not os.path.isdir(_rom_elfs_dir):
+                return None
+            
+            # Search for ROM ELF files matching the chip
+            # Pattern: <chip_name>_rev<rev>_rom.elf
+            pattern = os.path.join(_rom_elfs_dir, f"{chip_name}_rev*.elf")
+            rom_files = glob.glob(pattern)
+            
+            if not rom_files:
+                return None
+            
+            # Sort by revision number and return the lowest (most compatible)
+            # This handles cases where specific revision isn't available
+            rom_files.sort()
+            return rom_files[0]
+            
+        except Exception as e:
+            sys.stderr.write(
+                "%s: Error accessing ROM ELF package: %s\n"
+                % (self.__class__.__name__, e)
+            )
             return None
-        
-        # Sort by revision number and return the lowest (most compatible)
-        # This handles cases where specific revision isn't available
-        rom_files.sort()
-        return rom_files[0]
 
     def setup_paths(self):
         self.project_dir = os.path.abspath(self.project_dir)
