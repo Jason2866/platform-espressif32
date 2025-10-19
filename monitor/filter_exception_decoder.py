@@ -113,16 +113,21 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         Find the appropriate ROM ELF file for the chip.
         Searches in .platformio/packages/tool-esp-rom-elfs/
         """
-        # Get platformio packages directory
-        home_dir = os.path.expanduser("~")
-        rom_elfs_dir = os.path.join(home_dir, ".platformio", "packages", "tool-esp-rom-elfs")
-        
-        if not os.path.isdir(rom_elfs_dir):
-            return None
+        # Check if esp-rom-elfs package is available, install if missing
+        _rom_elfs_dir = platform.get_package_dir("tool-esp-rom-elfs")
+
+        # Install tool-esp-rom-elfs if not available
+        if not _rom_elfs_dir or not os.path.isdir(_rom_elfs_dir):
+            print("ESP ROM ELFs tool not found, installing...")
+            try:
+                platform.install_package("tool-esp-rom-elfs")
+                _rom_elfs_dir = platform.get_package_dir("tool-esp-rom-elfs")
+            except Exception as e:
+                print(f"Warning: Failed to install tool-esp-rom-elfs: {e}")
         
         # Search for ROM ELF files matching the chip
         # Pattern: <chip_name>_rev<rev>_rom.elf
-        pattern = os.path.join(rom_elfs_dir, f"{chip_name}_rev*.elf")
+        pattern = os.path.join(_rom_elfs_dir, f"{chip_name}_rev*.elf")
         rom_files = glob.glob(pattern)
         
         if not rom_files:
