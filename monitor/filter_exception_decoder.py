@@ -32,6 +32,14 @@ from platformio.project.config import ProjectConfig
 
 
 class Esp32ExceptionDecoder(DeviceMonitorFilterBase):
+    """
+    PlatformIO device monitor filter for decoding ESP32 exception backtraces.
+    
+    This filter automatically decodes memory addresses from ESP32 crash dumps
+    into human-readable function names and source code locations using addr2line.
+    It supports both application code and ROM addresses via ESP ROM ELF files.
+    """
+    
     NAME = "esp32_exception_decoder"
 
     # More specific pattern for PC:SP pairs in backtraces
@@ -67,6 +75,15 @@ class Esp32ExceptionDecoder(DeviceMonitorFilterBase):
     }
 
     def __call__(self):
+        """
+        Initialize the filter instance.
+        
+        This method is called when the monitor filter is activated.
+        Sets up internal state and locates required tools and files.
+        
+        Returns:
+            self: The initialized filter instance
+        """
         self.buffer = ""
         self.in_backtrace_context = False
         self.lines_since_context = 0
@@ -90,8 +107,16 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
 
     def get_chip_name(self, data):
         """
-        Determine chip name from build metadata.
-        Tries multiple methods to detect the chip type.
+        Determine the ESP32 chip name from build metadata.
+        
+        Tries multiple methods to detect the chip type by examining
+        the board name and MCU configuration.
+        
+        Args:
+             Build metadata dictionary containing board and MCU information
+            
+        Returns:
+            str: Chip name (e.g., "esp32", "esp32s3") or "esp32" as fallback
         """
         # Try to get from board definition
         board = data.get("board", "").lower()
@@ -112,14 +137,24 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
 
     def find_rom_elf(self, chip_name):
         """
-        Find the appropriate ROM ELF file for the chip.
-        Uses platform.get_package_dir() to access tool-esp-rom-elfs.
+        Find the appropriate ROM ELF file for the specified chip.
+        
+        Uses platform.get_package_dir() to access the tool-esp-rom-elfs package,
+        which is automatically installed if not present. The ROM ELF files are
+        required to decode addresses from ROM code regions.
+        
+        Args:
+            chip_name: Name of the ESP32 chip variant (e.g., "esp32s3")
+            
+        Returns:
+            str: Path to the ROM ELF file, or None if not found
         """
         try:
+            # Get platform instance from project config
             project_config = ProjectConfig.get_instance()
             platform = project_config.get_platform_instance(self.environment)
             
-            # Ensure tool-esp-rom-elfs is installed
+            # Ensure tool-esp-rom-elfs is installed via platform
             platform.ensure_tool_installed("tool-esp-rom-elfs")
             
             # Get package directory via platform
@@ -157,10 +192,21 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             return None
 
     def setup_paths(self):
+        """
+        Setup paths for firmware ELF, addr2line tool, and ROM ELF files.
+        
+        Loads build metadata to locate the compiled firmware and toolchain,
+        then attempts to find the appropriate ROM ELF file for the target chip.
+        
+        Returns:
+            bool: True if setup was successful and filter can be enabled,
+                  False if critical components are missing
+        """
         self.project_dir = os.path.abspath(self.project_dir)
         try:
             data = load_build_metadata(self.project_dir, self.environment, cache=True)
 
+            # Locate firmware ELF file
             self.firmware_path = data["prog_path"]
             if not os.path.isfile(self.firmware_path):
                 sys.stderr.write(
@@ -169,6 +215,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
                 )
                 return False
 
+            # Locate addr2line tool from compiler path
             cc_path = data.get("cc_path", "")
             if "-gcc" in cc_path:
                 path = cc_path.replace("-gcc", "-addr2line")
@@ -186,7 +233,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
                 )
                 return False
             
-            # Try to find ROM ELF file
+            # Try to find ROM ELF file for chip-specific ROM addresses
             chip_name = self.get_chip_name(data)
             self.rom_elf_path = self.find_rom_elf(chip_name)
             
@@ -211,15 +258,29 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             return False
 
     def is_backtrace_context(self, line):
-        """Check if the line indicates we're entering a backtrace context."""
+        """
+        Check if a line indicates we're entering a backtrace context.
+        
+        Args:
+            line: Text line to check
+            
+        Returns:
+            bool: True if line contains backtrace keywords
+        """
         return self.BACKTRACE_KEYWORDS.search(line) is not None
 
     def should_process_line(self, line):
         """
         Determine if a line should be processed for address decoding.
-        Returns True only if:
-        1. We're in a backtrace context, OR
-        2. The line itself contains backtrace keywords
+        
+        Only processes lines that are part of an exception/backtrace context
+        to avoid false positives on random hex values in normal output.
+        
+        Args:
+            line: Text line to evaluate
+            
+        Returns:
+            bool: True if line should be processed for address decoding
         """
         # Check if this line starts a backtrace context
         if self.is_backtrace_context(line):
@@ -241,6 +302,18 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         return False
 
     def rx(self, text):
+        """
+        Process received text from the serial monitor.
+        
+        Scans incoming text for backtrace address patterns and decodes them
+        into human-readable function names and source locations.
+        
+        Args:
+            text: Raw text received from device
+            
+        Returns:
+            str: Text with decoded backtraces inserted
+        """
         if not self.enabled:
             return text
 
@@ -273,9 +346,29 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         return text
 
     def is_address_ignored(self, address):
+        """
+        Check if an address should be ignored during decoding.
+        
+        Args:
+            address: Memory address string
+            
+        Returns:
+            bool: True if address should be skipped
+        """
         return address in ("", "0x00000000")
 
     def filter_addresses(self, addresses_str):
+        """
+        Extract and filter valid addresses from a string.
+        
+        Splits the address string and removes trailing null/invalid addresses.
+        
+        Args:
+            addresses_str: String containing colon-separated address pairs
+            
+        Returns:
+            list: List of valid address strings
+        """
         addresses = self.ADDR_SPLIT.split(addresses_str)
         size = len(addresses)
         while size > 1 and self.is_address_ignored(addresses[size-1]):
@@ -285,7 +378,13 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
     def decode_address(self, addr, elf_path):
         """
         Decode a single address using addr2line.
-        Returns the decoded string or None if decoding failed.
+        
+        Args:
+            addr: Memory address to decode (e.g., "0x400d1234")
+            elf_path: Path to ELF file containing debug symbols
+            
+        Returns:
+            str: Decoded function and location, or None if decoding failed
         """
         enc = "mbcs" if IS_WINDOWS else "utf-8"
         args = [self.addr2line_path, u"-fipC", u"-e", elf_path, addr]
@@ -297,7 +396,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
                 .strip()
             )
             
-            # newlines happen with inlined methods
+            # Newlines happen with inlined methods
             output = output.replace("\n", "\n     ")
             
             # Check if address was found in ELF
@@ -310,6 +409,20 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             return None
 
     def build_backtrace(self, line, address_match):
+        """
+        Build a decoded backtrace from a line containing addresses.
+        
+        Attempts to decode each address first from the application ELF,
+        then from the ROM ELF if not found. Addresses successfully decoded
+        from ROM are marked with "in ROM" suffix.
+        
+        Args:
+            line: Original line containing the backtrace
+            address_match: Matched address string from regex
+            
+        Returns:
+            str: Formatted decoded backtrace, or empty string if nothing decoded
+        """
         addresses = self.filter_addresses(address_match)
         if not addresses:
             return ""
@@ -358,6 +471,17 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         return trace + "\n" if trace else ""
 
     def strip_project_dir(self, trace):
+        """
+        Remove project directory prefix from file paths in trace output.
+        
+        This makes the output more readable by showing only relative paths.
+        
+        Args:
+            trace: Decoded trace string containing file paths
+            
+        Returns:
+            str: Trace with project directory paths removed
+        """
         while True:
             idx = trace.find(self.project_dir)
             if idx == -1:
