@@ -501,7 +501,7 @@ def HandleArduinoIDFsettings(env):
             elif "psram_type" in board.get("build", {}):
                 has_psram = True
             # Check for SPIRAM mentions in extra_flags
-            elif any("SPIRAM" in str(flag) for flag in extra_flags):
+            elif any("PSRAM" in str(flag) for flag in extra_flags):
                 has_psram = True
         
         if has_psram:
