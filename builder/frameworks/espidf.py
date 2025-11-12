@@ -2575,7 +2575,7 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
         lib_src = str(Path(env_build) / "esp-idf")
         lib_dst = str(Path(arduino_libs) / mcu / "lib")
         ld_dst = str(Path(arduino_libs) / mcu / "ld")
-        mem_var = str(Path(arduino_libs) / mcu / board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")))
+        mem_var = str(Path(arduino_libs) / mcu / (board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")) + ("_" + board.get("build.f_boot", board.get("build.f_flash", "80000000L")).replace("000000L", "m") if board.get("build.mcu") == "esp32s3" else "")))
         # Ensure destinations exist
         for d in (lib_dst, ld_dst, mem_var, str(Path(mem_var) / "include")):
             Path(d).mkdir(parents=True, exist_ok=True)
