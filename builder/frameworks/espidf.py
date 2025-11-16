@@ -317,11 +317,23 @@ def HandleArduinoIDFsettings(env):
                 flash_memory_type, psram_memory_type = parts
             else:
                 flash_memory_type = memory_type
-                
+
         # Check for additional flash configuration indicators
         boot_mode = board.get("build", {}).get("boot", None)
-        flash_mode = board.get("build", {}).get("flash_mode", None)
-        
+        flash_mode = board.get("build", {}).get("flash_mode", "dio")
+
+        # Add flash mode to sdkconfig
+        if flash_mode:
+            flash_mode_lower = flash_mode.lower()
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHMODE_{mode.upper()}=y")
+#            board_config_flags.append('CONFIG_ESPTOOLPY_FLASHMODE="dio"')
+
+            # Disable other flash mode options
+            flash_modes = ["qio", "qout", "dio", "dout"]
+            for mode in flash_modes:
+                if mode != flash_mode_lower:
+                    board_config_flags.append(f"# CONFIG_ESPTOOLPY_FLASHMODE_{mode.upper()} is not set")
+
         # Override flash_memory_type if boot mode indicates OPI
         if boot_mode == "opi" or flash_mode in ["dout", "opi"]:
             if not flash_memory_type or flash_memory_type.lower() != "opi":
