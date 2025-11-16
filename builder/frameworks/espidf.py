@@ -80,6 +80,7 @@ mcu = board.get("build.mcu", "esp32")
 flash_speed = board.get("build.f_flash", "40000000L")
 flash_frequency = str(flash_speed.replace("000000L", ""))
 flash_mode = board.get("build.flash_mode", "dio")
+boot_mode = board.get("build.boot", None)
 idf_variant = mcu.lower()
 flag_custom_sdkonfig = False
 flag_custom_component_add = False
@@ -317,10 +318,6 @@ def HandleArduinoIDFsettings(env):
                 flash_memory_type, psram_memory_type = parts
             else:
                 flash_memory_type = memory_type
-
-        # Check for additional flash configuration indicators
-        boot_mode = board.get("build", {}).get("boot", None)
-        flash_mode = board.get("build", {}).get("flash_mode", "dio")
 
         # Add flash mode to sdkconfig
         if flash_mode:
