@@ -325,7 +325,7 @@ def HandleArduinoIDFsettings(env):
         # Add flash mode to sdkconfig
         if flash_mode:
             flash_mode_lower = flash_mode.lower()
-            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHMODE_{mode.upper()}=y")
+            board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHMODE_{flash_mode.upper()}=y")
 #            board_config_flags.append('CONFIG_ESPTOOLPY_FLASHMODE="dio"')
 
             # Disable other flash mode options
