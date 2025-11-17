@@ -236,7 +236,9 @@ def get_threshold_info(env, config, current_env_section):
     Returns:
         dict: Information about threshold configuration
     """
-    mcu = env.BoardConfig().get("build.mcu", "esp32")
+    mcu = env.BoardConfig().get("build.mcu", "esp32").lower()
+    chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
+    chip_variant = chip_variant if chip_variant else mcu
     setting_name = "custom_include_path_length_threshold"
 
     info = {
@@ -302,7 +304,7 @@ class PathCache:
     def sdk_dir(self):
         if self._sdk_dir is None:
             self._sdk_dir = fs.to_unix_path(
-                str(Path(self.framework_dir) / "tools" / "esp32-arduino-libs" / self.mcu / "include")
+                str(Path(self.framework_dir) / "tools" / "esp32-arduino-libs" / self.chip_variant / "include")
             )
         return self._sdk_dir
 
