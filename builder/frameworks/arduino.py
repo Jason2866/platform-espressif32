@@ -74,9 +74,7 @@ def get_platform_default_threshold(mcu):
         "esp32s3": 32766,    # ESP32-S3
         "esp32c3": 32000,    # ESP32-C3
         "esp32c2": 31600,    # ESP32-C2
-        "esp32c5": 31600,    # ESP32-C5
         "esp32c6": 31600,    # ESP32-C6
-        "esp32c61": 31600,   # ESP32-C61
         "esp32h2": 32000,    # ESP32-H2
         "esp32p4": 32000,    # ESP32-P4
     }
@@ -107,13 +105,11 @@ def validate_threshold(threshold, mcu):
     mcu_adjustments = {
         "esp32c2": {"min": 30000, "max": 32767},
         "esp32c3": {"min": 30000, "max": 32767},
-        "esp32c5": {"min": 30000, "max": 32767},
         "esp32": {"min": 30000, "max": 32767},
         "esp32s2": {"min": 30000, "max": 32767},
         "esp32s3": {"min": 30000, "max": 32767},
         "esp32p4": {"min": 30000, "max": 32767},
         "esp32c6": {"min": 30000, "max": 32767},
-        "esp32c61": {"min": 30000, "max": 32767},
         "esp32h2": {"min": 30000, "max": 32767},
     }
 
@@ -292,8 +288,6 @@ class PathCache:
     def __init__(self, platform, mcu, chip_variant):
         self.platform = platform
         self.mcu = mcu
-        chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
-        chip_variant = chip_variant if chip_variant else mcu
         self.chip_variant = chip_variant
         self._framework_dir = None
         self._sdk_dir = None
