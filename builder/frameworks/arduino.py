@@ -511,7 +511,7 @@ board = env.BoardConfig()
 mcu = board.get("build.mcu", "esp32")
 pioenv = env["PIOENV"]
 project_dir = env.subst("$PROJECT_DIR")
-path_cache = PathCache(platform, mcu)
+path_cache = PathCache(platform, mcu, chip_variant)
 current_env_section = f"env:{pioenv}"
 
 # Board configuration
