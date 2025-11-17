@@ -237,8 +237,6 @@ def get_threshold_info(env, config, current_env_section):
         dict: Information about threshold configuration
     """
     mcu = env.BoardConfig().get("build.mcu", "esp32").lower()
-    chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
-    chip_variant = chip_variant if chip_variant else mcu
     setting_name = "custom_include_path_length_threshold"
 
     info = {
@@ -509,6 +507,8 @@ board = env.BoardConfig()
 
 # Cached values
 mcu = board.get("build.mcu", "esp32")
+chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
+chip_variant = chip_variant if chip_variant else mcu
 pioenv = env["PIOENV"]
 project_dir = env.subst("$PROJECT_DIR")
 path_cache = PathCache(platform, mcu, chip_variant)
