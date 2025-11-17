@@ -290,7 +290,9 @@ class PathCache:
     def __init__(self, platform, mcu, chip_variant):
         self.platform = platform
         self.mcu = mcu
-        self.chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
+        chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
+        chip_variant = chip_variant if chip_variant else mcu
+        self.chip_variant = chip_variant
         self._framework_dir = None
         self._sdk_dir = None
 
