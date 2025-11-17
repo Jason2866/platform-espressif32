@@ -287,7 +287,7 @@ def get_threshold_info(env, config, current_env_section):
 
 # Cache class for frequently used paths
 class PathCache:
-    def __init__(self, platform, mcu):
+    def __init__(self, platform, mcu, chip_variant):
         self.platform = platform
         self.mcu = mcu
         self.chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
