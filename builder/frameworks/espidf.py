@@ -2325,8 +2325,7 @@ app_includes = get_app_includes(elf_config)
 # Compile bootloader
 #
 
-if flag_custom_sdkonfig == False:
-    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
+env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
 
 #
 # ESP-IDF menuconfig target implementation
@@ -2580,11 +2579,16 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
             except OSError:
                 shutil.move(src, dst)
         env_build = str(Path(env["PROJECT_BUILD_DIR"]) / env["PIOENV"])
+        bootloader_src = str(Path(env_build) / "bootloader.elf")
+        print("****** bootloader firmware path:", bootloader_src)
         sdkconfig_h_path = str(Path(env_build) / "config" / "sdkconfig.h")
         arduino_libs = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs")
         lib_src = str(Path(env_build) / "esp-idf")
         lib_dst = str(Path(arduino_libs) / chip_variant / "lib")
         ld_dst = str(Path(arduino_libs) / chip_variant / "ld")
+        bootloader_variant = "bootloader_" + flash_mode + "_" + flash_frequency + "m.elf" 
+        bootloader_dst = str(Path(arduino_libs) / chip_variant / "bin" / bootloader_variant)
+        print("bootloader destination:", bootloader_dst)
         mem_var = str(Path(arduino_libs) / chip_variant / (board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")) + ("_" + board.get("build.f_boot", board.get("build.f_flash", "80000000L")).replace("000000L", "m") if mcu == "esp32s3" else "")))
         # Ensure destinations exist
         for d in (lib_dst, ld_dst, mem_var, str(Path(mem_var) / "include")):
@@ -2599,6 +2603,7 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
 
         _replace_move(str(Path(lib_dst) / "libspi_flash.a"), str(Path(mem_var) / "libspi_flash.a"))
         _replace_move(str(Path(env_build) / "memory.ld"), str(Path(ld_dst) / "memory.ld"))
+        _replace_move(bootloader_src, bootloader_dst)
         if mcu == "esp32s3":
             _replace_move(str(Path(lib_dst) / "libesp_psram.a"), str(Path(mem_var) / "libesp_psram.a"))
             _replace_move(str(Path(lib_dst) / "libesp_system.a"), str(Path(mem_var) / "libesp_system.a"))
