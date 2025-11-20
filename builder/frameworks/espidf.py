@@ -2325,7 +2325,8 @@ app_includes = get_app_includes(elf_config)
 # Compile bootloader
 #
 
-env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
+if flag_custom_sdkonfig == False:
+    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", build_bootloader(sdk_config))
 
 #
 # ESP-IDF menuconfig target implementation
@@ -2601,7 +2602,7 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
 
         _replace_move(str(Path(lib_dst) / "libspi_flash.a"), str(Path(mem_var) / "libspi_flash.a"))
         _replace_move(str(Path(env_build) / "memory.ld"), str(Path(ld_dst) / "memory.ld"))
-        _replace_move(bootloader_src, bootloader_dst)
+#        _replace_move(bootloader_src, bootloader_dst)
         if mcu == "esp32s3":
             _replace_move(str(Path(lib_dst) / "libesp_psram.a"), str(Path(mem_var) / "libesp_psram.a"))
             _replace_move(str(Path(lib_dst) / "libesp_system.a"), str(Path(mem_var) / "libesp_system.a"))
