@@ -2578,7 +2578,10 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
             try:
                 os.replace(src, dst)
             except OSError:
-                shutil.move(src, dst)
+                try:
+                    shutil.move(src, dst)
+                except:
+                    pass
         env_build = str(Path(env["PROJECT_BUILD_DIR"]) / env["PIOENV"])
         sdkconfig_h_path = str(Path(env_build) / "config" / "sdkconfig.h")
         arduino_libs = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs")
