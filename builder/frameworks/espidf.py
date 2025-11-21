@@ -2573,7 +2573,7 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
             dst_p.parent.mkdir(parents=True, exist_ok=True)
             try:
                 shutil.copy2(src, dst)
-            except (OSError, IOError) as e:
+            except (OSError, IOError):
                 # Gracefully handle missing source files (e.g., PSRAM libs in non-PSRAM builds)
                 # This is expected when copying variant-specific libraries
                 pass
