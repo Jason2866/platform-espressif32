@@ -74,7 +74,9 @@ def get_platform_default_threshold(mcu):
         "esp32s3": 32766,    # ESP32-S3
         "esp32c3": 32000,    # ESP32-C3
         "esp32c2": 31600,    # ESP32-C2
+        "esp32c5": 31600,    # ESP32-C5
         "esp32c6": 31600,    # ESP32-C6
+        "esp32c61": 31600,   # ESP32-C61
         "esp32h2": 32000,    # ESP32-H2
         "esp32p4": 32000,    # ESP32-P4
     }
@@ -105,11 +107,13 @@ def validate_threshold(threshold, mcu):
     mcu_adjustments = {
         "esp32c2": {"min": 30000, "max": 32767},
         "esp32c3": {"min": 30000, "max": 32767},
+        "esp32c5": {"min": 30000, "max": 32767},
         "esp32": {"min": 30000, "max": 32767},
         "esp32s2": {"min": 30000, "max": 32767},
         "esp32s3": {"min": 30000, "max": 32767},
         "esp32p4": {"min": 30000, "max": 32767},
         "esp32c6": {"min": 30000, "max": 32767},
+        "esp32c61": {"min": 30000, "max": 32767},
         "esp32h2": {"min": 30000, "max": 32767},
     }
 
@@ -899,7 +903,63 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     env.AddPostAction("checkprogsize", silent_action)
 
     if IS_WINDOWS:
-        env.AddBuildMiddleware(smart_include_length_shorten)
+        # Integrate smart_include_length_shorten with existing middlewares
+        existing_middlewares = list(env.get("__PIO_BUILD_MIDDLEWARES", []))
+    
+        if existing_middlewares:
+            # Wrap user middlewares to work together with smart_include_length_shorten
+            def integrated_middleware(env, node):
+                # Create a custom env.Object wrapper that intercepts calls
+                original_object = env.Object
+                result_holder = {"result": None, "called": False}
+            
+                def custom_object_wrapper(_node, **kwargs):
+                    # User middleware called env.Object - capture it
+                    result_holder["called"] = True
+                    result_holder["kwargs"] = kwargs
+                    # Don't actually compile yet, just return a marker
+                    return None
+            
+                # Temporarily replace env.Object
+                env.Object = custom_object_wrapper
+            
+                # Call user middleware - it will call our wrapper
+                for middleware_func, _ in existing_middlewares:
+                    middleware_func(env, node)
+            
+                # Restore original env.Object
+                env.Object = original_object
+            
+                # Now compile with smart_include_length_shorten
+                if result_holder["called"] and result_holder.get("kwargs"):
+                    # User middleware wants custom flags - merge them
+                    user_kwargs = result_holder["kwargs"]
+                
+                    # Temporarily apply user's custom flags to env
+                    old_values = {}
+                    for key, value in user_kwargs.items():
+                        if key in env:
+                            old_values[key] = env[key]
+                            env[key] = value
+                
+                    # Compile with smart_include_length_shorten
+                    result = smart_include_length_shorten(env, node)
+                
+                    # Restore original env values
+                    for key, value in old_values.items():
+                        env[key] = value
+                
+                    return result
+                else:
+                    # No custom flags, just use smart_include_length_shorten
+                    return smart_include_length_shorten(env, node)
+        
+            # Replace all middlewares with the integrated one
+            env["__PIO_BUILD_MIDDLEWARES"] = []
+            env.AddBuildMiddleware(integrated_middleware)
+        else:
+            # No user middlewares, just add smart_include_length_shorten
+            env.AddBuildMiddleware(smart_include_length_shorten)
 
     build_script_path = str(Path(FRAMEWORK_DIR) / "tools" / "pioarduino-build.py")
     SConscript(build_script_path)
