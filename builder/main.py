@@ -21,6 +21,7 @@ import subprocess
 import sys
 from os.path import isfile, join
 from pathlib import Path
+from littlefs import LittleFS
 
 from SCons.Script import (
     ARGUMENTS,
@@ -414,6 +415,66 @@ def __fetch_fs_size(target, source, env):
     return (target, source)
 
 
+def build_fs_image(target, source, env):
+    """
+    Build filesystem image using littlefs-python.
+    
+    Args:
+        target: SCons target (output .bin file)
+        source: SCons source (directory with files)
+        env: SCons environment object
+        
+    Returns:
+        int: 0 on success, 1 on failure
+    """
+    from pathlib import Path
+    
+    # Get parameters
+    source_dir = str(source[0])
+    target_file = str(target[0])
+    fs_size = env["FS_SIZE"]
+    block_size = env.get("FS_BLOCK", 4096)
+    
+    # Calculate block count
+    block_count = fs_size // block_size
+    
+    try:
+        # Create LittleFS instance with disk version 2.1 (default)
+        fs = LittleFS(
+            block_size=block_size,
+            block_count=block_count,
+            disk_version=0x00020001,  # Version 2.1
+            mount=True
+        )
+        
+        # Add all files from source directory
+        source_path = Path(source_dir)
+        if source_path.exists():
+            for item in source_path.rglob("*"):
+                rel_path = item.relative_to(source_path)
+                if item.is_dir():
+                    fs.makedirs(rel_path.as_posix(), exist_ok=True)
+                else:
+                    # Ensure parent directories exist
+                    if rel_path.parent != Path("."):
+                        fs.makedirs(rel_path.parent.as_posix(), exist_ok=True)
+                    # Copy file
+                    with fs.open(rel_path.as_posix(), "wb") as dest:
+                        dest.write(item.read_bytes())
+        
+        # Write filesystem image
+        with open(target_file, "wb") as f:
+            f.write(fs.context.buffer)
+        
+        return 0
+        
+    except Exception as e:
+        print(f"Error building filesystem image: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def check_lib_archive_exists():
     """
     Check if lib_archive is set in platformio.ini configuration.
@@ -545,11 +606,11 @@ env.Append(
         ),
         DataToBin=Builder(
             action=env.VerboseAction(
-                " ".join(
+                build_fs_image if filesystem == "littlefs" else " ".join(
                     ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "$FS_SIZE"]
                     + (
                         ["-p", "$FS_PAGE", "-b", "$FS_BLOCK"]
-                        if filesystem in ("littlefs", "spiffs")
+                        if filesystem == "spiffs"
                         else []
                     )
                     + ["$TARGET"]
@@ -557,6 +618,11 @@ env.Append(
                 "Building FS image from '$SOURCES' directory to $TARGET",
             ),
             emitter=__fetch_fs_size,
+            source_factory=env.Dir,
+            suffix=".bin",
+        ),
+    )
+)
             source_factory=env.Dir,
             suffix=".bin",
         ),
