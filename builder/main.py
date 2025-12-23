@@ -479,15 +479,29 @@ def build_fs_image(target, source, env):
         if source_path.exists():
             for item in source_path.rglob("*"):
                 rel_path = item.relative_to(source_path)
+                fs_path = rel_path.as_posix()
+                
                 if item.is_dir():
-                    fs.makedirs(rel_path.as_posix(), exist_ok=True)
+                    fs.makedirs(fs_path, exist_ok=True)
+                    # Set directory mtime attribute
+                    try:
+                        mtime = int(item.stat().st_mtime)
+                        fs.setattr(fs_path, 't', mtime.to_bytes(4, 'little'))
+                    except Exception:
+                        pass  # Ignore timestamp errors
                 else:
                     # Ensure parent directories exist
                     if rel_path.parent != Path("."):
                         fs.makedirs(rel_path.parent.as_posix(), exist_ok=True)
                     # Copy file
-                    with fs.open(rel_path.as_posix(), "wb") as dest:
+                    with fs.open(fs_path, "wb") as dest:
                         dest.write(item.read_bytes())
+                    # Set file mtime attribute (ESP-IDF compatible)
+                    try:
+                        mtime = int(item.stat().st_mtime)
+                        fs.setattr(fs_path, 't', mtime.to_bytes(4, 'little'))
+                    except Exception:
+                        pass  # Ignore timestamp errors
 
         # Write filesystem image
         with open(target_file, "wb") as f:
