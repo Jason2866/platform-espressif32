@@ -906,9 +906,6 @@ def download_littlefs(target, source, env):
     
     try:
         result = subprocess.run(esptool_cmd, check=True)
-        if result.returncode != 0:
-            print(f"Error: Failed to download partition table")
-            return 1
     except subprocess.CalledProcessError as e:
         print(f"Error: Download failed: {e}")
         return 1
