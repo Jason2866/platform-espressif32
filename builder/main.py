@@ -529,12 +529,12 @@ def check_lib_archive_exists():
 
 def switch_off_ldf():
     """
-    Disables LDF (Library Dependency Finder) for uploadfs, uploadfsota, and buildfs targets.
+    Disables LDF (Library Dependency Finder) for uploadfs, uploadfsota, buildfs, download_littlefs, and erase targets.
 
     This optimization prevents unnecessary library dependency scanning and compilation
     when only filesystem operations are performed.
     """
-    fs_targets = {"uploadfs", "uploadfsota", "buildfs", "erase"}
+    fs_targets = {"uploadfs", "uploadfsota", "buildfs", "erase", "download_littlefs"}
     if fs_targets & set(COMMAND_LINE_TARGETS):
         # Disable LDF by modifying project configuration directly
         env_section = "env:" + env["PIOENV"]
@@ -1287,9 +1287,10 @@ env.AddPlatformTarget(
     "Upload Filesystem Image OTA",
 )
 
+# Target: Download LittleFS (no build required)
 env.AddPlatformTarget(
     "download_littlefs",
-    target_firm,
+    None,
     download_littlefs,
     "Download and extract LittleFS filesystem from device",
 )
