@@ -441,15 +441,17 @@ def build_fs_image(target, source, env):
     # Default to LittleFS version 2.1 (0x00020001)
     disk_version_str = env.GetProjectOption("board_build.littlefs_version", "2.1")
     
-    # Parse version string (e.g., "2.0" or "2.1")
+    # Parse version string and create proper version integer
+    # LittleFS version format: (major << 16) | (minor << 0)
     try:
         version_parts = disk_version_str.split(".")
         major = int(version_parts[0])
         minor = int(version_parts[1]) if len(version_parts) > 1 else 0
-        disk_version = (major << 16) | (minor << 8)  # Format: 0x00MMNN00
+        # Format: major in upper 16 bits, minor in lower 16 bits
+        disk_version = (major << 16) | minor
     except (ValueError, IndexError):
         print(f"Warning: Invalid littlefs version '{disk_version_str}', using default 2.1")
-        disk_version = 0x00020001  # Default to 2.1
+        disk_version = (2 << 16) | 1
 
     try:
         # Create LittleFS instance
