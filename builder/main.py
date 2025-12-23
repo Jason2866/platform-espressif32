@@ -454,10 +454,16 @@ def build_fs_image(target, source, env):
         disk_version = (2 << 16) | 1
 
     try:
-        # Create LittleFS instance
+        # Create LittleFS instance with Arduino / IDF compatible parameters
         fs = LittleFS(
             block_size=block_size,
             block_count=block_count,
+            read_size=1,              # Minimum read size
+            prog_size=1,              # Minimum program size
+            cache_size=block_size,    # Cache size = block size
+            lookahead_size=32,        # Default lookahead buffer
+            block_cycles=500,         # Wear leveling cycles
+            name_max=64,              # ESP-IDF default filename length
             disk_version=disk_version,
             mount=True
         )
