@@ -418,26 +418,25 @@ def __fetch_fs_size(target, source, env):
 def build_fs_image(target, source, env):
     """
     Build filesystem image using littlefs-python.
-    
+
     Args:
         target: SCons target (output .bin file)
         source: SCons source (directory with files)
         env: SCons environment object
-        
+
     Returns:
         int: 0 on success, 1 on failure
     """
-    from pathlib import Path
-    
+
     # Get parameters
     source_dir = str(source[0])
     target_file = str(target[0])
     fs_size = env["FS_SIZE"]
     block_size = env.get("FS_BLOCK", 4096)
-    
+
     # Calculate block count
     block_count = fs_size // block_size
-    
+
     try:
         # Create LittleFS instance with disk version 2.1 (default)
         fs = LittleFS(
@@ -446,7 +445,7 @@ def build_fs_image(target, source, env):
             disk_version=0x00020001,  # Version 2.1
             mount=True
         )
-        
+
         # Add all files from source directory
         source_path = Path(source_dir)
         if source_path.exists():
@@ -461,17 +460,15 @@ def build_fs_image(target, source, env):
                     # Copy file
                     with fs.open(rel_path.as_posix(), "wb") as dest:
                         dest.write(item.read_bytes())
-        
+
         # Write filesystem image
         with open(target_file, "wb") as f:
             f.write(fs.context.buffer)
-        
+
         return 0
-        
+
     except Exception as e:
         print(f"Error building filesystem image: {e}")
-        import traceback
-        traceback.print_exc()
         return 1
 
 
