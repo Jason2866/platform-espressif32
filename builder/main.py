@@ -1352,15 +1352,16 @@ env.AddCustomTarget(
     always_build=True,
 )
 
-# Register Custom Target for filesystem download
-env.AddCustomTarget(
-    name="downloadfs",
-    dependencies=None,
-    actions=download_fs,
-    title="Download Filesystem",
-    description="Download and extract LittleFS filesystem from device (LittleFS only)",
-    always_build=True,
-)
+# Register Custom Target for filesystem download (only if not already defined)
+if "downloadfs" not in env.get("__PIO_TARGETS", {}):
+    env.AddCustomTarget(
+        name="downloadfs",
+        dependencies=None,
+        actions=download_fs,
+        title="Download Filesystem",
+        description="Download and extract LittleFS filesystem from device (LittleFS only)",
+        always_build=True,
+    )
 
 # Override memory inspection behavior
 env.SConscript("sizedata.py", exports="env")
