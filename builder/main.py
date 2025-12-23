@@ -905,7 +905,10 @@ def download_littlefs(target, source, env):
     ]
     
     try:
-        result = subprocess.run(esptool_cmd, check=True)
+        result = subprocess.run(esptool_cmd, check=False)
+        if result.returncode != 0:
+            print(f"Error: Failed to download partition table")
+            return 1
     except subprocess.CalledProcessError as e:
         print(f"Error: Download failed: {e}")
         return 1
@@ -924,7 +927,6 @@ def download_littlefs(target, source, env):
     
     fs_start = None
     fs_size = None
-    fs_type_name = None
     fs_subtype = None
     
     for entry in entries:
@@ -946,7 +948,6 @@ def download_littlefs(target, source, env):
             fs_start = int.from_bytes(entry[2:5], byteorder='little', signed=False)
             fs_size = int.from_bytes(entry[6:9], byteorder='little', signed=False)
             fs_subtype = part_type
-            fs_type_name = "LittleFS" if part_type == 0x83 else "SPIFFS"
             break
     
     if fs_start is None or fs_size is None:
@@ -962,7 +963,6 @@ def download_littlefs(target, source, env):
         return 1
     
     block_size = 0x1000  # 4KB
-    page_size = 0x100    # 256 bytes
     
     print(f"Found filesystem partition (subtype {hex(fs_subtype)}):")
     print(f"  Start: {hex(fs_start)}")
@@ -989,7 +989,7 @@ def download_littlefs(target, source, env):
     ]
     
     try:
-        result = subprocess.run(esptool_cmd, check=True)
+        result = subprocess.run(esptool_cmd, check=False)
         if result.returncode != 0:
             print(f"Error: Download failed with code {result.returncode}")
             return 1
