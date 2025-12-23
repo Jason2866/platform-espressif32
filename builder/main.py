@@ -898,7 +898,7 @@ def download_littlefs(target, source, env):
         "--baud", str(download_speed),
         "--before", "default-reset",
         "--after", "hard-reset",
-        "read_flash",
+        "read-flash",
         "0x8000",  # Partition table offset
         "0x1000",  # Partition table size (4KB)
         str(partition_file)
@@ -985,7 +985,7 @@ def download_littlefs(target, source, env):
         "--baud", str(download_speed),
         "--before", "default-reset",
         "--after", "hard-reset",
-        "read_flash",
+        "read-flash",
         hex(fs_start),
         hex(fs_size),
         str(fs_file)
@@ -1288,12 +1288,10 @@ env.AddPlatformTarget(
 )
 
 env.AddPlatformTarget(
-    name="download_littlefs",
-    dependencies=None,
-    actions=download_littlefs,
-    title="Download Little Filesystem",
-    description="Download and extract LittleFS filesystem from device",
-    always_build=False,
+    "download_littlefs",
+    target_firm,
+    download_littlefs,
+    "Download and extract LittleFS filesystem from device",
 )
 
 # Target: Erase Flash and Upload
