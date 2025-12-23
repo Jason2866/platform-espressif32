@@ -863,9 +863,9 @@ def coredump_analysis(target, source, env):
         print(f'Make sure esp-coredump is installed: uv pip install --python "{PYTHON_EXE}" esp-coredump')
 
 
-def download_fs(target, source, env):
+def download_littlefs(target, source, env):
     """
-    Download filesystem from device and extract to directory.
+    Download Little filesystem from device and extract to directory.
     Only supports LittleFS filesystem.
     Usage: pio run -t downloadfs
     
@@ -1287,6 +1287,15 @@ env.AddPlatformTarget(
     "Upload Filesystem Image OTA",
 )
 
+env.AddPlatformTarget(
+    name="download_littlefs",
+    dependencies=None,
+    actions=download_littlefs,
+    title="Download Little Filesystem",
+    description="Download and extract LittleFS filesystem from device",
+    always_build=False,
+)
+
 # Target: Erase Flash and Upload
 env.AddPlatformTarget(
     "erase_upload",
@@ -1351,17 +1360,6 @@ env.AddCustomTarget(
     description="Analyze coredumps without building first",
     always_build=True,
 )
-
-# Register Custom Target for filesystem download (only if not already defined)
-if "downloadfs" not in env.get("__PIO_TARGETS", {}):
-    env.AddCustomTarget(
-        name="downloadfs",
-        dependencies=None,
-        actions=download_fs,
-        title="Download Filesystem",
-        description="Download and extract LittleFS filesystem from device (LittleFS only)",
-        always_build=True,
-    )
 
 # Override memory inspection behavior
 env.SConscript("sizedata.py", exports="env")
