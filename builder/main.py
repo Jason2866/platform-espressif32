@@ -934,22 +934,22 @@ def download_littlefs(target, source, env):
         if len(entry) < 32:
             continue
         
-        # Partition entry format:
-        # Offset 0: Magic (0xAA 0x50) - already split
-        # Offset 0: Type (1 byte)
-        # Offset 1: Subtype (1 byte)
-        # Offset 2-5: Offset (4 bytes, little-endian)
-        # Offset 6-9: Size (4 bytes, little-endian)
+        # Partition entry format (after 0xAA 0x50 magic):
+        # The entry structure after split is:
+        # Byte 0: Unknown/padding
+        # Byte 1: Type/Subtype combined
+        # Bytes 2-4: Offset (3 bytes, little-endian)
+        # Bytes 5: Unknown/padding  
+        # Bytes 6-8: Size (3 bytes, little-endian)
         
         part_type = entry[1]
-        part_subtype = entry[2]
         
-        # Check for data partition (type 0x01) with subtype spiffs (0x82) or littlefs (0x83)
-        if part_type == 0x01 and part_subtype in [0x82, 0x83]:
-            fs_start = int.from_bytes(entry[2:6], byteorder='little', signed=False)
-            fs_size = int.from_bytes(entry[6:10], byteorder='little', signed=False)
-            fs_subtype = part_subtype
-            fs_type_name = "LittleFS" if part_subtype == 0x83 else "SPIFFS"
+        # Check for SPIFFS (0x82) or LITTLEFS (0x83)
+        if part_type in [0x82, 0x83]:
+            fs_start = int.from_bytes(entry[2:5], byteorder='little', signed=False)
+            fs_size = int.from_bytes(entry[6:9], byteorder='little', signed=False)
+            fs_subtype = part_type
+            fs_type_name = "LittleFS" if part_type == 0x83 else "SPIFFS"
             break
     
     if fs_start is None or fs_size is None:
