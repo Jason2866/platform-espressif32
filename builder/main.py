@@ -439,12 +439,21 @@ def build_fs_image(target, source, env):
 
     # Get disk version from board config or project options
     # Default to LittleFS version 2.1 (0x00020001)
-    disk_version_str = env.GetProjectOption("board_build.littlefs_version", "2.1")
+    disk_version_str = "2.1"
+    
+    # Try to read from project config directly
+    env_section = "env:" + env["PIOENV"]
+    if projectconfig.has_option(env_section, "board_build.littlefs_version"):
+        disk_version_str = projectconfig.get(env_section, "board_build.littlefs_version")
+    elif projectconfig.has_option("common", "board_build.littlefs_version"):
+        disk_version_str = projectconfig.get("common", "board_build.littlefs_version")
+    elif board.get("build.littlefs_version"):
+        disk_version_str = board.get("build.littlefs_version")
     
     # Parse version string and create proper version integer
     # LittleFS version format: (major << 16) | (minor << 0)
     try:
-        version_parts = disk_version_str.split(".")
+        version_parts = str(disk_version_str).split(".")
         major = int(version_parts[0])
         minor = int(version_parts[1]) if len(version_parts) > 1 else 0
         # Format: major in upper 16 bits, minor in lower 16 bits
