@@ -623,11 +623,6 @@ env.Append(
         ),
     )
 )
-            source_factory=env.Dir,
-            suffix=".bin",
-        ),
-    )
-)
 
 # Load framework-specific configuration
 if not env.get("PIOFRAMEWORK"):
