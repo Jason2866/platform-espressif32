@@ -1047,8 +1047,6 @@ def download_littlefs(target, source, env):
         print(f"Error: Failed to extract LittleFS filesystem: {e}")
         print("This tool only supports LittleFS. If you have SPIFFS, please convert to LittleFS.")
         print("Make sure the device has a valid LittleFS filesystem.")
-        import traceback
-        traceback.print_exc()
         return 1
 
 #
