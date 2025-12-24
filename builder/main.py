@@ -954,12 +954,12 @@ def download_littlefs(target, source, env):
     print(f"  Start: {hex(fs_start)}")
     print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
     print(f"  Block size: {hex(block_size)}")
-    print(f"Note: This tool only supports LittleFS extraction")
+    print("Note: This tool only supports LittleFS extraction")
     
     # Download filesystem image
     fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
     
-    print(f"\nDownloading filesystem from device...")
+    print("\nDownloading filesystem from device...")
     
     esptool_cmd = [
         uploader_path.strip('"'),
