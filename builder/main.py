@@ -947,15 +947,7 @@ def download_littlefs(target, source, env):
     if fs_start is None or fs_size is None:
         print("Error: No filesystem partition found in partition table")
         return 1
-    
-    # Check if filesystem is supported
-    # Note: LittleFS can use subtype 0x82 or 0x83
-    # We only support LittleFS extraction, not SPIFFS
-    # The actual filesystem type will be detected when mounting
-    if fs_subtype not in [0x82, 0x83]:
-        print(f"Error: Unsupported filesystem partition type")
-        return 1
-    
+
     block_size = 0x1000  # 4KB
     
     print(f"Found filesystem partition (subtype {hex(fs_subtype)}):")
