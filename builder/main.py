@@ -17,6 +17,7 @@ import locale
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from os.path import isfile, join
@@ -991,7 +992,6 @@ def download_littlefs(target, source, env):
     # Remove old unpack directory
     unpack_path = Path(get_project_dir()) / unpack_dir
     if unpack_path.exists():
-        import shutil
         shutil.rmtree(unpack_path)
     unpack_path.mkdir(parents=True, exist_ok=True)
     
