@@ -868,15 +868,21 @@ def download_littlefs(target, source, env):
     """
     Download Little filesystem from device and extract to directory.
     Only supports LittleFS filesystem.
-    Usage: pio run -t download_littlefs
+    Usage: pio run -e <env> -t download_littlefs
     
     Args:
         target: SCons target
         source: SCons source
         env: SCons environment object
     """
-    # Get unpack directory from project config or use default
-    unpack_dir = env.GetProjectOption("custom_unpack_dir", "unpacked_fs")
+    # Get unpack directory from board config or use default
+    unpack_dir = "unpacked_fs"
+    
+    # Read from project config (env-specific or common section)
+    for section in ["env:" + env["PIOENV"], "common"]:
+        if projectconfig.has_option(section, "board_build.unpack_dir"):
+            unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
+            break
     
     # Ensure upload port is set
     if not env.subst("$UPLOAD_PORT"):
@@ -1045,8 +1051,7 @@ def download_littlefs(target, source, env):
         
     except Exception as e:
         print(f"Error: Failed to extract LittleFS filesystem: {e}")
-        print("This tool only supports LittleFS. If you have SPIFFS, please convert to LittleFS.")
-        print("Make sure the device has a valid LittleFS filesystem.")
+        print("No support for other filesystems than LittleFS!")
         return 1
 
 #
