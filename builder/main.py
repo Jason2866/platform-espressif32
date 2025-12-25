@@ -24,10 +24,6 @@ import warnings
 from os.path import isfile, join
 from pathlib import Path
 from littlefs import LittleFS
-
-# Suppress SyntaxWarnings from fatfs-python library before importing
-# The library uses incorrect assert() syntax which triggers warnings in Python 3.13+
-warnings.filterwarnings('ignore', category=SyntaxWarning, module='fatfs.diskio')
 from fatfs import Partition, RamDisk
 
 from SCons.Script import (
