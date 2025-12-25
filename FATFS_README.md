@@ -115,6 +115,7 @@ Downloads FatFS images from device:
 - **Alpha Stage**: Version 0.1.2, not fully mature
 - **Limited API**: Not all FatFS functions available
 - **Download Extraction**: Basic implementation
+- **SyntaxWarnings**: Upstream library issue (suppressed in our implementation)
 
 ### Recommendations
 - ✅ **For Build/Upload**: Fully functional

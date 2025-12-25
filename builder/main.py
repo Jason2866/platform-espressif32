@@ -528,6 +528,10 @@ def build_fatfs_image(target, source, env):
     Returns:
         int: 0 on success, 1 on failure
     """
+    
+    # Suppress SyntaxWarnings from fatfs-python library
+    import warnings
+    warnings.filterwarnings('ignore', category=SyntaxWarning, module='fatfs.diskio')
 
     # Get parameters
     source_dir = str(source[0])
@@ -1143,6 +1147,11 @@ def download_fatfs(target, source, env):
         source: SCons source
         env: SCons environment object
     """
+    
+    # Suppress SyntaxWarnings from fatfs-python library
+    import warnings
+    warnings.filterwarnings('ignore', category=SyntaxWarning, module='fatfs.diskio')
+    
     # Get unpack directory from board config or use default
     unpack_dir = "unpacked_fs"
     

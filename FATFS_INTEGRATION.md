@@ -94,6 +94,25 @@ The integration uses the `fatfs-python` package (>=0.1.2), which is automaticall
 - The download process is basic and may not extract all files completely
 - For complete FatFS extraction, alternative tools should be considered
 
+### Known Issues
+
+#### SyntaxWarnings from fatfs-python
+
+The `fatfs-python` library (v0.1.2) contains incorrect `assert()` usage that triggers Python SyntaxWarnings:
+
+```
+SyntaxWarning: assertion is always true, perhaps remove parentheses?
+  assert(0, "Not implemented.")
+```
+
+**Solution**: These warnings are suppressed in the build and download functions using:
+```python
+import warnings
+warnings.filterwarnings('ignore', category=SyntaxWarning, module='fatfs.diskio')
+```
+
+This is a known issue in the upstream library and does not affect functionality.
+
 ## Comparison: LittleFS vs FatFS
 
 | Feature | LittleFS | FatFS |

@@ -180,6 +180,7 @@ ls unpacked_fs/
 2. **Limited API**: Not all FatFS functions available
 3. **No Directory Traversal**: `walk()` not implemented
 4. **Download Extraction**: Basic implementation, possibly incomplete
+5. **SyntaxWarnings**: Library contains incorrect assert() usage (suppressed in our code)
 
 ### Workarounds
 - For complete extraction: Use alternative tools
