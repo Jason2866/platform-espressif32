@@ -72,7 +72,7 @@ Files will be extracted to the configured directory (default: `unpacked_fs`).
 
 ### Python Dependencies
 
-The integration uses the `fatfs-python` package (>=0.1.2), which is automatically installed.
+The integration uses the `fatfs-ng` package (>=0.1.4), which is automatically installed.
 
 ### Build Process
 
@@ -88,30 +88,17 @@ The integration uses the `fatfs-python` package (>=0.1.2), which is automaticall
 3. The filesystem image is downloaded
 4. The image is mounted and extracted
 
-## Limitations
+## Extended Features (v0.1.4+)
 
-- The `fatfs-python` library has limited support for directory traversal
-- The download process is basic and may not extract all files completely
-- For complete FatFS extraction, alternative tools should be considered
+The `pyfatfs` package includes extended features for complete directory traversal:
 
-### Known Issues
+- **Complete Directory Traversal**: `walk()`, `listdir()`, `stat()`
+- **Path Operations**: `exists()`, `isfile()`, `isdir()`
+- **File Operations**: `remove()`, `rmdir()`, `rename()`, `makedirs()`
+- **Convenience Methods**: `read_file()`, `write_file()`
+- **Bulk Operations**: `copy_tree_from()`, `copy_tree_to()`
 
-#### SyntaxWarnings from fatfs-python
-
-The `fatfs-python` library (v0.1.2) contains incorrect `assert()` usage that triggers Python SyntaxWarnings:
-
-```
-SyntaxWarning: assertion is always true, perhaps remove parentheses?
-  assert(0, "Not implemented.")
-```
-
-**Solution**: These warnings are suppressed in the build and download functions using:
-```python
-import warnings
-warnings.filterwarnings('ignore', category=SyntaxWarning, module='fatfs.diskio')
-```
-
-This is a known issue in the upstream library and does not affect functionality.
+These features enable full filesystem extraction and manipulation.
 
 ## Comparison: LittleFS vs FatFS
 
@@ -181,4 +168,5 @@ pio run
 
 - [FatFS Documentation](http://elm-chan.org/fsw/ff/00index_e.html)
 - [ESP-IDF FFat Documentation](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/fatfs.html)
-- [fatfs-python Repository](https://github.com/krakonos/fatfs-python)
+- [fatfs-ng Repository](https://github.com/Jason2866/pyfatfs)
+- [Original fatfs-python](https://github.com/krakonos/fatfs-python)
