@@ -966,6 +966,27 @@ def coredump_analysis(target, source, env):
         print(f'Make sure esp-coredump is installed: uv pip install --python "{PYTHON_EXE}" esp-coredump')
 
 
+def _get_unpack_dir(env):
+    """
+    Get the unpack directory from project configuration.
+
+    Args:
+        env: SCons environment object
+
+    Returns:
+        str: Unpack directory path
+    """
+    unpack_dir = "unpacked_fs"
+
+    # Read from project config (env-specific or common section)
+    for section in ["env:" + env["PIOENV"], "common"]:
+        if projectconfig.has_option(section, "board_build.unpack_dir"):
+            unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
+            break
+
+    return unpack_dir
+
+
 def _download_partition_image(env, fs_type_filter=None):
     """
     Common function to download partition table and filesystem image from device.
@@ -1097,13 +1118,7 @@ def download_littlefs(target, source, env):
         env: SCons environment object
     """
     # Get unpack directory from board config or use default
-    unpack_dir = "unpacked_fs"
-
-    # Read from project config (env-specific or common section)
-    for section in ["env:" + env["PIOENV"], "common"]:
-        if projectconfig.has_option(section, "board_build.unpack_dir"):
-            unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
-            break
+    unpack_dir = _get_unpack_dir(env)
 
     # Download partition image (LittleFS=0x83, SPIFFS=0x82)
     fs_file, fs_start, fs_size, fs_subtype = _download_partition_image(env, [0x82, 0x83])
@@ -1190,13 +1205,7 @@ def download_fatfs(target, source, env):
     """
 
     # Get unpack directory from board config or use default
-    unpack_dir = "unpacked_fs"
-
-    # Read from project config (env-specific or common section)
-    for section in ["env:" + env["PIOENV"], "common"]:
-        if projectconfig.has_option(section, "board_build.unpack_dir"):
-            unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
-            break
+    unpack_dir = _get_unpack_dir(env)
 
     # Download partition image (FAT=0x81)
     fs_file, fs_start, fs_size, fs_subtype = _download_partition_image(env, [0x81])
