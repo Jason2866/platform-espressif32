@@ -58,4 +58,4 @@ pio run -t uploadfs       # Upload FatFS image
 pio run -t download_fatfs # Download and extract FatFS from device
 ```
 
-See the [fatfs-test example](examples/fatfs-test/) for a complete working example.
+See the [arduino-fatfs example](examples/arduino-fatfs/) for a complete working example.

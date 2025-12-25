@@ -1,4 +1,3 @@
-#include <Arduino.h>
 #include <FFat.h>
 
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
@@ -95,7 +94,6 @@ void setup() {
     
     Serial.println("\n\n=== FatFS Test ===\n");
 
-    // FatFS mounten
     if (!FFat.begin(true)) {
         Serial.println("FFat Mount Failed");
         return;
@@ -106,31 +104,25 @@ void setup() {
     Serial.printf("FFat Used: %llu MB\n", FFat.usedBytes() / (1024 * 1024));
     Serial.printf("FFat Free: %llu MB\n\n", (cardSize - FFat.usedBytes()) / (1024 * 1024));
 
-    // Dateien auflisten
     listDir(FFat, "/", 2);
     Serial.println();
 
-    // Datei aus data/ Verzeichnis lesen (falls vorhanden)
     if (FFat.exists("/test.txt")) {
         readFile(FFat, "/test.txt");
         Serial.println();
     }
 
-    // Neue Datei schreiben
     writeFile(FFat, "/hello.txt", "Hello from ESP32!\n");
     readFile(FFat, "/hello.txt");
     Serial.println();
 
-    // An Datei anhängen
     appendFile(FFat, "/hello.txt", "This is appended text.\n");
     readFile(FFat, "/hello.txt");
     Serial.println();
 
-    // Datei löschen
     deleteFile(FFat, "/hello.txt");
     Serial.println();
 
-    // Finale Auflistung
     Serial.println("Final directory listing:");
     listDir(FFat, "/", 2);
 

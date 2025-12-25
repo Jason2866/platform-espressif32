@@ -600,17 +600,6 @@ def build_fatfs_image(target, source, env):
         print(f"Error building FatFS image: {e}")
         return 1
 
-        with open(target_file, "wb") as f:
-            f.write(storage)
-
-        return 0
-
-    except Exception as e:
-        print(f"Error building FatFS image: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-
 
 def check_lib_archive_exists():
     """

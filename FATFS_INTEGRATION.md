@@ -21,9 +21,6 @@ framework = arduino
 ; Select FatFS as filesystem
 board_build.filesystem = fatfs
 
-; Optional: Sector size (default: 512)
-board_build.fs_sector = 512
-
 ; Optional: Directory for extracted files (default: unpacked_fs)
 board_build.unpack_dir = unpacked_fs
 ```
@@ -72,7 +69,7 @@ Files will be extracted to the configured directory (default: `unpacked_fs`).
 
 ### Python Dependencies
 
-The integration uses the `fatfs-ng` package (>=0.1.4), which is automatically installed.
+The integration uses the `fatfs-ng` package (>=0.1.6), which is automatically installed.
 
 ### Build Process
 
@@ -88,7 +85,7 @@ The integration uses the `fatfs-ng` package (>=0.1.4), which is automatically in
 3. The filesystem image is downloaded
 4. The image is mounted and extracted
 
-## Extended Features (v0.1.4+)
+## Extended Features (v0.1.6+)
 
 The `pyfatfs` package includes extended features for complete directory traversal:
 
