@@ -987,6 +987,23 @@ def _get_unpack_dir(env):
     return unpack_dir
 
 
+def _prepare_unpack_dir(unpack_dir):
+    """
+    Prepare the unpack directory by removing old content and creating fresh directory.
+
+    Args:
+        unpack_dir: Directory path to prepare
+
+    Returns:
+        Path: Path object for the unpack directory
+    """
+    unpack_path = Path(get_project_dir()) / unpack_dir
+    if unpack_path.exists():
+        shutil.rmtree(unpack_path)
+    unpack_path.mkdir(parents=True, exist_ok=True)
+    return unpack_path
+
+
 def _download_partition_image(env, fs_type_filter=None):
     """
     Common function to download partition table and filesystem image from device.
@@ -1133,10 +1150,7 @@ def download_littlefs(target, source, env):
     print(f"\nExtracting LittleFS filesystem to {unpack_dir}...")
 
     # Remove old unpack directory
-    unpack_path = Path(get_project_dir()) / unpack_dir
-    if unpack_path.exists():
-        shutil.rmtree(unpack_path)
-    unpack_path.mkdir(parents=True, exist_ok=True)
+    unpack_path = _prepare_unpack_dir(unpack_dir)
 
     try:
         # Read the downloaded filesystem image
@@ -1220,10 +1234,7 @@ def download_fatfs(target, source, env):
     print(f"\nExtracting FatFS filesystem to {unpack_dir}...")
 
     # Remove old unpack directory
-    unpack_path = Path(get_project_dir()) / unpack_dir
-    if unpack_path.exists():
-        shutil.rmtree(unpack_path)
-    unpack_path.mkdir(parents=True, exist_ok=True)
+    unpack_path = _prepare_unpack_dir(unpack_dir)
 
     try:
         # Read the downloaded filesystem image
