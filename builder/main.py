@@ -393,11 +393,9 @@ def fetch_fs_size(env):
     env["FS_PAGE"] = int("0x100", 16)
     env["FS_BLOCK"] = int("0x1000", 16)
 
-    # FFat specific offsets, see:
-    # https://github.com/lorol/arduino-esp32fatfs-plugin#notes-for-fatfs
-    if filesystem == "fatfs":
-        env["FS_START"] += 4096
-        env["FS_SIZE"] -= 4096
+    # FFat specific: Upload starts at partition offset + 4KB
+    # but we build the full partition size image with 4KB padding
+    # The upload address is adjusted, not the size
 
 
 def __fetch_fs_size(target, source, env):
@@ -534,11 +532,11 @@ def build_fatfs_image(target, source, env):
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 512)
 
-    # FFat specific: The actual FAT filesystem size (without 4KB offset)
-    # FS_SIZE already has 4096 subtracted in fetch_fs_size()
-    fat_fs_size = fs_size
+    # FFat specific: Reserve 4KB at the beginning for FFat offset
+    ffat_offset = 4096
+    fat_fs_size = fs_size - ffat_offset
 
-    # Calculate sector count for the FAT filesystem
+    # Calculate sector count for the FAT filesystem (without the 4KB offset)
     sector_count = fat_fs_size // sector_size
 
     try:
