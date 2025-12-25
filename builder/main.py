@@ -1218,7 +1218,8 @@ def download_fatfs(target, source, env):
     if fs_file is None:
         return 1
 
-    sector_size = 512  # Standard FAT sector size
+    # FFat uses 4096 byte sectors, not 512!
+    sector_size = 4096
     print(f"  Sector size: {sector_size}")
 
     # Extract filesystem
