@@ -393,10 +393,6 @@ def fetch_fs_size(env):
     env["FS_PAGE"] = int("0x100", 16)
     env["FS_BLOCK"] = int("0x1000", 16)
 
-    # FFat specific: Upload starts at partition offset + 4KB
-    # but we build the full partition size image with 4KB padding
-    # The upload address is adjusted, not the size
-
 
 def __fetch_fs_size(target, source, env):
     """
@@ -532,7 +528,8 @@ def build_fatfs_image(target, source, env):
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 512)
 
-    # FFat specific: Reserve 4KB at the beginning for FFat offset
+    # FFat specific: Reserve 4KB at the beginning, FAT filesystem starts at offset 4096
+    # The image will have 4KB padding + FAT filesystem
     ffat_offset = 4096
     fat_fs_size = fs_size - ffat_offset
 
@@ -1235,12 +1232,8 @@ def download_fatfs(target, source, env):
         with open(fs_file, 'rb') as f:
             fs_data = bytearray(f.read())
 
-        # FFat specific: Skip the first 4KB (0x1000 bytes)
-        fat_offset = 4096
-        if len(fs_data) > fat_offset:
-            fs_data = fs_data[fat_offset:]
-
-        # Adjust size
+        # Note: FFat stores the filesystem directly without offset
+        # The 4KB offset is only used during build to match partition alignment
         fs_size_adjusted = len(fs_data)
         sector_count = fs_size_adjusted // sector_size
 
