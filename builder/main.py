@@ -966,26 +966,18 @@ def coredump_analysis(target, source, env):
         print(f'Make sure esp-coredump is installed: uv pip install --python "{PYTHON_EXE}" esp-coredump')
 
 
-def download_littlefs(target, source, env):
+def _download_partition_image(env, fs_type_filter=None):
     """
-    Download Little filesystem from device and extract to directory.
-    Only supports LittleFS filesystem.
-    Usage: pio run -e <env> -t download_littlefs
-    
+    Common function to download partition table and filesystem image from device.
+
     Args:
-        target: SCons target
-        source: SCons source
         env: SCons environment object
+        fs_type_filter: List of partition subtypes to look for (e.g., [0x82, 0x83] for LittleFS/SPIFFS)
+                       or [0x81] for FAT. If None, accepts any data partition.
+
+    Returns:
+        tuple: (fs_file_path, fs_start, fs_size, fs_subtype) or (None, None, None, None) on error
     """
-    # Get unpack directory from board config or use default
-    unpack_dir = "unpacked_fs"
-
-    # Read from project config (env-specific or common section)
-    for section in ["env:" + env["PIOENV"], "common"]:
-        if projectconfig.has_option(section, "board_build.unpack_dir"):
-            unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
-            break
-
     # Ensure upload port is set
     if not env.subst("$UPLOAD_PORT"):
         env.AutodetectUploadPort()
@@ -1017,10 +1009,10 @@ def download_littlefs(target, source, env):
         result = subprocess.run(esptool_cmd, check=False)
         if result.returncode != 0:
             print("Error: Failed to download partition table")
-            return 1
+            return None, None, None, None
     except Exception as e:
         print(f"Error: {e}")
-        return 1
+        return None, None, None, None
 
     # Parse partition table to find filesystem partition
     print("Parsing partition table...")
@@ -1040,29 +1032,26 @@ def download_littlefs(target, source, env):
             continue
 
         # Byte 0: Type (0x01 for data partitions)
-        # Byte 1: SubType (0x82=SPIFFS, 0x83=LittleFS)
+        # Byte 1: SubType (0x81=FAT, 0x82=SPIFFS, 0x83=LittleFS)
         # Bytes 2-5: Offset (4 bytes, little-endian)
         # Bytes 6-9: Size (4 bytes, little-endian)
 
         part_subtype = entry[1]
 
-        # Check for SPIFFS (0x82) or LITTLEFS (0x83)
-        if part_subtype in [0x82, 0x83]:
+        # Check if this partition matches our filter
+        if fs_type_filter is None or part_subtype in fs_type_filter:
             fs_start = int.from_bytes(entry[2:6], byteorder='little', signed=False)
             fs_size = int.from_bytes(entry[6:10], byteorder='little', signed=False)
             fs_subtype = part_subtype
             break
 
     if fs_start is None or fs_size is None:
-        print("Error: No filesystem partition found in partition table")
-        return 1
-
-    block_size = 0x1000  # 4KB
+        print("Error: No matching filesystem partition found in partition table")
+        return None, None, None, None
 
     print(f"Found filesystem partition (subtype {hex(fs_subtype)}):")
     print(f"  Start: {hex(fs_start)}")
     print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
-    print(f"  Block size: {hex(block_size)}")
 
     # Download filesystem image
     fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
@@ -1086,12 +1075,44 @@ def download_littlefs(target, source, env):
         result = subprocess.run(esptool_cmd, check=False)
         if result.returncode != 0:
             print(f"Error: Download failed with code {result.returncode}")
-            return 1
+            return None, None, None, None
     except Exception as e:
         print(f"Error: {e}")
-        return 1
+        return None, None, None, None
 
     print(f"Downloaded to {fs_file}")
+
+    return fs_file, fs_start, fs_size, fs_subtype
+
+
+def download_littlefs(target, source, env):
+    """
+    Download Little filesystem from device and extract to directory.
+    Only supports LittleFS filesystem.
+    Usage: pio run -e <env> -t download_littlefs
+
+    Args:
+        target: SCons target
+        source: SCons source
+        env: SCons environment object
+    """
+    # Get unpack directory from board config or use default
+    unpack_dir = "unpacked_fs"
+
+    # Read from project config (env-specific or common section)
+    for section in ["env:" + env["PIOENV"], "common"]:
+        if projectconfig.has_option(section, "board_build.unpack_dir"):
+            unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
+            break
+
+    # Download partition image (LittleFS=0x83, SPIFFS=0x82)
+    fs_file, fs_start, fs_size, fs_subtype = _download_partition_image(env, [0x82, 0x83])
+
+    if fs_file is None:
+        return 1
+
+    block_size = 0x1000  # 4KB
+    print(f"  Block size: {hex(block_size)}")
 
     # Extract filesystem
     print(f"\nExtracting LittleFS filesystem to {unpack_dir}...")
@@ -1177,112 +1198,14 @@ def download_fatfs(target, source, env):
             unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
             break
 
-    # Ensure upload port is set
-    if not env.subst("$UPLOAD_PORT"):
-        env.AutodetectUploadPort()
+    # Download partition image (FAT=0x81)
+    fs_file, fs_start, fs_size, fs_subtype = _download_partition_image(env, [0x81])
 
-    upload_port = env.subst("$UPLOAD_PORT")
-    download_speed = board.get("download.speed", "115200")
-
-    # Download partition table from device
-    print(f"Downloading partition table from {upload_port}...")
-
-    build_dir = Path(env.subst("$BUILD_DIR"))
-    build_dir.mkdir(parents=True, exist_ok=True)
-    partition_file = build_dir / "partition_table_from_flash.bin"
-
-    esptool_cmd = [
-        uploader_path.strip('"'),
-        "--chip", mcu,
-        "--port", upload_port,
-        "--baud", str(download_speed),
-        "--before", "default-reset",
-        "--after", "hard-reset",
-        "read-flash",
-        "0x8000",  # Partition table offset
-        "0x1000",  # Partition table size (4KB)
-        str(partition_file)
-    ]
-
-    try:
-        result = subprocess.run(esptool_cmd, check=False)
-        if result.returncode != 0:
-            print("Error: Failed to download partition table")
-            return 1
-    except Exception as e:
-        print(f"Error: {e}")
-        return 1
-
-    # Parse partition table to find filesystem partition
-    print("Parsing partition table...")
-
-    with open(partition_file, 'rb') as f:
-        partition_data = f.read()
-
-    # Parse partition entries (format: 0xAA 0x50 followed by entry data)
-    entries = [e for e in partition_data.split(b'\xaaP') if len(e) > 0]
-
-    fs_start = None
-    fs_size = None
-    fs_subtype = None
-
-    for entry in entries:
-        if len(entry) < 32:
-            continue
-
-        # Byte 0: Type (0x01 for data partitions)
-        # Byte 1: SubType (0x81=FAT)
-        # Bytes 2-5: Offset (4 bytes, little-endian)
-        # Bytes 6-9: Size (4 bytes, little-endian)
-
-        part_subtype = entry[1]
-
-        # Check for FAT (0x81)
-        if part_subtype == 0x81:
-            fs_start = int.from_bytes(entry[2:6], byteorder='little', signed=False)
-            fs_size = int.from_bytes(entry[6:10], byteorder='little', signed=False)
-            fs_subtype = part_subtype
-            break
-
-    if fs_start is None or fs_size is None:
-        print("Error: No FAT filesystem partition found in partition table")
+    if fs_file is None:
         return 1
 
     sector_size = 512  # Standard FAT sector size
-
-    print(f"Found FAT filesystem partition (subtype {hex(fs_subtype)}):")
-    print(f"  Start: {hex(fs_start)}")
-    print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
     print(f"  Sector size: {sector_size}")
-
-    # Download filesystem image
-    fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
-
-    print("\nDownloading filesystem from device...")
-
-    esptool_cmd = [
-        uploader_path.strip('"'),
-        "--chip", mcu,
-        "--port", upload_port,
-        "--baud", str(download_speed),
-        "--before", "default-reset",
-        "--after", "hard-reset",
-        "read-flash",
-        hex(fs_start),
-        hex(fs_size),
-        str(fs_file)
-    ]
-
-    try:
-        result = subprocess.run(esptool_cmd, check=False)
-        if result.returncode != 0:
-            print(f"Error: Download failed with code {result.returncode}")
-            return 1
-    except Exception as e:
-        print(f"Error: {e}")
-        return 1
-
-    print(f"Downloaded to {fs_file}")
 
     # Extract filesystem
     print(f"\nExtracting FatFS filesystem to {unpack_dir}...")
