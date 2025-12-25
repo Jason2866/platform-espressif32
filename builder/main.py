@@ -24,7 +24,7 @@ import warnings
 from os.path import isfile, join
 from pathlib import Path
 from littlefs import LittleFS
-from fatfs import Partition, RamDisk
+from fatfs import Partition, RamDisk, create_extended_partition
 
 from SCons.Script import (
     ARGUMENTS,
@@ -1243,8 +1243,6 @@ def download_fatfs(target, source, env):
 
         # Create FatFS instance and mount the image
         disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
-
-        from fatfs import create_extended_partition
 
         partition = create_extended_partition(disk)
         partition.mount()
