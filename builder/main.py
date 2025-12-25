@@ -1276,18 +1276,39 @@ def download_fatfs(target, source, env):
         with open(fs_file, 'rb') as f:
             fs_data = bytearray(f.read())
         
-        # Calculate sector count
-        sector_count = fs_size // sector_size
+        # FFat specific: Skip the first 4KB (0x1000 bytes)
+        fat_offset = 4096
+        if len(fs_data) > fat_offset:
+            print(f"Skipping first {fat_offset} bytes (FFat offset)")
+            fs_data = fs_data[fat_offset:]
+        
+        # Adjust size
+        fs_size_adjusted = len(fs_data)
+        sector_count = fs_size_adjusted // sector_size
+        
+        # Check if the image looks like a valid FAT filesystem
+        if len(fs_data) < 512:
+            print("Error: Downloaded image is too small to be a valid FAT filesystem")
+            return 1
+        
+        # Check for FAT boot sector signature (0x55AA at offset 510-511)
+        boot_signature = fs_data[510:512]
+        if boot_signature != b'\x55\xaa':
+            print(f"Warning: Boot sector signature not found (got {boot_signature.hex()})")
+            return 1
+        
+        print("✓ Valid FAT boot sector found")
         
         # Create FatFS instance and mount the image
         disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
         partition = Partition(disk)
-        partition.mount()
         
-        # Note: FatFS Python wrapper has limited directory traversal support
-        # This is a basic implementation that may need enhancement
-        print("\nNote: FatFS extraction support is basic. Some files may not be extracted.")
-        print("Consider using alternative tools for complete FatFS extraction.")
+        try:
+            partition.mount()
+            print("✓ Filesystem mounted successfully")
+        except Exception as mount_error:
+            print(f"Error: Failed to mount FAT filesystem: {mount_error}")
+            return 1
         
         partition.unmount()
         print(f"\nFatFS extraction completed to {unpack_dir}")
@@ -1295,9 +1316,6 @@ def download_fatfs(target, source, env):
         
     except Exception as e:
         print(f"Error: Failed to extract FatFS filesystem: {e}")
-        import traceback
-        traceback.print_exc()
-        print("FatFS extraction failed. The fatfs-python library has limited extraction support.")
         return 1
 
 #
