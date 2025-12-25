@@ -15,10 +15,11 @@
 import locale
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
-from os.path import join
+from os.path import isfile, join
 from pathlib import Path
 from littlefs import LittleFS
 from fatfs import Partition, RamDisk, create_extended_partition
