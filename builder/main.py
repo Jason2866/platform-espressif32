@@ -12,16 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
-import locale
 import os
-import re
-import shlex
 import shutil
 import subprocess
 import sys
-import warnings
-from os.path import isfile, join
 from pathlib import Path
 from littlefs import LittleFS
 from fatfs import Partition, RamDisk, create_extended_partition
