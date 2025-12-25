@@ -979,27 +979,27 @@ def download_littlefs(target, source, env):
     """
     # Get unpack directory from board config or use default
     unpack_dir = "unpacked_fs"
-    
+
     # Read from project config (env-specific or common section)
     for section in ["env:" + env["PIOENV"], "common"]:
         if projectconfig.has_option(section, "board_build.unpack_dir"):
             unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
             break
-    
+
     # Ensure upload port is set
     if not env.subst("$UPLOAD_PORT"):
         env.AutodetectUploadPort()
-    
+
     upload_port = env.subst("$UPLOAD_PORT")
     download_speed = board.get("download.speed", "115200")
-    
+
     # Download partition table from device
     print(f"Downloading partition table from {upload_port}...")
-    
+
     build_dir = Path(env.subst("$BUILD_DIR"))
     build_dir.mkdir(parents=True, exist_ok=True)
     partition_file = build_dir / "partition_table_from_flash.bin"
-    
+
     esptool_cmd = [
         uploader_path.strip('"'),
         "--chip", mcu,
@@ -1012,7 +1012,7 @@ def download_littlefs(target, source, env):
         "0x1000",  # Partition table size (4KB)
         str(partition_file)
     ]
-    
+
     try:
         result = subprocess.run(esptool_cmd, check=False)
         if result.returncode != 0:
@@ -1021,55 +1021,54 @@ def download_littlefs(target, source, env):
     except Exception as e:
         print(f"Error: {e}")
         return 1
-    
+
     # Parse partition table to find filesystem partition
     print("Parsing partition table...")
-    
+
     with open(partition_file, 'rb') as f:
         partition_data = f.read()
-    
+
     # Parse partition entries (format: 0xAA 0x50 followed by entry data)
     entries = [e for e in partition_data.split(b'\xaaP') if len(e) > 0]
-    
+
     fs_start = None
     fs_size = None
     fs_subtype = None
-    
+
     for entry in entries:
         if len(entry) < 32:
             continue
-        
+
         # Byte 0: Type (0x01 for data partitions)
         # Byte 1: SubType (0x82=SPIFFS, 0x83=LittleFS)
         # Bytes 2-5: Offset (4 bytes, little-endian)
         # Bytes 6-9: Size (4 bytes, little-endian)
-        
+
         part_subtype = entry[1]
-        
+
         # Check for SPIFFS (0x82) or LITTLEFS (0x83)
         if part_subtype in [0x82, 0x83]:
             fs_start = int.from_bytes(entry[2:6], byteorder='little', signed=False)
             fs_size = int.from_bytes(entry[6:10], byteorder='little', signed=False)
             fs_subtype = part_subtype
             break
-    
+
     if fs_start is None or fs_size is None:
         print("Error: No filesystem partition found in partition table")
         return 1
 
     block_size = 0x1000  # 4KB
-    
+
     print(f"Found filesystem partition (subtype {hex(fs_subtype)}):")
     print(f"  Start: {hex(fs_start)}")
     print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
     print(f"  Block size: {hex(block_size)}")
-    print("Note: This tool only supports LittleFS extraction")
-    
+
     # Download filesystem image
     fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
-    
+
     print("\nDownloading filesystem from device...")
-    
+
     esptool_cmd = [
         uploader_path.strip('"'),
         "--chip", mcu,
@@ -1082,7 +1081,7 @@ def download_littlefs(target, source, env):
         hex(fs_size),
         str(fs_file)
     ]
-    
+
     try:
         result = subprocess.run(esptool_cmd, check=False)
         if result.returncode != 0:
@@ -1091,26 +1090,26 @@ def download_littlefs(target, source, env):
     except Exception as e:
         print(f"Error: {e}")
         return 1
-    
+
     print(f"Downloaded to {fs_file}")
-    
+
     # Extract filesystem
     print(f"\nExtracting LittleFS filesystem to {unpack_dir}...")
-    
+
     # Remove old unpack directory
     unpack_path = Path(get_project_dir()) / unpack_dir
     if unpack_path.exists():
         shutil.rmtree(unpack_path)
     unpack_path.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         # Read the downloaded filesystem image
         with open(fs_file, 'rb') as f:
             fs_data = f.read()
-        
+
         # Calculate block count
         block_count = fs_size // block_size
-        
+
         # Create LittleFS instance and mount the image
         fs = LittleFS(
             block_size=block_size,
@@ -1119,38 +1118,38 @@ def download_littlefs(target, source, env):
         )
         fs.context.buffer = bytearray(fs_data)
         fs.mount()
-        
+
         # Extract all files
         file_count = 0
         print("\nExtracted files:")
         for root, dirs, files in fs.walk("/"):
             if not root.endswith("/"):
                 root += "/"
-            
+
             # Create directories
             for dir_name in dirs:
                 src_path = root + dir_name
                 dst_path = unpack_path / src_path[1:]  # Remove leading '/'
                 dst_path.mkdir(parents=True, exist_ok=True)
                 print(f"  [DIR]  {src_path}")
-            
+
             # Extract files
             for file_name in files:
                 src_path = root + file_name
                 dst_path = unpack_path / src_path[1:]  # Remove leading '/'
                 dst_path.parent.mkdir(parents=True, exist_ok=True)
-                
+
                 with fs.open(src_path, "rb") as src:
                     file_data = src.read()
                     dst_path.write_bytes(file_data)
-                
+
                 print(f"  [FILE] {src_path} ({len(file_data)} bytes)")
                 file_count += 1
-        
+
         fs.unmount()
         print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
         return 0
-        
+
     except Exception as e:
         print(f"Error: Failed to extract LittleFS filesystem: {e}")
         print("No support for other filesystems than LittleFS!")
@@ -1162,36 +1161,36 @@ def download_fatfs(target, source, env):
     Download FAT filesystem from device and extract to directory.
     Only supports FatFS filesystem.
     Usage: pio run -e <env> -t download_fatfs
-    
+
     Args:
         target: SCons target
         source: SCons source
         env: SCons environment object
     """
-    
+
     # Get unpack directory from board config or use default
     unpack_dir = "unpacked_fs"
-    
+
     # Read from project config (env-specific or common section)
     for section in ["env:" + env["PIOENV"], "common"]:
         if projectconfig.has_option(section, "board_build.unpack_dir"):
             unpack_dir = projectconfig.get(section, "board_build.unpack_dir")
             break
-    
+
     # Ensure upload port is set
     if not env.subst("$UPLOAD_PORT"):
         env.AutodetectUploadPort()
-    
+
     upload_port = env.subst("$UPLOAD_PORT")
     download_speed = board.get("download.speed", "115200")
-    
+
     # Download partition table from device
     print(f"Downloading partition table from {upload_port}...")
-    
+
     build_dir = Path(env.subst("$BUILD_DIR"))
     build_dir.mkdir(parents=True, exist_ok=True)
     partition_file = build_dir / "partition_table_from_flash.bin"
-    
+
     esptool_cmd = [
         uploader_path.strip('"'),
         "--chip", mcu,
@@ -1204,7 +1203,7 @@ def download_fatfs(target, source, env):
         "0x1000",  # Partition table size (4KB)
         str(partition_file)
     ]
-    
+
     try:
         result = subprocess.run(esptool_cmd, check=False)
         if result.returncode != 0:
@@ -1213,55 +1212,54 @@ def download_fatfs(target, source, env):
     except Exception as e:
         print(f"Error: {e}")
         return 1
-    
+
     # Parse partition table to find filesystem partition
     print("Parsing partition table...")
-    
+
     with open(partition_file, 'rb') as f:
         partition_data = f.read()
-    
+
     # Parse partition entries (format: 0xAA 0x50 followed by entry data)
     entries = [e for e in partition_data.split(b'\xaaP') if len(e) > 0]
-    
+
     fs_start = None
     fs_size = None
     fs_subtype = None
-    
+
     for entry in entries:
         if len(entry) < 32:
             continue
-        
+
         # Byte 0: Type (0x01 for data partitions)
         # Byte 1: SubType (0x81=FAT)
         # Bytes 2-5: Offset (4 bytes, little-endian)
         # Bytes 6-9: Size (4 bytes, little-endian)
-        
+
         part_subtype = entry[1]
-        
+
         # Check for FAT (0x81)
         if part_subtype == 0x81:
             fs_start = int.from_bytes(entry[2:6], byteorder='little', signed=False)
             fs_size = int.from_bytes(entry[6:10], byteorder='little', signed=False)
             fs_subtype = part_subtype
             break
-    
+
     if fs_start is None or fs_size is None:
         print("Error: No FAT filesystem partition found in partition table")
         return 1
 
     sector_size = 512  # Standard FAT sector size
-    
+
     print(f"Found FAT filesystem partition (subtype {hex(fs_subtype)}):")
     print(f"  Start: {hex(fs_start)}")
     print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
     print(f"  Sector size: {sector_size}")
-    print("Note: This tool only supports FatFS extraction")
-    
+
     # Download filesystem image
     fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
-    
+
     print("\nDownloading filesystem from device...")
-    
+
     esptool_cmd = [
         uploader_path.strip('"'),
         "--chip", mcu,
@@ -1274,7 +1272,7 @@ def download_fatfs(target, source, env):
         hex(fs_size),
         str(fs_file)
     ]
-    
+
     try:
         result = subprocess.run(esptool_cmd, check=False)
         if result.returncode != 0:
@@ -1283,27 +1281,26 @@ def download_fatfs(target, source, env):
     except Exception as e:
         print(f"Error: {e}")
         return 1
-    
+
     print(f"Downloaded to {fs_file}")
-    
+
     # Extract filesystem
     print(f"\nExtracting FatFS filesystem to {unpack_dir}...")
-    
+
     # Remove old unpack directory
     unpack_path = Path(get_project_dir()) / unpack_dir
     if unpack_path.exists():
         shutil.rmtree(unpack_path)
     unpack_path.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         # Read the downloaded filesystem image
         with open(fs_file, 'rb') as f:
             fs_data = bytearray(f.read())
-        
+
         # FFat specific: Skip the first 4KB (0x1000 bytes)
         fat_offset = 4096
         if len(fs_data) > fat_offset:
-            print(f"Skipping first {fat_offset} bytes (FFat offset)")
             fs_data = fs_data[fat_offset:]
 
         # Adjust size
@@ -1314,88 +1311,46 @@ def download_fatfs(target, source, env):
         if len(fs_data) < 512:
             print("Error: Downloaded image is too small to be a valid FAT filesystem")
             return 1
-        
+
         # Check for FAT boot sector signature (0x55AA at offset 510-511)
         boot_signature = fs_data[510:512]
         if boot_signature != b'\x55\xaa':
             print(f"Warning: Boot sector signature not found (got {boot_signature.hex()})")
             return 1
-        
-        print("✓ Valid FAT boot sector found")
-        
+
         # Create FatFS instance and mount the image
         disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
-        partition = Partition(disk)
 
-        try:
-            partition.mount()
-            print("✓ Filesystem mounted successfully")
-        except Exception as mount_error:
-            print(f"Error: Failed to mount FAT filesystem: {mount_error}")
-            return 1
+        from fatfs import create_extended_partition
 
-        # Try to use extended partition for full extraction
-        try:
-            from fatfs import create_extended_partition
+        partition = create_extended_partition(disk)
+        partition.mount()
 
-            # Remount with extended partition
-            partition.unmount()
-            disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
-            ext_partition = create_extended_partition(disk)
-            ext_partition.mount()
-
-            # Extract all files
-            file_count = 0
-            dir_count = 0
-
-            for root, dirs, files in ext_partition.walk("/"):
-                # Create directories
-                for dirname in dirs:
-                    dir_path = Path(root) / dirname
-                    rel_path = str(dir_path).lstrip("/")
-                    if rel_path:
-                        target_dir = unpack_path / rel_path
-                        target_dir.mkdir(parents=True, exist_ok=True)
-                        dir_count += 1
-                        print(f"  DIR:  {rel_path}/")
-
-                # Extract files
-                for filename in files:
-                    file_path = Path(root) / filename
-                    fs_path = str(file_path).replace("\\", "/")
-                    rel_path = fs_path.lstrip("/")
-
-                    if rel_path:
-                        target_file = unpack_path / rel_path
-                        target_file.parent.mkdir(parents=True, exist_ok=True)
-
-                        try:
-                            content = ext_partition.read_file(fs_path)
-                            target_file.write_bytes(content)
-                            file_count += 1
-                            print(f"  FILE: {rel_path} ({len(content)} bytes)")
-                        except Exception as e:
-                            print(f"  Warning: Failed to extract {rel_path}: {e}")
-
-            ext_partition.unmount()
-
-            print(f"\n✓ Extraction completed:")
-            print(f"  Directories: {dir_count}")
-            print(f"  Files: {file_count}")
-            print(f"  Location: {unpack_dir}")
-            
-            return 0
+        # List and extract all files
+        print("\nExtracting files:")
+        for root, dirs, files in partition.walk("/"):
+            for filename in files:
+                file_path = (Path(root) / filename).as_posix()
+                rel_path = file_path.lstrip("/")
+                
+                try:
+                    content = partition.read_file(file_path)
+                    print(f"  FILE: {rel_path} ({len(content)} bytes)")
+                except Exception as e:
+                    print(f"  Warning: Failed to read {rel_path}: {e}")
         
-        except Exception as e:
-            print(f"\nWarning: Extended extraction failed: {e}")
-            print("Falling back to basic mode (no file extraction)")
-            
-            try:
-                partition.unmount()
-            except:
-                pass
-            
-            return 0
+        # Extract all files using copy_tree_to
+        partition.copy_tree_to("/", unpack_path)
+        
+        partition.unmount()
+        
+        # Count extracted files
+        file_count = sum(1 for _ in unpack_path.rglob("*") if _.is_file())
+        dir_count = sum(1 for _ in unpack_path.rglob("*") if _.is_dir())
+
+        print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
+
+        return 0
         
     except Exception as e:
         print(f"Error: Failed to extract FatFS filesystem: {e}")
