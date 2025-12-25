@@ -549,6 +549,9 @@ def build_fatfs_image(target, source, env):
         partition.mkfs()
         partition.mount()
 
+        # Track skipped files
+        skipped_files = []
+
         # Add all files from source directory
         source_path = Path(source_dir)
         if source_path.exists():
@@ -570,14 +573,35 @@ def build_fatfs_image(target, source, env):
                             partition.mkdir(parent_path)
                         except Exception:
                             pass  # Directory might already exist
-                    
+
                     # Copy file
-                    with partition.open(fs_path, "w") as dest:
-                        dest.write(item.read_bytes())
+                    try:
+                        with partition.open(fs_path, "w") as dest:
+                            dest.write(item.read_bytes())
+                    except Exception as e:
+                        print(f"Warning: Failed to write file {rel_path}: {e}")
+                        skipped_files.append(str(rel_path))
 
         # Unmount and write filesystem image
         partition.unmount()
         
+        with open(target_file, "wb") as f:
+            f.write(storage)
+
+        # Print summary
+        if skipped_files:
+            print(f"\nWarning: {len(skipped_files)} file(s) skipped:")
+            for skipped in skipped_files[:10]:  # Show first 10
+                print(f"  - {skipped}")
+            if len(skipped_files) > 10:
+                print(f"  ... and {len(skipped_files) - 10} more")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error building FatFS image: {e}")
+        return 1
+
         with open(target_file, "wb") as f:
             f.write(storage)
 
@@ -1281,11 +1305,11 @@ def download_fatfs(target, source, env):
         if len(fs_data) > fat_offset:
             print(f"Skipping first {fat_offset} bytes (FFat offset)")
             fs_data = fs_data[fat_offset:]
-        
+
         # Adjust size
         fs_size_adjusted = len(fs_data)
         sector_count = fs_size_adjusted // sector_size
-        
+
         # Check if the image looks like a valid FAT filesystem
         if len(fs_data) < 512:
             print("Error: Downloaded image is too small to be a valid FAT filesystem")
@@ -1302,17 +1326,76 @@ def download_fatfs(target, source, env):
         # Create FatFS instance and mount the image
         disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
         partition = Partition(disk)
-        
+
         try:
             partition.mount()
             print("✓ Filesystem mounted successfully")
         except Exception as mount_error:
             print(f"Error: Failed to mount FAT filesystem: {mount_error}")
             return 1
+
+        # Try to use extended partition for full extraction
+        try:
+            from fatfs import create_extended_partition
+
+            # Remount with extended partition
+            partition.unmount()
+            disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
+            ext_partition = create_extended_partition(disk)
+            ext_partition.mount()
+
+            # Extract all files
+            file_count = 0
+            dir_count = 0
+
+            for root, dirs, files in ext_partition.walk("/"):
+                # Create directories
+                for dirname in dirs:
+                    dir_path = Path(root) / dirname
+                    rel_path = str(dir_path).lstrip("/")
+                    if rel_path:
+                        target_dir = unpack_path / rel_path
+                        target_dir.mkdir(parents=True, exist_ok=True)
+                        dir_count += 1
+                        print(f"  DIR:  {rel_path}/")
+
+                # Extract files
+                for filename in files:
+                    file_path = Path(root) / filename
+                    fs_path = str(file_path).replace("\\", "/")
+                    rel_path = fs_path.lstrip("/")
+
+                    if rel_path:
+                        target_file = unpack_path / rel_path
+                        target_file.parent.mkdir(parents=True, exist_ok=True)
+
+                        try:
+                            content = ext_partition.read_file(fs_path)
+                            target_file.write_bytes(content)
+                            file_count += 1
+                            print(f"  FILE: {rel_path} ({len(content)} bytes)")
+                        except Exception as e:
+                            print(f"  Warning: Failed to extract {rel_path}: {e}")
+
+            ext_partition.unmount()
+
+            print(f"\n✓ Extraction completed:")
+            print(f"  Directories: {dir_count}")
+            print(f"  Files: {file_count}")
+            print(f"  Location: {unpack_dir}")
+            
+            return 0
         
-        partition.unmount()
-        print(f"\nFatFS extraction completed to {unpack_dir}")
-        return 0
+        except Exception as e:
+            print(f"\nWarning: Extended extraction failed: {e}")
+            print("Falling back to basic mode (no file extraction)")
+            
+            try:
+                partition.unmount()
+            except:
+                pass
+            
+            return 0
         
     except Exception as e:
         print(f"Error: Failed to extract FatFS filesystem: {e}")
