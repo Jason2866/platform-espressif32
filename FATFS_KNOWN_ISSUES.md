@@ -38,22 +38,21 @@ This causes Python to interpret it as `assert (0, "message")` which is always tr
 
 ### Solution
 
-The warnings are automatically suppressed in our implementation:
+The warnings are automatically suppressed **before importing** the fatfs module in `builder/main.py`:
 
 ```python
-def build_fatfs_image(target, source, env):
-    """Build FatFS filesystem image using fatfs-python."""
-    
-    # Suppress SyntaxWarnings from fatfs-python library
-    import warnings
-    warnings.filterwarnings('ignore', category=SyntaxWarning, module='fatfs.diskio')
-    
-    # ... rest of implementation
+import warnings
+
+# Suppress SyntaxWarnings from fatfs-python library before importing
+# The library uses incorrect assert() syntax which triggers warnings in Python 3.13+
+warnings.filterwarnings('ignore', category=SyntaxWarning, module='fatfs.diskio')
+from fatfs import Partition, RamDisk
 ```
 
-This is applied in both:
-- `build_fatfs_image()` - Build function
-- `download_fatfs()` - Download function
+This ensures warnings are suppressed during:
+- Module import (installation/first use)
+- Build operations (`build_fatfs_image()`)
+- Download operations (`download_fatfs()`)
 
 ### Upstream Status
 
