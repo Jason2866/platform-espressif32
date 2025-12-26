@@ -1218,10 +1218,6 @@ def download_fatfs(target, source, env):
     if fs_file is None:
         return 1
 
-    # FFat uses 4096 byte sectors, not 512!
-    sector_size = 4096
-    print(f"  Sector size: {sector_size}")
-
     # Extract filesystem
     print(f"\nExtracting FatFS filesystem to {unpack_dir}...")
 
@@ -1233,45 +1229,78 @@ def download_fatfs(target, source, env):
         with open(fs_file, 'rb') as f:
             fs_data = bytearray(f.read())
 
-        # Note: FFat stores the filesystem directly without offset
-        # The 4KB offset is only used during build to match partition alignment
-        fs_size_adjusted = len(fs_data)
-        sector_count = fs_size_adjusted // sector_size
-
         # Check if the image looks like a valid FAT filesystem
         if len(fs_data) < 512:
             print("Error: Downloaded image is too small to be a valid FAT filesystem")
             return 1
 
-        # Check for FAT boot sector signature (0x55AA at offset 510-511)
-        boot_signature = fs_data[510:512]
-        if boot_signature != b'\x55\xaa':
-            print(f"Warning: Boot sector signature not found (got {boot_signature.hex()})")
+        # Read sector size from FAT boot sector (offset 0x0B, 2 bytes, little-endian)
+        sector_size = int.from_bytes(fs_data[0x0B:0x0D], byteorder='little')
+        print(f"  Sector size from boot sector: {sector_size} bytes")
+        
+        # Validate sector size
+        if sector_size not in [512, 1024, 2048, 4096]:
+            print(f"Error: Invalid sector size {sector_size}. Must be 512, 1024, 2048, or 4096")
             return 1
 
+        # Note: The downloaded image from flash contains the FAT filesystem directly.
+        # During build (build_fatfs_image), a 4KB offset is added to the .bin file,
+        # but this offset is NOT written to flash - ESP32 FFat writes only the FAT data.
+        fs_size_adjusted = len(fs_data)
+        sector_count = fs_size_adjusted // sector_size
+
+        # Debug: Show first bytes of image
+        print(f"Debug: First 16 bytes: {fs_data[:16].hex()}")
+        print(f"Debug: Image size: {len(fs_data)} bytes ({sector_count} sectors)")
+        
+        # Check for FAT boot sector signature (0x55AA at offset 510-511)
+        # Note: For 4096-byte sectors, this might be at different offsets
+        boot_signature_512 = fs_data[510:512]
+        boot_signature_4096 = fs_data[4094:4096] if len(fs_data) >= 4096 else b''
+        
+        print(f"Debug: Boot signature @ 510: {boot_signature_512.hex()}")
+        print(f"Debug: Boot signature @ 4094: {boot_signature_4096.hex()}")
+        
+        # FFat uses standard 512-byte boot sector even with 4096-byte logical sectors
+        if boot_signature_512 != b'\x55\xaa':
+            print(f"Warning: Boot sector signature not found at offset 510")
+            # Don't return error yet, try to mount anyway
+        
         # Create FatFS instance and mount the image
         disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
 
         partition = create_extended_partition(disk)
+        
+        print("Debug: Attempting to mount partition...")
         partition.mount()
+        print("Debug: Partition mounted successfully")
 
         # Extract all files using copy_tree_to
         print("\nExtracting files:")
-        partition.copy_tree_to("/", unpack_path)
         
-        # List extracted files
+        # Walk the filesystem and extract files manually to avoid encoding issues
+        extracted_count = 0
         for root, dirs, files in partition.walk("/"):
             for filename in files:
                 file_path = (Path(root) / filename).as_posix()
                 rel_path = file_path.lstrip("/")
                 
                 try:
-                    # Get file info without reading content
-                    stat_info = partition.stat(file_path)
-                    file_size = stat_info['st_size']
-                    print(f"  FILE: {rel_path} ({file_size} bytes)")
+                    # Read file as bytes (no UTF-8 decoding)
+                    content = partition.read_file(file_path)
+                    
+                    # Create output path
+                    output_file = unpack_path / rel_path
+                    output_file.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Write as binary
+                    with open(output_file, 'wb') as f:
+                        f.write(content)
+                    
+                    print(f"  FILE: {rel_path} ({len(content)} bytes)")
+                    extracted_count += 1
                 except Exception as e:
-                    print(f"  Warning: Failed to get info for {rel_path}: {e}")
+                    print(f"  Warning: Failed to extract {rel_path}: {e}")
         
         partition.unmount()
         
@@ -1279,7 +1308,7 @@ def download_fatfs(target, source, env):
         file_count = sum(1 for _ in unpack_path.rglob("*") if _.is_file())
         dir_count = sum(1 for _ in unpack_path.rglob("*") if _.is_dir())
 
-        print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
+        print(f"\nSuccessfully extracted {extracted_count} file(s) to {unpack_dir}")
 
         return 0
         
