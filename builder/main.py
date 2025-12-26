@@ -537,16 +537,14 @@ def build_fatfs_image(target, source, env):
     sector_count = fat_fs_size // sector_size
 
     try:
-        # Clear any lingering disk registrations to ensure we start with drive 0:
-        import fatfs.wrapper
-        fatfs.wrapper.__diskio_wrapper_disks.clear()
-        
         # Create RAM disk with the specified size (FAT filesystem only, without offset)
         storage = bytearray(fat_fs_size)
         disk = RamDisk(storage, sector_size=sector_size, sector_count=sector_count)
 
         # Create partition, format, and mount
         base_partition = Partition(disk)
+        
+        print(f"Debug: Created partition with pname={base_partition.pname}, pdev={base_partition.pdev}")
         
         # Format the filesystem with proper workarea size for LFN support
         # Workarea needs to be at least sector_size, use 2x for safety with LFN
@@ -556,8 +554,12 @@ def build_fatfs_image(target, source, env):
         if ret != FR_OK:
             raise Exception(f"Failed to format filesystem: error code {ret}")
         
+        print(f"Debug: Formatted filesystem on {base_partition.pname}")
+        
         # Mount the filesystem
         base_partition.mount()
+        
+        print(f"Debug: Mounted filesystem on {base_partition.pname}")
         
         # Wrap with extended partition for directory support
         partition = create_extended_partition(base_partition)
