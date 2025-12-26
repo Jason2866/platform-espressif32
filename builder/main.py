@@ -528,9 +528,10 @@ def build_fatfs_image(target, source, env):
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 4096)
     
-    # Use full partition size for FAT filesystem
-    # ESP-IDF manages wear leveling at runtime
-    fat_fs_size = fs_size
+    # ESP-IDF reserves 6 sectors for wear leveling management at runtime
+    # We need to create a FAT filesystem that accounts for this
+    wl_reserved_sectors = 6
+    fat_fs_size = fs_size - (wl_reserved_sectors * sector_size)
     sector_count = fat_fs_size // sector_size
 
     try:
