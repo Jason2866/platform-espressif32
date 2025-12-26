@@ -623,6 +623,56 @@ def build_fatfs_image(target, source, env):
             storage[fat_offset + 3:fat_offset + sector_size] = b'\x00' * (sector_size - 3)
         
         print(f"  ✓ FAT tables cleaned")
+        
+        # Add WL metadata at end of partition
+        # ESP-IDF stores WL state at the END of the partition
+        print(f"\nAdding WL metadata at end of partition...")
+        
+        from fatfs import ESP32WearLeveling
+        wl = ESP32WearLeveling(sector_size=sector_size)
+        
+        # Calculate WL metadata positions (at end of partition)
+        # state_size = 1 sector
+        # cfg_size = 1 sector  
+        # Layout: [FAT data] [dummy] [state1] [state2] [cfg]
+        state_size = sector_size
+        cfg_size = sector_size
+        
+        # Positions from end
+        addr_cfg = fs_size - cfg_size
+        addr_state2 = fs_size - state_size - cfg_size
+        addr_state1 = fs_size - state_size * 2 - cfg_size
+        
+        # Calculate max_pos for FAT sectors
+        wl_overhead_bytes = state_size * 2 + cfg_size + sector_size  # +1 dummy sector
+        fat_sectors = (fs_size - wl_overhead_bytes) // sector_size
+        max_count = 16 * fat_sectors  # update_rate = 16
+        
+        # Create WL state
+        wl_state = wl.create_wl_state(
+            pos=0,
+            max_pos=fat_sectors,
+            move_count=0,
+            access_count=0,
+            max_count=max_count,
+            device_id=0
+        )
+        
+        # Pad to full sector
+        wl_state_sector = wl_state + (b'\xFF' * (sector_size - len(wl_state)))
+        
+        # Write WL state to both positions
+        storage[addr_state1:addr_state1 + sector_size] = wl_state_sector
+        storage[addr_state2:addr_state2 + sector_size] = wl_state_sector
+        
+        # Create WL config
+        # For now, fill with FF (ESP-IDF will initialize on first mount)
+        storage[addr_cfg:addr_cfg + cfg_size] = b'\xFF' * cfg_size
+        
+        print(f"  WL state1 at offset: 0x{addr_state1:06X}")
+        print(f"  WL state2 at offset: 0x{addr_state2:06X}")
+        print(f"  WL config at offset: 0x{addr_cfg:06X}")
+        print(f"  ✓ WL metadata added")
 
         # Write RAW FAT image (NO wear leveling wrapper!)
         # ESP-IDF manages wear leveling at runtime, not in the flash image
