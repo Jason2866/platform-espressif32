@@ -528,9 +528,10 @@ def build_fatfs_image(target, source, env):
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 4096)
     
-    # ESP-IDF reserves 6 sectors for wear leveling management at runtime
-    # We need to create a FAT filesystem that accounts for this
-    wl_reserved_sectors = 6
+    # ESP-IDF WL layout (following wl_fatfsgen.py):
+    # [dummy sector] [FAT data] [state1] [state2] [config]
+    # Total WL sectors: 1 dummy + 2 states + 1 config = 4 sectors
+    wl_reserved_sectors = 4
     fat_fs_size = fs_size - (wl_reserved_sectors * sector_size)
     sector_count = fat_fs_size // sector_size
 
@@ -624,73 +625,79 @@ def build_fatfs_image(target, source, env):
         
         print(f"  ✓ FAT tables cleaned")
         
-        # Add WL metadata at end of partition
-        # ESP-IDF stores WL state at the END of the partition
-        print(f"\nAdding WL metadata at end of partition...")
+        # Add WL metadata following ESP-IDF wl_fatfsgen.py implementation
+        # Layout: [dummy sector] [FAT data] [state1] [state2] [config]
+        # The dummy sector is PREPENDED, not appended!
+        print(f"\nAdding WL metadata following ESP-IDF layout...")
         
         from fatfs import ESP32WearLeveling
         wl = ESP32WearLeveling(sector_size=sector_size)
         
-        # Calculate WL metadata positions (at end of partition)
-        # state_size = 1 sector
-        # cfg_size = 1 sector  
-        # Layout: [FAT data] [dummy] [state1] [state2] [cfg]
-        state_size = sector_size
-        cfg_size = sector_size
-        
-        # Positions from end
-        addr_cfg = fs_size - cfg_size
-        addr_state2 = fs_size - state_size - cfg_size
-        addr_state1 = fs_size - state_size * 2 - cfg_size
-        
-        # Calculate max_pos for FAT sectors
-        # max_pos should match the total_sectors in the FAT boot sector
-        # Read it from the boot sector we just created
+        # Read total_sectors from FAT boot sector
         import struct
         total_sectors_fat = struct.unpack('<H', storage[19:21])[0]
-        max_count = 16 * total_sectors_fat  # update_rate = 16
         
-        print(f"  FAT total_sectors from boot sector: {total_sectors_fat}")
+        print(f"  FAT total_sectors: {total_sectors_fat}")
+        print(f"  WL reserved sectors: {wl_reserved_sectors}")
         
-        # Create WL state
+        # ESP-IDF formula: max_pos = plain_fat_sectors + WL_DUMMY_SECTORS_COUNT
+        # This means max_pos includes the dummy sector!
+        max_pos = total_sectors_fat + 1  # +1 for dummy sector
+        max_count = 16  # update_rate from ESP-IDF (not multiplied by sectors!)
+        
+        print(f"  WL max_pos: {max_pos} (FAT sectors + dummy)")
+        
+        # Create WL state with ESP-IDF parameters
         wl_state = wl.create_wl_state(
             pos=0,
-            max_pos=total_sectors_fat,  # Use actual FAT sectors from boot sector
+            max_pos=max_pos,
             move_count=0,
             access_count=0,
             max_count=max_count,
             device_id=0
         )
         
-        # Pad to full sector
+        # Pad WL state to full sector
         wl_state_sector = wl_state + (b'\xFF' * (sector_size - len(wl_state)))
         
-        # Write WL state to both positions
-        storage[addr_state1:addr_state1 + sector_size] = wl_state_sector
-        storage[addr_state2:addr_state2 + sector_size] = wl_state_sector
+        # Create new storage with dummy sector prepended
+        # Layout: [dummy] [FAT] [state1] [state2] [config]
+        new_storage = bytearray(fs_size)
         
-        # Create WL config
-        # For now, fill with FF (ESP-IDF will initialize on first mount)
-        storage[addr_cfg:addr_cfg + cfg_size] = b'\xFF' * cfg_size
+        # 1. Dummy sector at beginning (all 0xFF)
+        new_storage[0:sector_size] = b'\xFF' * sector_size
         
+        # 2. FAT data after dummy sector
+        new_storage[sector_size:sector_size + len(storage)] = storage
+        
+        # 3. State sectors at end (before config)
+        addr_state1 = fs_size - sector_size * 3  # 3 sectors from end (state1, state2, config)
+        addr_state2 = fs_size - sector_size * 2  # 2 sectors from end (state2, config)
+        new_storage[addr_state1:addr_state1 + sector_size] = wl_state_sector
+        new_storage[addr_state2:addr_state2 + sector_size] = wl_state_sector
+        
+        # 4. Config sector at very end (all 0xFF - ESP-IDF initializes on first mount)
+        addr_cfg = fs_size - sector_size
+        new_storage[addr_cfg:addr_cfg + sector_size] = b'\xFF' * sector_size
+        
+        # Replace storage with new layout
+        storage = new_storage
+        
+        print(f"  Dummy sector at offset: 0x{0:06X}")
+        print(f"  FAT data at offset: 0x{sector_size:06X}")
         print(f"  WL state1 at offset: 0x{addr_state1:06X}")
         print(f"  WL state2 at offset: 0x{addr_state2:06X}")
         print(f"  WL config at offset: 0x{addr_cfg:06X}")
-        print(f"  ✓ WL metadata added")
+        print(f"  ✓ WL metadata added (ESP-IDF layout)")
 
-        # Write RAW FAT image (NO wear leveling wrapper!)
-        # ESP-IDF manages wear leveling at runtime, not in the flash image
-        print(f"\nCreating RAW FAT filesystem image...")
+        # Write WL-wrapped FAT image
+        # ESP-IDF manages wear leveling at runtime using this metadata
+        print(f"\nCreating WL-wrapped FAT filesystem image...")
         print(f"  Partition size: {fs_size} bytes")
         print(f"  FAT filesystem size: {fat_fs_size} bytes ({sector_count} sectors)")
-        
-        # Pad to full partition size
-        if len(storage) < fs_size:
-            storage.extend(b'\xFF' * (fs_size - len(storage)))
-        elif len(storage) > fs_size:
-            storage = storage[:fs_size]
+        print(f"  WL overhead: {wl_reserved_sectors} sectors")
 
-        # Write RAW FAT image
+        # Write image (storage is already the correct size with WL metadata)
         with open(target_file, "wb") as f:
             f.write(bytes(storage))
 
