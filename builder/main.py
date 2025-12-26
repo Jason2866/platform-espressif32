@@ -542,7 +542,8 @@ def build_fatfs_image(target, source, env):
         # Workarea needs to be at least sector_size, use 2x for safety with LFN
         from fatfs.wrapper import pyf_mkfs, PY_FR_OK as FR_OK
         workarea_size = sector_size * 2
-        ret = pyf_mkfs(base_partition.pname, workarea_size=workarea_size)
+        # Create filesystem with 2 FATs (n_fat=2)
+        ret = pyf_mkfs(base_partition.pname, n_fat=2, workarea_size=workarea_size)
         if ret != FR_OK:
             raise Exception(f"Failed to format filesystem: error code {ret}")
 
