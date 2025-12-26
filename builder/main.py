@@ -528,18 +528,13 @@ def build_fatfs_image(target, source, env):
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 4096)
     
-    # Import wear leveling module
-    import sys
-    sys.path.insert(0, str(platform_dir / "builder"))
-    from esp32_wl import create_wl_fat_image, WearLevelingLayer
+    # Import ESP32 WL functions from fatfs
+    from fatfs import create_esp32_wl_image, calculate_esp32_wl_overhead
     
     # Calculate FAT filesystem size (excluding wear leveling overhead)
-    wl = WearLevelingLayer(sector_size=sector_size)
-    total_sectors = fs_size // sector_size
-    wl_overhead_sectors = (wl.wl_state_size * 2) + wl.wl_temp_size
-    fat_sectors = total_sectors - wl_overhead_sectors
-    fat_fs_size = fat_sectors * sector_size
-    sector_count = fat_sectors
+    wl_info = calculate_esp32_wl_overhead(fs_size, sector_size)
+    fat_fs_size = wl_info['fat_size']
+    sector_count = wl_info['fat_sectors']
 
     try:
         # Create RAM disk with the FAT filesystem size (without WL overhead)
@@ -603,11 +598,11 @@ def build_fatfs_image(target, source, env):
 
         # Wrap FAT image with wear leveling layer
         print(f"\nWrapping FAT image with ESP32 Wear Leveling layer...")
-        print(f"  Partition size: {fs_size} bytes ({total_sectors} sectors)")
-        print(f"  FAT data size: {fat_fs_size} bytes ({fat_sectors} sectors)")
-        print(f"  WL overhead: {wl_overhead_sectors} sectors")
+        print(f"  Partition size: {fs_size} bytes ({wl_info['total_sectors']} sectors)")
+        print(f"  FAT data size: {fat_fs_size} bytes ({wl_info['fat_sectors']} sectors)")
+        print(f"  WL overhead: {wl_info['wl_overhead_sectors']} sectors")
         
-        wl_image = create_wl_fat_image(bytes(storage), fs_size, sector_size)
+        wl_image = create_esp32_wl_image(bytes(storage), fs_size, sector_size)
 
         # Write wear-leveling wrapped image
         with open(target_file, "wb") as f:
@@ -1251,25 +1246,16 @@ def download_fatfs(target, source, env):
             print("Error: Downloaded image is too small to be a valid FAT filesystem")
             return 1
 
-        # Import wear leveling module
-        import sys
-        sys.path.insert(0, str(platform_dir / "builder"))
-        from esp32_wl import extract_fat_from_wl_image, WearLevelingLayer
+        # Import ESP32 WL functions from fatfs
+        from fatfs import is_esp32_wl_image, extract_fat_from_esp32_wl
         
         # Try to detect and extract wear leveling layer
         sector_size = 4096  # Default ESP32 sector size
-        wl = WearLevelingLayer(sector_size=sector_size)
         
         # Check if this is a wear-leveling wrapped image
-        # by verifying the WL state at the beginning
-        is_wl_image = False
-        if len(fs_data) >= wl.WL_STATE_SIZE:
-            first_state = fs_data[:wl.WL_STATE_SIZE]
-            is_wl_image = wl.verify_wl_state(first_state)
-        
-        if is_wl_image:
+        if is_esp32_wl_image(fs_data, sector_size):
             print("\nDetected Wear Leveling layer, extracting FAT data...")
-            fat_data = extract_fat_from_wl_image(fs_data, sector_size)
+            fat_data = extract_fat_from_esp32_wl(fs_data, sector_size)
             if fat_data is None:
                 print("Error: Failed to extract FAT data from wear-leveling image")
                 return 1
