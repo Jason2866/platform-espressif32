@@ -120,7 +120,7 @@ Structure:
 [WL State 1][WL State 2][FAT Data][Temp][WL State 3][WL State 4]
 ```
 
-See [WEAR_LEVELING.md](../platform-espressif32/WEAR_LEVELING.md) for details.
+See [WEAR_LEVELING.md](../../WEAR_LEVELING.md) for details.
 
 ## Troubleshooting
 
