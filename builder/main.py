@@ -537,9 +537,7 @@ def build_fatfs_image(target, source, env):
 
         # Create partition, format, and mount
         base_partition = Partition(disk)
-        
-        print(f"Debug: Created partition with pname={base_partition.pname}, pdev={base_partition.pdev}")
-        
+
         # Format the filesystem with proper workarea size for LFN support
         # Workarea needs to be at least sector_size, use 2x for safety with LFN
         from fatfs.wrapper import pyf_mkfs, PY_FR_OK as FR_OK
@@ -547,14 +545,10 @@ def build_fatfs_image(target, source, env):
         ret = pyf_mkfs(base_partition.pname, workarea_size=workarea_size)
         if ret != FR_OK:
             raise Exception(f"Failed to format filesystem: error code {ret}")
-        
-        print(f"Debug: Formatted filesystem on {base_partition.pname}")
-        
+
         # Mount the filesystem
         base_partition.mount()
-        
-        print(f"Debug: Mounted filesystem on {base_partition.pname}")
-        
+
         # Wrap with extended partition for directory support
         from fatfs.partition_extended import PartitionExtended
         partition = PartitionExtended(base_partition)
@@ -591,7 +585,6 @@ def build_fatfs_image(target, source, env):
                     except Exception as e:
                         print(f"Warning: Failed to write file {rel_path}: {e}")
                         skipped_files.append(str(rel_path))
-
 
         # Unmount and write filesystem image
         base_partition.unmount()
@@ -1052,9 +1045,6 @@ def _download_partition_image(env, fs_type_filter=None):
         print(f"Error: {e}")
         return None, None, None, None
 
-    # Parse partition table to find filesystem partition
-    print("Parsing partition table...")
-
     with open(partition_file, 'rb') as f:
         partition_data = f.read()
 
@@ -1087,14 +1077,14 @@ def _download_partition_image(env, fs_type_filter=None):
         print("Error: No matching filesystem partition found in partition table")
         return None, None, None, None
 
-    print(f"Found filesystem partition (subtype {hex(fs_subtype)}):")
+    print(f"\nFound filesystem partition (subtype {hex(fs_subtype)}):")
     print(f"  Start: {hex(fs_start)}")
     print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
 
     # Download filesystem image
     fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
 
-    print("\nDownloading filesystem from device...")
+    print("Downloading filesystem from device...\n")
 
     esptool_cmd = [
         uploader_path.strip('"'),
@@ -1118,7 +1108,7 @@ def _download_partition_image(env, fs_type_filter=None):
         print(f"Error: {e}")
         return None, None, None, None
 
-    print(f"Downloaded to {fs_file}")
+    print(f"\nDownloaded to {fs_file}")
 
     return fs_file, fs_start, fs_size, fs_subtype
 
@@ -1202,7 +1192,6 @@ def download_littlefs(target, source, env):
 
     except Exception as e:
         print(f"Error: Failed to extract LittleFS filesystem: {e}")
-        print("No support for other filesystems than LittleFS!")
         return 1
 
 
@@ -1245,7 +1234,7 @@ def download_fatfs(target, source, env):
 
         # Read sector size from FAT boot sector (offset 0x0B, 2 bytes, little-endian)
         sector_size = int.from_bytes(fs_data[0x0B:0x0D], byteorder='little')
-        print(f"  Sector size from boot sector: {sector_size} bytes")
+        # print(f"  Sector size from boot sector: {sector_size} bytes")
 
         # Validate sector size
         if sector_size not in [512, 1024, 2048, 4096]:
@@ -1258,12 +1247,10 @@ def download_fatfs(target, source, env):
         sector_count = fs_size_adjusted // sector_size
         disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
         partition = create_extended_partition(disk)
-        print("Debug: Attempting to mount partition...")
         partition.mount()
-        print("Debug: Partition mounted successfully")
 
         # Extract all files using PartitionExtended.walk() and read_file()
-        print("\nExtracting files:")
+        print("\nExtracting files:\n")
         extracted_count = 0
         for root, dirs, files in partition.walk("/"):
             # Create directories
