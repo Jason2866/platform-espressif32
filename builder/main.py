@@ -1275,67 +1275,94 @@ def download_fatfs(target, source, env):
         partition.mount()
         print("Debug: Partition mounted successfully")
 
-        # Extract all files
+        # Extract all files using manual FAT parsing
         print("\nExtracting files:")
         
-        # Use listdir recursively instead of walk to avoid encoding issues
+        import struct
+        
+        # Parse boot sector to get filesystem layout
+        bytes_per_sec = struct.unpack_from('<H', fs_data, 0x0B)[0]
+        sec_per_cluster = fs_data[0x0D]
+        reserved_sectors = struct.unpack_from('<H', fs_data, 0x0E)[0]
+        num_fats = fs_data[0x10]
+        root_entry_count = struct.unpack_from('<H', fs_data, 0x11)[0]
+        sectors_per_fat_16 = struct.unpack_from('<H', fs_data, 0x16)[0]
+        
+        root_dir_sectors = ((root_entry_count * 32) + (bytes_per_sec - 1)) // bytes_per_sec
+        root_dir_first_sector = reserved_sectors + (num_fats * sectors_per_fat_16)
+        first_data_sector = root_dir_first_sector + root_dir_sectors
+        
+        # Read and parse root directory
+        root_offset = root_dir_first_sector * bytes_per_sec
+        root_size = root_dir_sectors * bytes_per_sec
+        root_data = fs_data[root_offset:root_offset + root_size]
+        
         extracted_count = 0
         
-        def extract_directory(dir_path):
-            nonlocal extracted_count
-            try:
-                # Try to list directory - this may fail if there are encoding issues
-                try:
-                    entries = partition.listdir(dir_path)
-                except UnicodeDecodeError as e:
-                    print(f"  Warning: UTF-8 decode error in directory {dir_path}: {e}")
-                    print(f"  This usually means the directory contains deleted or corrupted entries.")
-                    return
-                except Exception as e:
-                    print(f"  Warning: Failed to list directory {dir_path}: {e}")
-                    return
-                
-                for entry_name in entries:
-                    # Skip . and ..
-                    if entry_name in ('.', '..'):
-                        continue
-                    
-                    entry_path = f"{dir_path}/{entry_name}".replace('//', '/')
-                    
-                    try:
-                        # Check if it's a directory
-                        stat_info = partition.stat(entry_path)
-                        is_dir = stat_info.get('st_mode', 0) & 0x4000  # S_IFDIR
-                        
-                        if is_dir:
-                            # Create directory and recurse
-                            rel_path = entry_path.lstrip("/")
-                            output_dir = unpack_path / rel_path
-                            output_dir.mkdir(parents=True, exist_ok=True)
-                            print(f"  DIR:  {rel_path}/")
-                            extract_directory(entry_path)
-                        else:
-                            # Extract file
-                            rel_path = entry_path.lstrip("/")
-                            content = partition.read_file(entry_path)
-                            
-                            # Create output path
-                            output_file = unpack_path / rel_path
-                            output_file.parent.mkdir(parents=True, exist_ok=True)
-                            
-                            # Write as binary
-                            with open(output_file, 'wb') as f:
-                                f.write(content)
-                            
-                            print(f"  FILE: {rel_path} ({len(content)} bytes)")
-                            extracted_count += 1
-                    except Exception as e:
-                        print(f"  Warning: Failed to process {entry_path}: {e}")
-            except Exception as e:
-                print(f"  Warning: Unexpected error in directory {dir_path}: {e}")
+        # Helper function to read cluster data
+        def read_cluster(cluster_num):
+            if cluster_num < 2:
+                return b''
+            sector = first_data_sector + (cluster_num - 2) * sec_per_cluster
+            offset = sector * bytes_per_sec
+            return fs_data[offset:offset + bytes_per_sec]
         
-        # Start extraction from root
-        extract_directory("/")
+        # Parse directory entries
+        for i in range(0, len(root_data), 32):
+            entry = root_data[i:i+32]
+            if len(entry) < 32:
+                break
+            
+            first_byte = entry[0]
+            
+            # End of directory entries
+            if first_byte == 0x00:
+                break
+            
+            # Deleted or empty entry
+            if first_byte in (0xE5, 0xFF):
+                continue
+            
+            attr = entry[11]
+            
+            # Skip long filename entries and volume labels
+            if attr == 0x0F or (attr & 0x08):
+                continue
+            
+            # Parse filename
+            try:
+                name_part = entry[0:8].decode('ascii', errors='ignore').rstrip()
+                ext_part = entry[8:11].decode('ascii', errors='ignore').rstrip()
+                filename = (name_part + ('.' + ext_part if ext_part else '')).strip()
+                
+                if not filename:
+                    continue
+                
+                cluster_low = struct.unpack_from('<H', entry, 26)[0]
+                file_size = struct.unpack_from('<I', entry, 28)[0]
+                is_dir = (attr & 0x10) != 0
+                
+                if is_dir:
+                    # Create directory
+                    output_dir = unpack_path / filename
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    print(f"  DIR:  {filename}/")
+                else:
+                    # Extract file
+                    if file_size > 0 and cluster_low >= 2:
+                        file_data = read_cluster(cluster_low)[:file_size]
+                    else:
+                        file_data = b''
+                    
+                    output_file = unpack_path / filename
+                    output_file.write_bytes(file_data)
+                    
+                    print(f"  FILE: {filename} ({file_size} bytes)")
+                    extracted_count += 1
+                    
+            except Exception as e:
+                print(f"  Warning: Failed to process entry at offset {i}: {e}")
+                continue
         
         partition.unmount()
         
