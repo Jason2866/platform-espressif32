@@ -1246,144 +1246,49 @@ def download_fatfs(target, source, env):
         # Read sector size from FAT boot sector (offset 0x0B, 2 bytes, little-endian)
         sector_size = int.from_bytes(fs_data[0x0B:0x0D], byteorder='little')
         print(f"  Sector size from boot sector: {sector_size} bytes")
-        
+
         # Validate sector size
         if sector_size not in [512, 1024, 2048, 4096]:
             print(f"Error: Invalid sector size {sector_size}. Must be 512, 1024, 2048, or 4096")
             return 1
 
-        # Note: The downloaded image from flash contains the FAT filesystem directly.
-        # During build (build_fatfs_image), a 4KB offset is added to the .bin file,
-        # but this offset is NOT written to flash - ESP32 FFat writes only the FAT data.
+        # Mount with fatfs-python
+        from fatfs import RamDisk, create_extended_partition
         fs_size_adjusted = len(fs_data)
         sector_count = fs_size_adjusted // sector_size
-
-        # Debug: Show first bytes of image
-        print(f"Debug: First 16 bytes: {fs_data[:16].hex()}")
-        print(f"Debug: Image size: {len(fs_data)} bytes ({sector_count} sectors)")
-        
-        # Check for FAT boot sector signature (0x55AA at offset 510-511)
-        # Note: For 4096-byte sectors, this might be at different offsets
-        boot_signature_512 = fs_data[510:512]
-        boot_signature_4096 = fs_data[4094:4096] if len(fs_data) >= 4096 else b''
-        
-        print(f"Debug: Boot signature @ 510: {boot_signature_512.hex()}")
-        print(f"Debug: Boot signature @ 4094: {boot_signature_4096.hex()}")
-        
-        # FFat uses standard 512-byte boot sector even with 4096-byte logical sectors
-        if boot_signature_512 != b'\x55\xaa':
-            print(f"Warning: Boot sector signature not found at offset 510")
-            # Don't return error yet, try to mount anyway
-        
-        # Create FatFS instance and mount the image
         disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
-
         partition = create_extended_partition(disk)
-        
         print("Debug: Attempting to mount partition...")
         partition.mount()
         print("Debug: Partition mounted successfully")
 
-        # Extract all files using manual FAT parsing
+        # Extract all files using PartitionExtended.walk() and read_file()
         print("\nExtracting files:")
-        
-        import struct
-        
-        # Parse boot sector to get filesystem layout
-        bytes_per_sec = struct.unpack_from('<H', fs_data, 0x0B)[0]
-        sec_per_cluster = fs_data[0x0D]
-        reserved_sectors = struct.unpack_from('<H', fs_data, 0x0E)[0]
-        num_fats = fs_data[0x10]
-        root_entry_count = struct.unpack_from('<H', fs_data, 0x11)[0]
-        sectors_per_fat_16 = struct.unpack_from('<H', fs_data, 0x16)[0]
-        
-        root_dir_sectors = ((root_entry_count * 32) + (bytes_per_sec - 1)) // bytes_per_sec
-        root_dir_first_sector = reserved_sectors + (num_fats * sectors_per_fat_16)
-        first_data_sector = root_dir_first_sector + root_dir_sectors
-        
-        # Read and parse root directory
-        root_offset = root_dir_first_sector * bytes_per_sec
-        root_size = root_dir_sectors * bytes_per_sec
-        root_data = fs_data[root_offset:root_offset + root_size]
-        
         extracted_count = 0
-        
-        # Helper function to read cluster data
-        def read_cluster(cluster_num):
-            if cluster_num < 2:
-                return b''
-            sector = first_data_sector + (cluster_num - 2) * sec_per_cluster
-            offset = sector * bytes_per_sec
-            return fs_data[offset:offset + bytes_per_sec]
-        
-        # Parse directory entries
-        for i in range(0, len(root_data), 32):
-            entry = root_data[i:i+32]
-            if len(entry) < 32:
-                break
-            
-            first_byte = entry[0]
-            
-            # End of directory entries
-            if first_byte == 0x00:
-                break
-            
-            # Deleted or empty entry
-            if first_byte in (0xE5, 0xFF):
-                continue
-            
-            attr = entry[11]
-            
-            # Skip long filename entries and volume labels
-            if attr == 0x0F or (attr & 0x08):
-                continue
-            
-            # Parse filename
-            try:
-                name_part = entry[0:8].decode('ascii', errors='ignore').rstrip()
-                ext_part = entry[8:11].decode('ascii', errors='ignore').rstrip()
-                filename = (name_part + ('.' + ext_part if ext_part else '')).strip()
-                
-                if not filename:
-                    continue
-                
-                cluster_low = struct.unpack_from('<H', entry, 26)[0]
-                file_size = struct.unpack_from('<I', entry, 28)[0]
-                is_dir = (attr & 0x10) != 0
-                
-                if is_dir:
-                    # Create directory
-                    output_dir = unpack_path / filename
-                    output_dir.mkdir(parents=True, exist_ok=True)
-                    print(f"  DIR:  {filename}/")
-                else:
-                    # Extract file
-                    if file_size > 0 and cluster_low >= 2:
-                        file_data = read_cluster(cluster_low)[:file_size]
-                    else:
-                        file_data = b''
-                    
-                    output_file = unpack_path / filename
-                    output_file.write_bytes(file_data)
-                    
-                    print(f"  FILE: {filename} ({file_size} bytes)")
+        for root, dirs, files in partition.walk("/"):
+            # Create directories
+            rel_root = root[1:] if root.startswith("/") else root
+            abs_root = unpack_path / rel_root
+            abs_root.mkdir(parents=True, exist_ok=True)
+            for filename in files:
+                src_file = root.rstrip("/") + "/" + filename if root != "/" else "/" + filename
+                dst_file = abs_root / filename
+                try:
+                    data = partition.read_file(src_file)
+                    dst_file.write_bytes(data)
+                    print(f"  FILE: {src_file} ({len(data)} bytes)")
                     extracted_count += 1
-                    
-            except Exception as e:
-                print(f"  Warning: Failed to process entry at offset {i}: {e}")
-                continue
-        
+                except Exception as e:
+                    print(f"  Warning: Failed to extract {src_file}: {e}")
         partition.unmount()
-        
         # Summary
         if extracted_count == 0:
             print(f"\nNo files were extracted.")
             print("The filesystem may be empty, freshly formatted, or contain only deleted entries.")
         else:
             print(f"\nSuccessfully extracted {extracted_count} file(s) to {unpack_dir}")
-
         return 0
-        
+
     except Exception as e:
         print(f"Error: Failed to extract FatFS filesystem: {e}")
         return 1
