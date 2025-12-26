@@ -1275,32 +1275,58 @@ def download_fatfs(target, source, env):
         partition.mount()
         print("Debug: Partition mounted successfully")
 
-        # Extract all files using copy_tree_to
+        # Extract all files
         print("\nExtracting files:")
         
-        # Walk the filesystem and extract files manually to avoid encoding issues
+        # Use listdir recursively instead of walk to avoid encoding issues
         extracted_count = 0
-        for root, dirs, files in partition.walk("/"):
-            for filename in files:
-                file_path = (Path(root) / filename).as_posix()
-                rel_path = file_path.lstrip("/")
+        
+        def extract_directory(dir_path):
+            nonlocal extracted_count
+            try:
+                entries = partition.listdir(dir_path)
                 
-                try:
-                    # Read file as bytes (no UTF-8 decoding)
-                    content = partition.read_file(file_path)
+                for entry_name in entries:
+                    # Skip . and ..
+                    if entry_name in ('.', '..'):
+                        continue
                     
-                    # Create output path
-                    output_file = unpack_path / rel_path
-                    output_file.parent.mkdir(parents=True, exist_ok=True)
+                    entry_path = f"{dir_path}/{entry_name}".replace('//', '/')
                     
-                    # Write as binary
-                    with open(output_file, 'wb') as f:
-                        f.write(content)
-                    
-                    print(f"  FILE: {rel_path} ({len(content)} bytes)")
-                    extracted_count += 1
-                except Exception as e:
-                    print(f"  Warning: Failed to extract {rel_path}: {e}")
+                    try:
+                        # Check if it's a directory
+                        stat_info = partition.stat(entry_path)
+                        is_dir = stat_info.get('st_mode', 0) & 0x4000  # S_IFDIR
+                        
+                        if is_dir:
+                            # Create directory and recurse
+                            rel_path = entry_path.lstrip("/")
+                            output_dir = unpack_path / rel_path
+                            output_dir.mkdir(parents=True, exist_ok=True)
+                            print(f"  DIR:  {rel_path}/")
+                            extract_directory(entry_path)
+                        else:
+                            # Extract file
+                            rel_path = entry_path.lstrip("/")
+                            content = partition.read_file(entry_path)
+                            
+                            # Create output path
+                            output_file = unpack_path / rel_path
+                            output_file.parent.mkdir(parents=True, exist_ok=True)
+                            
+                            # Write as binary
+                            with open(output_file, 'wb') as f:
+                                f.write(content)
+                            
+                            print(f"  FILE: {rel_path} ({len(content)} bytes)")
+                            extracted_count += 1
+                    except Exception as e:
+                        print(f"  Warning: Failed to process {entry_path}: {e}")
+            except Exception as e:
+                print(f"  Warning: Failed to list directory {dir_path}: {e}")
+        
+        # Start extraction from root
+        extract_directory("/")
         
         partition.unmount()
         
