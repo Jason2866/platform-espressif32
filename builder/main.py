@@ -1255,21 +1255,23 @@ def download_fatfs(target, source, env):
         partition = create_extended_partition(disk)
         partition.mount()
 
-        # List and extract all files
+        # Extract all files using copy_tree_to
         print("\nExtracting files:")
+        partition.copy_tree_to("/", unpack_path)
+        
+        # List extracted files
         for root, dirs, files in partition.walk("/"):
             for filename in files:
                 file_path = (Path(root) / filename).as_posix()
                 rel_path = file_path.lstrip("/")
                 
                 try:
-                    content = partition.read_file(file_path)
-                    print(f"  FILE: {rel_path} ({len(content)} bytes)")
+                    # Get file info without reading content
+                    stat_info = partition.stat(file_path)
+                    file_size = stat_info['st_size']
+                    print(f"  FILE: {rel_path} ({file_size} bytes)")
                 except Exception as e:
-                    print(f"  Warning: Failed to read {rel_path}: {e}")
-        
-        # Extract all files using copy_tree_to
-        partition.copy_tree_to("/", unpack_path)
+                    print(f"  Warning: Failed to get info for {rel_path}: {e}")
         
         partition.unmount()
         
