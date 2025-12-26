@@ -1264,7 +1264,7 @@ def download_fatfs(target, source, env):
         partition.unmount()
         # Summary
         if extracted_count == 0:
-            print(f"\nNo files were extracted.")
+            print("\nNo files were extracted.")
             print("The filesystem may be empty, freshly formatted, or contain only deleted entries.")
         else:
             print(f"\nSuccessfully extracted {extracted_count} file(s) to {unpack_dir}")
