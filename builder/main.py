@@ -607,23 +607,25 @@ def build_fatfs_image(target, source, env):
         # Unmount filesystem
         base_partition.unmount()
         
-        # FIX: Clean up FAT tables - remove spurious FF bytes
-        # ESP-IDF expects FAT entries after media descriptor to be 00, not FF
-        print(f"\nCleaning FAT tables...")
+        # Read boot sector parameters for validation
+        import struct
+        bytes_per_sector = struct.unpack('<H', storage[11:13])[0]
+        reserved_sectors = struct.unpack('<H', storage[14:16])[0]
+        num_fats = storage[16]
+        sectors_per_fat = struct.unpack('<H', storage[22:24])[0]
+        total_sectors = struct.unpack('<H', storage[19:21])[0]
         
-        # FAT1 starts at sector 1 (offset 4096)
-        # FAT2 starts at sector 2 (offset 8192)
-        fat1_offset = sector_size
-        fat2_offset = sector_size * 2
+        # Validate boot sector matches our expectations
+        if bytes_per_sector != sector_size:
+            raise Exception(f"Boot sector bytes_per_sector ({bytes_per_sector}) != sector_size ({sector_size})")
         
-        # Each FAT is 1 sector (4096 bytes)
-        # First 3 bytes are media descriptor (F8 FF FF)
-        # Rest should be 00, not FF
-        for fat_offset in [fat1_offset, fat2_offset]:
-            # Keep first 3 bytes (media descriptor), clear rest
-            storage[fat_offset + 3:fat_offset + sector_size] = b'\x00' * (sector_size - 3)
-        
-        print(f"  ✓ FAT tables cleaned")
+        print(f"\nBoot sector validation:")
+        print(f"  Bytes per sector: {bytes_per_sector}")
+        print(f"  Reserved sectors: {reserved_sectors}")
+        print(f"  Number of FATs: {num_fats}")
+        print(f"  Sectors per FAT: {sectors_per_fat}")
+        print(f"  Total sectors: {total_sectors}")
+        print(f"  ✓ Boot sector parameters validated")
         
         # Add WL metadata following ESP-IDF wl_fatfsgen.py implementation
         # Layout: [dummy sector] [FAT data] [state1] [state2] [config]
