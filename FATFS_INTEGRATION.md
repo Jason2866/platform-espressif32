@@ -112,7 +112,7 @@ These features enable full filesystem extraction and manipulation.
 
 | Feature | LittleFS | FatFS |
 |---------|----------|-------|
-| Wear Leveling | Yes | No |
+| Wear Leveling | Yes | Yes |
 | Power-Loss Protection | Yes | Limited |
 | Compatibility | ESP-IDF specific | Standard FAT |
 | Sector Size | 4096 | 4096 |
