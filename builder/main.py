@@ -541,10 +541,22 @@ def build_fatfs_image(target, source, env):
         storage = bytearray(fat_fs_size)
         disk = RamDisk(storage, sector_size=sector_size, sector_count=sector_count)
 
-        # Create partition and format
-        partition = Partition(disk)
-        partition.mkfs()
-        partition.mount()
+        # Create partition, format, and mount
+        base_partition = Partition(disk)
+        
+        # Format the filesystem with proper workarea size for LFN support
+        # Workarea needs to be at least sector_size, use 2x for safety with LFN
+        from fatfs.wrapper import pyf_mkfs, PY_FR_OK as FR_OK
+        workarea_size = sector_size * 2
+        ret = pyf_mkfs(base_partition.pname, workarea_size=workarea_size)
+        if ret != FR_OK:
+            raise Exception(f"Failed to format filesystem: error code {ret}")
+        
+        # Mount the filesystem
+        base_partition.mount()
+        
+        # Wrap with extended partition for directory support
+        partition = create_extended_partition(base_partition)
 
         # Track skipped files
         skipped_files = []
@@ -580,7 +592,7 @@ def build_fatfs_image(target, source, env):
                         skipped_files.append(str(rel_path))
 
         # Unmount and write filesystem image
-        partition.unmount()
+        base_partition.unmount()
 
         # FFat specific: Add 4KB offset at the beginning
         # ESP32 FFat expects the filesystem to start at offset 4096
