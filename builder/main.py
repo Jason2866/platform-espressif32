@@ -511,7 +511,9 @@ def build_fs_image(target, source, env):
 
 def build_fatfs_image(target, source, env):
     """
-    Build FatFS filesystem image using fatfs-python with ESP32 Wear Leveling support.
+    Build FatFS filesystem image with ESP32 Wear Leveling support.
+    
+    Uses fatfs-ng module to create ESP-IDF compatible WL-wrapped FAT images.
 
     Args:
         target: SCons target (output .bin file)
@@ -531,9 +533,12 @@ def build_fatfs_image(target, source, env):
     # ESP-IDF WL layout (following wl_fatfsgen.py):
     # [dummy sector] [FAT data] [state1] [state2] [config]
     # Total WL sectors: 1 dummy + 2 states + 1 config = 4 sectors
-    wl_reserved_sectors = 4
-    fat_fs_size = fs_size - (wl_reserved_sectors * sector_size)
-    sector_count = fat_fs_size // sector_size
+    from fatfs import calculate_esp32_wl_overhead
+    wl_info = calculate_esp32_wl_overhead(fs_size, sector_size)
+    
+    wl_reserved_sectors = wl_info['wl_overhead_sectors']
+    fat_fs_size = wl_info['fat_size']
+    sector_count = wl_info['fat_sectors']
 
     try:
         # Create RAM disk with the FAT filesystem size (without WL overhead)
@@ -627,81 +632,22 @@ def build_fatfs_image(target, source, env):
         print(f"  Total sectors: {total_sectors}")
         print(f"  ✓ Boot sector parameters validated")
         
-        # Add WL metadata following ESP-IDF wl_fatfsgen.py implementation
-        # Layout: [dummy sector] [FAT data] [state1] [state2] [config]
-        # The dummy sector is PREPENDED, not appended!
-        print(f"\nAdding WL metadata following ESP-IDF layout...")
-        
-        from fatfs import ESP32WearLeveling
-        wl = ESP32WearLeveling(sector_size=sector_size)
-        
-        # Read total_sectors from FAT boot sector
-        import struct
-        total_sectors_fat = struct.unpack('<H', storage[19:21])[0]
-        
-        print(f"  FAT total_sectors: {total_sectors_fat}")
-        print(f"  WL reserved sectors: {wl_reserved_sectors}")
-        
-        # ESP-IDF formula: max_pos = plain_fat_sectors + WL_DUMMY_SECTORS_COUNT
-        # This means max_pos includes the dummy sector!
-        max_pos = total_sectors_fat + 1  # +1 for dummy sector
-        max_count = 16  # update_rate from ESP-IDF (not multiplied by sectors!)
-        
-        print(f"  WL max_pos: {max_pos} (FAT sectors + dummy)")
-        
-        # Create WL state with ESP-IDF parameters
-        wl_state = wl.create_wl_state(
-            pos=0,
-            max_pos=max_pos,
-            move_count=0,
-            access_count=0,
-            max_count=max_count,
-            device_id=0
-        )
-        
-        # Pad WL state to full sector
-        wl_state_sector = wl_state + (b'\xFF' * (sector_size - len(wl_state)))
-        
-        # Create new storage with dummy sector prepended
-        # Layout: [dummy] [FAT] [state1] [state2] [config]
-        new_storage = bytearray(fs_size)
-        
-        # 1. Dummy sector at beginning (all 0xFF)
-        new_storage[0:sector_size] = b'\xFF' * sector_size
-        
-        # 2. FAT data after dummy sector
-        new_storage[sector_size:sector_size + len(storage)] = storage
-        
-        # 3. State sectors at end (before config)
-        addr_state1 = fs_size - sector_size * 3  # 3 sectors from end (state1, state2, config)
-        addr_state2 = fs_size - sector_size * 2  # 2 sectors from end (state2, config)
-        new_storage[addr_state1:addr_state1 + sector_size] = wl_state_sector
-        new_storage[addr_state2:addr_state2 + sector_size] = wl_state_sector
-        
-        # 4. Config sector at very end (all 0xFF - ESP-IDF initializes on first mount)
-        addr_cfg = fs_size - sector_size
-        new_storage[addr_cfg:addr_cfg + sector_size] = b'\xFF' * sector_size
-        
-        # Replace storage with new layout
-        storage = new_storage
-        
-        print(f"  Dummy sector at offset: 0x{0:06X}")
-        print(f"  FAT data at offset: 0x{sector_size:06X}")
-        print(f"  WL state1 at offset: 0x{addr_state1:06X}")
-        print(f"  WL state2 at offset: 0x{addr_state2:06X}")
-        print(f"  WL config at offset: 0x{addr_cfg:06X}")
-        print(f"  ✓ WL metadata added (ESP-IDF layout)")
-
-        # Write WL-wrapped FAT image
-        # ESP-IDF manages wear leveling at runtime using this metadata
-        print(f"\nCreating WL-wrapped FAT filesystem image...")
+        # Wrap FAT image with ESP-IDF wear leveling layer
+        # This uses the fatfs-ng module's ESP32WearLeveling implementation
+        print(f"\nWrapping FAT image with ESP-IDF wear leveling...")
+        print(f"  Layout: {wl_info['layout']}")
         print(f"  Partition size: {fs_size} bytes")
         print(f"  FAT filesystem size: {fat_fs_size} bytes ({sector_count} sectors)")
-        print(f"  WL overhead: {wl_reserved_sectors} sectors")
+        print(f"  WL overhead: {wl_reserved_sectors} sectors ({wl_info['wl_overhead_size']} bytes)")
+        
+        from fatfs import create_esp32_wl_image
+        wl_image = create_esp32_wl_image(bytes(storage), fs_size, sector_size)
+        
+        print(f"  ✓ WL-wrapped image created ({len(wl_image)} bytes)")
 
-        # Write image (storage is already the correct size with WL metadata)
+        # Write WL-wrapped image to file
         with open(target_file, "wb") as f:
-            f.write(bytes(storage))
+            f.write(wl_image)
 
         # Print summary
         if skipped_files:
@@ -711,7 +657,7 @@ def build_fatfs_image(target, source, env):
             if len(skipped_files) > 10:
                 print(f"  ... and {len(skipped_files) - 10} more")
         
-        print(f"\nSuccessfully created RAW FAT image: {target_file}")
+        print(f"\nSuccessfully created ESP-IDF WL-wrapped FAT image: {target_file}")
 
         return 0
 
