@@ -605,6 +605,24 @@ def build_fatfs_image(target, source, env):
 
         # Unmount filesystem
         base_partition.unmount()
+        
+        # FIX: Clean up FAT tables - remove spurious FF bytes
+        # ESP-IDF expects FAT entries after media descriptor to be 00, not FF
+        print(f"\nCleaning FAT tables...")
+        
+        # FAT1 starts at sector 1 (offset 4096)
+        # FAT2 starts at sector 2 (offset 8192)
+        fat1_offset = sector_size
+        fat2_offset = sector_size * 2
+        
+        # Each FAT is 1 sector (4096 bytes)
+        # First 3 bytes are media descriptor (F8 FF FF)
+        # Rest should be 00, not FF
+        for fat_offset in [fat1_offset, fat2_offset]:
+            # Keep first 3 bytes (media descriptor), clear rest
+            storage[fat_offset + 3:fat_offset + sector_size] = b'\x00' * (sector_size - 3)
+        
+        print(f"  ✓ FAT tables cleaned")
 
         # Write RAW FAT image (NO wear leveling wrapper!)
         # ESP-IDF manages wear leveling at runtime, not in the flash image
