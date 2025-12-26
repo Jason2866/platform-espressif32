@@ -528,13 +528,10 @@ def build_fatfs_image(target, source, env):
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 4096)
     
-    # Import ESP32 WL functions from fatfs
-    from fatfs import create_esp32_wl_image, calculate_esp32_wl_overhead
-    
-    # Calculate FAT filesystem size (excluding wear leveling overhead)
-    wl_info = calculate_esp32_wl_overhead(fs_size, sector_size)
-    fat_fs_size = wl_info['fat_size']
-    sector_count = wl_info['fat_sectors']
+    # Use full partition size for FAT filesystem
+    # ESP-IDF manages wear leveling at runtime
+    fat_fs_size = fs_size
+    sector_count = fat_fs_size // sector_size
 
     try:
         # Create RAM disk with the FAT filesystem size (without WL overhead)
@@ -548,8 +545,20 @@ def build_fatfs_image(target, source, env):
         # Workarea needs to be at least sector_size, use 2x for safety with LFN
         from fatfs.wrapper import pyf_mkfs, PY_FR_OK as FR_OK
         workarea_size = sector_size * 2
-        # Create filesystem with 2 FATs (n_fat=2)
-        ret = pyf_mkfs(base_partition.pname, n_fat=2, workarea_size=workarea_size)
+        
+        # Create filesystem with parameters matching ESP-IDF expectations:
+        # - n_fat=2: Two FAT copies for redundancy
+        # - align=0: Auto-align (let FATFS decide)
+        # - n_root=512: Number of root directory entries (FAT12/16 only, 0 for FAT32)
+        # - au_size=0: Auto allocation unit size
+        ret = pyf_mkfs(
+            base_partition.pname, 
+            n_fat=2, 
+            align=0,
+            n_root=512,  # Standard root entries for FAT16
+            au_size=0,   # Auto
+            workarea_size=workarea_size
+        )
         if ret != FR_OK:
             raise Exception(f"Failed to format filesystem: error code {ret}")
 
@@ -596,17 +605,21 @@ def build_fatfs_image(target, source, env):
         # Unmount filesystem
         base_partition.unmount()
 
-        # Wrap FAT image with wear leveling layer
-        print(f"\nWrapping FAT image with ESP32 Wear Leveling layer...")
-        print(f"  Partition size: {fs_size} bytes ({wl_info['total_sectors']} sectors)")
-        print(f"  FAT data size: {fat_fs_size} bytes ({wl_info['fat_sectors']} sectors)")
-        print(f"  WL overhead: {wl_info['wl_overhead_sectors']} sectors")
+        # Write RAW FAT image (NO wear leveling wrapper!)
+        # ESP-IDF manages wear leveling at runtime, not in the flash image
+        print(f"\nCreating RAW FAT filesystem image...")
+        print(f"  Partition size: {fs_size} bytes")
+        print(f"  FAT filesystem size: {fat_fs_size} bytes ({sector_count} sectors)")
         
-        wl_image = create_esp32_wl_image(bytes(storage), fs_size, sector_size)
+        # Pad to full partition size
+        if len(storage) < fs_size:
+            storage.extend(b'\xFF' * (fs_size - len(storage)))
+        elif len(storage) > fs_size:
+            storage = storage[:fs_size]
 
-        # Write wear-leveling wrapped image
+        # Write RAW FAT image
         with open(target_file, "wb") as f:
-            f.write(wl_image)
+            f.write(bytes(storage))
 
         # Print summary
         if skipped_files:
@@ -616,7 +629,7 @@ def build_fatfs_image(target, source, env):
             if len(skipped_files) > 10:
                 print(f"  ... and {len(skipped_files) - 10} more")
         
-        print(f"\nSuccessfully created wear-leveling FAT image: {target_file}")
+        print(f"\nSuccessfully created RAW FAT image: {target_file}")
 
         return 0
 
