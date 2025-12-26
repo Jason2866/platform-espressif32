@@ -644,14 +644,18 @@ def build_fatfs_image(target, source, env):
         addr_state1 = fs_size - state_size * 2 - cfg_size
         
         # Calculate max_pos for FAT sectors
-        wl_overhead_bytes = state_size * 2 + cfg_size + sector_size  # +1 dummy sector
-        fat_sectors = (fs_size - wl_overhead_bytes) // sector_size
-        max_count = 16 * fat_sectors  # update_rate = 16
+        # max_pos should match the total_sectors in the FAT boot sector
+        # Read it from the boot sector we just created
+        import struct
+        total_sectors_fat = struct.unpack('<H', storage[19:21])[0]
+        max_count = 16 * total_sectors_fat  # update_rate = 16
+        
+        print(f"  FAT total_sectors from boot sector: {total_sectors_fat}")
         
         # Create WL state
         wl_state = wl.create_wl_state(
             pos=0,
-            max_pos=fat_sectors,
+            max_pos=total_sectors_fat,  # Use actual FAT sectors from boot sector
             move_count=0,
             access_count=0,
             max_count=max_count,
