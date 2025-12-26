@@ -562,7 +562,8 @@ def build_fatfs_image(target, source, env):
         print(f"Debug: Mounted filesystem on {base_partition.pname}")
         
         # Wrap with extended partition for directory support
-        partition = create_extended_partition(base_partition)
+        from fatfs.partition_extended import PartitionExtended
+        partition = PartitionExtended(base_partition)
 
         # Track skipped files
         skipped_files = []
@@ -602,7 +603,7 @@ def build_fatfs_image(target, source, env):
 
         # FFat specific: Add 4KB offset at the beginning
         # ESP32 FFat expects the filesystem to start at offset 4096
-        ffat_offset = bytearray(4096)  # 4KB of zeros
+        ffat_offset = bytearray(4096) # 4KB of zeros
 
         with open(target_file, "wb") as f:
             f.write(ffat_offset)  # Write 4KB padding first
