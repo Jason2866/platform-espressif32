@@ -1017,7 +1017,7 @@ def _download_partition_image(env, fs_type_filter=None):
     download_speed = board.get("download.speed", "115200")
 
     # Download partition table from device
-    print(f"Downloading partition table from {upload_port}...")
+    print(f"\nDownloading partition table from {upload_port}...\n")
 
     build_dir = Path(env.subst("$BUILD_DIR"))
     build_dir.mkdir(parents=True, exist_ok=True)
@@ -1084,7 +1084,7 @@ def _download_partition_image(env, fs_type_filter=None):
     # Download filesystem image
     fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
 
-    print("Downloading filesystem from device...\n")
+    print("\nDownloading filesystem from device...\n")
 
     esptool_cmd = [
         uploader_path.strip('"'),
@@ -1135,9 +1135,6 @@ def download_littlefs(target, source, env):
 
     block_size = 0x1000  # 4KB
     print(f"  Block size: {hex(block_size)}")
-
-    # Extract filesystem
-    print(f"\nExtracting LittleFS filesystem to {unpack_dir}...")
 
     # Remove old unpack directory
     unpack_path = _prepare_unpack_dir(unpack_dir)
@@ -1215,9 +1212,6 @@ def download_fatfs(target, source, env):
 
     if fs_file is None:
         return 1
-
-    # Extract filesystem
-    print(f"\nExtracting FatFS filesystem to {unpack_dir}...")
 
     # Remove old unpack directory
     unpack_path = _prepare_unpack_dir(unpack_dir)
