@@ -566,7 +566,7 @@ def build_fatfs_image(target, source, env):
                 if item.is_dir():
                     try:
                         partition.mkdir(fs_path)
-                    except Exception as e:
+                    except Exception:
                         # Directory might already exist or be root
                         pass
                 else:
@@ -1207,7 +1207,7 @@ def download_fatfs(target, source, env):
     unpack_dir = _get_unpack_dir(env)
 
     # Download partition image (FAT=0x81)
-    fs_file, fs_start, fs_size, fs_subtype = _download_partition_image(env, [0x81])
+    fs_file, _fs_start, _fs_size, _fs_subtype = _download_partition_image(env, [0x81])
 
     if fs_file is None:
         return 1
@@ -1245,7 +1245,7 @@ def download_fatfs(target, source, env):
         # Extract all files using PartitionExtended.walk() and read_file()
         print("\nExtracting files:\n")
         extracted_count = 0
-        for root, dirs, files in partition.walk("/"):
+        for root, _dirs, files in partition.walk("/"):
             # Create directories
             rel_root = root[1:] if root.startswith("/") else root
             abs_root = unpack_path / rel_root
