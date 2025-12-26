@@ -73,17 +73,33 @@ The integration uses the `fatfs-ng` package, which is automatically installed.
 
 ### Build Process
 
-1. A RAM disk is created with the configured size
-2. The FatFS is formatted
+1. A RAM disk is created with the configured FAT data size (partition size minus WL overhead)
+2. The FatFS is formatted with proper parameters (2 FATs, LFN support)
 3. All files from the `data/` directory are copied
-4. The image is saved as a `.bin` file
+4. The FAT image is wrapped with ESP32 Wear Leveling layer
+5. The final image is saved as a `.bin` file
+
+**Important**: The build process automatically adds the ESP32 Wear Leveling layer, which is required by the Arduino FFat library. See [WEAR_LEVELING.md](WEAR_LEVELING.md) for details.
+
+### Wear Leveling Layer
+
+ESP32's FFat library requires a wear leveling layer around the FAT filesystem. The build process automatically:
+- Reserves 5 sectors for wear leveling metadata (2 state copies at start, 1 temp sector, 2 state copies at end)
+- Wraps the FAT filesystem with WL_State structures
+- Calculates proper CRC32 checksums
+
+Structure:
+```
+[WL State 1][WL State 2][FAT Data][Temp][WL State 3][WL State 4]
+```
 
 ### Download Process
 
 1. The partition table is downloaded from the device
 2. The FAT partition is identified (Subtype 0x81)
 3. The filesystem image is downloaded
-4. The image is mounted and extracted
+4. The wear leveling layer is automatically detected and removed
+5. The FAT data is mounted and extracted
 
 ## Extended Features
 
