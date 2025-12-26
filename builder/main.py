@@ -526,7 +526,7 @@ def build_fatfs_image(target, source, env):
     source_dir = str(source[0])
     target_file = str(target[0])
     fs_size = env["FS_SIZE"]
-    sector_size = env.get("FS_SECTOR", 512)
+    sector_size = env.get("FS_SECTOR", 4096)
 
     # FFat specific: Reserve 4KB at the beginning, FAT filesystem starts at offset 4096
     # The image will have 4KB padding + FAT filesystem
