@@ -84,14 +84,9 @@ The integration uses the `fatfs-ng` package, which is automatically installed.
 ### Wear Leveling Layer
 
 ESP32's FFat library requires a wear leveling layer around the FAT filesystem. The build process automatically:
-- Reserves 5 sectors for wear leveling metadata (2 state copies at start, 1 temp sector, 2 state copies at end)
+- Reserves sectors for wear leveling metadata
 - Wraps the FAT filesystem with WL_State structures
 - Calculates proper CRC32 checksums
-
-Structure:
-```
-[WL State 1][WL State 2][FAT Data][Temp][WL State 3][WL State 4]
-```
 
 ### Download Process
 

@@ -1,3 +1,1 @@
-Hello FatFS!
-This file was uploaded from the data directory.
-FatFS integration is working correctly.
+Test file
