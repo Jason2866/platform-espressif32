@@ -45,7 +45,7 @@ typedef struct {
     uint32_t block_size;    // Block/sector size (4096)
     uint32_t version;       // WL version (2)
     uint32_t device_id;     // Device ID (0)
-    uint8_t  reserved[8];   // Reserved (0xFF)
+    uint8_t  reserved[12];   // Reserved (0xFF)
     uint32_t crc32;         // CRC32 of structure
 } WL_State;
 ```
