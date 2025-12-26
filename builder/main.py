@@ -527,17 +527,11 @@ def build_fatfs_image(target, source, env):
     target_file = str(target[0])
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 4096)
-
-    # FFat specific: Reserve 4KB at the beginning, FAT filesystem starts at offset 4096
-    # The image will have 4KB padding + FAT filesystem
-    ffat_offset = 4096
-    fat_fs_size = fs_size - ffat_offset
-
-    # Calculate sector count for the FAT filesystem (without the 4KB offset)
+    fat_fs_size = fs_size
     sector_count = fat_fs_size // sector_size
 
     try:
-        # Create RAM disk with the specified size (FAT filesystem only, without offset)
+        # Create RAM disk with the specified size (FAT filesystem)
         storage = bytearray(fat_fs_size)
         disk = RamDisk(storage, sector_size=sector_size, sector_count=sector_count)
 
@@ -598,16 +592,12 @@ def build_fatfs_image(target, source, env):
                         print(f"Warning: Failed to write file {rel_path}: {e}")
                         skipped_files.append(str(rel_path))
 
+
         # Unmount and write filesystem image
         base_partition.unmount()
 
-        # FFat specific: Add 4KB offset at the beginning
-        # ESP32 FFat expects the filesystem to start at offset 4096
-        ffat_offset = bytearray(4096) # 4KB of zeros
-
         with open(target_file, "wb") as f:
-            f.write(ffat_offset)  # Write 4KB padding first
-            f.write(storage)      # Then write the actual filesystem
+            f.write(storage)
 
         # Print summary
         if skipped_files:
