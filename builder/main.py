@@ -1134,7 +1134,6 @@ def download_littlefs(target, source, env):
         return 1
 
     block_size = 0x1000  # 4KB
-    print(f"  Block size: {hex(block_size)}")
 
     # Remove old unpack directory
     unpack_path = _prepare_unpack_dir(unpack_dir)
