@@ -69,7 +69,7 @@ Files will be extracted to the configured directory (default: `unpacked_fs`).
 
 ### Python Dependencies
 
-The integration uses the `fatfs-ng` package (>=0.1.6), which is automatically installed.
+The integration uses the `fatfs-ng` package, which is automatically installed.
 
 ### Build Process
 
@@ -85,7 +85,7 @@ The integration uses the `fatfs-ng` package (>=0.1.6), which is automatically in
 3. The filesystem image is downloaded
 4. The image is mounted and extracted
 
-## Extended Features (v0.1.6+)
+## Extended Features
 
 The `pyfatfs` package includes extended features for complete directory traversal:
 
@@ -104,7 +104,7 @@ These features enable full filesystem extraction and manipulation.
 | Wear Leveling | Yes | No |
 | Power-Loss Protection | Yes | Limited |
 | Compatibility | ESP-IDF specific | Standard FAT |
-| Sector Size | 4096 | 512 |
+| Sector Size | 4096 | 4096 |
 | Filesystem Size | Flexible | Larger |
 
 ## Example Code (Arduino)
@@ -147,11 +147,6 @@ void loop() {
 
 - Check the partition table
 - Ensure a partition with subtype `fat` (0x81) exists
-
-### "FatFS extraction failed"
-
-- The `fatfs-python` library has limited functionality
-- Use alternative tools for complete extraction
 
 ### Build Errors
 
