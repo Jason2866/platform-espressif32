@@ -1284,7 +1284,16 @@ def download_fatfs(target, source, env):
         def extract_directory(dir_path):
             nonlocal extracted_count
             try:
-                entries = partition.listdir(dir_path)
+                # Try to list directory - this may fail if there are encoding issues
+                try:
+                    entries = partition.listdir(dir_path)
+                except UnicodeDecodeError as e:
+                    print(f"  Warning: UTF-8 decode error in directory {dir_path}: {e}")
+                    print(f"  This usually means the directory contains deleted or corrupted entries.")
+                    return
+                except Exception as e:
+                    print(f"  Warning: Failed to list directory {dir_path}: {e}")
+                    return
                 
                 for entry_name in entries:
                     # Skip . and ..
@@ -1323,18 +1332,19 @@ def download_fatfs(target, source, env):
                     except Exception as e:
                         print(f"  Warning: Failed to process {entry_path}: {e}")
             except Exception as e:
-                print(f"  Warning: Failed to list directory {dir_path}: {e}")
+                print(f"  Warning: Unexpected error in directory {dir_path}: {e}")
         
         # Start extraction from root
         extract_directory("/")
         
         partition.unmount()
         
-        # Count extracted files
-        file_count = sum(1 for _ in unpack_path.rglob("*") if _.is_file())
-        dir_count = sum(1 for _ in unpack_path.rglob("*") if _.is_dir())
-
-        print(f"\nSuccessfully extracted {extracted_count} file(s) to {unpack_dir}")
+        # Summary
+        if extracted_count == 0:
+            print(f"\nNo files were extracted.")
+            print("The filesystem may be empty, freshly formatted, or contain only deleted entries.")
+        else:
+            print(f"\nSuccessfully extracted {extracted_count} file(s) to {unpack_dir}")
 
         return 0
         
