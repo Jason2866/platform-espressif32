@@ -537,6 +537,10 @@ def build_fatfs_image(target, source, env):
     sector_count = fat_fs_size // sector_size
 
     try:
+        # Clear any lingering disk registrations to ensure we start with drive 0:
+        import fatfs.wrapper
+        fatfs.wrapper.__diskio_wrapper_disks.clear()
+        
         # Create RAM disk with the specified size (FAT filesystem only, without offset)
         storage = bytearray(fat_fs_size)
         disk = RamDisk(storage, sector_size=sector_size, sector_count=sector_count)
