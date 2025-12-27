@@ -1385,7 +1385,7 @@ def download_spiffs(_target, _source, env):
         use_magic_len = True
         aligned_obj_ix_tables = False
 
-        for section in ["env:" + env["PIOENV"], "common"]:
+        for section in ["common", "env:" + env["PIOENV"]]:
             if projectconfig.has_option(section, "board_build.spiffs.page_size"):
                 page_size = int(projectconfig.get(section, "board_build.spiffs.page_size"))
             if projectconfig.has_option(section, "board_build.spiffs.block_size"):
