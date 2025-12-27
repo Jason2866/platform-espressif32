@@ -208,7 +208,7 @@ class SpiffsObjIndexPage(SpiffsObjPageWithIdx):
 
     def register_page(self, page):  # type: (SpiffsObjDataPage) -> None
         if not self.pages_lim > 0:
-            raise SpiffsFullError
+            raise SpiffsFullError()
 
         self.pages.append(page.offset)
         self.pages_lim -= 1
