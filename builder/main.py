@@ -27,13 +27,6 @@ from fatfs import Partition, RamDisk, create_extended_partition
 # Import SPIFFS generator from local module
 import sys
 import importlib.util
-spiffsgen_path = Path(__file__).parent / "spiffsgen.py"
-spec = importlib.util.spec_from_file_location("spiffsgen", spiffsgen_path)
-spiffsgen = importlib.util.module_from_spec(spec)
-sys.modules["spiffsgen"] = spiffsgen
-spec.loader.exec_module(spiffsgen)
-SpiffsFS = spiffsgen.SpiffsFS
-SpiffsBuildConfig = spiffsgen.SpiffsBuildConfig
 
 from SCons.Script import (
     ARGUMENTS,
@@ -60,6 +53,15 @@ build_dir = Path(projectconfig.get("platformio", "build_dir"))
 
 # Configure Python environment through centralized platform management
 PYTHON_EXE, esptool_binary_path = platform.setup_python_env(env)
+
+# Load SPIFFS generator from local module
+spiffsgen_path = platform_dir / "builder" / "spiffsgen.py"
+spec = importlib.util.spec_from_file_location("spiffsgen", str(spiffsgen_path))
+spiffsgen = importlib.util.module_from_spec(spec)
+sys.modules["spiffsgen"] = spiffsgen
+spec.loader.exec_module(spiffsgen)
+SpiffsFS = spiffsgen.SpiffsFS
+SpiffsBuildConfig = spiffsgen.SpiffsBuildConfig
 
 # Load board configuration and determine MCU architecture
 board = env.BoardConfig()
