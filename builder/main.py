@@ -1349,28 +1349,28 @@ def download_littlefs(target, source, env):
         return 1
 
 
-def download_spiffs(target, source, env):
+def download_spiffs(_target, _source, env):
     """
     Download SPIFFS filesystem from device and extract to directory.
     Only supports SPIFFS filesystem.
     Usage: pio run -e <env> -t download_spiffs
 
     Args:
-        target: SCons target
-        source: SCons source
+        _target: SCons target (unused)
+        _source: SCons source (unused)
         env: SCons environment object
     """
     # Get unpack directory from board config or use default
     unpack_dir = _get_unpack_dir(env)
 
     # Download partition image (SPIFFS=0x82)
-    fs_file, fs_start, fs_size, fs_subtype = _download_partition_image(env, [0x82])
+    fs_file, _fs_start, _fs_size, _fs_subtype = _download_partition_image(env, [0x82])
 
     if fs_file is None:
         return 1
 
     # Remove old unpack directory
-    unpack_path = _prepare_unpack_dir(unpack_dir)
+    _unpack_path = _prepare_unpack_dir(unpack_dir)
 
     print("\nNote: SPIFFS extraction is not yet implemented.")
     print("The filesystem image has been downloaded to:")
