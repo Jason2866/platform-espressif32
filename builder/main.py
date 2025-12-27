@@ -23,9 +23,6 @@ from os.path import isfile, join
 from pathlib import Path
 from littlefs import LittleFS
 from fatfs import Partition, RamDisk, create_extended_partition
-
-# Import SPIFFS generator from local module
-import sys
 import importlib.util
 
 from SCons.Script import (
