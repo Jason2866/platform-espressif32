@@ -740,7 +740,6 @@ class Espressif32Platform(PlatformBase):
 
             self._configure_rom_elfs_for_exception_decoder(variables)
             self._configure_check_tools(variables)
-            self._configure_filesystem_tools(variables, targets)
 
             logger.info("Package configuration completed successfully")
 
