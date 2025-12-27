@@ -376,6 +376,14 @@ class SpiffsBlock(object):
         img += b'\xFF' * (self.build_config.block_size - len(img))
         return img
 
+    def _parse_from_binary(self, block_data):  # type: (bytes) -> None
+        """Parse block data from binary image.
+        
+        Args:
+            block_data: Raw block bytes
+        """
+        self._raw_data = block_data
+
 
 class SpiffsFS(object):
     def __init__(self, img_size, build_config):  # type: (int, SpiffsBuildConfig) -> None
@@ -474,6 +482,167 @@ class SpiffsFS(object):
             all_blocks.append(b'\xFF' * (self.img_size - len(all_blocks) * self.build_config.block_size))
         img += b''.join([blk for blk in all_blocks])
         return img
+
+    def from_binary(self, image_data):  # type: (bytes) -> None
+        """Parse a SPIFFS binary image and populate the filesystem structure.
+
+        Args:
+            image_data: Raw SPIFFS image bytes
+        """
+        if len(image_data) != self.img_size:
+            raise RuntimeError(f'image size mismatch: expected {self.img_size}, got {len(image_data)}')
+
+        # Parse blocks from the image
+        blocks_count = self.img_size // self.build_config.block_size
+        for bix in range(blocks_count):
+            block_offset = bix * self.build_config.block_size
+            block_data = image_data[block_offset:block_offset + self.build_config.block_size]
+            block = SpiffsBlock(bix, self.build_config)
+            block._parse_from_binary(block_data)
+            self.blocks.append(block)
+
+    def extract_files(self, output_dir):  # type: (str) -> int
+        """Extract all files from the SPIFFS filesystem to a directory.
+
+        Args:
+            output_dir: Directory path where files will be extracted
+
+        Returns:
+            int: Number of files extracted
+        """
+
+        # Build a map of object_id -> file info
+        files_map = {}  # obj_id -> {'name': str, 'size': int, 'data_pages': [(span_ix, page_data)]}
+
+        for block in self.blocks:
+            # Parse lookup pages to find valid objects
+            for page_idx in range(self.build_config.OBJ_LU_PAGES_PER_BLOCK):
+                lu_page_offset = page_idx * self.build_config.page_size
+                lu_page_data = block._raw_data[lu_page_offset:lu_page_offset + self.build_config.page_size]
+
+                # Parse object IDs from lookup page
+                for i in range(0, len(lu_page_data), self.build_config.obj_id_len):
+                    if i + self.build_config.obj_id_len > len(lu_page_data):
+                        break
+
+                    obj_id_bytes = lu_page_data[i:i + self.build_config.obj_id_len]
+                    obj_id = struct.unpack(
+                        SpiffsPage._endianness_dict[self.build_config.endianness] +
+                        SpiffsPage._len_dict[self.build_config.obj_id_len],
+                        obj_id_bytes
+                    )[0]
+
+                    # Check if it's a valid object (not erased/empty)
+                    empty_values = {1: 0xFF, 2: 0xFFFF, 4: 0xFFFFFFFF, 8: 0xFFFFFFFFFFFFFFFF}
+                    if obj_id == empty_values[self.build_config.obj_id_len]:
+                        continue
+
+                    # Check if it's an index page (MSB set)
+                    is_index = obj_id & (1 << ((self.build_config.obj_id_len * 8) - 1))
+                    real_obj_id = obj_id & ~(1 << ((self.build_config.obj_id_len * 8) - 1))
+
+                    if is_index and real_obj_id not in files_map:
+                        files_map[real_obj_id] = {'name': None, 'size': 0, 'data_pages': []}
+
+            # Parse actual pages to get file metadata and content
+            for page_idx in range(self.build_config.OBJ_LU_PAGES_PER_BLOCK, self.build_config.PAGES_PER_BLOCK):
+                page_offset = page_idx * self.build_config.page_size
+                page_data = block._raw_data[page_offset:page_offset + self.build_config.page_size]
+
+                # Parse page header
+                header_fmt = (
+                    SpiffsPage._endianness_dict[self.build_config.endianness] +
+                    SpiffsPage._len_dict[self.build_config.obj_id_len] +
+                    SpiffsPage._len_dict[self.build_config.span_ix_len] +
+                    SpiffsPage._len_dict[SPIFFS_PH_FLAG_LEN]
+                )
+                header_size = struct.calcsize(header_fmt)
+
+                if len(page_data) < header_size:
+                    continue
+
+                obj_id, span_ix, flags = struct.unpack(header_fmt, page_data[:header_size])
+
+                # Check for valid page
+                empty_id = {1: 0xFF, 2: 0xFFFF, 4: 0xFFFFFFFF, 8: 0xFFFFFFFFFFFFFFFF}[self.build_config.obj_id_len]
+                if obj_id == empty_id:
+                    continue
+
+                is_index = obj_id & (1 << ((self.build_config.obj_id_len * 8) - 1))
+                real_obj_id = obj_id & ~(1 << ((self.build_config.obj_id_len * 8) - 1))
+
+                if is_index and flags == SPIFFS_PH_FLAG_USED_FINAL_INDEX:
+                    # Index page - contains file metadata
+                    if real_obj_id not in files_map:
+                        files_map[real_obj_id] = {'name': None, 'size': 0, 'data_pages': []}
+
+                    # Only first index page (span_ix == 0) has filename and size
+                    if span_ix == 0:
+                        # Skip to size and type fields
+                        offset = header_size + self.build_config.OBJ_DATA_PAGE_HEADER_LEN_ALIGNED_PAD
+                        size_type_fmt = (
+                            SpiffsPage._endianness_dict[self.build_config.endianness] +
+                            SpiffsPage._len_dict[SPIFFS_PH_IX_SIZE_LEN] +
+                            SpiffsPage._len_dict[SPIFFS_PH_IX_OBJ_TYPE_LEN]
+                        )
+                        size_type_size = struct.calcsize(size_type_fmt)
+
+                        if offset + size_type_size <= len(page_data):
+                            file_size, obj_type = struct.unpack(size_type_fmt, page_data[offset:offset + size_type_size])
+                            offset += size_type_size
+
+                            # Read filename
+                            name_end = offset + self.build_config.obj_name_len
+                            if name_end <= len(page_data):
+                                name_bytes = page_data[offset:name_end]
+                                # Find null terminator
+                                null_pos = name_bytes.find(b'\x00')
+                                if null_pos != -1:
+                                    name_bytes = name_bytes[:null_pos]
+                                filename = name_bytes.decode('utf-8', errors='ignore')
+                                files_map[real_obj_id]['name'] = filename
+                                files_map[real_obj_id]['size'] = file_size
+
+                elif not is_index and flags == SPIFFS_PH_FLAG_USED_FINAL:
+                    # Data page - contains file content
+                    if real_obj_id in files_map:
+                        # Extract content (skip header, no padding on data pages)
+                        content_start = header_size
+                        content = page_data[content_start:content_start + self.build_config.OBJ_DATA_PAGE_CONTENT_LEN]
+                        files_map[real_obj_id]['data_pages'].append((span_ix, content))
+
+        # Extract files to output directory
+        file_count = 0
+        for obj_id, file_info in files_map.items():
+            if file_info['name'] is None:
+                continue
+
+            # Remove leading slash if present
+            rel_path = file_info['name'].lstrip('/')
+            file_path = os.path.join(output_dir, rel_path)
+
+            # Create parent directories
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+            # Sort data pages by span index
+            file_info['data_pages'].sort(key=lambda x: x[0])
+
+            # Write file content
+            with open(file_path, 'wb') as f:
+                total_written = 0
+                for span_ix, content in file_info['data_pages']:
+                    # Write only up to the file size
+                    remaining = file_info['size'] - total_written
+                    if remaining <= 0:
+                        break
+                    to_write = min(len(content), remaining)
+                    f.write(content[:to_write])
+                    total_written += to_write
+
+            file_count += 1
+            print(f"  Extracted: {file_info['name']} ({file_info['size']} bytes)")
+
+        return file_count
 
 
 class CustomHelpFormatter(argparse.HelpFormatter):

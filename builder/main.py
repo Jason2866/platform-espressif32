@@ -792,12 +792,12 @@ def build_fs_router(target, source, env):
 def switch_off_ldf():
     """
     Disables LDF (Library Dependency Finder) for uploadfs, uploadfsota, buildfs, 
-    download_littlefs, download_fatfs, and erase targets.
+    download_littlefs, download_spiffs, download_fatfs, and erase targets.
 
     This optimization prevents unnecessary library dependency scanning and compilation
     when only filesystem operations are performed.
     """
-    fs_targets = {"uploadfs", "uploadfsota", "buildfs", "erase", "download_littlefs", "download_fatfs"}
+    fs_targets = {"uploadfs", "uploadfsota", "buildfs", "erase", "download_littlefs", "download_spiffs", "download_fatfs"}
     if fs_targets & set(COMMAND_LINE_TARGETS):
         # Disable LDF by modifying project configuration directly
         env_section = "env:" + env["PIOENV"]
@@ -1364,20 +1364,81 @@ def download_spiffs(_target, _source, env):
     unpack_dir = _get_unpack_dir(env)
 
     # Download partition image (SPIFFS=0x82)
-    fs_file, _fs_start, _fs_size, _fs_subtype = _download_partition_image(env, [0x82])
+    fs_file, _fs_start, fs_size, _fs_subtype = _download_partition_image(env, [0x82])
 
     if fs_file is None:
         return 1
 
     # Remove old unpack directory
-    _unpack_path = _prepare_unpack_dir(unpack_dir)
+    unpack_path = _prepare_unpack_dir(unpack_dir)
 
-    print("\nNote: SPIFFS extraction is not yet implemented.")
-    print("The filesystem image has been downloaded to:")
-    print(f"  {fs_file}")
-    print("\nYou can use external tools to extract the SPIFFS image.")
-    
-    return 0
+    try:
+        # Read the downloaded filesystem image
+        with open(fs_file, 'rb') as f:
+            fs_data = f.read()
+
+        # Get SPIFFS configuration
+        page_size = 256
+        block_size = 4096
+        obj_name_len = 32
+        meta_len = 4
+        use_magic = True
+        use_magic_len = True
+        aligned_obj_ix_tables = False
+
+        for section in ["env:" + env["PIOENV"], "common"]:
+            if projectconfig.has_option(section, "board_build.spiffs.page_size"):
+                page_size = int(projectconfig.get(section, "board_build.spiffs.page_size"))
+            if projectconfig.has_option(section, "board_build.spiffs.block_size"):
+                block_size = int(projectconfig.get(section, "board_build.spiffs.block_size"))
+            if projectconfig.has_option(section, "board_build.spiffs.obj_name_len"):
+                obj_name_len = int(projectconfig.get(section, "board_build.spiffs.obj_name_len"))
+            if projectconfig.has_option(section, "board_build.spiffs.meta_len"):
+                meta_len = int(projectconfig.get(section, "board_build.spiffs.meta_len"))
+            if projectconfig.has_option(section, "board_build.spiffs.use_magic"):
+                use_magic = projectconfig.getboolean(section, "board_build.spiffs.use_magic")
+            if projectconfig.has_option(section, "board_build.spiffs.use_magic_len"):
+                use_magic_len = projectconfig.getboolean(section, "board_build.spiffs.use_magic_len")
+            if projectconfig.has_option(section, "board_build.spiffs.aligned_obj_ix_tables"):
+                aligned_obj_ix_tables = projectconfig.getboolean(section, "board_build.spiffs.aligned_obj_ix_tables")
+
+        # Create SPIFFS build configuration
+        spiffs_build_config = SpiffsBuildConfig(
+            page_size=page_size,
+            page_ix_len=2,
+            block_size=block_size,
+            block_ix_len=2,
+            meta_len=meta_len,
+            obj_name_len=obj_name_len,
+            obj_id_len=2,
+            span_ix_len=2,
+            packed=True,
+            aligned=True,
+            endianness='little',
+            use_magic=use_magic,
+            use_magic_len=use_magic_len,
+            aligned_obj_ix_tables=aligned_obj_ix_tables
+        )
+
+        # Create SPIFFS filesystem and parse the image
+        spiffs = SpiffsFS(fs_size, spiffs_build_config)
+        spiffs.from_binary(fs_data)
+
+        # Extract files
+        print("\nExtracting files:\n")
+        file_count = spiffs.extract_files(str(unpack_path))
+
+        if file_count == 0:
+            print("\nNo files were extracted.")
+            print("The filesystem may be empty, freshly formatted, or contain only deleted entries.")
+        else:
+            print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error: Failed to extract SPIFFS filesystem: {e}")
+        return 1
 
 
 def download_fatfs(target, source, env):
@@ -1703,6 +1764,14 @@ env.AddPlatformTarget(
     None,
     download_littlefs,
     "Download and extract LittleFS filesystem from device",
+)
+
+# Target: Download SPIFFS (no build required)
+env.AddPlatformTarget(
+    "download_spiffs",
+    None,
+    download_spiffs,
+    "Download and extract SPIFFS filesystem from device",
 )
 
 # Target: Download FatFS (no build required)
