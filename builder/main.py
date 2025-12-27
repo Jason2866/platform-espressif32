@@ -547,7 +547,7 @@ def build_spiffs_image(target, source, env):
     aligned_obj_ix_tables = False
 
     # Check common section first, then env-specific (so env-specific takes precedence)
-    for section in ["common", "env:"  env["PIOENV"]]:
+    for section in ["common", "env:" + env["PIOENV"]]:
         if projectconfig.has_option(section, "board_build.spiffs.obj_name_len"):
             obj_name_len = int(projectconfig.get(section, "board_build.spiffs.obj_name_len"))
         if projectconfig.has_option(section, "board_build.spiffs.meta_len"):
@@ -857,7 +857,6 @@ env.Replace(
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
     ERASETOOL=uploader_path,
     ERASECMD='$ERASETOOL $ERASEFLAGS erase-flash',
-
     ESP32_FS_IMAGE_NAME=env.get(
         "ESP32_FS_IMAGE_NAME",
         env.get("ESP32_SPIFFS_IMAGE_NAME", filesystem),
