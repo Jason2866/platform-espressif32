@@ -24,6 +24,17 @@ from pathlib import Path
 from littlefs import LittleFS
 from fatfs import Partition, RamDisk, create_extended_partition
 
+# Import SPIFFS generator from local module
+import sys
+import importlib.util
+spiffsgen_path = Path(__file__).parent / "spiffsgen.py"
+spec = importlib.util.spec_from_file_location("spiffsgen", spiffsgen_path)
+spiffsgen = importlib.util.module_from_spec(spec)
+sys.modules["spiffsgen"] = spiffsgen
+spec.loader.exec_module(spiffsgen)
+SpiffsFS = spiffsgen.SpiffsFS
+SpiffsBuildConfig = spiffsgen.SpiffsBuildConfig
+
 from SCons.Script import (
     ARGUMENTS,
     COMMAND_LINE_TARGETS,
@@ -509,6 +520,93 @@ def build_fs_image(target, source, env):
         return 1
 
 
+def build_spiffs_image(target, source, env):
+    """
+    Build SPIFFS filesystem image using spiffsgen.py.
+
+    Args:
+        target: SCons target (output .bin file)
+        source: SCons source (directory with files)
+        env: SCons environment object
+
+    Returns:
+        int: 0 on success, 1 on failure
+    """
+
+    # Get parameters
+    source_dir = str(source[0])
+    target_file = str(target[0])
+    fs_size = env["FS_SIZE"]
+    page_size = env.get("FS_PAGE", 256)
+    block_size = env.get("FS_BLOCK", 4096)
+
+    # Get SPIFFS configuration from project config or use defaults
+    obj_name_len = 32
+    meta_len = 4
+    use_magic = True
+    use_magic_len = True
+    aligned_obj_ix_tables = False
+
+    for section in ["env:" + env["PIOENV"], "common"]:
+        if projectconfig.has_option(section, "board_build.spiffs.obj_name_len"):
+            obj_name_len = int(projectconfig.get(section, "board_build.spiffs.obj_name_len"))
+        if projectconfig.has_option(section, "board_build.spiffs.meta_len"):
+            meta_len = int(projectconfig.get(section, "board_build.spiffs.meta_len"))
+        if projectconfig.has_option(section, "board_build.spiffs.use_magic"):
+            use_magic = projectconfig.getboolean(section, "board_build.spiffs.use_magic")
+        if projectconfig.has_option(section, "board_build.spiffs.use_magic_len"):
+            use_magic_len = projectconfig.getboolean(section, "board_build.spiffs.use_magic_len")
+        if projectconfig.has_option(section, "board_build.spiffs.aligned_obj_ix_tables"):
+            aligned_obj_ix_tables = projectconfig.getboolean(section, "board_build.spiffs.aligned_obj_ix_tables")
+
+    try:
+        # Create SPIFFS build configuration
+        spiffs_build_config = SpiffsBuildConfig(
+            page_size=page_size,
+            page_ix_len=2,  # SPIFFS_PAGE_IX_LEN
+            block_size=block_size,
+            block_ix_len=2,  # SPIFFS_BLOCK_IX_LEN
+            meta_len=meta_len,
+            obj_name_len=obj_name_len,
+            obj_id_len=2,  # SPIFFS_OBJ_ID_LEN
+            span_ix_len=2,  # SPIFFS_SPAN_IX_LEN
+            packed=True,
+            aligned=True,
+            endianness='little',
+            use_magic=use_magic,
+            use_magic_len=use_magic_len,
+            aligned_obj_ix_tables=aligned_obj_ix_tables
+        )
+
+        # Create SPIFFS filesystem
+        spiffs = SpiffsFS(fs_size, spiffs_build_config)
+
+        # Add all files from source directory
+        source_path = Path(source_dir)
+        if source_path.exists():
+            for item in source_path.rglob("*"):
+                if item.is_file():
+                    rel_path = item.relative_to(source_path)
+                    img_path = "/" + rel_path.as_posix()
+                    spiffs.create_file(img_path, str(item))
+
+        # Generate binary image
+        image = spiffs.to_binary()
+
+        # Write to file
+        with open(target_file, "wb") as f:
+            f.write(image)
+
+        print(f"\nSuccessfully created SPIFFS image: {target_file}")
+        return 0
+
+    except Exception as e:
+        print(f"Error building SPIFFS image: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def build_fatfs_image(target, source, env):
     """
     Build FatFS filesystem image with ESP32 Wear Leveling support.
@@ -801,14 +899,16 @@ env.Append(
         DataToBin=Builder(
             action=env.VerboseAction(
                 build_fs_image if filesystem == "littlefs" else (
-                    build_fatfs_image if filesystem == "fatfs" else " ".join(
-                        ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "$FS_SIZE"]
-                        + (
-                            ["-p", "$FS_PAGE", "-b", "$FS_BLOCK"]
-                            if filesystem == "spiffs"
-                            else []
+                    build_fatfs_image if filesystem == "fatfs" else (
+                        build_spiffs_image if filesystem == "spiffs" else " ".join(
+                            ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "$FS_SIZE"]
+                            + (
+                                ["-p", "$FS_PAGE", "-b", "$FS_BLOCK"]
+                                if filesystem == "spiffs"
+                                else []
+                            )
+                            + ["$TARGET"]
                         )
-                        + ["$TARGET"]
                     )
                 ),
                 "Building FS image from '$SOURCES' directory to $TARGET",
@@ -1250,6 +1350,37 @@ def download_littlefs(target, source, env):
     except Exception as e:
         print(f"Error: Failed to extract LittleFS filesystem: {e}")
         return 1
+
+
+def download_spiffs(target, source, env):
+    """
+    Download SPIFFS filesystem from device and extract to directory.
+    Only supports SPIFFS filesystem.
+    Usage: pio run -e <env> -t download_spiffs
+
+    Args:
+        target: SCons target
+        source: SCons source
+        env: SCons environment object
+    """
+    # Get unpack directory from board config or use default
+    unpack_dir = _get_unpack_dir(env)
+
+    # Download partition image (SPIFFS=0x82)
+    fs_file, fs_start, fs_size, fs_subtype = _download_partition_image(env, [0x82])
+
+    if fs_file is None:
+        return 1
+
+    # Remove old unpack directory
+    unpack_path = _prepare_unpack_dir(unpack_dir)
+
+    print("\nNote: SPIFFS extraction is not yet implemented.")
+    print("The filesystem image has been downloaded to:")
+    print(f"  {fs_file}")
+    print("\nYou can use external tools to extract the SPIFFS image.")
+    
+    return 0
 
 
 def download_fatfs(target, source, env):

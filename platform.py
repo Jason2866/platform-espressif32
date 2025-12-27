@@ -696,20 +696,6 @@ class Espressif32Platform(PlatformBase):
             if any(tool in package for tool in check_tools):
                 self.install_tool(package)
 
-    def _install_filesystem_tool(self, filesystem: str) -> None:
-        """Install filesystem-specific tools based on the filesystem type."""
-        # LittleFS and FatFS are handled by Python modules (littlefs-python, fatfs-python)
-        # Only install tools for other filesystems
-        if filesystem == "spiffs":
-            self.install_tool("tool-mkspiffs")
-
-    def _configure_filesystem_tools(self, variables: Dict, targets: List[str]) -> None:
-        """Configure filesystem tools based on build targets and filesystem type."""
-        filesystem = variables.get("board_build.filesystem", "littlefs")
-
-        if any(target in targets for target in ["buildfs", "uploadfs", "downloadfs"]):
-            self._install_filesystem_tool(filesystem)
-
     def setup_python_env(self, env):
         """Configure SCons environment with centrally managed Python executable paths."""
         # Python environment is centrally managed in configure_default_packages
