@@ -601,8 +601,6 @@ def build_spiffs_image(target, source, env):
 
     except Exception as e:
         print(f"Error building SPIFFS image: {e}")
-        import traceback
-        traceback.print_exc()
         return 1
 
 
@@ -760,8 +758,6 @@ def build_fatfs_image(target, source, env):
 
     except Exception as e:
         print(f"Error building FatFS image: {e}")
-        import traceback
-        traceback.print_exc()
         return 1
 
 
@@ -1481,8 +1477,6 @@ def download_fatfs(target, source, env):
 
     except Exception as e:
         print(f"Error: Failed to extract FatFS filesystem: {e}")
-        import traceback
-        traceback.print_exc()
         return 1
 
 #
