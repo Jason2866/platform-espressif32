@@ -842,7 +842,6 @@ env.Replace(
     ERASEFLAGS=["--chip", mcu, "--port", '"$UPLOAD_PORT"'],
     ERASETOOL=uploader_path,
     ERASECMD='$ERASETOOL $ERASEFLAGS erase-flash',
-    MKFSTOOL="mk%s" % filesystem,
 
     ESP32_FS_IMAGE_NAME=env.get(
         "ESP32_FS_IMAGE_NAME",
@@ -894,17 +893,7 @@ env.Append(
         DataToBin=Builder(
             action=env.VerboseAction(
                 build_fs_image if filesystem == "littlefs" else (
-                    build_fatfs_image if filesystem == "fatfs" else (
-                        build_spiffs_image if filesystem == "spiffs" else " ".join(
-                            ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "$FS_SIZE"]
-                            + (
-                                ["-p", "$FS_PAGE", "-b", "$FS_BLOCK"]
-                                if filesystem == "spiffs"
-                                else []
-                            )
-                            + ["$TARGET"]
-                        )
-                    )
+                    build_fatfs_image if filesystem == "fatfs" else build_spiffs_image
                 ),
                 "Building FS image from '$SOURCES' directory to $TARGET",
             ),
