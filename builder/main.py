@@ -775,6 +775,20 @@ def check_lib_archive_exists():
     return False
 
 
+def build_fs_router(target, source, env):
+    """Route to appropriate filesystem builder based on filesystem type."""
+    fs_type = board.get("build.filesystem", "littlefs")
+    if fs_type == "littlefs":
+        return build_fs_image(target, source, env)
+    elif fs_type == "fatfs":
+        return build_fatfs_image(target, source, env)
+    elif fs_type == "spiffs":
+        return build_spiffs_image(target, source, env)
+    else:
+        print(f"Error: Unknown filesystem type '{fs_type}'. Supported types: littlefs, fatfs, spiffs")
+        return 1
+
+
 def switch_off_ldf():
     """
     Disables LDF (Library Dependency Finder) for uploadfs, uploadfsota, buildfs, 
@@ -893,9 +907,7 @@ env.Append(
         ),
         DataToBin=Builder(
             action=env.VerboseAction(
-                build_fs_image if filesystem == "littlefs" else (
-                    build_fatfs_image if filesystem == "fatfs" else build_spiffs_image
-                ),
+                build_fs_router,
                 "Building FS image from '$SOURCES' directory to $TARGET",
             ),
             emitter=__fetch_fs_size,
