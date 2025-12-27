@@ -32,3 +32,33 @@ The released frameworks can be downloaded [here](https://github.com/tasmota/ardu
 # Configuration
 
 Please navigate to [documentation](http://docs.platformio.org/page/platforms/espressif32.html).
+
+# Features
+
+## Filesystem Support
+
+This platform supports two filesystem options:
+
+- **LittleFS** (default) - Wear-leveling filesystem optimized for flash memory
+- **FatFS** - Standard FAT filesystem with broad compatibility
+
+### FatFS Integration
+
+FatFS is now fully integrated as a Python module, similar to LittleFS. See [FATFS_INTEGRATION.md](FATFS_INTEGRATION.md) for detailed documentation.
+
+**Quick Start:**
+
+```ini
+[env:myenv]
+board_build.filesystem = fatfs
+```
+
+**Available Commands:**
+
+```bash
+pio run -t buildfs        # Build FatFS image
+pio run -t uploadfs       # Upload FatFS image
+pio run -t download_fatfs # Download and extract FatFS from device
+```
+
+See the [arduino-fatfs example](examples/arduino-fatfs/) for a complete working example.
