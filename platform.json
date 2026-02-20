@@ -117,13 +117,6 @@
       "package-version": "18.1.1",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/clangtidy-v18.1.1.zip"
     },
-    "tool-pvs-studio": {
-      "type": "tool",
-      "optional": true,
-      "owner": "pioarduino",
-      "package-version": "7.36.91321",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/pvs-studio-v7.36.91321.zip"
-    },
     "tool-cmake": {
       "type": "tool",
       "optional": true,
