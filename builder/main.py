@@ -1816,11 +1816,11 @@ def _clang_format_run(target, source, env, force_mode=None):
     Run clang-format on project source files.
 
     Configuration via platformio.ini:
-        clang_format = check     ; only check formatting (dry-run)
-        clang_format = write     ; format files in-place
-        clang_format_dirs =      ; directories to scan (default: src, include)
-        clang_format_extensions = ; file extensions (default: .c,.cpp,.h,.hpp,.cc,.cxx,.ino)
-        clang_format_args =      ; extra arguments passed to clang-format
+        custom_clang_format = check     ; only check formatting (dry-run)
+        custom_clang_format = write     ; format files in-place
+        custom_clang_format_dirs =      ; directories to scan (default: src, include)
+        custom_clang_format_extensions = ; file extensions (default: .c,.cpp,.h,.hpp,.cc,.cxx,.ino)
+        custom_clang_format_args =      ; extra arguments passed to clang-format
 
     A .clang-format file in the project root is automatically respected.
 
@@ -1852,17 +1852,17 @@ def _clang_format_run(target, source, env, force_mode=None):
         return 1
 
     # Determine mode: forced by target or from platformio.ini
-    mode = force_mode or env.GetProjectOption("clang_format", "check").strip().lower()
+    mode = force_mode or env.GetProjectOption("custom_clang_format", "check").strip().lower()
 
     # Directories to scan
-    scan_dirs_raw = env.GetProjectOption("clang_format_dirs", "")
+    scan_dirs_raw = env.GetProjectOption("custom_clang_format_dirs", "")
     if scan_dirs_raw:
         scan_dirs = [d.strip() for d in scan_dirs_raw.split(",") if d.strip()]
     else:
         scan_dirs = ["src", "include"]
 
     # File extensions
-    extensions_raw = env.GetProjectOption("clang_format_extensions", "")
+    extensions_raw = env.GetProjectOption("custom_clang_format_extensions", "")
     if extensions_raw:
         extensions = tuple(
             ext.strip() if ext.strip().startswith(".") else f".{ext.strip()}"
@@ -1903,7 +1903,7 @@ def _clang_format_run(target, source, env, force_mode=None):
         print(f"Checking formatting of {len(source_files)} file(s) ...")
 
     # Extra arguments from platformio.ini
-    extra_args = env.GetProjectOption("clang_format_args", "")
+    extra_args = env.GetProjectOption("custom_clang_format_args", "")
     if extra_args:
         base_cmd.extend(shlex.split(extra_args))
 
