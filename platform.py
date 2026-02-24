@@ -100,6 +100,10 @@ CHECK_PACKAGES = [
     "tool-clangtidy"
 ]
 
+FORMAT_PACKAGES = [
+    "tool-clang-format"
+]
+
 # System-specific configuration
 # Set Platformio env var to use windows_amd64 for all windows architectures
 # only windows_amd64 native espressif toolchains are available
@@ -507,6 +511,17 @@ class Espressif32Platform(PlatformBase):
                 not status['has_tools_json']):
             return self._handle_existing_tool(tool_name, paths)
 
+        # Case 3: Package not yet downloaded - fetch skeleton then install
+        if status['has_idf_tools'] and not status['tool_exists']:
+            version = self.packages.get(tool_name, {}).get("version", "")
+            if version:
+                logger.info(f"Downloading {tool_name} ...")
+                pm.install(version)
+                # Re-check after download
+                status = self._check_tool_status(tool_name)
+                if status['has_tools_json']:
+                    return self._install_with_idf_tools(tool_name, paths, penv_python)
+
         logger.debug(f"Tool {tool_name} already configured")
         return True
 
@@ -683,6 +698,19 @@ class Espressif32Platform(PlatformBase):
         if self._check_exception_decoder_filter(variables):
             logger.info("esp32_exception_decoder filter detected, installing tool-esp-rom-elfs")
             self.install_tool("tool-esp-rom-elfs")
+
+    def _configure_clang_format(self, variables: Dict) -> None:
+        """Configure clang-format tool if enabled in platformio.ini."""
+        value = variables.get("clang_format", "")
+        if isinstance(value, bool):
+            enabled = value
+        elif isinstance(value, int):
+            enabled = bool(value)
+        else:
+            enabled = str(value).strip().lower() in ("1", "true", "yes", "on", "check", "write")
+        if enabled:
+            for package in FORMAT_PACKAGES:
+                self.install_tool(package)
 
     def _configure_check_tools(self, variables: Dict) -> None:
         """Configure static analysis and check tools based on configuration."""
