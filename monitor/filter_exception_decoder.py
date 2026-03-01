@@ -381,7 +381,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
 
             rom_files = []
             for pattern in patterns:
-                rom_files.extend(glob.glob(pattern))
+                rom_files.extend(glob.glob(str(pattern)))
             rom_files = sorted(set(rom_files))
             if not rom_files:
                 sys.stderr.write(
