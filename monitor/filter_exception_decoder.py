@@ -499,7 +499,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             pkg = pm.get_package("tool-riscv32-esp-elf-gdb")
             pkg_path = pkg.path
             if pkg_path:
-                gdb_bin = str(Path(pkg) / "bin" / "riscv32-esp-elf-gdb")
+                gdb_bin = str(Path(pkg_path) / "bin" / "riscv32-esp-elf-gdb")
                 if IS_WINDOWS:
                     gdb_bin += ".exe"
                 if os.path.isfile(gdb_bin):
