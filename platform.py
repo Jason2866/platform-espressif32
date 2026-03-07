@@ -892,7 +892,7 @@ class Espressif32Platform(PlatformBase):
             return []
 
         try:
-            with open(roms_json) as f:
+            with open(roms_json, encoding="utf-8") as f:
                 roms = json.load(f)
         except (json.JSONDecodeError, OSError):
             return []
@@ -963,7 +963,7 @@ class Espressif32Platform(PlatformBase):
         if link in ("esp-prog", "ftdi"):
             if board.id == "esp32-s2-kaluga-1":
                 return "ftdi/esp32s2_kaluga_v1"
-            return "ftdi/esp32_devkitj_v1"
+            return "ftdi/esp_ftdi"
         if link == "esp-bridge":
             return "esp_usb_bridge"
         if link == "esp-builtin":
