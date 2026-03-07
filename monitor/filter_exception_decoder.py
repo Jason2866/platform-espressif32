@@ -22,7 +22,9 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import types
+from collections import deque
 from pathlib import Path
 
 # This file serves two roles:
@@ -287,6 +289,18 @@ class Esp32ExceptionDecoder(DeviceMonitorFilterBase):
         self._has_working_matcher = False  # True when firmware matcher has intervals
         self._is_riscv = False          # True when toolchain is RISC-V based
         self._gdb_path = None           # Path to riscv32-esp-elf-gdb (or None)
+
+        # Serialization lock — ensures rx() processing is never concurrent.
+        self._rx_lock = threading.Lock()
+
+        # Bounded input buffer (64 KiB). Incoming serial data is appended
+        # here; when the buffer is full further data is not buffered for
+        # decoding (pass-through) until the current processing cycle drains it.
+        
+        self._buf_lock = threading.Lock()  # guards _rx_buf / _rx_buf_bytes
+        self._rx_buf = deque()
+        self._rx_buf_bytes = 0
+        self._RX_BUF_MAX = 65536        # 64 KiB
 
         # RISC-V panic accumulator — collects register + stack dump across
         # multiple rx() calls so GDB can produce a proper backtrace.
@@ -605,6 +619,11 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
     def rx(self, text):
         """Process incoming serial text and insert decoded backtraces.
 
+        Incoming data is appended to a bounded 64 KiB buffer.  When the
+        buffer is full, further data is not buffered for decoding (pass-through)
+        until the current processing cycle finishes.  A lock ensures that all
+        processing is strictly serialized — no concurrent rx() calls.
+
         For each complete line the method:
 
         1. Feeds RISC-V panic accumulator; when a full register + stack dump
@@ -627,12 +646,48 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         if not self.enabled:
             return text
 
+        # Append to bounded buffer; discard if full.
+        with self._buf_lock:
+            text_len = len(text)
+            if self._rx_buf_bytes + text_len > self._RX_BUF_MAX:
+                return text
+            self._rx_buf.append(text)
+            self._rx_buf_bytes += text_len
+
+        # Serialize processing — if another call is already running,
+        # the data has been buffered above and will be picked up by
+        # the active call.  Return empty string so the caller does not
+        # display the original text (it will be emitted by _process_buffer).
+        with self._rx_lock:
+            out = []
+            while True:
+                out.append(self._process_buffer())
+                with self._buf_lock:
+                    if not self._rx_buf:
+                        break
+            return "".join(out)
+
+    def _process_buffer(self):
+        """Drain the bounded rx buffer and process all complete lines.
+
+        Called while holding ``_rx_lock``.  Concatenates all buffered
+        chunks, processes them line-by-line, and returns the result.
+        """
+        # Drain buffer atomically
+        with self._buf_lock:
+            chunks = list(self._rx_buf)
+            self._rx_buf.clear()
+            self._rx_buf_bytes = 0
+
+        text = "".join(chunks)
+
         last = 0
         while True:
             idx = text.find("\n", last)
             if idx == -1:
-                if len(self.buffer) < 4096:
-                    self.buffer += text[last:]
+                remainder = text[last:]
+                if len(self.buffer) + len(remainder) <= 4096:
+                    self.buffer += remainder
                 break
 
             line = text[last:idx]
@@ -745,17 +800,16 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
                 output += "\n     (inlined by) " + p
             self._addr_cache[(addr, elf_path)] = output
 
-    def _prefetch_addresses(self, addr_specs):
-        """Pre-populate _addr_cache in batch for a list of (addr, is_return_addr)."""
+    def _prefetch_addresses(self, addrs):
+        """Pre-populate _addr_cache in batch for a list of address strings."""
         lookups = []
         seen = set()
-        for addr, is_ret in addr_specs:
+        for addr in addrs:
             if self.is_address_ignored(addr):
                 continue
-            lookup = "0x%08x" % (int(addr, 16) - 1) if is_ret else addr
-            if lookup not in seen:
-                seen.add(lookup)
-                lookups.append(lookup)
+            if addr not in seen:
+                seen.add(addr)
+                lookups.append(addr)
 
         if not lookups:
             return
@@ -844,13 +898,10 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             size -= 1
         return addresses[:size]
 
-    def _resolve_address(self, addr, is_return_addr=False):
+    def _resolve_address(self, addr):
         """Resolve a single address through firmware ELF, then ROM ELF.
 
         Applies PcAddressMatcher filtering before calling addr2line.
-        For return addresses (*is_return_addr=True*) the lookup address is
-        decremented by 1 so addr2line reports the call site rather than the
-        instruction after the call.
 
         Returns:
             ``(decoded_string, is_rom)`` or ``(None, False)`` if unresolved.
@@ -859,9 +910,6 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             return None, False
 
         lookup = addr
-        if is_return_addr:
-            lookup = "0x%08x" % (int(addr, 16) - 1)
-
         int_addr = int(lookup, 16)
 
         output = None
@@ -914,9 +962,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         if not addresses:
             return ""
 
-        self._prefetch_addresses(
-            [(addr, j > 0) for j, addr in enumerate(addresses)]
-        )
+        self._prefetch_addresses(addresses)
 
         prefix_match = self.PREFIX_RE.match(line)
         prefix = prefix_match.group(0) if prefix_match is not None else ""
@@ -924,9 +970,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         trace = ""
         i = 0
         for j, addr in enumerate(addresses):
-            output, is_rom = self._resolve_address(
-                addr, is_return_addr=(j > 0)
-            )
+            output, is_rom = self._resolve_address(addr)
             if output is not None:
                 fmt = "%s  #%-2d %s %s\n" if is_rom else "%s  #%-2d %s in %s\n"
                 trace += fmt % (prefix, i, addr, output)
@@ -947,14 +991,14 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
         if not addresses:
             return ""
 
-        self._prefetch_addresses([(addr, True) for addr in addresses])
+        self._prefetch_addresses(addresses)
 
         prefix_match = self.PREFIX_RE.match(line)
         prefix = prefix_match.group(0) if prefix_match is not None else ""
 
         trace = ""
         for addr in addresses:
-            output, _ = self._resolve_address(addr, is_return_addr=True)
+            output, _ = self._resolve_address(addr)
             if output is not None:
                 trace += "%s  %s: %s\n" % (prefix, addr, output)
 
@@ -972,14 +1016,14 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             Formatted annotation string, or empty string if nothing decoded.
         """
         # Pre-fetch code-address registers
-        addr_specs = []
+        reg_addrs = []
         for reg_name, addr in reg_matches:
             if reg_name in ("EXCCAUSE", "MCAUSE"):
                 continue
             if reg_name in self.NON_CODE_REGISTERS:
                 continue
-            addr_specs.append((addr, reg_name == "RA"))
-        self._prefetch_addresses(addr_specs)
+            reg_addrs.append(addr)
+        self._prefetch_addresses(reg_addrs)
 
         prefix_match = self.PREFIX_RE.match(line)
         prefix = prefix_match.group(0) if prefix_match is not None else ""
@@ -1007,9 +1051,7 @@ See https://docs.platformio.org/page/projectconf/build_configurations.html
             if reg_name in self.NON_CODE_REGISTERS:
                 continue
 
-            output, _ = self._resolve_address(
-                addr, is_return_addr=(reg_name == "RA")
-            )
+            output, _ = self._resolve_address(addr)
             if output is not None:
                 trace += "%s  %s: %s: %s\n" % (prefix, reg_name, addr, output)
 
