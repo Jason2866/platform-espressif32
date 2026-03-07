@@ -14,11 +14,19 @@
 
 # Python Version Check
 import sys
+from platformio.compat import IS_WINDOWS
 
-if not ((3, 10) <= sys.version_info < (3, 14)):
-    print("ERROR: Python version must be between 3.10 and 3.13.", file=sys.stderr)
-    print(f"Current Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}", file=sys.stderr)
-    print("Supported versions: 3.10, 3.11, 3.12, 3.13", file=sys.stderr)
+pyver = sys.version_info
+if IS_WINDOWS:
+    allowed = (3, 10) <= pyver < (3, 14)
+    supported = "3.10, 3.11, 3.12, 3.13"
+else:
+    allowed = (3, 10) <= pyver < (3, 15)
+    supported = "3.10, 3.11, 3.12, 3.13, 3.14"
+if not allowed:
+    print(f"ERROR: Python version must be {supported}.", file=sys.stderr)
+    print(f"Current Python version: {pyver.major}.{pyver.minor}.{pyver.micro}", file=sys.stderr)
+    print(f"Supported versions: {supported}", file=sys.stderr)
     raise SystemExit(1)
 
 # LZMA support check
@@ -38,14 +46,11 @@ import importlib.util
 import json
 import logging
 import os
-import requests
 import shutil
-import socket
 import subprocess
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union
 
-from platformio.compat import IS_WINDOWS
 from platformio.public import PlatformBase, to_unix_path
 from platformio.proc import get_pythonexe_path
 from platformio.project.config import ProjectConfig
@@ -60,6 +65,7 @@ spec.loader.exec_module(penv_setup_module)
 
 setup_penv_minimal = penv_setup_module.setup_penv_minimal
 get_executable_path = penv_setup_module.get_executable_path
+has_internet_connection = penv_setup_module.has_internet_connection
 
 
 # Constants
@@ -97,8 +103,7 @@ COMMON_IDF_PACKAGES = [
 
 CHECK_PACKAGES = [
     "tool-cppcheck",
-    "tool-clangtidy",
-    "tool-pvs-studio"
+    "tool-clangtidy"
 ]
 
 # System-specific configuration
@@ -795,6 +800,12 @@ class Espressif32Platform(PlatformBase):
         if mcu in ESP_BUILTIN_DEBUG_MCUS:
             supported_debug_tools.append("esp-builtin")
 
+        # Auto-assign SVD path based on MCU if not already set
+        if debug and not debug.get("svd_path"):
+            svd_file = Path(self.get_dir()) / "misc" / "svd" / f"{mcu}.svd"
+            if svd_file.is_file():
+                debug["svd_path"] = str(svd_file)
+
         upload_protocol = board.manifest.get("upload", {}).get("protocol")
         upload_protocols = board.manifest.get("upload", {}).get("protocols", [])
 
@@ -839,6 +850,9 @@ class Espressif32Platform(PlatformBase):
                 "default": link == debug.get("default_tool"),
             }
 
+            # Avoid erasing Arduino Nano bootloader by preloading app binary
+            if board.id == "arduino_nano_esp32":
+                debug["tools"][link]["load_cmds"] = "preload"
         board.manifest["debug"] = debug
         return board
 
@@ -880,13 +894,19 @@ class Espressif32Platform(PlatformBase):
                 "-c", f"adapter speed {debug_config.speed or DEFAULT_DEBUG_SPEED}"
             ])
 
+        if debug_config.load_cmds != ["load"]:
+            return
+
         ignore_conds = [
-            debug_config.load_cmds != ["load"],
             not flash_images,
             not all([Path(item["path"]).is_file() for item in flash_images]),
         ]
 
         if any(ignore_conds):
+            logger.warning(
+                "Falling back to default GDB load; "
+                "flash_images metadata missing or incomplete."
+            )
             return
 
         load_cmds = [
@@ -894,9 +914,18 @@ class Espressif32Platform(PlatformBase):
             f'{item["offset"]} verify'
             for item in flash_images
         ]
+        app_offset = build_extra_data.get("application_offset")
+        if not app_offset:
+            logger.warning(
+                "Application offset not found in build metadata, "
+                "falling back to default %s. Debug flashing may target "
+                "the wrong address for custom partition layouts.",
+                DEFAULT_APP_OFFSET,
+            )
+            app_offset = DEFAULT_APP_OFFSET
         load_cmds.append(
             f'monitor program_esp '
             f'"{to_unix_path(debug_config.build_data["prog_path"][:-4])}.bin" '
-            f'{build_extra_data.get("application_offset", DEFAULT_APP_OFFSET)} verify'
+            f'{app_offset} verify'
         )
         debug_config.load_cmds = load_cmds

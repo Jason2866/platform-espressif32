@@ -240,7 +240,7 @@ def get_threshold_info(env, config, current_env_section):
     Returns:
         dict: Information about threshold configuration
     """
-    mcu = env.BoardConfig().get("build.mcu", "esp32")
+    mcu = env.BoardConfig().get("build.mcu", "esp32").lower()
     setting_name = "custom_include_path_length_threshold"
 
     info = {
@@ -289,9 +289,10 @@ def get_threshold_info(env, config, current_env_section):
 
 # Cache class for frequently used paths
 class PathCache:
-    def __init__(self, platform, mcu):
+    def __init__(self, platform, mcu, chip_variant):
         self.platform = platform
         self.mcu = mcu
+        self.chip_variant = chip_variant
         self._framework_dir = None
         self._sdk_dir = None
 
@@ -306,7 +307,7 @@ class PathCache:
     def sdk_dir(self):
         if self._sdk_dir is None:
             self._sdk_dir = fs.to_unix_path(
-                str(Path(self.framework_dir) / "tools" / "esp32-arduino-libs" / self.mcu / "include")
+                str(Path(self.framework_dir) / "tools" / "esp32-arduino-libs" / self.chip_variant / "include")
             )
         return self._sdk_dir
 
@@ -508,9 +509,11 @@ board = env.BoardConfig()
 
 # Cached values
 mcu = board.get("build.mcu", "esp32")
+chip_variant = env.BoardConfig().get("build.chip_variant", "").lower()
+chip_variant = chip_variant if chip_variant else mcu
 pioenv = env["PIOENV"]
 project_dir = env.subst("$PROJECT_DIR")
-path_cache = PathCache(platform, mcu)
+path_cache = PathCache(platform, mcu, chip_variant)
 current_env_section = f"env:{pioenv}"
 
 # Board configuration
@@ -900,7 +903,63 @@ if ("arduino" in pioframework and "espidf" not in pioframework and
     env.AddPostAction("checkprogsize", silent_action)
 
     if IS_WINDOWS:
-        env.AddBuildMiddleware(smart_include_length_shorten)
+        # Integrate smart_include_length_shorten with existing middlewares
+        existing_middlewares = list(env.get("__PIO_BUILD_MIDDLEWARES", []))
+    
+        if existing_middlewares:
+            # Wrap user middlewares to work together with smart_include_length_shorten
+            def integrated_middleware(env, node):
+                # Create a custom env.Object wrapper that intercepts calls
+                original_object = env.Object
+                result_holder = {"result": None, "called": False}
+            
+                def custom_object_wrapper(_node, **kwargs):
+                    # User middleware called env.Object - capture it
+                    result_holder["called"] = True
+                    result_holder["kwargs"] = kwargs
+                    # Don't actually compile yet, just return a marker
+                    return None
+            
+                # Temporarily replace env.Object
+                env.Object = custom_object_wrapper
+            
+                # Call user middleware - it will call our wrapper
+                for middleware_func, _ in existing_middlewares:
+                    middleware_func(env, node)
+            
+                # Restore original env.Object
+                env.Object = original_object
+            
+                # Now compile with smart_include_length_shorten
+                if result_holder["called"] and result_holder.get("kwargs"):
+                    # User middleware wants custom flags - merge them
+                    user_kwargs = result_holder["kwargs"]
+                
+                    # Temporarily apply user's custom flags to env
+                    old_values = {}
+                    for key, value in user_kwargs.items():
+                        if key in env:
+                            old_values[key] = env[key]
+                            env[key] = value
+                
+                    # Compile with smart_include_length_shorten
+                    result = smart_include_length_shorten(env, node)
+                
+                    # Restore original env values
+                    for key, value in old_values.items():
+                        env[key] = value
+                
+                    return result
+                else:
+                    # No custom flags, just use smart_include_length_shorten
+                    return smart_include_length_shorten(env, node)
+        
+            # Replace all middlewares with the integrated one
+            env["__PIO_BUILD_MIDDLEWARES"] = []
+            env.AddBuildMiddleware(integrated_middleware)
+        else:
+            # No user middlewares, just add smart_include_length_shorten
+            env.AddBuildMiddleware(smart_include_length_shorten)
 
     build_script_path = str(Path(FRAMEWORK_DIR) / "tools" / "pioarduino-build.py")
     SConscript(build_script_path)
