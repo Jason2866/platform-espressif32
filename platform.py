@@ -837,7 +837,8 @@ class Espressif32Platform(PlatformBase):
                 "   monitor reset",
                 "end",
             ]
-            init_cmds.extend(self._get_freertos_gdb_cmds())
+            if self._gdb_has_python(mcu):
+                init_cmds.extend(self._get_freertos_gdb_cmds())
             init_cmds.extend(self._get_rom_elf_gdb_cmds(mcu))
             init_cmds.extend([
                 "target extended-remote $DEBUG_PORT",
@@ -863,6 +864,30 @@ class Espressif32Platform(PlatformBase):
                 debug["tools"][link]["load_cmds"] = "preload"
         board.manifest["debug"] = debug
         return board
+
+    def _gdb_has_python(self, mcu: str) -> bool:
+        """Probe whether the GDB binary for this MCU supports Python."""
+        mcu_config = self._get_mcu_config(mcu)
+        if not mcu_config:
+            return False
+        for tool_pkg in mcu_config["debug_tools"]:
+            pkg_dir = self.get_package_dir(tool_pkg)
+            if not pkg_dir:
+                continue
+            toolchain_arch = "xtensa-esp-elf" if mcu in MCU_TOOLCHAIN_CONFIG["xtensa"]["mcus"] else "riscv32-esp-elf"
+            gdb_path = Path(pkg_dir) / "bin" / f"{toolchain_arch}-gdb"
+            if not gdb_path.is_file():
+                continue
+            try:
+                result = subprocess.run(
+                    [str(gdb_path), "--batch-silent", "--ex", "python import os"],
+                    capture_output=True, timeout=10,
+                )
+                return result.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                logger.debug("GDB Python support probe failed for %s", gdb_path)
+                return False
+        return False
 
     @staticmethod
     def _get_freertos_gdb_cmds() -> List[str]:
@@ -939,9 +964,10 @@ class Espressif32Platform(PlatformBase):
         entry = entries[0]
         addr = int(entry["build_date_str_addr"], 16)
         rom_file = f"{mcu}_rev{entry['rev']}_rom.elf"
+        rom_path = f"{rom_dir}{rom_file}"
         lines = [
             f"{indent}{cls._rom_date_condition(addr, entry['build_date_str'])}",
-            f"{indent}  add-symbol-file {rom_dir}{rom_file}",
+            f'{indent}  add-symbol-file "{rom_path}"',
         ]
         if len(entries) > 1:
             lines.append(f"{indent}else")
