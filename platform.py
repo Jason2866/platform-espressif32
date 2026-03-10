@@ -83,15 +83,13 @@ ESP_BUILTIN_DEBUG_MCUS = frozenset([
 MCU_TOOLCHAIN_CONFIG = {
     "xtensa": {
         "mcus": frozenset(["esp32", "esp32s2", "esp32s3"]),
-        "toolchains": ["toolchain-xtensa-esp-elf"],
-        "debug_tools": ["tool-xtensa-esp-elf-gdb"]
+        "toolchains": ["toolchain-xtensa-esp-elf", "tool-xtensa-esp-elf-gdb"]
     },
     "riscv": {
         "mcus": frozenset([
             "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32c61", "esp32h2", "esp32p4"
         ]),
-        "toolchains": ["toolchain-riscv32-esp"],
-        "debug_tools": ["tool-riscv32-esp-elf-gdb"]
+        "toolchains": ["toolchain-riscv32-esp", "tool-riscv32-esp-elf-gdb"]
     }
 }
 
@@ -607,13 +605,24 @@ class Espressif32Platform(PlatformBase):
     def _configure_mcu_toolchains(
         self, mcu: str, variables: Dict, targets: List[str]
     ) -> None:
-        """Configure MCU-specific toolchains with optimized installation."""
+        """
+        Install toolchains and debugging packages required for the specified MCU.
+        
+        Installs the MCU's base toolchains (including GDB) from the MCU configuration. If an "ulp" 
+        directory exists, installs the ULP toolchain entries. When build variables or targets indicate 
+        debugging is required, installs debug-related tools (OpenOCD and ROM-ELF helper).
+        
+        Parameters:
+            mcu (str): MCU identifier (e.g., "esp32", "esp32c3").
+            variables (Dict): Build variables used to determine debugging requirements.
+            targets (List[str]): Build targets that may trigger installation of debug tooling.
+        """
         mcu_config = self._get_mcu_config(mcu)
         if not mcu_config:
             logger.warning(f"Unknown MCU: {mcu}")
             return
 
-        # Install base toolchains
+        # Install base toolchains (including GDB)
         for toolchain in mcu_config["toolchains"]:
             self.install_tool(toolchain)
 
@@ -622,15 +631,19 @@ class Espressif32Platform(PlatformBase):
             for toolchain in mcu_config["ulp_toolchain"]:
                 self.install_tool(toolchain)
 
-        # Debug tools when needed
+        # Additional debug tools when needed
         if self._needs_debug_tools(variables, targets):
-            for debug_tool in mcu_config["debug_tools"]:
-                self.install_tool(debug_tool)
             self.install_tool("tool-openocd-esp32")
             self.install_tool("tool-esp-rom-elfs")
 
     def _configure_installer(self) -> None:
-        """Configure the ESP-IDF tools installer with proper version checking."""
+        """
+        Ensure the ESP-IDF tools installer is present and up to date.
+        
+        Verifies and installs the tool-esp_install package when necessary, removes a legacy
+        PlatformIO install marker to avoid conflicts, and marks the installer package as
+        optional if idf_tools.py is available. Logs a warning if idf_tools.py cannot be found.
+        """
         
         # Check version - installs only when needed
         if not self._check_tl_install_version():
@@ -769,7 +782,21 @@ class Espressif32Platform(PlatformBase):
         return result
 
     def _add_dynamic_options(self, board):
-        """Add dynamic board options for upload protocols and debug tools."""
+        """
+        Add dynamic upload protocol and debug-tool entries to a board manifest.
+        
+        Ensures upload.protocols and upload.protocol defaults, auto-adds supported debug tools
+        (and MCU-specific builtin/ftdi entries), sets an SVD path when available, and
+        populates debug.tools with OpenOCD server configurations, init commands, and
+        per-tool metadata. Returns the updated board object.
+        
+        Parameters:
+            board: Board object whose manifest will be modified.
+        
+        Returns:
+            The same Board instance with its manifest updated to include dynamic upload
+            protocols and debug tool configurations.
+        """
         # Upload protocols
         if not board.get("upload.protocols", []):
             board.manifest["upload"]["protocols"] = ["esptool", "espota"]
@@ -862,11 +889,19 @@ class Espressif32Platform(PlatformBase):
         return board
 
     def _gdb_has_python(self, mcu: str) -> bool:
-        """Probe whether the GDB binary for this MCU supports Python."""
+        """
+        Determine whether the GDB executable for the given MCU supports embedding Python.
+        
+        Returns:
+            True if a GDB binary for the MCU accepts Python commands,
+            False otherwise (including when no matching tool/package is found or the probe fails).
+        """
         mcu_config = self._get_mcu_config(mcu)
         if not mcu_config:
             return False
-        for tool_pkg in mcu_config["debug_tools"]:
+        # Filter toolchains to get only GDB tools
+        gdb_tools = [tool for tool in mcu_config["toolchains"] if "gdb" in tool]
+        for tool_pkg in gdb_tools:
             pkg_dir = self.get_package_dir(tool_pkg)
             if not pkg_dir:
                 continue
@@ -890,7 +925,13 @@ class Espressif32Platform(PlatformBase):
 
     @staticmethod
     def _get_freertos_gdb_cmds() -> List[str]:
-        """Generate GDB commands to load FreeRTOS thread-awareness extension."""
+        """
+        Generate GDB commands to load FreeRTOS thread-awareness extension.
+        
+        Returns:
+            list[str]: GDB command strings that attempt to import the `freertos_gdb` Python
+            extension and print a warning if it is not available.
+        """
         return [
             "python",
             "try:",
@@ -901,11 +942,18 @@ class Espressif32Platform(PlatformBase):
         ]
 
     def _get_rom_elf_gdb_cmds(self, mcu: str) -> List[str]:
-        """Generate GDB commands for automatic ROM ELF symbol loading.
-
-        Produces a 'target hookpost-extended-remote' GDB hook that reads the ROM
-        build-date string from a chip-specific memory address after connecting
-        and loads the matching ROM ELF symbol file.
+        """
+        Generate a GDB command sequence that automatically selects and loads ROM ELF symbols for the given MCU.
+        
+        Builds a `target hookpost-extended-remote` hook using ROM metadata (from misc/roms.json) and installed
+        ROM ELF artifacts (tool-esp-rom-elfs) so the appropriate ROM symbol file is loaded after connecting to the target.
+        
+        Parameters:
+            mcu (str): MCU identifier used to look up ROM entries in misc/roms.json.
+        
+        Returns:
+            A list of GDB command strings that implement the ROM selection and loading hook; an empty list
+            if ROM metadata or ROM ELF package is not available.
         """
         rom_elfs_dir = self.get_package_dir("tool-esp-rom-elfs")
         if not rom_elfs_dir or not Path(rom_elfs_dir).is_dir():
@@ -944,7 +992,18 @@ class Espressif32Platform(PlatformBase):
 
     @staticmethod
     def _rom_date_condition(date_addr: int, date_str: str) -> str:
-        """Build a GDB if-condition comparing memory words to a date string."""
+        """
+        Constructs a GDB conditional expression that compares 32-bit memory words
+        starting at a given address to a provided build-date string.
+        
+        Parameters:
+            date_addr (int): Base memory address where the build-date string is stored.
+            date_str (str): Build-date string to match; compared in 4-byte little-endian chunks.
+        
+        Returns:
+            condition (str): A GDB `if` expression like `if (*(int*)0xADDR) == 0xVALUE && ...`
+            that tests each 4-byte chunk of `date_str` against memory at `date_addr`.
+        """
         parts = []
         for i in range(0, len(date_str), 4):
             chunk = date_str[i:i + 4]
@@ -956,7 +1015,20 @@ class Espressif32Platform(PlatformBase):
     def _build_rom_elf_conditions(
         cls, entries: list, mcu: str, rom_dir: str, depth: int
     ) -> List[str]:
-        """Recursively build nested if/else/end blocks for ROM revision matching."""
+        """
+        Build a list of GDB conditional command strings that load ROM ELF symbols based on ROM revision.
+        
+        Parameters:
+            entries (list): Ordered list of ROM metadata dicts, each containing at least
+                "build_date_str_addr" (hex string), "build_date_str" (string), and "rev" (revision identifier).
+            mcu (str): MCU identifier used to form ROM ELF filenames.
+            rom_dir (str): Directory path (may include trailing slash) where ROM ELF files reside.
+            depth (int): Current recursion depth used to compute indentation for nested blocks.
+        
+        Returns:
+            List[str]: A sequence of GDB command lines forming nested if/else/end blocks that
+            evaluate ROM build-date memory values and call `add-symbol-file` for the matching ROM ELF.
+        """
         if not entries:
             return []
         indent = "  " * depth
@@ -982,7 +1054,16 @@ class Espressif32Platform(PlatformBase):
         return lines
 
     def _get_openocd_interface(self, link: str, board) -> str:
-        """Determine OpenOCD interface configuration for debug link."""
+        """
+        Resolve the OpenOCD interface identifier for a given debug link and board.
+        
+        Parameters:
+            link (str): Debug link name.
+            board: Board object whose `id` may affect the chosen interface.
+        
+        Returns:
+            str: OpenOCD interface string (for example "jlink", "ftdi/esp_ftdi", or "esp_usb_jtag").
+        """
         if link in ("jlink", "cmsis-dap"):
             return link
         if link in ("esp-prog", "ftdi"):
@@ -1010,7 +1091,29 @@ class Espressif32Platform(PlatformBase):
         ]
 
     def configure_debug_session(self, debug_config):
-        """Configure debug session with flash image loading."""
+        """
+        Configure debug session to inject debug extensions and prepare GDB load commands for flashing.
+        
+        This updates the provided debug_config in-place:
+        - Injects additional GDB init commands and ROM/FreeRTOS extensions via _inject_debug_extensions.
+        - If the debug server is OpenOCD, appends an adapter speed argument derived from debug_config.speed.
+        - If debug_config.load_cmds is the default ["load"] and valid flash image metadata is present in
+          build_data["extra"]["flash_images"], replaces load_cmds with a sequence of `monitor program_esp
+          "<path>" <offset> verify` entries for each flash image and the application binary
+          (using build_data["prog_path"] and application_offset if available;
+          falls back to DEFAULT_APP_OFFSET and logs a warning).
+        - If flash image metadata is missing or invalid, leaves load_cmds unchanged and logs a warning.
+        
+        Parameters:
+            debug_config: object
+                Debug session configuration object that must provide (at least) the attributes:
+                - build_data (dict): build metadata including an "extra" dict with "flash_images"
+                  (list of { "path", "offset" }) and optional "application_offset".
+                - server (dict | None): server configuration; if server["executable"]
+                  contains "openocd", server["arguments"] (list) will be extended.
+                - load_cmds (list): current GDB load commands; may be replaced.
+                - speed (str | None): optional adapter speed value used when configuring OpenOCD.
+        """
         self._inject_debug_extensions(debug_config)
 
         build_extra_data = debug_config.build_data.get("extra", {})
@@ -1058,10 +1161,17 @@ class Espressif32Platform(PlatformBase):
         debug_config.load_cmds = load_cmds
 
     def _inject_debug_extensions(self, debug_config):
-        """Inject FreeRTOS thread-awareness and ROM ELF commands into init_cmds.
-
-        Called from configure_debug_session() so toolchain packages are
-        guaranteed to be installed when the probes run.
+        """
+        Inject FreeRTOS thread-awareness and ROM ELF GDB commands into the debug tool's init_cmds.
+        
+        This inserts additional GDB initialization commands (FreeRTOS Python-based helpers when available
+        and ROM-ELF symbol loading commands) into debug_config.tool_settings["init_cmds"] at the position
+        immediately before the "target extended-remote" command.
+        
+        Parameters:
+            debug_config: An object representing the debug session configuration. It must provide:
+                - board_config: a mapping containing "build.mcu".
+                - tool_settings: a mapping containing "init_cmds", a list of GDB init command strings.
         """
         mcu = debug_config.board_config.get("build.mcu", "")
         if not mcu:
