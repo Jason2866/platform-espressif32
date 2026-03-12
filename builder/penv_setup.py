@@ -26,6 +26,11 @@ from urllib.parse import urlparse
 from platformio.package.version import pepver_to_semver
 from platformio.compat import IS_WINDOWS
 
+GDB_TOOL_PACKAGES = [
+    "tool-xtensa-esp-elf-gdb",
+    "tool-riscv32-esp-elf-gdb",
+]
+
 # Check Python version requirement
 if sys.version_info < (3, 10):
     sys.stderr.write(
@@ -107,6 +112,9 @@ def has_internet_connection(timeout=5):
     # Direct DNS:53 connection is abolished due to many false positives on enterprise networks
     # (add it at the end if necessary)
     return False
+
+
+has_network = has_internet_connection() or github_actions
 
 
 def get_executable_path(penv_dir, executable_name):
@@ -515,13 +523,10 @@ def _setup_python_environment_core(env, platform, platformio_dir, should_install
     uv_executable = get_executable_path(penv_dir, "uv")
 
     # Install required Python dependencies for ESP32 platform
-    if has_internet_connection() or github_actions:
+    if has_network:
         if not install_python_deps(penv_python, used_uv_executable, uv_cache_dir):
             sys.stderr.write("Error: Failed to install Python dependencies into penv\n")
             sys.exit(1)
-
-        # Install freertos-gdb into GDB tool packages
-        install_freertos_gdb(platform, uv_executable, penv_python, uv_cache_dir)
     else:
         print("Warning: No internet connection detected, Python dependency check will be skipped.")
 
@@ -679,17 +684,15 @@ def install_freertos_gdb(platform, uv_executable, penv_executable, uv_cache_dir=
         penv_executable (str): Path to penv Python executable
         uv_cache_dir: Optional path to uv cache directory
     """
-    gdb_tool_packages = [
-        "tool-xtensa-esp-elf-gdb",
-        "tool-riscv32-esp-elf-gdb",
-    ]
-
+    if not has_network:
+        return
+        
     uv_env = None
     if uv_cache_dir:
         uv_env = dict(os.environ)
         uv_env["UV_CACHE_DIR"] = str(uv_cache_dir)
 
-    for tool_pkg in gdb_tool_packages:
+    for tool_pkg in GDB_TOOL_PACKAGES:
         pkg_dir = platform.get_package_dir(tool_pkg)
         if not pkg_dir or not Path(pkg_dir).is_dir():
             continue
@@ -698,10 +701,11 @@ def install_freertos_gdb(platform, uv_executable, penv_executable, uv_cache_dir=
             continue
         try:
             subprocess.check_call([
-            uv_executable, "pip", "install", "--quiet",
-                 f"--python={penv_executable}",
-                 "--target", target_dir,
-                "freertos-gdb"],
+                uv_executable, "pip", "install", "--quiet",
+                f"--python={penv_executable}",
+                "--target", str(target_dir),
+                "freertos-gdb"
+            ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
                 timeout=60,
