@@ -519,6 +519,9 @@ def _setup_python_environment_core(env, platform, platformio_dir, should_install
         if not install_python_deps(penv_python, used_uv_executable, uv_cache_dir):
             sys.stderr.write("Error: Failed to install Python dependencies into penv\n")
             sys.exit(1)
+
+        # Install freertos-gdb into GDB tool packages
+        install_freertos_gdb(platform, uv_executable, penv_python, uv_cache_dir)
     else:
         print("Warning: No internet connection detected, Python dependency check will be skipped.")
 
@@ -530,9 +533,6 @@ def _setup_python_environment_core(env, platform, platformio_dir, should_install
         else:
             # Minimal setup - install esptool from tool package
             _install_esptool_from_tl_install(platform, penv_python, uv_executable, uv_cache_dir)
-
-    # Install freertos-gdb into GDB tool packages
-    install_freertos_gdb(platform, uv_executable, uv_cache_dir)
 
     # Setup certifi environment variables
     _setup_certifi_env(env, penv_python)
@@ -666,7 +666,7 @@ def _install_esptool_from_tl_install(platform, python_exe, uv_executable, uv_cac
         # Don't exit - esptool installation is not critical for penv setup
 
 
-def install_freertos_gdb(platform, uv_executable, uv_cache_dir=None):
+def install_freertos_gdb(platform, uv_executable, penv_executable, uv_cache_dir=None):
     """
     Install freertos-gdb into each GDB tool's embedded Python site (share/gdb/python/).
 
@@ -676,6 +676,7 @@ def install_freertos_gdb(platform, uv_executable, uv_cache_dir=None):
     Args:
         platform: PlatformIO platform object
         uv_executable (str): Path to uv executable
+        penv_executable (str): Path to penv Python executable
         uv_cache_dir: Optional path to uv cache directory
     """
     gdb_tool_packages = [
@@ -698,7 +699,7 @@ def install_freertos_gdb(platform, uv_executable, uv_cache_dir=None):
         try:
             subprocess.check_call([
             uv_executable, "pip", "install", "--quiet",
-                 f"--python={python_exe}",
+                 f"--python={penv_executable}",
                  "--target", target_dir,
                 "freertos-gdb"],
                 stdout=subprocess.DEVNULL,
