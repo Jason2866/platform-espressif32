@@ -1400,7 +1400,16 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
         build_env = default_env.Clone()
         build_env.SetOption("implicit_cache", 1)
         for cc in compile_commands:
-            build_flags = cc.get("fragment", "").strip("\" ")
+            build_flags = cc.get("fragment", "").strip()
+            if build_flags.startswith('"') and build_flags.endswith('"'):
+                build_flags = build_flags[1:-1]
+            if build_flags.startswith("@"):
+                resp_path = build_flags[1:].strip('" ')
+                if os.path.isfile(resp_path):
+                    with open(resp_path, "r") as rf:
+                        build_flags = rf.read().replace("\n", " ").strip()
+                else:
+                    continue
             if not build_flags.startswith("-D"):
                 if build_flags.startswith("-include") and ".." in build_flags:
                     source_index = cg.get("sourceIndexes")[0]
