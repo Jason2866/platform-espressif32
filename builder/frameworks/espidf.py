@@ -1418,12 +1418,31 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                     parts = rest.split(None, 1)
                     resp_path = parts[0]
                     extra = parts[1] if len(parts) > 1 else ""
+
+                # Try to resolve response file path
+                resolved_resp_path = None
                 if os.path.isfile(resp_path):
-                    with open(resp_path, "r") as rf:
+                    resolved_resp_path = resp_path
+                elif not os.path.isabs(resp_path):
+                    # Try relative to BUILD_DIR
+                    candidate = os.path.join(BUILD_DIR, resp_path)
+                    if os.path.isfile(candidate):
+                        resolved_resp_path = candidate
+
+                if resolved_resp_path:
+                    with open(resolved_resp_path, "r") as rf:
                         expanded = rf.read().replace("\n", " ").strip()
                     build_flags = (expanded + " " + extra).strip() if extra else expanded
                 else:
-                    continue
+                    # Response file not found - preserve extra flags and log warning
+                    sys.stderr.write(
+                        f"Warning: Response file not found: {resp_path}\n"
+                    )
+                    if extra:
+                        build_flags = extra
+                    else:
+                        # No extra flags, skip this fragment entirely
+                        continue
             if not build_flags.startswith("-D"):
                 if build_flags.startswith("-include") and ".." in build_flags:
                     source_index = cg.get("sourceIndexes")[0]
