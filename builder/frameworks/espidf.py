@@ -1404,10 +1404,24 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
             if build_flags.startswith('"') and build_flags.endswith('"'):
                 build_flags = build_flags[1:-1]
             if build_flags.startswith("@"):
-                resp_path = build_flags[1:].strip('" ')
+                # Parse @"path" or @path, possibly followed by extra flags
+                rest = build_flags[1:]
+                if rest.startswith('"'):
+                    end_quote = rest.find('"', 1)
+                    if end_quote != -1:
+                        resp_path = rest[1:end_quote]
+                        extra = rest[end_quote + 1:].strip()
+                    else:
+                        resp_path = rest.strip('" ')
+                        extra = ""
+                else:
+                    parts = rest.split(None, 1)
+                    resp_path = parts[0]
+                    extra = parts[1] if len(parts) > 1 else ""
                 if os.path.isfile(resp_path):
                     with open(resp_path, "r") as rf:
-                        build_flags = rf.read().replace("\n", " ").strip()
+                        expanded = rf.read().replace("\n", " ").strip()
+                    build_flags = (expanded + " " + extra).strip() if extra else expanded
                 else:
                     continue
             if not build_flags.startswith("-D"):
