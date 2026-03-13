@@ -1401,9 +1401,11 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
         build_env.SetOption("implicit_cache", 1)
         for cc in compile_commands:
             build_flags = cc.get("fragment", "").strip()
+            from_response_file = False
             if build_flags.startswith('"') and build_flags.endswith('"'):
                 build_flags = build_flags[1:-1]
             if build_flags.startswith("@"):
+                from_response_file = True
                 # Parse @"path" or @path, possibly followed by extra flags
                 rest = build_flags[1:]
                 if rest.startswith('"'):
@@ -1443,7 +1445,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                     else:
                         # No extra flags, skip this fragment entirely
                         continue
-            if not build_flags.startswith("-D"):
+            if from_response_file or not build_flags.startswith("-D"):
                 if build_flags.startswith("-include") and ".." in build_flags:
                     source_index = cg.get("sourceIndexes")[0]
                     build_flags = _fix_component_relative_include(
