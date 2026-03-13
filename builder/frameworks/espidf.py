@@ -1418,28 +1418,32 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                         extra = ""
                 else:
                     parts = rest.split(None, 1)
+                    if not parts:
+                        # malformed response-file fragment (e.g. "@")
+                        continue
                     resp_path = parts[0]
                     extra = parts[1] if len(parts) > 1 else ""
 
                 # Try to resolve response file path
                 resolved_resp_path = None
-                if os.path.isfile(resp_path):
-                    resolved_resp_path = resp_path
-                elif not os.path.isabs(resp_path):
-                    # Try relative to BUILD_DIR
+                if os.path.isabs(resp_path):
+                    if os.path.isfile(resp_path):
+                        resolved_resp_path = resp_path
+                else:
+                    # Prefer BUILD_DIR-relative resolution for response files from CMake/Ninja
                     candidate = os.path.join(BUILD_DIR, resp_path)
                     if os.path.isfile(candidate):
                         resolved_resp_path = candidate
+                    elif os.path.isfile(resp_path):
+                        # fallback for legacy cwd-relative cases
+                        resolved_resp_path = resp_path
 
                 if resolved_resp_path:
-                    with open(resolved_resp_path, "r") as rf:
+                    with open(resolved_resp_path, "r", encoding="utf-8") as rf:
                         expanded = rf.read().replace("\n", " ").strip()
                     build_flags = (expanded + " " + extra).strip() if extra else expanded
                 else:
-                    # Response file not found - preserve extra flags and log warning
-                    sys.stderr.write(
-                        f"Warning: Response file not found: {resp_path}\n"
-                    )
+                    # Response file not found - preserve extra flags
                     if extra:
                         build_flags = extra
                     else:
