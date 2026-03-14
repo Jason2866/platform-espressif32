@@ -1454,15 +1454,18 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                 if resolved_resp_path:
                     with open(resolved_resp_path, "r", encoding="utf-8") as rf:
                         expanded = rf.read().replace("\n", " ").strip()
-                    # The @response-file reference is already passed to the
-                    # compiler, so we only extract CPPDEFINES and CPPPATH
-                    # that SCons needs for dependency tracking. Raw compiler
-                    # flags (CCFLAGS) are NOT added to avoid duplication
-                    # which breaks e.g. GCC 15 -specs= processing.
                     parsed_flags = build_env.ParseFlags(expanded)
-                    for key in ("CCFLAGS", "CXXFLAGS", "LINKFLAGS",
-                                "ASFLAGS", "ASPPFLAGS"):
+                    # Strip only flags that cause GCC 15 duplication issues (-specs=).
+                    # Architecture-critical flags like -mlongcalls MUST be preserved.
+                    for key in ("CXXFLAGS", "LINKFLAGS", "ASFLAGS", "ASPPFLAGS"):
                         parsed_flags.pop(key, None)
+                    if "CCFLAGS" in parsed_flags:
+                        parsed_flags["CCFLAGS"] = [
+                            f for f in parsed_flags["CCFLAGS"]
+                            if not (isinstance(f, str) and f.startswith("-specs="))
+                        ]
+                        if not parsed_flags["CCFLAGS"]:
+                            del parsed_flags["CCFLAGS"]
                     build_env.AppendUnique(**parsed_flags)
                     # Process any extra flags after the response file ref
                     if extra:
