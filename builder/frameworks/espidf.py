@@ -1456,16 +1456,18 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                         expanded = rf.read().replace("\n", " ").strip()
                     parsed_flags = build_env.ParseFlags(expanded)
                     # Strip only flags that cause GCC 15 duplication issues (-specs=).
-                    # Architecture-critical flags like -mlongcalls MUST be preserved.
-                    for key in ("CXXFLAGS", "LINKFLAGS", "ASFLAGS", "ASPPFLAGS"):
-                        parsed_flags.pop(key, None)
-                    if "CCFLAGS" in parsed_flags:
-                        parsed_flags["CCFLAGS"] = [
-                            f for f in parsed_flags["CCFLAGS"]
-                            if not (isinstance(f, str) and f.startswith("-specs="))
-                        ]
-                        if not parsed_flags["CCFLAGS"]:
-                            del parsed_flags["CCFLAGS"]
+                    # Architecture-critical flags like -mlongcalls (Xtensa) and
+                    # -march=...xespv (RISC-V/ESP32-P4) MUST be preserved.
+                    parsed_flags.pop("CXXFLAGS", None)
+                    parsed_flags.pop("LINKFLAGS", None)
+                    for key in ("CCFLAGS", "ASFLAGS", "ASPPFLAGS"):
+                        if key in parsed_flags:
+                            parsed_flags[key] = [
+                                f for f in parsed_flags[key]
+                                if not (isinstance(f, str) and f.startswith("-specs="))
+                            ]
+                            if not parsed_flags[key]:
+                                del parsed_flags[key]
                     build_env.AppendUnique(**parsed_flags)
                     # Process any extra flags after the response file ref
                     if extra:
