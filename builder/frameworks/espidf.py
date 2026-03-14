@@ -1455,9 +1455,6 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                     with open(resolved_resp_path, "r", encoding="utf-8") as rf:
                         expanded = rf.read().replace("\n", " ").strip()
                     parsed_flags = build_env.ParseFlags(expanded)
-                    # Strip only flags that cause GCC 15 duplication issues (-specs=).
-                    # Architecture-critical flags like -mlongcalls (Xtensa) and
-                    # -march=...xespv (RISC-V/ESP32-P4) MUST be preserved.
                     parsed_flags.pop("CXXFLAGS", None)
                     parsed_flags.pop("LINKFLAGS", None)
                     for key in ("CCFLAGS", "ASFLAGS", "ASPPFLAGS"):
@@ -1469,7 +1466,9 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                             if not parsed_flags[key]:
                                 del parsed_flags[key]
                     build_env.AppendUnique(**parsed_flags)
-                    # Process any extra flags after the response file ref
+                    # SCons ParseFlags puts -march= into CCFLAGS; the assembler needs it in ASPPFLAGS
+                    if cg.get("language", "") == "ASM":
+                        build_env.AppendUnique(ASPPFLAGS=parsed_flags.get("CCFLAGS", []))
                     if extra:
                         build_flags = extra
                     else:
