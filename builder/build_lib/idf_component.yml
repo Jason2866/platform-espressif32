@@ -8,7 +8,7 @@ dependencies:
   espressif/fb_gfx:
     version: "master"
     path: components/fb_gfx
-    version: "release/v4.x"
+    version: "v6.0"
     git: https://github.com/Jason2866/esp32-arduino-lib-builder.git
     require: public
     rules:
