@@ -1,0 +1,8 @@
+dependencies:
+  idf: ">=5.0"
+  espressif/usb:
+    version: "master"
+    git: https://github.com/espressif/esp-usb.git
+    path: host/usb
+    rules:
+      - if: "target in [esp32s2, esp32s3, esp32p4]"
