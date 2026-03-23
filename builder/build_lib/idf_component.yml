@@ -8,7 +8,8 @@ dependencies:
   espressif/fb_gfx:
     version: "master"
     path: components/fb_gfx
-    git: https://github.com/espressif/esp32-arduino-lib-builder.git
+    version: "release/v4.x"
+    git: https://github.com/Jason2866/esp32-arduino-lib-builder.git
     require: public
     rules:
       - if: "target in [esp32, esp32s2, esp32s3, esp32p4]"
