@@ -1,5 +1,5 @@
 dependencies:
-  idf: ">=5.0"
+  idf: ">=6.0"
   espressif/usb:
     version: "master"
     git: https://github.com/espressif/esp-usb.git
