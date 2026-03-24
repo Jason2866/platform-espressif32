@@ -1,14 +1,18 @@
-dependencies:
-  idf:
-    version: '>=5.0'
-  tinyusb:
-    public: true
-    version: '>=0.14.2'
+## IDF Component Manager Manifest File
 description: Espressif's additions to TinyUSB
-documentation: https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/usb_device.html
-repository: git://github.com/espressif/esp-usb.git
-repository_info:
-  commit_sha: cd5f478becc0c59f169d144292eac67001e8f7ca
-  path: device/esp_tinyusb
+documentation: "https://docs.espressif.com/projects/esp-usb/en/latest/esp32p4/usb_device.html"
+version: "2.1.1"
 url: https://github.com/espressif/esp-usb/tree/master/device/esp_tinyusb
-version: 1.4.4
+repository: "https://github.com/espressif/esp-usb.git"
+repository_info:
+  path: "device/esp_tinyusb"
+targets:
+  - esp32s2
+  - esp32s3
+  - esp32p4
+  - esp32h4
+dependencies:
+  idf: '>=5.0' # IDF 4.x contains TinyUSB as submodule
+  tinyusb:
+    version: '>=0.17.0~2' # 0.17.0~2 is the first version that supports deinit
+    public: true
