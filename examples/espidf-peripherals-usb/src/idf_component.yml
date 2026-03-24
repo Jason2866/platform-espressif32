@@ -1,12 +1,4 @@
+## IDF Component Manager Manifest File
 dependencies:
-  idf: ">=6.0"
-  espressif/usb:
-    version: "master"
-    git: https://github.com/espressif/esp-usb.git
-    path: host/usb
-    rules:
-      - if: "target in [esp32s2, esp32s3, esp32p4]"
-  espressif/tinyusb:
-    version: "^0.19.0~2"
-    rules:
-      - if: "target in [esp32s2, esp32s3, esp32p4]"
+  espressif/esp_tinyusb: "^1"
+  idf: "^5.0"
