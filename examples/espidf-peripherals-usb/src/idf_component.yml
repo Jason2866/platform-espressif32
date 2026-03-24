@@ -6,3 +6,7 @@ dependencies:
     path: host/usb
     rules:
       - if: "target in [esp32s2, esp32s3, esp32p4]"
+  espressif/tinyusb:
+    version: "^0.19.0~2"
+    rules:
+      - if: "target in [esp32s2, esp32s3, esp32p4]"
