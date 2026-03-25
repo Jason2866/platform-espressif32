@@ -1711,39 +1711,54 @@ def build_bootloader(sdk_config):
             elif linker_script.endswith(".ld"):
                 script_basename = os.path.basename(linker_script)
                 
-                # Check if the original .ld file exists in framework and use it directly
-                original_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
-                
-                if os.path.isfile(original_script_path):
-                    # Use the original script directly - no preprocessing needed
-                    processed_extra_flags.extend(["-T", original_script_path])
+                # If already an absolute path, use it directly
+                if os.path.isabs(linker_script) and os.path.isfile(linker_script):
+                    processed_extra_flags.extend(["-T", linker_script])
                 else:
-                    # Only generate from template if no original .ld file exists
-                    script_name_in = script_basename.replace(".ld", ".ld.in")
-                    bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
+                    # Check if the original .ld file exists in framework bootloader dir
+                    original_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
                     
-                    # ESP32-P4 specific: Check for bootloader.rev3.ld.in
-                    if idf_variant == "esp32p4" and chip_variant == "esp32p4":
-                        bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
-                        if os.path.isfile(bootloader_rev3_path):
-                            bootloader_script_in_path = bootloader_rev3_path
-                    
-                    # Preprocess the .ld.in template to generate the .ld file
-                    if os.path.isfile(bootloader_script_in_path):
-                        target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
-                        
-                        preprocessed_script = preprocess_linker_file(
-                            bootloader_script_in_path,
-                            target_script,
-                            config_dir=bootloader_config_dir,
-                            extra_include_dirs=bootloader_extra_includes
-                        )
-                        
-                        bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                        processed_extra_flags.extend(["-T", target_script])
+                    if os.path.isfile(original_script_path):
+                        # Use the original script directly - no preprocessing needed
+                        processed_extra_flags.extend(["-T", original_script_path])
                     else:
-                        # Pass through if neither original nor template found (e.g., ROM scripts)
-                        processed_extra_flags.extend(["-T", linker_script])
+                        # Only generate from template if no original .ld file exists
+                        script_name_in = script_basename.replace(".ld", ".ld.in")
+                        bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
+                        
+                        # ESP32-P4 specific: Check for bootloader.rev3.ld.in
+                        if idf_variant == "esp32p4" and chip_variant == "esp32p4":
+                            bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
+                            if os.path.isfile(bootloader_rev3_path):
+                                bootloader_script_in_path = bootloader_rev3_path
+                        
+                        # Preprocess the .ld.in template to generate the .ld file
+                        if os.path.isfile(bootloader_script_in_path):
+                            target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
+                            
+                            preprocessed_script = preprocess_linker_file(
+                                bootloader_script_in_path,
+                                target_script,
+                                config_dir=bootloader_config_dir,
+                                extra_include_dirs=bootloader_extra_includes
+                            )
+                            
+                            bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
+                            processed_extra_flags.extend(["-T", target_script])
+                        else:
+                            # Resolve bare filenames (e.g., ROM scripts) to absolute paths
+                            # using LIBPATH from CMake code model to avoid shadowing by
+                            # files in the bootloader build directory
+                            resolved = None
+                            for lib_dir in link_args.get("LIBPATH", []):
+                                candidate = str(Path(lib_dir) / script_basename)
+                                if os.path.isfile(candidate):
+                                    resolved = candidate
+                                    break
+                            if resolved:
+                                processed_extra_flags.extend(["-T", resolved])
+                            else:
+                                processed_extra_flags.extend(["-T", linker_script])
             else:
                 # Pass through any other linker flags unchanged
                 processed_extra_flags.extend(["-T", linker_script])
