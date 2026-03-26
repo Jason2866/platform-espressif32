@@ -1531,7 +1531,10 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
 def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
-    _ensure_generated_sources(config, project_src_dir, BUILD_DIR)
+    active_build_dir = (
+        str(Path(BUILD_DIR) / prepend_dir) if prepend_dir else BUILD_DIR
+    )
+    _ensure_generated_sources(config, project_src_dir, active_build_dir)
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
     # Canonical, symlink-resolved absolute path of the components directory
@@ -1551,7 +1554,7 @@ def compile_source_files(
 
             obj_path = str(Path("$BUILD_DIR") / (prepend_dir or ""))
             src_path_obj = Path(src_path).resolve()
-            build_dir_path = Path(BUILD_DIR).resolve()
+            build_dir_path = Path(active_build_dir).resolve()
             try:
                 rel = src_path_obj.relative_to(components_dir_path)
                 obj_path = str(Path(obj_path) / str(rel))
