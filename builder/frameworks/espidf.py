@@ -1463,6 +1463,13 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
 
 def _ensure_generated_sources(config, project_src_dir, build_dir):
     """Run ninja to build any generated source files that don't exist yet."""
+    generated_sources = [
+        s for s in config.get("sources", [])
+        if s.get("isGenerated") and not s["path"].endswith(".rule")
+    ]
+    if not generated_sources:
+        return
+
     ninja_buildfile = str(Path(build_dir) / "build.ninja")
     if not os.path.isfile(ninja_buildfile):
         return
@@ -1484,12 +1491,8 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
                         ninja_custom_targets.add(out)
 
     generated_targets = []
-    for source in config.get("sources", []):
-        if not source.get("isGenerated"):
-            continue
+    for source in generated_sources:
         src_path = source["path"]
-        if src_path.endswith(".rule"):
-            continue
         if not os.path.isabs(src_path):
             abs_path = str(Path(project_src_dir) / src_path)
         else:
