@@ -1490,17 +1490,16 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
             abs_path = str(Path(project_src_dir) / src_path)
         else:
             abs_path = src_path
-        if not os.path.isfile(abs_path):
-            # Ninja targets are relative to build_dir, not project_src_dir
-            try:
-                ninja_target = str(
-                    Path(abs_path).resolve().relative_to(Path(build_dir).resolve())
-                )
-            except ValueError:
-                continue
-            if ninja_target not in ninja_custom_targets:
-                continue
-            generated_targets.append((ninja_target, src_path))
+        # Ninja targets are relative to build_dir, not project_src_dir
+        try:
+            ninja_target = str(
+                Path(abs_path).resolve().relative_to(Path(build_dir).resolve())
+            )
+        except ValueError:
+            continue
+        if ninja_target not in ninja_custom_targets:
+            continue
+        generated_targets.append((ninja_target, src_path))
 
     if not generated_targets:
         return
