@@ -1514,7 +1514,7 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
     ninja_exe = os.path.join(NINJA_DIR, "ninja")
     all_targets = [t for t, _ in generated_targets]
     result = exec_command(
-        [ninja_exe, "-C", build_dir, *all_targets],
+        [ninja_exe, "-C", build_dir, "-k", "0", *all_targets],
         env=idf_env,
     )
     if result["returncode"] != 0:
