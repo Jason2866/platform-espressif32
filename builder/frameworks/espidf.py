@@ -1480,8 +1480,10 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
         for line in fp:
             if "CUSTOM_COMMAND" in line and line.startswith("build "):
                 # Extract the output target(s) before the colon
-                outputs = line.split(":")[0].replace("build ", "").strip()
-                for out in outputs.split(" "):
+                outputs = re.split(
+                    r":\s+CUSTOM_COMMAND\b", line, maxsplit=1
+                )[0].replace("build ", "").strip()
+                for out in outputs.split():
                     out = fs.to_unix_path(
                         out.strip()
                         .replace("${cmake_ninja_workdir}", "")
