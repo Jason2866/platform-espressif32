@@ -1475,7 +1475,11 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
                 # Extract the output target(s) before the colon
                 outputs = line.split(":")[0].replace("build ", "").strip()
                 for out in outputs.split(" "):
-                    out = out.strip().replace("${cmake_ninja_workdir}", "")
+                    out = fs.to_unix_path(
+                        out.strip()
+                        .replace("${cmake_ninja_workdir}", "")
+                        .replace("$:", ":")
+                    ).lstrip("./")
                     if out:
                         ninja_custom_targets.add(out)
 
@@ -1492,7 +1496,9 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
             abs_path = src_path
         # Ninja targets are relative to build_dir, not project_src_dir
         try:
-            ninja_target = Path(abs_path).resolve().relative_to(Path(build_dir).resolve()).as_posix()
+            ninja_target = fs.to_unix_path(
+                str(Path(abs_path).resolve().relative_to(Path(build_dir).resolve()))
+            ).lstrip("./")
         except ValueError:
             continue
         if ninja_target not in ninja_custom_targets:
@@ -1508,7 +1514,7 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
     ninja_exe = os.path.join(NINJA_DIR, "ninja")
     all_targets = [t for t, _ in generated_targets]
     result = exec_command(
-        [ninja_exe, "-C", build_dir] + all_targets,
+        [ninja_exe, "-C", build_dir, *all_targets],
         env=idf_env,
     )
     if result["returncode"] != 0:
@@ -2142,8 +2148,6 @@ def install_python_deps():
         return
 
     deps = {
-        # https://github.com/platformio/platformio-core/issues/4614
-        "urllib3": "<2",
         # https://github.com/platformio/platform-espressif32/issues/635
         "cryptography": "~=44.0.0",
         "pyparsing": ">=3.1.0,<4",
