@@ -1461,8 +1461,24 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
     return build_envs
 
 
-def _ensure_generated_sources(config, project_src_dir):
+def _ensure_generated_sources(config, project_src_dir, build_dir):
     """Run ninja to build any generated source files that don't exist yet."""
+    ninja_buildfile = str(Path(build_dir) / "build.ninja")
+    if not os.path.isfile(ninja_buildfile):
+        return
+
+    # Read ninja build file once to find which generated targets have CUSTOM_COMMANDs
+    ninja_custom_targets = set()
+    with open(ninja_buildfile, encoding="utf8") as fp:
+        for line in fp:
+            if "CUSTOM_COMMAND" in line and line.startswith("build "):
+                # Extract the output target(s) before the colon
+                outputs = line.split(":")[0].replace("build ", "").strip()
+                for out in outputs.split(" "):
+                    out = out.strip().replace("${cmake_ninja_workdir}", "")
+                    if out:
+                        ninja_custom_targets.add(out)
+
     generated_targets = []
     for source in config.get("sources", []):
         if not source.get("isGenerated"):
@@ -1475,13 +1491,15 @@ def _ensure_generated_sources(config, project_src_dir):
         else:
             abs_path = src_path
         if not os.path.isfile(abs_path):
-            # Ninja targets are relative to BUILD_DIR, not PROJECT_DIR
+            # Ninja targets are relative to build_dir, not project_src_dir
             try:
                 ninja_target = str(
-                    Path(abs_path).resolve().relative_to(Path(BUILD_DIR).resolve())
+                    Path(abs_path).resolve().relative_to(Path(build_dir).resolve())
                 )
             except ValueError:
-                ninja_target = src_path
+                continue
+            if ninja_target not in ninja_custom_targets:
+                continue
             generated_targets.append((ninja_target, src_path))
 
     if not generated_targets:
@@ -1494,12 +1512,12 @@ def _ensure_generated_sources(config, project_src_dir):
     for ninja_target, src_path in generated_targets:
         print("Generating source: %s" % src_path)
         result = exec_command(
-            [ninja_exe, "-C", BUILD_DIR, ninja_target],
+            [ninja_exe, "-C", build_dir, ninja_target],
             env=idf_env,
         )
         if result["returncode"] != 0:
             sys.stderr.write(
-                "Error: Failed to generate source file '%s'\n" % target
+                "Error: Failed to generate source file '%s'\n" % src_path
             )
             if result.get("err"):
                 sys.stderr.write(result["err"] + "\n")
@@ -1509,7 +1527,7 @@ def _ensure_generated_sources(config, project_src_dir):
 def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
-    _ensure_generated_sources(config, project_src_dir)
+    _ensure_generated_sources(config, project_src_dir, BUILD_DIR)
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
     # Canonical, symlink-resolved absolute path of the components directory
