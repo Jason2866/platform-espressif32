@@ -1492,9 +1492,7 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
             abs_path = src_path
         # Ninja targets are relative to build_dir, not project_src_dir
         try:
-            ninja_target = str(
-                Path(abs_path).resolve().relative_to(Path(build_dir).resolve())
-            )
+            ninja_target = Path(abs_path).resolve().relative_to(Path(build_dir).resolve()).as_posix()
         except ValueError:
             continue
         if ninja_target not in ninja_custom_targets:
@@ -1516,10 +1514,9 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
     if result["returncode"] != 0:
         # Non-fatal: some targets (ULP, cert bundles) are built by other
         # mechanisms later. SCons will error if a source is truly missing.
-        if int(ARGUMENTS.get("PIOVERBOSE", 0)):
-            print("Warning: ninja could not generate some sources")
-            if result.get("err"):
-                print(result["err"])
+        print("Warning: ninja could not generate some sources")
+        if result.get("err"):
+            print(result["err"])
 
 
 def compile_source_files(
