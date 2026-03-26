@@ -1461,9 +1461,55 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
     return build_envs
 
 
+def _ensure_generated_sources(config, project_src_dir):
+    """Run ninja to build any generated source files that don't exist yet."""
+    generated_targets = []
+    for source in config.get("sources", []):
+        if not source.get("isGenerated"):
+            continue
+        src_path = source["path"]
+        if src_path.endswith(".rule"):
+            continue
+        if not os.path.isabs(src_path):
+            abs_path = str(Path(project_src_dir) / src_path)
+        else:
+            abs_path = src_path
+        if not os.path.isfile(abs_path):
+            # Ninja targets are relative to BUILD_DIR, not PROJECT_DIR
+            try:
+                ninja_target = str(
+                    Path(abs_path).resolve().relative_to(Path(BUILD_DIR).resolve())
+                )
+            except ValueError:
+                ninja_target = src_path
+            generated_targets.append((ninja_target, src_path))
+
+    if not generated_targets:
+        return
+
+    idf_env = os.environ.copy()
+    populate_idf_env_vars(idf_env)
+    NINJA_DIR = platform.get_package_dir("tool-ninja")
+    ninja_exe = os.path.join(NINJA_DIR, "ninja")
+    for ninja_target, src_path in generated_targets:
+        print("Generating source: %s" % src_path)
+        result = exec_command(
+            [ninja_exe, "-C", BUILD_DIR, ninja_target],
+            env=idf_env,
+        )
+        if result["returncode"] != 0:
+            sys.stderr.write(
+                "Error: Failed to generate source file '%s'\n" % target
+            )
+            if result.get("err"):
+                sys.stderr.write(result["err"] + "\n")
+            env.Exit(1)
+
+
 def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
+    _ensure_generated_sources(config, project_src_dir)
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
     # Canonical, symlink-resolved absolute path of the components directory
@@ -1483,19 +1529,25 @@ def compile_source_files(
 
             obj_path = str(Path("$BUILD_DIR") / (prepend_dir or ""))
             src_path_obj = Path(src_path).resolve()
+            build_dir_path = Path(BUILD_DIR).resolve()
             try:
                 rel = src_path_obj.relative_to(components_dir_path)
                 obj_path = str(Path(obj_path) / str(rel))
             except ValueError:
-                # Preserve project substructure when possible
+                # Generated sources in the build directory
                 try:
-                    rel_prj = src_path_obj.relative_to(Path(project_src_dir).resolve())
-                    obj_path = str(Path(obj_path) / str(rel_prj))
+                    rel_build = src_path_obj.relative_to(build_dir_path)
+                    obj_path = str(Path(obj_path) / str(rel_build))
                 except ValueError:
-                    if not os.path.isabs(source["path"]):
-                        obj_path = str(Path(obj_path) / source["path"])
-                    else:
-                        obj_path = str(Path(obj_path) / os.path.basename(src_path))
+                    # Preserve project substructure when possible
+                    try:
+                        rel_prj = src_path_obj.relative_to(Path(project_src_dir).resolve())
+                        obj_path = str(Path(obj_path) / str(rel_prj))
+                    except ValueError:
+                        if not os.path.isabs(source["path"]):
+                            obj_path = str(Path(obj_path) / source["path"])
+                        else:
+                            obj_path = str(Path(obj_path) / os.path.basename(src_path))
 
             preserve_source_file_extension = board.get(
                 "build.esp-idf.preserve_source_file_extension", "yes"
