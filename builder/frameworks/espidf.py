@@ -1508,19 +1508,18 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
     populate_idf_env_vars(idf_env)
     NINJA_DIR = platform.get_package_dir("tool-ninja")
     ninja_exe = os.path.join(NINJA_DIR, "ninja")
-    for ninja_target, src_path in generated_targets:
-        print("Generating source: %s" % src_path)
-        result = exec_command(
-            [ninja_exe, "-C", build_dir, ninja_target],
-            env=idf_env,
-        )
-        if result["returncode"] != 0:
-            sys.stderr.write(
-                "Error: Failed to generate source file '%s'\n" % src_path
-            )
+    all_targets = [t for t, _ in generated_targets]
+    result = exec_command(
+        [ninja_exe, "-C", build_dir] + all_targets,
+        env=idf_env,
+    )
+    if result["returncode"] != 0:
+        # Non-fatal: some targets (ULP, cert bundles) are built by other
+        # mechanisms later. SCons will error if a source is truly missing.
+        if int(ARGUMENTS.get("PIOVERBOSE", 0)):
+            print("Warning: ninja could not generate some sources")
             if result.get("err"):
-                sys.stderr.write(result["err"] + "\n")
-            env.Exit(1)
+                print(result["err"])
 
 
 def compile_source_files(
