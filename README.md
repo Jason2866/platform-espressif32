@@ -12,7 +12,7 @@ Espressif Systems is a privately held, fabless semiconductor company renowned fo
 1. [Install PlatformIO](http://platformio.org)
 2. Create PlatformIO project and configure a platform option in [platformio.ini](http://docs.platformio.org/page/projectconf.html) file:
 
-### Arduino 3.3.7+ and IDF 5.5.3+ (build from development sources)
+### Arduino 3.3.7+ and IDF 5.5.4+ (build from development sources)
 Support for the ESP32/ESP32solo1, ESP32S2, ESP32S3, ESP32C2, ESP32C3, ESP32C5, ESP32C6, ESP32C61, ESP32-H2 and ESP32-P4
 
 ```                  
