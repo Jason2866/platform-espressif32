@@ -24,7 +24,6 @@ import copy
 import importlib.util
 import json
 import os
-import platform as sys_platform
 import re
 import requests
 import shutil
@@ -1461,9 +1460,82 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
     return build_envs
 
 
+def _ensure_generated_sources(config, project_src_dir, build_dir):
+    """Run ninja to build any generated source files that don't exist yet."""
+    generated_sources = [
+        s for s in config.get("sources", [])
+        if s.get("isGenerated") and not s["path"].endswith(".rule")
+    ]
+    if not generated_sources:
+        return
+
+    ninja_buildfile = str(Path(build_dir) / "build.ninja")
+    if not os.path.isfile(ninja_buildfile):
+        return
+
+    # Read ninja build file once to find which generated targets have CUSTOM_COMMANDs
+    ninja_custom_targets = set()
+    with open(ninja_buildfile, encoding="utf8") as fp:
+        for line in fp:
+            if "CUSTOM_COMMAND" in line and line.startswith("build "):
+                # Extract the output target(s) before the colon
+                outputs = re.split(
+                    r":\s+CUSTOM_COMMAND\b", line, maxsplit=1
+                )[0].replace("build ", "").strip()
+                for out in outputs.split():
+                    out = fs.to_unix_path(
+                        out.strip()
+                        .replace("${cmake_ninja_workdir}", "")
+                        .replace("$:", ":")
+                    ).lstrip("./")
+                    if out:
+                        ninja_custom_targets.add(out)
+
+    generated_targets = []
+    for source in generated_sources:
+        src_path = source["path"]
+        if not os.path.isabs(src_path):
+            abs_path = str(Path(project_src_dir) / src_path)
+        else:
+            abs_path = src_path
+        # Ninja targets are relative to build_dir, not project_src_dir
+        try:
+            ninja_target = fs.to_unix_path(
+                str(Path(abs_path).resolve().relative_to(Path(build_dir).resolve()))
+            ).lstrip("./")
+        except ValueError:
+            continue
+        if ninja_target not in ninja_custom_targets:
+            continue
+        generated_targets.append((ninja_target, src_path))
+
+    if not generated_targets:
+        return
+
+    idf_env = os.environ.copy()
+    populate_idf_env_vars(idf_env)
+    NINJA_DIR = platform.get_package_dir("tool-ninja")
+    ninja_exe = os.path.join(NINJA_DIR, "ninja")
+    all_targets = [t for t, _ in generated_targets]
+    result = exec_command(
+        [ninja_exe, "-C", build_dir, "-k", "0", *all_targets],
+        env=idf_env,
+    )
+    if result["returncode"] != 0:
+        # Non-fatal: some targets (ULP, cert bundles) are built by other
+        # mechanisms later. SCons will error if a source is truly missing.
+        # print("Warning: ninja could not generate some sources")
+        if result.get("err"):
+            print(result["err"])
+
+
 def compile_source_files(
     config, default_env, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
+    active_build_dir = (
+        str(Path(BUILD_DIR) / prepend_dir) if prepend_dir else BUILD_DIR
+    )
+    _ensure_generated_sources(config, project_src_dir, active_build_dir)
     build_envs = prepare_build_envs(config, default_env, debug_allowed)
     objects = []
     # Canonical, symlink-resolved absolute path of the components directory
@@ -1483,19 +1555,25 @@ def compile_source_files(
 
             obj_path = str(Path("$BUILD_DIR") / (prepend_dir or ""))
             src_path_obj = Path(src_path).resolve()
+            build_dir_path = Path(active_build_dir).resolve()
             try:
                 rel = src_path_obj.relative_to(components_dir_path)
                 obj_path = str(Path(obj_path) / str(rel))
             except ValueError:
-                # Preserve project substructure when possible
+                # Generated sources in the build directory
                 try:
-                    rel_prj = src_path_obj.relative_to(Path(project_src_dir).resolve())
-                    obj_path = str(Path(obj_path) / str(rel_prj))
+                    rel_build = src_path_obj.relative_to(build_dir_path)
+                    obj_path = str(Path(obj_path) / str(rel_build))
                 except ValueError:
-                    if not os.path.isabs(source["path"]):
-                        obj_path = str(Path(obj_path) / source["path"])
-                    else:
-                        obj_path = str(Path(obj_path) / os.path.basename(src_path))
+                    # Preserve project substructure when possible
+                    try:
+                        rel_prj = src_path_obj.relative_to(Path(project_src_dir).resolve())
+                        obj_path = str(Path(obj_path) / str(rel_prj))
+                    except ValueError:
+                        if not os.path.isabs(source["path"]):
+                            obj_path = str(Path(obj_path) / source["path"])
+                        else:
+                            obj_path = str(Path(obj_path) / os.path.basename(src_path))
 
             preserve_source_file_extension = board.get(
                 "build.esp-idf.preserve_source_file_extension", "yes"
@@ -2080,12 +2158,9 @@ def install_python_deps():
         # https://github.com/platformio/platform-espressif32/issues/635
         "cryptography": "~=44.0.0",
         "pyparsing": ">=3.1.0,<4",
-        "idf-component-manager": "~=2.4",
+        "idf-component-manager": "~=2.4.8",
         "esp-idf-kconfig": "~=2.5.0"
     }
-
-    if sys_platform.system() == "Darwin" and "arm" in sys_platform.machine().lower():
-        deps["chardet"] = ">=3.0.2,<4"
 
     python_exe_path = get_python_exe()
     installed_packages = _get_installed_uv_packages(python_exe_path)
