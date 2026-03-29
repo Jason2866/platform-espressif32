@@ -1557,6 +1557,8 @@ def _ensure_generated_sources(config, project_src_dir, build_dir):
             abs_path = str(Path(project_src_dir) / src_path)
         else:
             abs_path = src_path
+        if os.path.exists(abs_path):
+            continue
         # Ninja targets are relative to build_dir, not project_src_dir
         try:
             ninja_target = fs.to_unix_path(
