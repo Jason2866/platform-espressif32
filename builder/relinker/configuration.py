@@ -41,6 +41,8 @@ class sdkconfig_c:
                     continue
                 if i[0] == '!':
                     i = i[1:]
+                    if not i:  # Malformed negation token (bare '!')
+                        return False
                     if i in self.config:
                         return False
                 else:
@@ -52,6 +54,8 @@ class sdkconfig_c:
                 return True  # Empty option is considered valid
             if i[0] == '!':
                 i = i[1:]
+                if not i:  # Malformed negation token (bare '!')
+                    return False
                 if i in self.config:
                     return False
             else:
@@ -237,13 +241,26 @@ def main():
         type=str)
 
     argparser.add_argument(
+        '--objdump',
+        help='GCC objdump command',
+        default='riscv32-esp-elf-objdump',
+        type=str)
+
+    argparser.add_argument(
         '--missing_function_info',
         help='Print missing function info instead of raising an error',
         action='store_true')
 
     args = argparser.parse_args()
 
-    libraries = generator(args.library, args.object, args.function, args.sdkconfig, args.missing_function_info)
+    libraries = generator(
+        args.library,
+        args.object,
+        args.function,
+        args.sdkconfig,
+        args.missing_function_info,
+        objdump=args.objdump,
+    )
     # libraries.dump()
 
 if __name__ == '__main__':
