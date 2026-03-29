@@ -1376,11 +1376,57 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / linker_script_name),
         )
 
-    return env.Command(
+    ld_script = env.Command(
         str(Path("$BUILD_DIR") / "sections.ld"),
         initial_ld_script,
         env.VerboseAction(cmd, "Generating project linker script $TARGET"),
     )
+
+    # Relinker post-processing: move selected functions from IRAM to Flash
+    relinker_function = config.get("env:" + env["PIOENV"], "custom_relinker_function", "")
+    if relinker_function:
+        relinker_library = config.get("env:" + env["PIOENV"], "custom_relinker_library", "")
+        relinker_object = config.get("env:" + env["PIOENV"], "custom_relinker_object", "")
+        if relinker_library and relinker_object:
+            _relinker_dir = str(Path(platform.get_dir()) / "builder" / "relinker")
+            _relinker_script = str(Path(_relinker_dir) / "relinker.py")
+            _relinker_objdump = args["objdump"]
+            _relinker_cmd = (
+                '"$ESPIDF_PYTHONEXE" "{script}" '
+                '--input "$BUILD_DIR/sections.ld" '
+                '--output "$BUILD_DIR/sections.ld" '
+                '--library "{library}" '
+                '--object "{object}" '
+                '--function "{function}" '
+                '--sdkconfig "{sdkconfig}" '
+                '--objdump "{objdump}" '
+                '--idf-path "{idf_path}" '
+                '--missing_function_info'
+            ).format(
+                script=_relinker_script,
+                library=relinker_library,
+                object=relinker_object,
+                function=relinker_function,
+                sdkconfig=SDKCONFIG_PATH,
+                objdump=_relinker_objdump,
+                idf_path=FRAMEWORK_DIR,
+            )
+            def write_relinker_stamp(target, source, env):
+                with open(str(target[0]), 'w') as f:
+                    f.write('done')
+
+            relinker_step = env.Command(
+                str(Path("$BUILD_DIR") / "sections.ld.relinked"),
+                str(Path("$BUILD_DIR") / "sections.ld"),
+                [
+                    env.VerboseAction(_relinker_cmd, "Running relinker to optimize IRAM usage"),
+                    # Touch a stamp file so SCons tracks the dependency
+                    env.VerboseAction(write_relinker_stamp, ""),
+                ],
+            )
+            env.Depends(relinker_step, ld_script)
+
+    return ld_script
 
 
 # A temporary workaround to avoid modifying CMake mainly for the "heap" library.
@@ -2437,6 +2483,13 @@ project_ld_script = generate_project_ld_script(
     sdk_config, [project_target_name, "__pio_env"]
 )
 env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", project_ld_script)
+
+# If relinker is configured, ensure the ELF depends on the relinked stamp
+_relinker_stamp = str(Path(BUILD_DIR) / "sections.ld.relinked")
+if os.path.exists(_relinker_stamp) or config.get(
+    "env:" + env["PIOENV"], "custom_relinker_function", ""
+):
+    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", _relinker_stamp)
 
 elf_config = get_project_elf(target_configs)
 default_config_name = find_default_component(target_configs)
