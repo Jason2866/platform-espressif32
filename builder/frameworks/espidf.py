@@ -1433,9 +1433,9 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
             '--idf-path "{idf_path}"'
         ).format(
             script=_relinker_script,
-            library=relinker_library,
-            object=relinker_object,
-            function=relinker_function,
+            library=_relinker_library,
+            object=_relinker_object,
+            function=_relinker_function,
             sdkconfig=SDKCONFIG_PATH,
             objdump=_relinker_objdump,
             idf_path=FRAMEWORK_DIR,
@@ -1451,9 +1451,9 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
             str(Path("$BUILD_DIR") / "sections.ld"),
             _relinker_script,
             _relinker_config_module,
-            relinker_library,
-            relinker_object,
-            relinker_function,
+            _relinker_library,
+            _relinker_object,
+            _relinker_function,
             SDKCONFIG_PATH,
         ]
         relinker_step = env.Command(
