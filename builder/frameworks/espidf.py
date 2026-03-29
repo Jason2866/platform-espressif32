@@ -1410,6 +1410,11 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
     
     if relinker_function and relinker_library and relinker_object:
         # All three settings are provided - proceed with relinker
+        # Normalize relinker CSV paths to absolute paths relative to PROJECT_DIR
+        _relinker_library = relinker_library if os.path.isabs(relinker_library) else str(Path(PROJECT_DIR) / relinker_library)
+        _relinker_object = relinker_object if os.path.isabs(relinker_object) else str(Path(PROJECT_DIR) / relinker_object)
+        _relinker_function = relinker_function if os.path.isabs(relinker_function) else str(Path(PROJECT_DIR) / relinker_function)
+
         _relinker_dir = str(Path(platform.get_dir()) / "builder" / "relinker")
         _relinker_script = str(Path(_relinker_dir) / "relinker.py")
         _relinker_objdump = args["objdump"]
