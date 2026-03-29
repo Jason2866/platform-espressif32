@@ -36,6 +36,9 @@ class sdkconfig_c:
         options = options.replace(' ', '')
         if '&&' in options:
             for i in options.split('&&'):
+                i = i.strip()  # Remove any whitespace
+                if not i:  # Skip empty tokens
+                    continue
                 if i[0] == '!':
                     i = i[1:]
                     if i in self.config:
@@ -44,7 +47,9 @@ class sdkconfig_c:
                     if i not in self.config:
                         return False
         else:
-            i = options
+            i = options.strip()  # Remove any whitespace
+            if not i:  # Handle empty string
+                return True  # Empty option is considered valid
             if i[0] == '!':
                 i = i[1:]
                 if i in self.config:
@@ -153,11 +158,11 @@ class paths_c:
     def index(self, lib, obj):
         if lib not in self.paths:
             return None
+        if obj in self.paths[lib]:
+            return self.paths[lib][obj]
         if '*' in self.paths[lib]:
-            obj = '*'
-        if obj not in self.paths[lib]:
-            return None
-        return self.paths[lib][obj]
+            return self.paths[lib]['*']
+        return None
 
 def generator(library_file, object_file, function_file, sdkconfig_file, missing_function_info, objdump='riscv32-esp-elf-objdump', build_dir=None):
     global espidf_objdump, espidf_missing_function_info
