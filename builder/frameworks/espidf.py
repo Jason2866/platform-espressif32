@@ -2192,7 +2192,7 @@ def install_python_deps(deps=None):
         # Install windows-curses in the IDF Python environment
         env.Execute(
             env.VerboseAction(
-                f'"{UV_EXE}" pip install --python "{python_exe_path}" windows-curses',
+                f'"{UV_EXE}" pip install --python "{python_exe_path}" windows-curses>=2.4.2a2',
                 "Installing windows-curses package with uv",
             )
         )
