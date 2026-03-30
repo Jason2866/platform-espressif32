@@ -48,8 +48,8 @@ def _parse_all_obj_sections(objdump_output, obj_basename):
     sections = set()
     current_obj_matches = False
     for line in objdump_output.splitlines():
-        if line.endswith('file format elf32-littleriscv') or line.endswith('file format elf64-littleriscv'):
-            obj_name = line.split(':')[0].strip()
+        if ': ' in line and 'file format ' in line:
+            obj_name = line.split(':', 1)[0].strip()
             base = obj_name[:-2] if obj_name.endswith('.o') else obj_name
             base = base[:-4] if base.endswith('.obj') else base
             current_obj_matches = (base == obj_basename or
@@ -61,6 +61,10 @@ def _parse_all_obj_sections(objdump_output, obj_basename):
                 if sec_name.startswith(('.iram1.', '.text.', '.literal.')):
                     sections.add(sec_name)
     return sorted(sections)
+
+def _object_desc_stem(name):
+    stem = name[:-4] if name.endswith('.obj') else name
+    return stem.rsplit('.', 1)[0]
 
 def lib_secs(lib, file, lib_path):
     _ensure_entity_db()
@@ -124,18 +128,19 @@ class filter_c:
             lines = f.read().splitlines()
         self.libs_desc = ''
         self.entries = set()
-        for l in lines:
-            if ') .iram1 EXCLUDE_FILE(*' in l and ') .iram1.*)' in l:
-                desc = r'\(EXCLUDE_FILE\((.*)\) .iram1 '
-                match = re.search(desc, l)
-                if not match:
-                    continue
-                self.libs_desc = match.group(1)
-                self.entries = {
-                    token.lstrip('*')
-                    for token in self.libs_desc.split()
-                }
-                return
+        for line in lines:
+            match = re.search(
+                r'EXCLUDE_FILE\(([^)]*)\)\s+\.iram1(?:\.\*)?\)',
+                line,
+            )
+            if not match:
+                continue
+            self.libs_desc = match.group(1)
+            self.entries = {
+                token.lstrip('*')
+                for token in self.libs_desc.split()
+            }
+            return
     
     def match(self, desc):
         if desc.lstrip('*') in self.entries:
@@ -153,7 +158,7 @@ class target_c:
 
         self.lib_path  = lib_path
         self.fsecs = func2sect(fsecs)
-        self.desc  = '*%s:%s.*'%(lib, file.split('.')[0])
+        self.desc  = '*%s:%s.*' % (lib, _object_desc_stem(file))
 
         secs = lib_secs(lib, file, lib_path)
         if '.iram1.' in self.fsecs[0]:
@@ -167,6 +172,59 @@ class target_c:
             self.lib, self.file, self.lib_path, self.desc, self.secs, self.fsecs,\
             self.isecs)
         return s
+
+def _is_iram_desc(l):
+    """Check if a line contains an IRAM descriptor pattern.
+    
+    Recognizes both original ldgen patterns and relinker-generated patterns.
+    """
+    # Original ldgen pattern
+    if '*(.iram1 .iram1.*)' in l:
+        return True
+    # Old relinker pattern (single line with both patterns)
+    if ') .iram1 EXCLUDE_FILE(*' in l and ') .iram1.*)' in l:
+        return True
+    # Relinker-generated IRAM exclude patterns (single line - old format)
+    if '*(EXCLUDE_FILE(' in l and ') .iram1.*)' in l and ') .iram1)' in l:
+        return True
+    # Relinker-generated IRAM exclude patterns (multi-line - new format)
+    # First line: *(EXCLUDE_FILE(...) .iram1.*)
+    if '*(EXCLUDE_FILE(' in l and ') .iram1.*)' in l:
+        return True
+    # Second line: *(EXCLUDE_FILE(...) .iram1)
+    if '*(EXCLUDE_FILE(' in l and ') .iram1)' in l and '.iram1.*)' not in l:
+        return True
+    return False
+
+
+def _is_relinker_iram_include(l):
+    """Detect relinker-generated IRAM include lines (object-specific sections).
+    
+    These typically look like: *libname:objname.*(.iram1.xxx)
+    """
+    if not l.strip():
+        return False
+    stripped = l.strip()
+    # Check for pattern like: *libname:objname.*(.iram1.xxx)
+    if stripped.startswith('*') and ':' in stripped and '.*(' in stripped and '.iram1.' in stripped:
+        return True
+    return False
+
+
+def _is_relinker_flash_include(l):
+    """Detect relinker-generated flash include lines.
+    
+    These typically look like: *libname:objname.*(.literal.xxx .text.xxx)
+    """
+    if not l.strip():
+        return False
+    stripped = l.strip()
+    # Check for pattern like: *libname:objname.*(.literal.xxx .text.xxx)
+    if stripped.startswith('*') and ':' in stripped and '.*(' in stripped:
+        if '.literal.' in stripped or '.text.' in stripped:
+            return True
+    return False
+
 
 class relink_c:
     def __init__(self, input, library_file, object_file, function_file, sdkconfig_file, missing_function_info):
@@ -190,7 +248,7 @@ class relink_c:
 
             for j in lib.objs:
                 obj = lib.objs[j]
-                desc = '*%s:%s.*' % (lib.name, obj.name.split('.')[0])
+                desc = '*%s:%s.*' % (lib.name, _object_desc_stem(obj.name))
                 if self.filter.match(desc):
                     continue
                 self.targets.append(target_c(lib.name, lib.path, obj.name,
@@ -212,6 +270,8 @@ class relink_c:
         # Merge iram1 isecs for targets sharing the same desc to avoid orphans
         # when multiple object files in a library share the same base name
         desc_iram1_isecs = dict()
+        desc_flash_fsecs = dict()
+        desc_isecs = dict()
 
         for t in self.targets:
             secs = filter_secs(t.fsecs, ('.iram1.', ))
@@ -225,23 +285,51 @@ class relink_c:
                     desc_iram1_isecs[t.desc] = set()
                 desc_iram1_isecs[t.desc].update(isecs)
 
-            secs = t.fsecs
-            if len(secs) > 0:
-                flash_include.append('    %s(%s)'%(t.desc, ' '.join(secs)))
+            # Merge flash fsecs per descriptor to avoid duplicates
+            if len(t.fsecs) > 0:
+                if t.desc not in desc_flash_fsecs:
+                    desc_flash_fsecs[t.desc] = set()
+                desc_flash_fsecs[t.desc].update(t.fsecs)
+
+            # Merge all isecs per descriptor for replacement logic
+            if len(t.isecs) > 0:
+                if t.desc not in desc_isecs:
+                    desc_isecs[t.desc] = set()
+                desc_isecs[t.desc].update(t.isecs)
 
         for desc, isecs in desc_iram1_isecs.items():
             sorted_isecs = sorted(isecs)
             iram1_include.append('    %s(%s)'%(desc, ' '.join(sorted_isecs)))
+
+        for desc, fsecs in desc_flash_fsecs.items():
+            sorted_fsecs = sorted(fsecs)
+            flash_include.append('    %s(%s)'%(desc, ' '.join(sorted_fsecs)))
 
         # Check if filtering left no surviving targets
         if not iram1_exclude and not iram1_include and not flash_include:
             self._no_relink = True
             return
 
-        self.iram1_exclude = '    *(EXCLUDE_FILE(%s %s) .iram1.*) *(EXCLUDE_FILE(%s %s) .iram1)' % \
+        # Store merged per-descriptor maps as instance variables for _replace_func
+        self.desc_iram1_isecs = desc_iram1_isecs
+        self.desc_flash_fsecs = desc_flash_fsecs
+        self.desc_isecs = desc_isecs
+        
+        # Build descriptor-to-library mapping for EXCLUDE_FILE logic
+        self.desc_to_lib = {}
+        for t in self.targets:
+            if t.desc not in self.desc_to_lib:
+                self.desc_to_lib[t.desc] = t.lib
+
+        self.iram1_exclude = '    *(EXCLUDE_FILE(%s %s) .iram1.*)\n    *(EXCLUDE_FILE(%s %s) .iram1)' % \
                              (self.filter.add(), ' '.join(iram1_exclude), \
                               self.filter.add(), ' '.join(iram1_exclude))
         self.iram1_include = '\n'.join(iram1_include)
+        # Add catch-all patterns after specific includes to prevent orphan sections
+        if self.iram1_include:
+            self.iram1_include += '\n    *(.iram1.*)\n    *(.iram1)'
+        else:
+            self.iram1_include = '    *(.iram1.*)\n    *(.iram1)'
         self.flash_include = '\n'.join(flash_include)
         self._no_relink = False
 
@@ -253,39 +341,6 @@ class relink_c:
         # Skip rewriting if there are no targets
         if getattr(self, '_no_relink', False):
             return lines
-        
-        def is_iram_desc(l):
-            # Recognize both original ldgen patterns and relinker-generated patterns
-            if '*(.iram1 .iram1.*)' in l:
-                return True
-            if ') .iram1 EXCLUDE_FILE(*' in l and ') .iram1.*)' in l:
-                return True
-            # Recognize relinker-generated IRAM exclude patterns
-            if '*(EXCLUDE_FILE(' in l and ') .iram1.*)' in l and ') .iram1)' in l:
-                return True
-            return False
-        
-        def is_relinker_iram_include(l):
-            # Detect relinker-generated IRAM include lines (object-specific sections)
-            # These typically look like: *libname:objname.*(section names)
-            if not l.strip():
-                return False
-            stripped = l.strip()
-            # Check for pattern like: *libname:objname.*(.iram1.xxx)
-            if stripped.startswith('*') and ':' in stripped and '.*(' in stripped and '.iram1.' in stripped:
-                return True
-            return False
-        
-        def is_relinker_flash_include(l):
-            # Detect relinker-generated flash include lines
-            if not l.strip():
-                return False
-            stripped = l.strip()
-            # Check for pattern like: *libname:objname.*(.literal.xxx .text.xxx)
-            if stripped.startswith('*') and ':' in stripped and '.*(' in stripped:
-                if '.literal.' in stripped or '.text.' in stripped:
-                    return True
-            return False
 
         iram_start = False
         flash_done = False
@@ -304,28 +359,32 @@ class relink_c:
                 logging.debug('end to process .iram0.text')
                 iram_start = False
                 in_relinker_iram_block = False
-            elif is_iram_desc(l):
+            elif _is_iram_desc(l):
                 if iram_start:
                     # Replace the IRAM descriptor and skip any following relinker IRAM includes
                     lines[i] = '%s\n%s\n' % (self.iram1_exclude, self.iram1_include)
                     in_relinker_iram_block = True
                     # Look ahead and remove old relinker IRAM include lines
                     j = i + 1
-                    while j < len(lines) and is_relinker_iram_include(lines[j]):
+                    # Also remove the second line of the EXCLUDE_FILE pattern if it exists
+                    if j < len(lines) and _is_iram_desc(lines[j]):
+                        lines.pop(j)
+                    # Remove relinker IRAM include lines
+                    while j < len(lines) and _is_relinker_iram_include(lines[j]):
                         lines.pop(j)
                     in_relinker_iram_block = False
             elif '(.stub .gnu.warning' in l or l.strip() == '*(.stub)':
                 if not flash_done:
                     # Remove any existing relinker flash block before this line
                     j = i - 1
-                    while j >= 0 and (is_relinker_flash_include(lines[j]) or not lines[j].strip()):
-                        if is_relinker_flash_include(lines[j]):
+                    while j >= 0 and (_is_relinker_flash_include(lines[j]) or not lines[j].strip()):
+                        if _is_relinker_flash_include(lines[j]):
                             lines.pop(j)
                             i -= 1
                             j -= 1
                         elif not lines[j].strip():
                             # Remove empty lines that are part of the relinker block
-                            if j > 0 and is_relinker_flash_include(lines[j - 1]):
+                            if j > 0 and _is_relinker_flash_include(lines[j - 1]):
                                 lines.pop(j)
                                 i -= 1
                             j -= 1
@@ -347,21 +406,24 @@ class relink_c:
         return lines
 
     def _replace_func(self, l):
-        for t in self.targets:
-            if t.desc in l:
+        # Use merged per-descriptor maps instead of iterating targets
+        for desc in self.desc_isecs.keys():
+            if desc in l:
                 S = '.literal .literal.* .text .text.*'
                 if S in l:
-                    if len(t.isecs) > 0:
-                        return l.replace(S, ' '.join(t.isecs))
+                    isecs = self.desc_isecs.get(desc, set())
+                    if len(isecs) > 0:
+                        return l.replace(S, ' '.join(sorted(isecs)))
                     else:
                         return ' '
                 
-                S = '%s(%s)'%(t.desc, ' '.join(t.fsecs))
+                fsecs = self.desc_flash_fsecs.get(desc, set())
+                S = '%s(%s)'%(desc, ' '.join(sorted(fsecs)))
                 if S in l:
                     return ' '
 
                 replaced = False
-                for s in t.fsecs:
+                for s in fsecs:
                     s2 = s + ' '
                     if s2 in l:
                         l = l.replace(s2, '')
@@ -374,16 +436,20 @@ class relink_c:
                     return ' ' 
                 if replaced:
                     return l
-            else:
-                index = '*%s:(EXCLUDE_FILE'%(t.lib)
-                if index in l and t.file.split('.')[0] not in l:
-                    for m in self.targets:
-                        index = '*%s:(EXCLUDE_FILE'%(m.lib)
-                        if index in l and m.file.split('.')[0] not in l:
-                            l = l.replace('EXCLUDE_FILE(', 'EXCLUDE_FILE(%s '%(m.desc))
-                            if len(m.isecs) > 0:
-                                l += '\n    %s(%s)'%(m.desc, ' '.join(m.isecs))
-                    return l
+        
+        # Handle EXCLUDE_FILE logic using desc_to_lib mapping
+        for desc, lib in self.desc_to_lib.items():
+            index = '*%s:(EXCLUDE_FILE'%(lib)
+            if index in l and _object_desc_stem(desc.split(':')[1].rstrip('.*')) not in l:
+                # Collect all descriptors for this library
+                for m_desc, m_lib in self.desc_to_lib.items():
+                    m_index = '*%s:(EXCLUDE_FILE'%(m_lib)
+                    if m_index in l and _object_desc_stem(m_desc.split(':')[1].rstrip('.*')) not in l:
+                        l = l.replace('EXCLUDE_FILE(', 'EXCLUDE_FILE(%s '%(m_desc))
+                        m_isecs = self.desc_isecs.get(m_desc, set())
+                        if len(m_isecs) > 0:
+                            l += '\n    %s(%s)'%(m_desc, ' '.join(sorted(m_isecs)))
+                return l
 
         return None
 

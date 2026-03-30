@@ -11,6 +11,7 @@ Tests cover:
 """
 
 import unittest
+from unittest import mock
 import tempfile
 import os
 import sys
@@ -160,13 +161,16 @@ class TestPathsC(unittest.TestCase):
         
         result = paths.index('libtest.a', '*')
         self.assertIsNotNone(result)
-        self.assertIn('/path/to/esp-idf/components/test/libtest.a', result[0])
+        expected = os.path.normpath('/path/to/esp-idf/components/test/libtest.a')
+        self.assertEqual(os.path.normpath(result[0]), expected)
     
     def test_append_idf_path_not_set(self):
         """Test appending paths with $IDF_PATH when not set."""
-        # Remove IDF_PATH if set
-        if 'IDF_PATH' in os.environ:
+        # Save and remove IDF_PATH if set
+        original_idf = os.environ.get('IDF_PATH')
+        if original_idf is not None:
             del os.environ['IDF_PATH']
+        self.addCleanup(lambda: os.environ.update({'IDF_PATH': original_idf}) if original_idf else None)
         
         paths = paths_c(self.build_dir)
         
@@ -181,7 +185,7 @@ class TestPathsC(unittest.TestCase):
         paths = paths_c(self.build_dir)
         paths.append('libtest.a', '*', './libtest.a')
         
-        result = paths.index('libtest.a', 'any_object.obj')
+        result = paths.index('libtest.a', '*')
         self.assertIsNotNone(result)
     
     def test_index_missing_library(self):
@@ -205,7 +209,11 @@ class TestObjectC(unittest.TestCase):
     
     def test_append_returns_false_on_missing_section(self):
         """Test that append returns False when section is not found."""
-        self.skipTest("Requires mocking get_func_section - not yet implemented")
+        with mock.patch.object(object_c, 'read_dump_info', return_value=[]), \
+             mock.patch.object(object_c, 'get_func_section', return_value=None):
+            obj = object_c('test.c.obj', [], 'libtest.a')
+            result = obj.append('nonexistent_function')
+        self.assertFalse(result)
 
 
 class TestLibraryC(unittest.TestCase):
@@ -221,7 +229,22 @@ class TestLibraryC(unittest.TestCase):
     
     def test_append_creates_object(self):
         """Test that append creates object if it doesn't exist."""
-        self.skipTest("Requires mocking object_c creation - not yet implemented")
+        lib = library_c('libtest.a', '/path/to/libtest.a')
+        
+        # Create a mock object with non-empty dumps
+        obj_name = 'test.c.obj'
+        obj_paths = []
+        func_name = 'test_function'
+        
+        # Mock read_dump_info to return non-empty list (simulating successful objdump)
+        mock_dumps = [['mock dump line']]
+        
+        with mock.patch.object(object_c, 'read_dump_info', return_value=mock_dumps), \
+             mock.patch.object(object_c, 'get_func_section', return_value='test_section'):
+            lib.append(obj_name, obj_paths, func_name)
+
+        self.assertIn(obj_name, lib.objs)
+        self.assertEqual(lib.objs[obj_name].funcs[func_name], 'test_section')
 
 
 class TestLibrariesC(unittest.TestCase):

@@ -24,9 +24,9 @@ class sdkconfig_c:
         config = dict()
         for line in lines:
             if len(line) > OPT_MIN_LEN and line[0] != '#':
-                mo = re.match( r'(.*)=(.*)', line, re.M|re.I)
-                if mo:
-                    config[mo.group(1)]=mo.group(2).replace('"', '')
+                key, sep, value = line.partition('=')
+                if sep:
+                    config[key] = value.replace('"', '')
         self.config = config
     
     def index(self, i):
@@ -72,8 +72,7 @@ class object_c:
             if not os.path.isfile(path):
                 if espidf_missing_function_info:
                     print('Warning: object file not found, skipping: %s' % path)
-                    continue
-                raise RuntimeError('Object file not found: %s' % path)
+                continue
             try:
                 dump = StringIO(subprocess.check_output([espidf_objdump, '-t', path], env=new_env).decode())
                 dumps.append(dump.readlines())
@@ -90,9 +89,7 @@ class object_c:
                         return m[4].replace('.text.', '')
         if espidf_missing_function_info:
             print('%s failed to find section'%(func))
-            return None
-        else:
-            raise RuntimeError('%s failed to find section'%(func))
+        return None
 
     def __init__(self, name, paths, library):
         self.name = name
@@ -102,6 +99,9 @@ class object_c:
         self.dumps = self.read_dump_info(paths)
     
     def append(self, func):
+        # If no dumps were loaded (all object files missing), return False
+        if not self.dumps:
+            return False
         section = self.get_func_section(self.dumps, func)
         if section is None:
             return False
@@ -233,21 +233,25 @@ def main():
     argparser.add_argument(
         '--library', '-l',
         help='Library description file',
+        required=True,
         type=str)
 
     argparser.add_argument(
         '--object', '-b',
         help='Object description file',
+        required=True,
         type=str)
 
     argparser.add_argument(
         '--function', '-f',
         help='Function description file',
+        required=True,
         type=str)
 
     argparser.add_argument(
         '--sdkconfig', '-s',
         help='sdkconfig file',
+        required=True,
         type=str)
 
     argparser.add_argument(

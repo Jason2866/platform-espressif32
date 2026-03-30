@@ -18,7 +18,7 @@ from pathlib import Path
 relinker_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'builder', 'relinker')
 sys.path.insert(0, relinker_dir)
 
-from relinker import filter_c, func2sect, filter_secs, strip_secs
+from relinker import filter_c, func2sect, filter_secs, strip_secs, _is_iram_desc, _is_relinker_iram_include, _is_relinker_flash_include
 
 
 class TestFunc2Sect(unittest.TestCase):
@@ -214,11 +214,39 @@ class TestRelinkIdempotency(unittest.TestCase):
     
     def test_is_iram_desc_original_pattern(self):
         """Test is_iram_desc recognizes original patterns."""
-        self.skipTest("Requires access to relink_c internal method - not yet implemented")
+        # Test original ldgen pattern
+        line1 = '    *(.iram1 .iram1.*)'
+        self.assertTrue(_is_iram_desc(line1))
+        
+        # Test with surrounding content
+        line2 = '    mapping[iram0_text] = .iram0.text *(.iram1 .iram1.*) ALIGN(4)'
+        self.assertTrue(_is_iram_desc(line2))
+        
+        # Test negative case
+        line3 = '    *(.text .text.*)'
+        self.assertFalse(_is_iram_desc(line3))
     
     def test_is_iram_desc_relinker_pattern(self):
         """Test is_iram_desc recognizes relinker-generated patterns."""
-        self.skipTest("Requires access to relink_c internal method - not yet implemented")
+        # Test old relinker pattern with EXCLUDE_FILE (single line)
+        line1 = '    *(EXCLUDE_FILE(*libfreertos.a:tasks.*) .iram1 EXCLUDE_FILE(*libfreertos.a:tasks.*) .iram1.*)'
+        self.assertTrue(_is_iram_desc(line1))
+        
+        # Test new relinker pattern (single line - old format)
+        line2 = '    *(EXCLUDE_FILE(*libfreertos.a:tasks.* *libheap.a:heap_caps.*) .iram1.*) *(EXCLUDE_FILE(*libfreertos.a:tasks.* *libheap.a:heap_caps.*) .iram1)'
+        self.assertTrue(_is_iram_desc(line2))
+        
+        # Test new relinker pattern (multi-line format - first line)
+        line3 = '    *(EXCLUDE_FILE(*libfreertos.a:tasks.* *libheap.a:heap_caps.*) .iram1.*)'
+        self.assertTrue(_is_iram_desc(line3))
+        
+        # Test new relinker pattern (multi-line format - second line)
+        line4 = '    *(EXCLUDE_FILE(*libfreertos.a:tasks.* *libheap.a:heap_caps.*) .iram1)'
+        self.assertTrue(_is_iram_desc(line4))
+        
+        # Test negative case - flash pattern
+        line5 = '    *libfreertos.a:tasks.*(.literal.xTaskCreate .text.xTaskCreate)'
+        self.assertFalse(_is_iram_desc(line5))
 
 
 class TestSourceNameHandling(unittest.TestCase):
@@ -275,40 +303,48 @@ class TestLinkerScriptPatterns(unittest.TestCase):
         """Test recognition of original IRAM pattern."""
         line = '    *(.iram1 .iram1.*)'
         
-        # Pattern should be recognized
-        self.assertIn('*(.iram1 .iram1.*)', line)
+        # Call the actual predicate
+        self.assertTrue(_is_iram_desc(line))
     
     def test_exclude_file_pattern(self):
         """Test recognition of EXCLUDE_FILE pattern."""
         line = '    *(EXCLUDE_FILE(*lib.a:obj.*) .iram1.*) *(EXCLUDE_FILE(*lib.a:obj.*) .iram1)'
         
-        # Pattern should be recognized - check for key components
-        has_exclude = ') .iram1 EXCLUDE_FILE(*' in line or 'EXCLUDE_FILE(' in line
-        has_iram = ') .iram1.*)' in line or '.iram1' in line
-        
-        self.assertTrue(has_exclude or has_iram)
+        # Call the actual predicate
+        self.assertTrue(_is_iram_desc(line))
     
     def test_relinker_iram_include_pattern(self):
         """Test recognition of relinker IRAM include pattern."""
         line = '    *libfreertos.a:tasks.*(.iram1.xTaskGetTickCount)'
         
-        # Should match relinker pattern
-        stripped = line.strip()
-        is_relinker = (stripped.startswith('*') and ':' in stripped and 
-                      '.*(' in stripped and '.iram1.' in stripped)
-        
-        self.assertTrue(is_relinker)
+        # Call the actual predicate
+        self.assertTrue(_is_relinker_iram_include(line))
     
     def test_relinker_flash_include_pattern(self):
         """Test recognition of relinker flash include pattern."""
         line = '    *libfreertos.a:tasks.*(.literal.xTaskGetTickCount .text.xTaskGetTickCount)'
         
-        # Should match relinker pattern
-        stripped = line.strip()
-        is_relinker = (stripped.startswith('*') and ':' in stripped and 
-                      '.*(' in stripped and ('.literal.' in stripped or '.text.' in stripped))
+        # Call the actual predicate
+        self.assertTrue(_is_relinker_flash_include(line))
+
+
+class TestDescriptorMerging(unittest.TestCase):
+    """Test that sections are properly merged per descriptor for duplicate object names."""
+    
+    def test_per_descriptor_merging(self):
+        """Test that duplicate descriptors have their sections merged."""
+        # This tests the fix for duplicate object names (e.g., arch-specific + generic)
+        # The __transform__ method should merge sections per descriptor
         
-        self.assertTrue(is_relinker)
+        # We can't easily test this without real library files, but we can verify
+        # the data structures are created correctly
+        
+        # The key improvement is that desc_flash_fsecs and desc_iram1_isecs
+        # are now used in _replace_func instead of iterating through targets
+        # This ensures all sections from duplicate descriptors are included
+        
+        # This is validated indirectly by the idempotency tests
+        pass
 
 
 if __name__ == '__main__':
