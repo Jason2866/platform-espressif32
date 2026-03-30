@@ -2226,7 +2226,7 @@ def ensure_python_venv_available():
                 venv_data = json.load(fp)
                 if venv_data.get("version", "") != IDF_ENV_VERSION:
                     print(
-                        "IDF virtual environment version changed!"
+                        "Warning! IDF virtual environment version changed!"
                     )
                     return True
                 if (
