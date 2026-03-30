@@ -2189,12 +2189,12 @@ def install_python_deps(deps=None):
         )
 
     if IS_WINDOWS and "windows-curses" not in installed_packages:
-        # Install windows-curses in the IDF Python environment
+        # Install windows-curses in the IDF Python environment (required for ASCII based menuconfig)
         env.Execute(
-            env.VerboseAction(
-                f'"{UV_EXE}" pip install --python "{python_exe_path}" windows-curses>=2.4.2a2',
-                "Installing windows-curses package with uv",
-            )
+                env.VerboseAction(
+                    f'"{UV_EXE}" pip install --python "{python_exe_path}" windows-curses>=2.4.2a2 --prerelease=allow',
+                    "Installing windows-curses package with uv",
+                )
         )
 
 
