@@ -2183,7 +2183,7 @@ def install_python_deps(deps=None):
         # Use uv to install packages in the specific Python environment
         env.Execute(
             env.VerboseAction(
-                f'"{UV_EXE}" pip install --python "{python_exe_path}" {packages_str}',
+                f'"{UV_EXE}" pip install --python "{python_exe_path}" --prerelease=allow {packages_str}',
                 "Installing ESP-IDF's Python dependencies with uv",
             )
         )
