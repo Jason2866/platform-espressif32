@@ -746,11 +746,25 @@ def HandleArduinoIDFsettings(env):
     
     # Convert to list for processing
     idf_config_list = [line for line in idf_config_flags.splitlines() if line.strip()]
-    
+
     # Write final configuration file with checksum
+    # Include the mtime of any referenced file (not just the raw "file://..."
+    # string) so that editing the file changes the hash and triggers recompilation. 
     custom_sdk_config_flags = ""
     if config.has_option("env:" + env["PIOENV"], "custom_sdkconfig"):
-        custom_sdk_config_flags = env.GetProjectOption("custom_sdkconfig").rstrip("\n") + "\n"
+        raw = env.GetProjectOption("custom_sdkconfig")
+        file_mtime = ""
+        for entry in raw.splitlines():
+            entry = entry.strip()
+            if entry.startswith("file://"):
+                file_ref = entry[7:]
+                file_path = file_ref if os.path.isabs(file_ref) else str(Path(PROJECT_DIR) / file_ref)
+                try:
+                    file_mtime = str(os.path.getmtime(file_path))
+                except OSError:
+                    pass
+                break
+        custom_sdk_config_flags = (file_mtime + "\n" if file_mtime else "") + raw.rstrip("\n") + "\n"
     
     write_sdkconfig_file(idf_config_list, custom_sdk_config_flags)
 
@@ -1358,14 +1372,11 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
         '--objdump "{objdump}"'
     ).format(**args)
 
-    # Select appropriate linker script based on chip and revision
-    # ESP32-P4 has different linker scripts for rev < 3 and rev >= 3
+    linker_script_name = "sections.ld.in"
+    # Check for P4 >= rev3
     if idf_variant == "esp32p4" and chip_variant == "esp32p4":
-        # Regular ESP32-P4 (rev >= 3): use sections.rev3.ld.in
+        # ESP32-P4 rev >= 3 has different linker script
         linker_script_name = "sections.rev3.ld.in"
-    else:
-        # ESP32-P4 ES variant (rev < 3) or other chips: use sections.ld.in
-        linker_script_name = "sections.ld.in"
     
     initial_ld_script = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / linker_script_name)
 
@@ -1414,13 +1425,26 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
         _relinker_library = relinker_library if os.path.isabs(relinker_library) else str(Path(PROJECT_DIR) / relinker_library)
         _relinker_object = relinker_object if os.path.isabs(relinker_object) else str(Path(PROJECT_DIR) / relinker_object)
         _relinker_function = relinker_function if os.path.isabs(relinker_function) else str(Path(PROJECT_DIR) / relinker_function)
-
+        
         _relinker_dir = str(Path(platform.get_dir()) / "builder" / "relinker")
         _relinker_script = str(Path(_relinker_dir) / "relinker.py")
         _relinker_objdump = args["objdump"]
-        _relinker_missing = config.get(
+        _relinker_missing_raw = config.get(
             "env:" + env["PIOENV"], "custom_relinker_missing_function_info", "no"
-        ).strip().lower() in ("yes", "true", "1")
+        ).strip().lower()
+        
+        # Validate the value
+        valid_true_values = ("yes", "true", "1")
+        valid_false_values = ("no", "false", "0")
+        if _relinker_missing_raw not in valid_true_values and _relinker_missing_raw not in valid_false_values:
+            sys.stderr.write(
+                f"Warning: Invalid value '{_relinker_missing_raw}' for custom_relinker_missing_function_info. "
+                f"Valid values are: {', '.join(valid_true_values + valid_false_values)}. "
+                f"Defaulting to 'no'.\n"
+            )
+            _relinker_missing_raw = "no"
+        
+        _relinker_missing = _relinker_missing_raw in valid_true_values
         _relinker_cmd = (
             '"$ESPIDF_PYTHONEXE" "{script}" '
             '--input "$BUILD_DIR/sections.ld" '
@@ -1505,7 +1529,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
         build_env.SetOption("implicit_cache", 1)
         for cc in compile_commands:
             raw_fragment = cc.get("fragment", "")
-            # Handle GCC response files (@file) introduced in IDF 6.0
+            # Handle GCC response files (@file) introduced in IDF 5.5.3+
             # Read the file contents and add flags individually instead of
             # passing @file to GCC, which avoids shlex parsing issues
             if raw_fragment.strip().startswith("@"):
@@ -2385,13 +2409,19 @@ def ensure_python_venv_available():
 
     venv_dir = get_idf_venv_dir()
     venv_data_file = str(Path(venv_dir) / "pio-idf-venv.json")
+    recreate = False
     if not os.path.isfile(venv_data_file):
-        _recreate_and_save(venv_dir, deps, venv_data_file)
+        recreate = True
     elif not _is_venv_interpreter_valid(venv_dir):
         print("Warning! Python interpreter in the IDF virtual environment is missing. Recreating...")
-        _recreate_and_save(venv_dir, deps, venv_data_file)
+        recreate = True
     elif _is_venv_outdated(venv_data_file, deps):
+        recreate = True
+
+    if recreate:
         _recreate_and_save(venv_dir, deps, venv_data_file)
+    else:
+        install_python_deps(deps)
 
 
 def get_python_exe():
