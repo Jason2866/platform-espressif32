@@ -252,11 +252,11 @@ def _is_relinker_flash_include(l):
 
 
 class relink_c:
-    def __init__(self, input, library_file, object_file, function_file, sdkconfig_file, missing_function_info):
-        self.filter = filter_c(input)
+    def __init__(self, input_file, library_file, object_file, function_file, sdkconfig_file, missing_function_info):
+        self.filter = filter_c(input_file)
         
         # Infer build directory from input file path (typically $BUILD_DIR/sections.ld)
-        build_dir = os.path.dirname(os.path.abspath(input))
+        build_dir = os.path.dirname(os.path.abspath(input_file))
         
         libraries = configuration.generator(
             library_file,
@@ -470,9 +470,11 @@ class relink_c:
             index = '*%s:(EXCLUDE_FILE'%(lib)
             if index in l and desc not in l:
                 # Collect all descriptors for this library
+                processed = set()
                 for m_desc, m_lib in self.desc_to_lib.items():
                     m_index = '*%s:(EXCLUDE_FILE'%(m_lib)
-                    if m_index in l and m_desc not in l:
+                    if m_index in l and m_desc not in l and m_desc not in processed:
+                        processed.add(m_desc)
                         l = l.replace('EXCLUDE_FILE(', 'EXCLUDE_FILE(%s '%(m_desc))
                         m_isecs = self.desc_isecs.get(m_desc, set())
                         if len(m_isecs) > 0:
@@ -481,8 +483,8 @@ class relink_c:
 
         return None
 
-    def save(self, input, output):
-        with open(input, 'r', encoding='utf-8') as f:
+    def save(self, input_file, output):
+        with open(input_file, 'r', encoding='utf-8') as f:
             lines = f.read().splitlines()
         lines = self.__replace__(lines)
         with open(output, 'w', encoding='utf-8') as f:
