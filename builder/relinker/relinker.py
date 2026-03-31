@@ -41,6 +41,7 @@ def _ensure_entity_db():
         EntityDB = _EntityDB
 
 espidf_objdump = None
+_lib_cache = {}
 
 def _parse_all_obj_sections(objdump_output, obj_basename):
     """Parse objdump -h output to collect all sections from all objects
@@ -66,16 +67,23 @@ def _object_desc_stem(name):
     stem = name[:-4] if name.endswith('.obj') else name
     return stem.rsplit('.', 1)[0]
 
-def lib_secs(lib, file, lib_path):
+def _get_lib_info(lib, lib_path):
+    """Return (raw_output, sections_infos) for a library archive, cached."""
+    if lib_path in _lib_cache:
+        return _lib_cache[lib_path]
     _ensure_entity_db()
     new_env = os.environ.copy()
     new_env['LC_ALL'] = 'C'
     raw_output = subprocess.check_output([espidf_objdump, '-h', lib_path], env=new_env).decode()
     dump = StringIO(raw_output)
     dump.name = lib
-
     sections_infos = EntityDB()
     sections_infos.add_sections_info(dump)
+    _lib_cache[lib_path] = (raw_output, sections_infos)
+    return raw_output, sections_infos
+
+def lib_secs(lib, file, lib_path):
+    raw_output, sections_infos = _get_lib_info(lib, lib_path)
 
     source_name = file[:-4] if file.endswith('.obj') else file
     secs = sections_infos.get_sections(lib, source_name)
@@ -135,10 +143,16 @@ class filter_c:
             )
             if not match:
                 continue
-            self.libs_desc = match.group(1)
+            all_tokens = match.group(1).split()
+            # Only keep whole-library tokens (no ':') — these are from the
+            # original ldgen output.  Object-level tokens like
+            # *lib:obj.* are relinker-generated and must not be used to
+            # filter targets on subsequent runs.
+            orig_tokens = [t for t in all_tokens if ':' not in t]
+            self.libs_desc = ' '.join(orig_tokens)
             self.entries = {
                 token.lstrip('*')
-                for token in self.libs_desc.split()
+                for token in orig_tokens
             }
             return
     
@@ -201,12 +215,16 @@ def _is_relinker_iram_include(l):
     """Detect relinker-generated IRAM include lines (object-specific sections).
     
     These typically look like: *libname:objname.*(.iram1.xxx)
+    Also detects leftover catch-all patterns like *(.iram1.*) / *(.iram1).
     """
     if not l.strip():
         return False
     stripped = l.strip()
-    # Check for pattern like: *libname:objname.*(.iram1.xxx)
+    # Object-specific pattern: *libname:objname.*(.iram1.xxx)
     if stripped.startswith('*') and ':' in stripped and '.*(' in stripped and '.iram1.' in stripped:
+        return True
+    # Catch-all patterns from previous runs: *(.iram1.*) or *(.iram1)
+    if stripped == '*(.iram1.*)' or stripped == '*(.iram1)':
         return True
     return False
 
@@ -215,13 +233,14 @@ def _is_relinker_flash_include(l):
     """Detect relinker-generated flash include lines.
     
     These typically look like: *libname:objname.*(.literal.xxx .text.xxx)
+    or *libname:objname.*(.iram1.xxx) when func2sect passes through .iram1 sections.
     """
     if not l.strip():
         return False
     stripped = l.strip()
-    # Check for pattern like: *libname:objname.*(.literal.xxx .text.xxx)
+    # Check for pattern like: *libname:objname.*(.literal.xxx .text.xxx .iram1.xxx)
     if stripped.startswith('*') and ':' in stripped and '.*(' in stripped:
-        if '.literal.' in stripped or '.text.' in stripped:
+        if '.literal.' in stripped or '.text.' in stripped or '.iram1.' in stripped:
             return True
     return False
 
@@ -331,11 +350,6 @@ class relink_c:
             '    *(EXCLUDE_FILE(%s) .iram1)'
         ) % (exclude_tokens, exclude_tokens) if exclude_tokens else ''
         self.iram1_include = '\n'.join(iram1_include)
-        # Add catch-all patterns after specific includes to prevent orphan sections
-        if self.iram1_include:
-            self.iram1_include += '\n    *(.iram1.*)\n    *(.iram1)'
-        else:
-            self.iram1_include = '    *(.iram1.*)\n    *(.iram1)'
         self.flash_include = '\n'.join(flash_include)
         self._no_relink = False
 
