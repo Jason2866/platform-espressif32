@@ -11,8 +11,8 @@ Tests cover:
 import unittest
 import tempfile
 import os
+import shutil
 import sys
-from pathlib import Path
 
 # Add the relinker directory to the path
 relinker_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'builder', 'relinker')
@@ -44,9 +44,8 @@ class TestFunc2Sect(unittest.TestCase):
         """Test conversion of IRAM function."""
         result = func2sect('.iram1.my_function')
         
-        self.assertIn('.iram1.my_function', result)
-        self.assertEqual(len(result), 1)
         self.assertEqual(result[0], '.iram1.my_function')
+        self.assertEqual(len(result), 1)
     
     def test_wildcard_sections_preserved(self):
         """Test that pre-expanded wildcard sections are preserved as-is."""
@@ -153,7 +152,6 @@ class TestFilterC(unittest.TestCase):
     
     def tearDown(self):
         """Clean up temporary files."""
-        import shutil
         shutil.rmtree(self.temp_dir)
     
     def test_parse_exclude_patterns(self):
@@ -269,7 +267,6 @@ class TestRelinkIdempotency(unittest.TestCase):
     
     def tearDown(self):
         """Clean up temporary files."""
-        import shutil
         shutil.rmtree(self.temp_dir)
     
     def test_is_iram_desc_original_pattern(self):
