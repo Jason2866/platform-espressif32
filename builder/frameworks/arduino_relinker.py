@@ -248,6 +248,12 @@ def setup_arduino_relinker(env, platform, mcu, chip_variant):
         return True
 
     except Exception as e:
+        # Re-raise system-exiting exceptions immediately
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            raise
+        
+        # Broad exception handling is intentional: any relinker failure
+        # should terminate the build with a clear error message
         sys.stderr.write(f"Error running relinker: {e}\n")
         import traceback
 

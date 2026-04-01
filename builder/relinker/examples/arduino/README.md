@@ -10,8 +10,8 @@ The Arduino framework for ESP32 uses pre-compiled libraries from the ESP-IDF. Th
 
 When using Arduino framework, the relinker works differently:
 
-- **Pre-compiled libraries**: Arduino uses pre-built libraries from `framework-arduinoespressif32-libs`
-- **Static sections.ld**: The linker script is located in `framework-arduinoespressif32-libs/<mcu>/ld/sections.ld`
+- **Pre-compiled libraries**: Arduino uses pre-built libraries from `framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>`
+- **Static sections.ld**: The linker script is located in `framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>/ld/sections.ld`
 - **Build directory**: The relinker creates a modified copy in your project's build directory
 - **No ldgen**: Arduino doesn't run ldgen during build, so the sections.ld is used as-is
 
@@ -112,7 +112,7 @@ libheap.a,heap_caps.c.obj,heap_caps_malloc,
 The library path in `library.csv` is incorrect. Verify the path:
 
 ```bash
-ls ~/.platformio/packages/framework-arduinoespressif32-libs/esp32c2/lib/
+ls ~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/esp32c2/lib/
 ```
 
 ### Runtime Crash

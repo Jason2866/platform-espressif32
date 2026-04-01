@@ -15,7 +15,7 @@ The Arduino framework integration differs in several important ways from the ESP
 - Relinker modifies the generated `sections.ld` before linking
 
 ### Arduino Framework
-- Uses pre-compiled libraries from `framework-arduinoespressif32-libs`
+- Uses pre-compiled libraries from `framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>`
 - Static `sections.ld` file in framework directory
 - No `ldgen` during build
 - Relinker copies and modifies the static `sections.ld` in build directory
@@ -118,7 +118,7 @@ libheap.a,$ARDUINO_LIBS_DIR/libheap.a
 
 The `$ARDUINO_LIBS_DIR` variable is automatically expanded to the correct path:
 ```ini
-~/.platformio/packages/framework-arduinoespressif32-libs/<chip>/lib/
+~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>/lib/
 ```
 
 #### object.csv
@@ -179,10 +179,10 @@ These functions must NOT be moved to Flash:
 2. **Use objdump**:
    ```bash
    # For RISC-V Chips (C2, C3, C6, H2)
-   riscv32-esp-elf-objdump -h ~/.platformio/packages/framework-arduinoespressif32-libs/esp32c2/lib/libfreertos.a
+   riscv32-esp-elf-objdump -h ~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/esp32c2/lib/libfreertos.a
    
    # For Xtensa Chips (ESP32, S2, S3)
-   xtensa-esp32-elf-objdump -h ~/.platformio/packages/framework-arduinoespressif32-libs/esp32/lib/libfreertos.a
+   xtensa-esp32-elf-objdump -h ~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/esp32/lib/libfreertos.a
    ```
 
 3. **Use Example Configurations**: The included examples contain already validated functions
@@ -218,13 +218,13 @@ custom_relinker_missing_function_info = yes
 The `sections.ld` file was not found in the Arduino framework. Check:
 - Framework is correctly installed
 - Chip variant is correct
-- Path: `~/.platformio/packages/framework-arduinoespressif32-libs/<chip>/ld/sections.ld`
+- Path: `~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>/ld/sections.ld`
 
 ### Build Error: "Library not found"
 
 The library path in `library.csv` is incorrect. Check:
 ```bash
-ls ~/.platformio/packages/framework-arduinoespressif32-libs/<chip>/lib/
+ls ~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>/lib/
 ```
 
 ### Build Error: "Failed to get sections from lib"
@@ -236,10 +236,10 @@ The library doesn't exist or the path is incorrect. Ensure `$ARDUINO_LIBS_DIR` i
 The function doesn't exist in the specified object file. Check with:
 ```bash
 # RISC-V
-riscv32-esp-elf-objdump -t ~/.platformio/packages/framework-arduinoespressif32-libs/esp32c2/lib/libfreertos.a | grep xTaskGetTickCount
+riscv32-esp-elf-objdump -t ~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/esp32c2/lib/libfreertos.a | grep xTaskGetTickCount
 
 # Xtensa
-xtensa-esp32-elf-objdump -t ~/.platformio/packages/framework-arduinoespressif32-libs/esp32/lib/libfreertos.a | grep xTaskGetTickCount
+xtensa-esp32-elf-objdump -t ~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/esp32/lib/libfreertos.a | grep xTaskGetTickCount
 ```
 
 ### Runtime Crash (LoadProhibited / InstrFetchProhibited)
@@ -252,7 +252,7 @@ A function was moved to Flash that gets called during Flash operations or from a
 
 The listed functions may not be in IRAM. Check the original `sections.ld`:
 ```bash
-cat ~/.platformio/packages/framework-arduinoespressif32-libs/<chip>/ld/sections.ld | grep -A 50 ".iram0.text"
+cat ~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>/ld/sections.ld | grep -A 50 ".iram0.text"
 ```
 
 ### Relinker Not Running
@@ -356,12 +356,12 @@ void loop() {
 
 The `$ARDUINO_LIBS_DIR` variable is expanded to:
 ```ini
-~/.platformio/packages/framework-arduinoespressif32-libs/<chip>/lib/
+~/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/<chip>/lib/
 ```
 
 Example for ESP32-C2:
 ```ini
-/Users/username/.platformio/packages/framework-arduinoespressif32-libs/esp32c2/lib/
+/Users/username/.platformio/packages/framework-arduinoespressif32/tools/esp32-arduino-libs/esp32c2/lib/
 ```
 
 ### Minimal sdkconfig
