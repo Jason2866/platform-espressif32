@@ -1,11 +1,4 @@
 library,object,function,option
-libble_app.a,ble_hw.c.o,r_ble_hw_resolv_list_get_cur_entry,
-libble_app.a,ble_lll.c.o,r_ble_lll_per_adv_coex_dpc_update_on_scheduled,
-libble_app.a,ble_ll.c.o,r_ble_ll_is_our_devaddr,
-libble_app.a,ble_lll.c.o,r_ble_lll_rx_pkt_isr,
-libble_app.a,ble_lll.c.o,r_ble_lll_ext_scan_coex_dpc_update_on_start,
-libble_app.a,ble_lll.c.o,r_ble_lll_ext_scan_coex_dpc_process,
-libble_app.a,os_mempool.c.obj,r_os_memblock_put,
 libbootloader_support.a,bootloader_flash.c.obj,bootloader_read_flash_id,
 libbootloader_support.a,flash_encrypt.c.obj,esp_flash_encryption_enabled,
 libbt.a,bt_osi_mem.c.obj,bt_osi_mem_calloc,CONFIG_BT_ENABLED
