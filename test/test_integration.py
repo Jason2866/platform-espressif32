@@ -168,8 +168,10 @@ class TestCSVProcessing(unittest.TestCase):
         self.assertEqual(os.path.normpath(freertos_lib.path), expected_lib_path)
     
     def test_generator_processing_strict_missing_symbol(self):
-        """Test generator with missing_function_info=False rejects missing symbols."""
+        """Test generator with missing_function_info=False warns and retains objects with missing symbols."""
         from configuration import object_c
+        from io import StringIO
+        import sys
         
         # Mock dumps that are MISSING the xTaskGetTickCount symbol
         # (it's in the CSV but not in the objdump output)
@@ -189,28 +191,47 @@ class TestCSVProcessing(unittest.TestCase):
                 return mock_heap_dumps
             return [[]]
         
-        with mock.patch.object(object_c, 'read_dump_info', mock_read_dump_info):
-            # Call generator with missing_function_info=False (strict mode)
-            libraries = generator(
-                library_file=self.library_csv,
-                object_file=self.object_csv,
-                function_file=self.function_csv,
-                sdkconfig_file=self.sdkconfig,
-                missing_function_info=False,  # Strict mode
-                objdump='mock-objdump',
-                build_dir=self.build_dir
-            )
-            
-            # In strict mode, when a symbol is missing, the object should not be added
-            # or should have incomplete function list
-            freertos_lib = libraries.libs.get('libfreertos.a')
-            if freertos_lib and 'tasks.c.obj' in freertos_lib.objs:
-                tasks_obj = freertos_lib.objs['tasks.c.obj']
-                # The missing function should NOT be in the funcs dict
-                self.assertNotIn('xTaskGetTickCount', tasks_obj.funcs,
-                                "Missing symbol should not be added in strict mode")
-                # But the found function should still be there
-                self.assertIn('xTaskGetSchedulerState', tasks_obj.funcs)
+        # Capture print output (warnings are printed, not logged)
+        captured_output = StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = captured_output
+        
+        try:
+            with mock.patch.object(object_c, 'read_dump_info', mock_read_dump_info):
+                # Call generator with missing_function_info=False (strict mode)
+                libraries = generator(
+                    library_file=self.library_csv,
+                    object_file=self.object_csv,
+                    function_file=self.function_csv,
+                    sdkconfig_file=self.sdkconfig,
+                    missing_function_info=False,  # Strict mode
+                    objdump='mock-objdump',
+                    build_dir=self.build_dir
+                )
+        finally:
+            sys.stdout = old_stdout
+        
+        output = captured_output.getvalue()
+        
+        # In strict mode (missing_function_info=False), warnings should NOT be printed
+        # The function should be silently skipped
+        self.assertNotIn('Warning', output,
+                        "No warnings should be printed in strict mode (missing_function_info=False)")
+        
+        # In strict mode, the object should still be retained
+        freertos_lib = libraries.libs.get('libfreertos.a')
+        self.assertIsNotNone(freertos_lib,
+                           "libfreertos.a should be present even with missing symbols")
+        self.assertIn('tasks.c.obj', freertos_lib.objs,
+                     "tasks.c.obj should be retained even with missing symbols")
+        
+        tasks_obj = freertos_lib.objs['tasks.c.obj']
+        # The missing function should NOT be in the funcs dict
+        self.assertNotIn('xTaskGetTickCount', tasks_obj.funcs,
+                        "Missing symbol should not be added in strict mode")
+        # But the found function should still be there
+        self.assertIn('xTaskGetSchedulerState', tasks_obj.funcs,
+                     "Found symbols should be present in strict mode")
 
 
 class TestPathResolution(unittest.TestCase):
@@ -620,6 +641,7 @@ class TestIdempotency(unittest.TestCase):
             f.write('} > default_code_seg\n')
         
         output1 = os.path.join(self.temp_dir, 'output1.ld')
+        output2 = os.path.join(self.temp_dir, 'output2.ld')
         
         # Mock read_dump_info to return dumps without the missing function
         mock_dumps = [[
@@ -637,7 +659,7 @@ class TestIdempotency(unittest.TestCase):
         with mock.patch.object(object_c, 'read_dump_info', mock_read_dump_info), \
              mock.patch.object(relinker_module, 'lib_secs', mock_lib_secs), \
              mock.patch.object(relinker_module, 'espidf_objdump', 'mock-objdump'):
-            # In strict mode, missing symbols should result in no targets
+            # First run: In strict mode, missing symbols should result in no targets
             relink1 = relink_c(input_script, library_csv, object_csv,
                               function_csv, sdkconfig, missing_function_info=False)
             
@@ -646,6 +668,30 @@ class TestIdempotency(unittest.TestCase):
                           "Relinker should take _no_relink path in strict mode with missing symbols")
             self.assertEqual(len(relink1.targets), 0,
                            "No targets should be created for missing symbols in strict mode")
+            
+            # Save first output
+            relink1.save(input_script, output1)
+            
+            # Second run: Use output1 as input to verify idempotency
+            relink2 = relink_c(output1, library_csv, object_csv,
+                              function_csv, sdkconfig, missing_function_info=False)
+            
+            # Verify second run also takes _no_relink path
+            self.assertTrue(getattr(relink2, '_no_relink', False),
+                          "Relinker should take _no_relink path on second run")
+            self.assertEqual(len(relink2.targets), 0,
+                           "No targets should be created on second run")
+            
+            # Save second output
+            relink2.save(output1, output2)
+            
+            # Compare outputs - should be identical
+            with open(output1, 'r') as f1, open(output2, 'r') as f2:
+                content1 = f1.read()
+                content2 = f2.read()
+            
+            self.assertEqual(content1, content2,
+                           "Multiple runs should produce identical output in strict mode")
 
 
 class TestErrorHandling(unittest.TestCase):
