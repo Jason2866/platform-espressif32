@@ -957,7 +957,7 @@ def firmware_metrics(target, source, env):
     try:
         # Always use the Python from .platformio/penv
         penv_python = get_executable_path(
-            str(Path.home() / ".platformio" / "penv"), "python"
+            str(Path(core_dir) / "penv"), "python"
         )
         cmd = [penv_python, "-m", "esp_idf_size"]
         
