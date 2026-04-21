@@ -959,6 +959,8 @@ def firmware_metrics(target, source, env):
         penv_python = get_executable_path(
             str(Path(core_dir) / "penv"), "python"
         )
+        if not Path(penv_python).is_file():
+            penv_python = PYTHON_EXE
         cmd = [penv_python, "-m", "esp_idf_size"]
         
         # Parameters from platformio.ini
@@ -989,9 +991,19 @@ def firmware_metrics(target, source, env):
         run_env["PYTHONUTF8"] = "1"
         run_env["PYTHONIOENCODING"] = "utf-8"
 
-        # Execute esp-idf-size with current environment
-        result = subprocess.run(cmd, check=False, capture_output=False, env=run_env)
-        
+        # Capture output and decode as UTF-8 to avoid cp1252 errors
+        # when PlatformIO's stdout handler re-encodes the output on Windows
+        result = subprocess.run(
+            cmd, check=False, capture_output=True, env=run_env
+        )
+
+        if result.stdout:
+            sys.stdout.buffer.write(result.stdout)
+            sys.stdout.buffer.flush()
+        if result.stderr:
+            sys.stderr.buffer.write(result.stderr)
+            sys.stderr.buffer.flush()
+
         if result.returncode != 0:
             print(f"Warning: esp-idf-size exited with code {result.returncode}")
 
