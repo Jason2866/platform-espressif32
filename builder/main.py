@@ -944,12 +944,7 @@ def firmware_metrics(target, source, env):
         source: SCons source
         env: SCons environment object
     """
-    metrics_env = os.environ.copy()
-    # actually wins over any pre-existing PYTHONPATH
-    existing_pp = metrics_env.get("PYTHONPATH", "")
-    metrics_env["PYTHONPATH"] = (os.pathsep + existing_pp)
-    # Force UTF-8 mode (PEP 540) so Python uses UTF-8 for open()/stdio
-    metrics_env["PYTHONUTF8"] = "1"
+    os.environ["PYTHONUTF8"] = "1"
 
     map_file = str(Path(env.subst("$BUILD_DIR")) / (env.subst("$PROGNAME") + ".map"))
     if not Path(map_file).is_file():
@@ -988,7 +983,7 @@ def firmware_metrics(target, source, env):
             print(f"Running command: {' '.join(cmd)}")
         
         # Execute esp-idf-size with current environment
-        result = subprocess.run(cmd, check=False, capture_output=False, env=metrics_env)
+        result = subprocess.run(cmd, check=False, capture_output=False)
         
         if result.returncode != 0:
             print(f"Warning: esp-idf-size exited with code {result.returncode}")
