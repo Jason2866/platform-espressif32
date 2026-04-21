@@ -71,7 +71,7 @@ SpiffsFS = spiffsgen.SpiffsFS
 SpiffsBuildConfig = spiffsgen.SpiffsBuildConfig
 
 # Import GDB_TOOL_PACKAGES from penv_setup (already loaded into sys.modules by platform.py)
-from penv_setup import GDB_TOOL_PACKAGES
+from penv_setup import GDB_TOOL_PACKAGES, get_executable_path
 
 # Load board configuration and determine MCU architecture
 board = env.BoardConfig()
@@ -944,8 +944,6 @@ def firmware_metrics(target, source, env):
         source: SCons source
         env: SCons environment object
     """
-    os.environ["PYTHONUTF8"] = "1"
-
     map_file = str(Path(env.subst("$BUILD_DIR")) / (env.subst("$PROGNAME") + ".map"))
     if not Path(map_file).is_file():
         # map file can be in project dir
@@ -956,8 +954,12 @@ def firmware_metrics(target, source, env):
         print("Make sure the project is built first with 'pio run'")
         return
 
-    try:        
-        cmd = [PYTHON_EXE, "-m", "esp_idf_size"]
+    try:
+        # Always use the Python from .platformio/penv
+        penv_python = get_executable_path(
+            str(Path.home() / ".platformio" / "penv"), "python"
+        )
+        cmd = [penv_python, "-m", "esp_idf_size"]
         
         # Parameters from platformio.ini
         extra_args = env.GetProjectOption("custom_esp_idf_size_args", "")
@@ -982,8 +984,13 @@ def firmware_metrics(target, source, env):
         if env.GetProjectOption("custom_esp_idf_size_verbose", False):
             print(f"Running command: {' '.join(cmd)}")
         
+        # Force UTF-8 encoding for the subprocess
+        run_env = dict(os.environ)
+        run_env["PYTHONUTF8"] = "1"
+        run_env["PYTHONIOENCODING"] = "utf-8"
+
         # Execute esp-idf-size with current environment
-        result = subprocess.run(cmd, check=False, capture_output=False)
+        result = subprocess.run(cmd, check=False, capture_output=False, env=run_env)
         
         if result.returncode != 0:
             print(f"Warning: esp-idf-size exited with code {result.returncode}")
