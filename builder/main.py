@@ -1223,7 +1223,8 @@ def _download_partition_image(env, fs_type_filter=None):
         partition_data = f.read()
 
     # Parse partition entries (format: 0xAA 0x50 followed by entry data)
-    entries = [e for e in partition_data.split(b'\xaaP') if len(e) > 0]
+    # split() removes the 0xAA 0x50 magic, so each valid entry body is 30 bytes
+    entries = [e for e in partition_data.split(b'\xaaP') if len(e) >= 30]
 
     fs_start = None
     fs_size = None
@@ -1247,7 +1248,11 @@ def _download_partition_image(env, fs_type_filter=None):
     #   Bytes 26-29: Flags    (little-endian uint32)
     candidate = None
     for entry in entries:
-        if len(entry) < 32:
+        # Each ESP-IDF partition table entry is 32 bytes including the
+        # 2-byte 0xAA 0x50 magic; split() removes the magic so a valid
+        # entry chunk is 30 bytes (type, subtype, offset, size, label,
+        # flags). Anything shorter is truncated/garbage.
+        if len(entry) < 30:
             continue
 
         part_type = entry[0]
