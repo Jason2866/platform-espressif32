@@ -486,7 +486,13 @@ def build_fs_image(target, source, env):
         disk_version = (2 << 16) | 1
 
     try:
-        # Create LittleFS instance with Arduino / IDF compatible parameters
+        # Create LittleFS instance with Arduino / IDF compatible parameters.
+        # Suppress the constructor's auto-mount: when the backing buffer is
+        # uninitialized, LittleFS(mount=True) calls lfs_mount() first, which
+        # mutates the internal lfs_t state before failing. The subsequent
+        # implicit format() then runs on a dirty struct and produces a
+        # superblock that some targets (e.g. ESP8684/XH-C2X) refuse to mount.
+        # An explicit format() + mount() on a fresh instance avoids this.
         fs = LittleFS(
             block_size=block_size,
             block_count=block_count,
@@ -497,8 +503,11 @@ def build_fs_image(target, source, env):
             block_cycles=500,         # Wear leveling cycles
             name_max=64,              # ESP-IDF default filename length
             disk_version=disk_version,
-            mount=True
+            mount=False
         )
+
+        fs.format()
+        fs.mount()
 
         # Add all files from source directory
         source_path = Path(source_dir)
