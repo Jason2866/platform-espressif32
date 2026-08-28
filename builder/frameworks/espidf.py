@@ -2804,7 +2804,6 @@ if precompiled_libs:
         ["-Wl,--start-group"] + libpath_libs_flags + ["-Wl,--end-group"]
     )
     link_args["LIBS"] = []
-    link_args["LIBPATH"] = []
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
