@@ -57,6 +57,7 @@ _cm_spec = importlib.util.spec_from_file_location("component_manager", _componen
 _component_manager = importlib.util.module_from_spec(_cm_spec)
 _cm_spec.loader.exec_module(_component_manager)
 sys.modules["component_manager"] = _component_manager
+board_memory_fingerprint = _component_manager.board_memory_fingerprint
 
 _penv_setup_file = str(Path(platform.get_dir()) / "builder" / "penv_setup.py")
 _spec = importlib.util.spec_from_file_location("penv_setup", _penv_setup_file)
@@ -75,6 +76,7 @@ os.environ["IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS"] = "1"
 
 config = env.GetProjectConfig()
 board = env.BoardConfig()
+pio_orig_frwrk = env.GetProjectOption("framework")
 mcu = board.get("build.mcu", None)
 if not mcu:
     sys.stderr.write("Error: Missing required board manifest field 'build.mcu'\n")
@@ -157,6 +159,48 @@ def create_silent_action(action_func):
     return silent_action
 
 
+def copy_idf_component_archives(lib_src, lib_dst):
+    """Copy all .a archives from IDF component directories into lib_dst.
+
+    Archives are collected recursively so nested component sub-build outputs are
+    included. Duplicate archive basenames are kept with numeric suffixes
+    (for example, libfoo.a, libfoo_2.a, ...). Raises FileNotFoundError when
+    lib_src does not exist or is not a directory.
+    """
+    lib_src = Path(lib_src)
+    lib_dst = Path(lib_dst)
+    if not lib_src.is_dir():
+        raise FileNotFoundError(
+            f"IDF library source directory does not exist or is not a directory: {lib_src}"
+        )
+    if not lib_dst.is_dir():
+        raise FileNotFoundError(
+            f"IDF library destination directory does not exist or is not a directory: {lib_dst}"
+        )
+
+    copied_names = {}
+    for folder in sorted(lib_src.iterdir()):
+        if not folder.is_dir():
+            continue
+
+        # topdown=True lets the in-place dirs.sort() below control traversal
+        # order so duplicate suffix assignment stays deterministic.
+        for root, dirs, files in os.walk(folder, topdown=True):
+            dirs.sort()
+            files.sort()
+            for filename in files:
+                if not filename.endswith(".a"):
+                    continue
+
+                copied_names[filename] = copied_names.get(filename, 0) + 1
+                dst_name = (
+                    filename
+                    if copied_names[filename] == 1
+                    else f"{filename[:-2]}_{copied_names[filename]}.a"
+                )
+                shutil.copyfile(Path(root) / filename, lib_dst / dst_name)
+
+
 def get_requested_cli_targets():
     """Return requested PlatformIO targets, with sys.argv fallback for IDE runs."""
     targets = [str(t).strip() for t in COMMAND_LINE_TARGETS if str(t).strip()]
@@ -237,7 +281,6 @@ if config.has_option("env:"+env["PIOENV"], "custom_sdkconfig"):
 if "espidf.custom_sdkconfig" in board:
     flag_custom_sdkonfig = True
 
-pio_orig_frwrk = env.GetProjectOption("framework")
 # Disable HybridCompile for espidf and arduino, espidf projects
 # HybridCompile is always "framework = arduino" !
 if "espidf" in pio_orig_frwrk:
@@ -245,10 +288,25 @@ if "espidf" in pio_orig_frwrk:
 
 # Check for board-specific configurations that require sdkconfig generation
 def has_board_specific_config():
-    """Check if board has configuration that needs to be applied to sdkconfig."""
+    """Check if board has configuration that needs to be applied to sdkconfig.
+    
+    Returns True when any board manifest field would produce sdkconfig flags,
+    including flash mode, CPU frequency, flash size, memory type, or PSRAM.
+    """
+    # Always true when basic board build fields exist (flash mode, f_cpu, flash size, etc.)
+    if board.get("build.f_cpu", None) or board.get("build.f_flash", None):
+        return True
+    if flash_mode:
+        return True
+    if board.get("upload", {}).get("flash_size", None):
+        return True
+
     # Check for PSRAM support
     extra_flags = board.get("build.extra_flags", [])
-    has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
+    if isinstance(extra_flags, str):
+        has_psram = "-DBOARD_HAS_PSRAM" in extra_flags
+    else:
+        has_psram = any("-DBOARD_HAS_PSRAM" in flag for flag in extra_flags)
     
     # Check for special memory types  
     memory_type = None
@@ -557,7 +615,7 @@ def HandleArduinoIDFsettings(env):
                 # ESP32-P4 requires additional FLASHFREQ_VAL setting
                 if mcu == "esp32p4":
                     board_config_flags.append(f"CONFIG_ESPTOOLPY_FLASHFREQ_VAL={flash_freq_val}")
-
+                
                 # Configure PSRAM frequency only if board has PSRAM
                 if has_psram:
                     # Disable other SPIRAM speed options first
@@ -568,7 +626,7 @@ def HandleArduinoIDFsettings(env):
                     # Then set the specific SPIRAM configs
                     board_config_flags.append(f"CONFIG_SPIRAM_SPEED={psram_freq_str}")
                     board_config_flags.append(f"CONFIG_SPIRAM_SPEED_{psram_freq_str}M=y")
-
+                
                 # Enable experimental features for Flash frequencies > 80MHz
                 if flash_freq_val > 80:
                     board_config_flags.append("CONFIG_IDF_EXPERIMENTAL_FEATURES=y")
@@ -728,7 +786,8 @@ def HandleArduinoIDFsettings(env):
             env.Exit(1)
         
         # Generate checksum for validation (maintains original logic)
-        checksum = get_MD5_hash(checksum_source.strip() + mcu)
+        checksum = get_MD5_hash(checksum_source.strip() + mcu
+                                + board_memory_fingerprint(env, board))
         
         with open(sdkconfig_src, 'r', encoding='utf-8') as src, open(sdkconfig_dst, 'w', encoding='utf-8') as dst:
             # Write checksum header (critical for compilation decision logic)
@@ -818,6 +877,7 @@ def HandleArduinoIDFsettings(env):
         custom_sdk_config_flags = (file_mtime + "\n" if file_mtime else "") + raw.rstrip("\n") + "\n"
     
     write_sdkconfig_file(idf_config_list, custom_sdk_config_flags)
+
 
 
 def HandleCOMPONENTsettings(env):
@@ -1339,9 +1399,12 @@ def extract_linker_script_fragments(
         for line in fp.readlines():
             if "sections.ld: CUSTOM_COMMAND" not in line:
                 continue
-            for fragment_match in re.finditer(r"(\S+\.lf\b)+", line):
+            # Ninja escapes special characters with '$': spaces become '$ ',
+            # colons become '$:'. The regex must treat '$'+char as part of
+            # the path so that paths containing spaces are not split.
+            for fragment_match in re.finditer(r"(?:\$.|[^\s])+\.lf\b", line):
                 result.append(_normalize_fragment_path(
-                    BUILD_DIR, fragment_match.group(0).replace("$:", ":")
+                    BUILD_DIR, fragment_match.group(0).replace("$:", ":").replace("$ ", " ")
                 ))
 
             break
@@ -1423,10 +1486,10 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
     ).format(**args)
 
     linker_script_name = "sections.ld.in"
-    # Check for P4 >= rev3
-    if idf_variant == "esp32p4" and chip_variant == "esp32p4":
-        # ESP32-P4 rev >= 3 has different linker script
-        linker_script_name = "sections.rev3.ld.in"
+#    # Check for P4 >= rev3
+#    if idf_variant == "esp32p4" and chip_variant == "esp32p4":
+#        # ESP32-P4 rev >= 3 has different linker script
+#        linker_script_name = "sections.rev3.ld.in"
     
     initial_ld_script = str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld" / idf_variant / linker_script_name)
 
@@ -2208,7 +2271,7 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
             env.VerboseAction(
                 " ".join([
                     f'"{CMAKE_DIR}"',
-                    f'-DCC="{fs.to_unix_path(str(Path(TOOLCHAIN_DIR) / "bin" / "$CC"))}"',
+                    '-DCC="$CC"',
                     f'-DSOURCE="{src_ld_script}"',
                     f'-DTARGET="{target_ld_script}"',
                     f'-DCFLAGS="{cflags_value}"',
@@ -2226,7 +2289,7 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
             env.VerboseAction(
                 " ".join([
                     f'"{CMAKE_DIR}"',
-                    f'-DCC="{str(Path(TOOLCHAIN_DIR) / "bin" / "$CC")}"',
+                    '-DCC="$CC"',
                     "-DSOURCE=$SOURCE",
                     "-DTARGET=$TARGET",
                     f'-DCONFIG_DIR="{config_dir}"',
@@ -2937,18 +3000,18 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
         # Ensure destinations exist
         for d in (lib_dst, ld_dst, mem_var, str(Path(mem_var) / "include")):
             Path(d).mkdir(parents=True, exist_ok=True)
-        src = [str(Path(lib_src) / x) for x in os.listdir(lib_src)]
-        src = [folder for folder in src if not os.path.isfile(folder)] # folders only
-        for folder in src:
-            files = [str(Path(folder) / x) for x in os.listdir(folder)]
-            for file in files:
-                if file.strip().endswith(".a"):
-                    shutil.copyfile(file, str(Path(lib_dst) / file.split(os.path.sep)[-1]))
+        # Walk each component directory recursively so that nested archives
+        # (e.g. mbedtls vendored libraries in mbedtls/mbedtls/library/) are
+        # also copied back into the package.  When two archives share the same
+        # filename the duplicate is renamed with a numeric suffix (_2, _3, …),
+        # mirroring the rename logic used by esp32-arduino-lib-builder's
+        # copy-libs.sh so the package stays consistent.
+        copy_idf_component_archives(lib_src, lib_dst)
 
         _replace_copy(str(Path(lib_dst) / "libspi_flash.a"), str(Path(mem_var) / "libspi_flash.a"))
         _replace_copy(str(Path(env_build) / "memory.ld"), str(Path(ld_dst) / "memory.ld"))
         _replace_copy(str(Path(env_build) / "sections.ld"), str(Path(ld_dst) / "sections.ld"))
-        if mcu == "esp32s3" or mcu == "esp32p4":
+        if sdk_config.get("CONFIG_SOC_PSRAM_DMA_CAPABLE", False):
             _replace_copy(str(Path(lib_dst) / "libesp_psram.a"), str(Path(mem_var) / "libesp_psram.a"))
             _replace_copy(str(Path(lib_dst) / "libesp_system.a"), str(Path(mem_var) / "libesp_system.a"))
             _replace_copy(str(Path(lib_dst) / "libfreertos.a"), str(Path(mem_var) / "libfreertos.a"))
