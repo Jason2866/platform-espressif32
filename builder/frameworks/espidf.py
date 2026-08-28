@@ -1495,9 +1495,13 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
     if framework_version_list[:2] > [5, 2]:
-        initial_ld_script = preprocess_linker_file(
+        initial_ld_script = preprocess_linker_script(
             initial_ld_script,
             str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / linker_script_name),
+            [
+                str(Path(BUILD_DIR) / "config"),
+                str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
+            ],
         )
 
     ld_script = env.Command(
@@ -1921,68 +1925,6 @@ def find_lib_deps(components_map, elf_config, link_args, ignore_components=None)
     return result
 
 
-def _patch_bootloader_ninja_ld_cflags(bootloader_build_dir, idf_variant):
-    """Patch the bootloader's build.ninja to add the missing include directory for
-    bootloader linker script preprocessing.
-
-    IDF v6.0's utilities.cmake preprocess_linker_file() adds the *parent* of the
-    chip-specific ld directory (e.g. .../main/ld) to CFLAGS, but not the directory
-    itself (.../main/ld/<idf_variant>/).  This means the C preprocessor cannot
-    resolve #include "bootloader.sections.common.ld" inside bootloader.sections.ld.in
-    because that file lives in the chip-specific subdirectory.
-
-    We fix this by scanning build.ninja for every CUSTOM_COMMAND line that references
-    linker_script_preprocessor.cmake and patching its -DCFLAGS= value to also include
-    the chip-specific ld directory.
-    """
-    ninja_file = str(Path(bootloader_build_dir) / "build.ninja")
-    if not os.path.isfile(ninja_file):
-        return
-
-    # The directory that is missing from the include path:
-    # .../components/bootloader/subproject/main/ld/<idf_variant>
-    missing_inc = fs.to_unix_path(str(
-        Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject"
-        / "main" / "ld" / idf_variant
-    ))
-
-    with open(ninja_file, encoding="utf-8") as fh:
-        content = fh.read()
-
-    if "linker_script_preprocessor.cmake" not in content:
-        return  # nothing to patch
-
-    if missing_inc in content:
-        return  # already present (incremental build)
-
-    patched_lines = []
-    changed = False
-    for line in content.splitlines(keepends=True):
-        # Only touch build lines that invoke linker_script_preprocessor.cmake
-        if "linker_script_preprocessor.cmake" in line and "-DCFLAGS=" in line:
-            # Insert -I"<missing_inc>" just before the closing quote of -DCFLAGS=
-            # The flag looks like:  -DCFLAGS=-C -I"dir1" ...  (may or may not be quoted)
-            # We append our extra -I at the end of the CFLAGS value, before any
-            # following space-separated cmake argument.
-            #
-            # Strategy: find the -DCFLAGS= token and append our flag after the last
-            # existing -I"..." or right after the = sign if no -I flags exist yet.
-            replacement = ' -I\\"%s\\"' % missing_inc
-            # Insert before the first cmake argument that follows -DCFLAGS=...
-            # i.e. before " -P " which introduces the script path.
-            if " -P " in line:
-                line = line.replace(" -P ", replacement + " -P ", 1)
-                changed = True
-        patched_lines.append(line)
-
-    if changed:
-        with open(ninja_file, "w", encoding="utf-8") as fh:
-            fh.writelines(patched_lines)
-        print(
-            "Patched bootloader build.ninja: added -I\"%s\" to linker script CFLAGS"
-            % missing_inc
-        )
-
 
 def build_bootloader(sdk_config):
     bootloader_src_dir = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject")
@@ -2005,10 +1947,6 @@ def build_bootloader(sdk_config):
         ],
     )
 
-    # Fix IDF v6.0 bug: the chip-specific ld dir is missing from CFLAGS in the
-    # ninja CUSTOM_COMMANDs that preprocess bootloader linker scripts.
-    _patch_bootloader_ninja_ld_cflags(bootloader_build_dir, idf_variant)
-
     if not code_model:
         sys.stderr.write("Error: Couldn't find code model for bootloader\n")
         env.Exit(1)
@@ -2030,6 +1968,31 @@ def build_bootloader(sdk_config):
         target_configs, ["STATIC_LIBRARY", "OBJECT_LIBRARY"]
     )
 
+    framework_version_list = [int(v) for v in get_framework_version().split(".")]
+    if framework_version_list[:2] >= [6, 0]:
+        # For IDF 6.0+, preprocess bootloader.ld.in via SCons before linking.
+        # CMake's own ninja build handles the other bootloader linker scripts
+        # (e.g. bootloader.sections.ld) through its own CUSTOM_COMMAND targets
+        # with the correct include paths already configured.
+        bootloader_ld_in = str(
+            Path(bootloader_src_dir) / "main" / "ld" / idf_variant / "bootloader.ld.in"
+        )
+        bootloader_ld_out = str(
+            Path(BUILD_DIR) / "bootloader" / "ld" / "bootloader.ld"
+        )
+        bootloader_linker_script = preprocess_linker_script(
+            bootloader_ld_in,
+            bootloader_ld_out,
+            [
+                str(Path(BUILD_DIR) / "bootloader" / "config"),
+                str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
+            ],
+        )
+        env.Depends(
+            str(Path("$BUILD_DIR") / "bootloader.elf"),
+            bootloader_linker_script,
+        )
+
     # Note: By default the size of bootloader is limited to 0x2000 bytes,
     # in debug mode the footprint size can be easily grow beyond this limit
     build_components(
@@ -2046,82 +2009,7 @@ def build_bootloader(sdk_config):
     )
 
     bootloader_env.MergeFlags(link_args)
-    
-    # Handle ESP-IDF 6.0 linker script preprocessing for .ld.in files
-    # In bootloader context, only .ld.in templates exist and need preprocessing
-    processed_extra_flags = []
-    
-    # Bootloader preprocessing configuration
-    bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
-    bootloader_extra_includes = [
-        str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant)
-    ]
-
-    i = 0
-    while i < len(extra_flags):
-        if extra_flags[i] == "-T" and i + 1 < len(extra_flags):
-            linker_script = extra_flags[i + 1]
-            
-            # Process .ld.in templates directly
-            if linker_script.endswith(".ld.in"):
-                script_name = os.path.basename(linker_script).replace(".ld.in", ".ld")
-                target_script = str(Path(BUILD_DIR) / "bootloader" / script_name)
-                
-                preprocessed_script = preprocess_linker_file(
-                    linker_script,
-                    target_script,
-                    config_dir=bootloader_config_dir,
-                    extra_include_dirs=bootloader_extra_includes
-                )
-                
-                bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                processed_extra_flags.extend(["-T", target_script])
-            # Handle .ld files - prioritize using original scripts when available
-            elif linker_script.endswith(".ld"):
-                script_basename = os.path.basename(linker_script)
-                
-                # Check if the original .ld file exists in framework and use it directly
-                original_script_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_basename)
-                
-                if os.path.isfile(original_script_path):
-                    # Use the original script directly - no preprocessing needed
-                    processed_extra_flags.extend(["-T", original_script_path])
-                else:
-                    # Only generate from template if no original .ld file exists
-                    script_name_in = script_basename.replace(".ld", ".ld.in")
-                    bootloader_script_in_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / script_name_in)
-                    
-                    # ESP32-P4 specific: Check for bootloader.rev3.ld.in
-                    if idf_variant == "esp32p4" and chip_variant == "esp32p4" and script_basename == "bootloader.ld":
-                        bootloader_rev3_path = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject" / "main" / "ld" / idf_variant / "bootloader.rev3.ld.in")
-                        if os.path.isfile(bootloader_rev3_path):
-                            bootloader_script_in_path = bootloader_rev3_path
-                    
-                    # Preprocess the .ld.in template to generate the .ld file
-                    if os.path.isfile(bootloader_script_in_path):
-                        target_script = str(Path(BUILD_DIR) / "bootloader" / script_basename)
-                        
-                        preprocessed_script = preprocess_linker_file(
-                            bootloader_script_in_path,
-                            target_script,
-                            config_dir=bootloader_config_dir,
-                            extra_include_dirs=bootloader_extra_includes
-                        )
-                        
-                        bootloader_env.Depends("$BUILD_DIR/bootloader.elf", preprocessed_script)
-                        processed_extra_flags.extend(["-T", target_script])
-                    else:
-                        # Pass through if neither original nor template found (e.g., ROM scripts)
-                        processed_extra_flags.extend(["-T", linker_script])
-            else:
-                # Pass through any other linker flags unchanged
-                processed_extra_flags.extend(["-T", linker_script])
-            i += 2
-        else:
-            processed_extra_flags.append(extra_flags[i])
-            i += 1
-    
-    bootloader_env.Append(LINKFLAGS=processed_extra_flags)
+    bootloader_env.Append(LINKFLAGS=extra_flags)
     bootloader_libs = find_lib_deps(components_map, elf_config, link_args)
 
     bootloader_env.Prepend(__RPATH="-Wl,--start-group ")
@@ -2301,82 +2189,37 @@ def get_app_partition_offset(pt_table, pt_offset):
     return factory_app_params.get("offset", "0x10000")
 
 
-def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, extra_include_dirs=None):
+def preprocess_linker_script(source_script, target_script, extra_include_dirs=None):
     """
-    Preprocess a linker script file (.ld.in) to generate the final .ld file.
-    Supports both IDF 5.x (linker_script_generator.cmake) and IDF 6.x (linker_script_preprocessor.cmake).
-    
+    Preprocess a linker script template (.ld.in) to generate the final .ld file
+    using CMake's linker_script_preprocessor.cmake (IDF 6.x+).
+
     Args:
-        src_ld_script: Source .ld.in file path
-        target_ld_script: Target .ld file path
-        config_dir: Configuration directory (defaults to BUILD_DIR/config for main app)
-        extra_include_dirs: Additional include directories (list)
+        source_script: Source .ld.in file path
+        target_script: Target .ld file path
+        extra_include_dirs: List of include directories passed as -I flags to
+                            the C preprocessor via -DCFLAGS
     """
-    if config_dir is None:
-        config_dir = str(Path(BUILD_DIR) / "config")
-    
-    # Convert all paths to forward slashes for CMake compatibility on Windows
-    config_dir = fs.to_unix_path(config_dir)
-    src_ld_script = fs.to_unix_path(src_ld_script)
-    target_ld_script = fs.to_unix_path(target_ld_script)
-    
-    # Check IDF version to determine which CMake script to use
-    framework_version_list = [int(v) for v in get_framework_version().split(".")]
-    
-    # IDF 6.0+ uses linker_script_preprocessor.cmake with CFLAGS approach
-    if framework_version_list[0] >= 6:
-        all_include_dirs = [config_dir]
-        all_include_dirs.append(
-            fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"))
-        )
-        if extra_include_dirs:
-            all_include_dirs.extend(
-                fs.to_unix_path(d) for d in extra_include_dirs
-            )
+    extra_include_dirs = extra_include_dirs or []
+    cmd = [
+        CMAKE_DIR,
+        "-DCC=%s" % os.path.join(TOOLCHAIN_DIR, "bin", "$CC"),
+        "-DSOURCE=$SOURCE",
+        "-DTARGET=$TARGET",
+        '"-DCFLAGS=%s"' % " ".join(
+            '-I\\"%s\\"' % fs.to_unix_path(inc) for inc in extra_include_dirs
+        ),
+        "-P",
+        fs.to_unix_path(str(
+            Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake"
+        )),
+    ]
+    return env.Command(
+        target_script,
+        source_script,
+        env.VerboseAction(" ".join(cmd), "Generating LD script $TARGET"),
+    )
 
-        # Each include path is individually escaped so CMake receives:
-        #   -DCFLAGS=-I\"path1\" -I\"path2\"
-        # matching the upstream reference implementation.
-        cflags_value = " ".join(
-            '-I\\"%s\\"' % d for d in all_include_dirs
-        )
-
-        cmd = " ".join([
-            '"%s"' % CMAKE_DIR,
-            '-DCC="$CC"',
-            '-DSOURCE="%s"' % src_ld_script,
-            '-DTARGET="%s"' % target_ld_script,
-            '"-DCFLAGS=%s"' % cflags_value,
-            "-P",
-            '"%s"' % fs.to_unix_path(
-                str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")
-            ),
-        ])
-
-        return env.Command(
-            target_ld_script,
-            src_ld_script,
-            env.VerboseAction(cmd, "Generating LD script $TARGET"),
-        )
-    else:
-        # IDF 5.x: Use legacy linker_script_generator.cmake method
-        return env.Command(
-            target_ld_script,
-            src_ld_script,
-            env.VerboseAction(
-                " ".join([
-                    f'"{CMAKE_DIR}"',
-                    '-DCC="$CC"',
-                    "-DSOURCE=$SOURCE",
-                    "-DTARGET=$TARGET",
-                    f'-DCONFIG_DIR="{config_dir}"',
-                    f'-DLD_DIR="{str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")}"',
-                    "-P",
-                    f'"{str(Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld" / "linker_script_generator.cmake")}"',
-                ]),
-                "Generating LD script $TARGET",
-            ),
-        )
 
 
 def generate_mbedtls_bundle(sdk_config):
@@ -2649,9 +2492,13 @@ if not board.get("build.ldscript", ""):
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
     if framework_version_list[:2] > [5, 2]:
-        initial_ld_script = preprocess_linker_file(
+        initial_ld_script = preprocess_linker_script(
             initial_ld_script,
-            str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "memory.ld.in")
+            str(Path(BUILD_DIR) / "esp-idf" / "esp_system" / "ld" / "memory.ld.in"),
+            [
+                str(Path(BUILD_DIR) / "config"),
+                str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
+            ],
         )
 
     linker_script = env.Command(
