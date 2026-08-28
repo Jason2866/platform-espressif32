@@ -2024,10 +2024,13 @@ def build_bootloader(sdk_config):
     bootloader_env.Append(LINKFLAGS=extra_flags)
     bootloader_libs = find_lib_deps(components_map, elf_config, link_args)
 
-    bootloader_env.Prepend(__RPATH="-Wl,--start-group ")
-    bootloader_env.Append(
-        CPPDEFINES=["__BOOTLOADER_BUILD"], _LIBDIRFLAGS=" -Wl,--end-group"
+    bootloader_env.Replace(
+        LINKCOM=(
+            "$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS "
+            "-Wl,--start-group $_LIBFLAGS -Wl,--end-group"
+        )
     )
+    bootloader_env.Append(CPPDEFINES=["__BOOTLOADER_BUILD"])
 
     return bootloader_env.ElfToBin(
         str(Path("$BUILD_DIR") / "bootloader"),
@@ -2781,7 +2784,12 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
-env.Prepend(__RPATH="-Wl,--start-group ")
+env.Replace(
+    LINKCOM=(
+        "$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS "
+        "-Wl,--start-group $_LIBFLAGS -Wl,--end-group"
+    )
+)
 env.Prepend(
     CPPPATH=app_includes["plain_includes"],
     CPPDEFINES=project_defines,
@@ -2802,7 +2810,6 @@ env.Prepend(
         ),
     ],
 )
-env.Append(_LIBDIRFLAGS=" -Wl,--end-group")
 
 #
 # Propagate Arduino defines to the main build environment
