@@ -2257,29 +2257,38 @@ def preprocess_linker_file(src_ld_script, target_ld_script, config_dir=None, ext
     
     # IDF 6.0+ uses linker_script_preprocessor.cmake with CFLAGS approach
     if framework_version_list[0] >= 6:
-        include_dirs = [f'"{config_dir}"']
-        include_dirs.append(f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"))}"')
-        
+        all_include_dirs = [config_dir]
+        all_include_dirs.append(
+            fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"))
+        )
         if extra_include_dirs:
-            include_dirs.extend(f'"{fs.to_unix_path(dir_path)}"' for dir_path in extra_include_dirs)
-        
-        cflags_value = "-I" + " -I".join(include_dirs)
-        
+            all_include_dirs.extend(
+                fs.to_unix_path(d) for d in extra_include_dirs
+            )
+
+        # Each include path is individually escaped so CMake receives:
+        #   -DCFLAGS=-I\"path1\" -I\"path2\"
+        # matching the upstream reference implementation.
+        cflags_value = " ".join(
+            '-I\\"%s\\"' % d for d in all_include_dirs
+        )
+
+        cmd = " ".join([
+            '"%s"' % CMAKE_DIR,
+            '-DCC="$CC"',
+            '-DSOURCE="%s"' % src_ld_script,
+            '-DTARGET="%s"' % target_ld_script,
+            '"-DCFLAGS=%s"' % cflags_value,
+            "-P",
+            '"%s"' % fs.to_unix_path(
+                str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake")
+            ),
+        ])
+
         return env.Command(
             target_ld_script,
             src_ld_script,
-            env.VerboseAction(
-                " ".join([
-                    f'"{CMAKE_DIR}"',
-                    '-DCC="$CC"',
-                    f'-DSOURCE="{src_ld_script}"',
-                    f'-DTARGET="{target_ld_script}"',
-                    f'-DCFLAGS="{cflags_value}"',
-                    "-P",
-                    f'"{fs.to_unix_path(str(Path(FRAMEWORK_DIR) / "tools" / "cmake" / "linker_script_preprocessor.cmake"))}"',
-                ]),
-                "Generating LD script $TARGET",
-            ),
+            env.VerboseAction(cmd, "Generating LD script $TARGET"),
         )
     else:
         # IDF 5.x: Use legacy linker_script_generator.cmake method
