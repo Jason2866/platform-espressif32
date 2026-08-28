@@ -1921,11 +1921,75 @@ def find_lib_deps(components_map, elf_config, link_args, ignore_components=None)
     return result
 
 
+def _patch_bootloader_ninja_ld_cflags(bootloader_build_dir, idf_variant):
+    """Patch the bootloader's build.ninja to add the missing include directory for
+    bootloader linker script preprocessing.
+
+    IDF v6.0's utilities.cmake preprocess_linker_file() adds the *parent* of the
+    chip-specific ld directory (e.g. .../main/ld) to CFLAGS, but not the directory
+    itself (.../main/ld/<idf_variant>/).  This means the C preprocessor cannot
+    resolve #include "bootloader.sections.common.ld" inside bootloader.sections.ld.in
+    because that file lives in the chip-specific subdirectory.
+
+    We fix this by scanning build.ninja for every CUSTOM_COMMAND line that references
+    linker_script_preprocessor.cmake and patching its -DCFLAGS= value to also include
+    the chip-specific ld directory.
+    """
+    ninja_file = str(Path(bootloader_build_dir) / "build.ninja")
+    if not os.path.isfile(ninja_file):
+        return
+
+    # The directory that is missing from the include path:
+    # .../components/bootloader/subproject/main/ld/<idf_variant>
+    missing_inc = fs.to_unix_path(str(
+        Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject"
+        / "main" / "ld" / idf_variant
+    ))
+
+    with open(ninja_file, encoding="utf-8") as fh:
+        content = fh.read()
+
+    if "linker_script_preprocessor.cmake" not in content:
+        return  # nothing to patch
+
+    if missing_inc in content:
+        return  # already present (incremental build)
+
+    patched_lines = []
+    changed = False
+    for line in content.splitlines(keepends=True):
+        # Only touch build lines that invoke linker_script_preprocessor.cmake
+        if "linker_script_preprocessor.cmake" in line and "-DCFLAGS=" in line:
+            # Insert -I"<missing_inc>" just before the closing quote of -DCFLAGS=
+            # The flag looks like:  -DCFLAGS=-C -I"dir1" ...  (may or may not be quoted)
+            # We append our extra -I at the end of the CFLAGS value, before any
+            # following space-separated cmake argument.
+            #
+            # Strategy: find the -DCFLAGS= token and append our flag after the last
+            # existing -I"..." or right after the = sign if no -I flags exist yet.
+            replacement = ' -I\\"%s\\"' % missing_inc
+            # Insert before the first cmake argument that follows -DCFLAGS=...
+            # i.e. before " -P " which introduces the script path.
+            if " -P " in line:
+                line = line.replace(" -P ", replacement + " -P ", 1)
+                changed = True
+        patched_lines.append(line)
+
+    if changed:
+        with open(ninja_file, "w", encoding="utf-8") as fh:
+            fh.writelines(patched_lines)
+        print(
+            "Patched bootloader build.ninja: added -I\"%s\" to linker script CFLAGS"
+            % missing_inc
+        )
+
+
 def build_bootloader(sdk_config):
     bootloader_src_dir = str(Path(FRAMEWORK_DIR) / "components" / "bootloader" / "subproject")
+    bootloader_build_dir = str(Path(BUILD_DIR) / "bootloader")
     code_model = get_cmake_code_model(
         bootloader_src_dir,
-        str(Path(BUILD_DIR) / "bootloader"),
+        bootloader_build_dir,
         [
             "-DIDF_TARGET=" + idf_variant,
             "-DPYTHON_DEPS_CHECKED=1",
@@ -1940,6 +2004,10 @@ def build_bootloader(sdk_config):
             f"-DESP_IDF_VERSION_MINOR={framework_version.split('.')[1]}",
         ],
     )
+
+    # Fix IDF v6.0 bug: the chip-specific ld dir is missing from CFLAGS in the
+    # ninja CUSTOM_COMMANDs that preprocess bootloader linker scripts.
+    _patch_bootloader_ninja_ld_cflags(bootloader_build_dir, idf_variant)
 
     if not code_model:
         sys.stderr.write("Error: Couldn't find code model for bootloader\n")
