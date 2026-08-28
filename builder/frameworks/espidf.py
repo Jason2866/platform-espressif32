@@ -2796,7 +2796,12 @@ if precompiled_libs:
             if os.path.isfile(candidate):
                 full_path = candidate
                 break
-        libpath_libs_flags.append(full_path if full_path else "-l:%s" % lib)
+        if full_path:
+            libpath_libs_flags.append(full_path)
+        elif lib.startswith("-l"):
+            libpath_libs_flags.append(lib)
+        else:
+            libpath_libs_flags.append("-l:%s" % lib)
 
     # Move the precompiled archives into LINKFLAGS inside a group so the
     # linker rescans them until all cross-library dependencies are resolved
