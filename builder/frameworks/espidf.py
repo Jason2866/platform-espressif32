@@ -2026,8 +2026,8 @@ def build_bootloader(sdk_config):
 
     bootloader_env.Replace(
         LINKCOM=(
-            "$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS "
-            "-Wl,--start-group $_LIBFLAGS -Wl,--end-group"
+            "$LINK -o $TARGET $LINKFLAGS $__RPATH -Wl,--start-group $SOURCES "
+            "$_LIBDIRFLAGS $_LIBFLAGS -Wl,--end-group"
         )
     )
     bootloader_env.Append(CPPDEFINES=["__BOOTLOADER_BUILD"])
@@ -2786,8 +2786,8 @@ project_flags.update(link_args)
 env.MergeFlags(link_args)
 env.Replace(
     LINKCOM=(
-        "$LINK -o $TARGET $LINKFLAGS $__RPATH $SOURCES $_LIBDIRFLAGS "
-        "-Wl,--start-group $_LIBFLAGS -Wl,--end-group"
+        "$LINK -o $TARGET $LINKFLAGS $__RPATH -Wl,--start-group $SOURCES "
+        "$_LIBDIRFLAGS $_LIBFLAGS -Wl,--end-group"
     )
 )
 env.Prepend(
