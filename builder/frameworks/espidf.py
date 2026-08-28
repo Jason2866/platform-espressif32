@@ -2779,39 +2779,9 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# Precompiled absolute-path archives (e.g. libtfpsacrypto.a, libmbedcrypto.a)
-# are appended to LIBS via extract_link_args/_add_archive in CMake order.
-# In IDF 6.x, tf-psa-crypto depends on mbedtls symbols but may appear before
-# them in the CMake commandFragments. Wrapping them in --start-group/--end-group
-# tells the linker to rescan archives until all symbols are resolved.
-precompiled_libs = link_args.get("LIBS", [])
-precompiled_libpaths = link_args.get("LIBPATH", [])
-if precompiled_libs:
-    # Resolve basename -> full path so we can pass absolute paths directly
-    libpath_libs_flags = []
-    for lib in precompiled_libs:
-        full_path = None
-        for lp in precompiled_libpaths:
-            candidate = os.path.join(lp, lib)
-            if os.path.isfile(candidate):
-                full_path = candidate
-                break
-        if full_path:
-            libpath_libs_flags.append(full_path)
-        elif lib.startswith("-l"):
-            libpath_libs_flags.append(lib)
-        else:
-            libpath_libs_flags.append("-l:%s" % lib)
-
-    # Move the precompiled archives into LINKFLAGS inside a group so the
-    # linker rescans them until all cross-library dependencies are resolved
-    link_args["LINKFLAGS"] = link_args.get("LINKFLAGS", []) + (
-        ["-Wl,--start-group"] + libpath_libs_flags + ["-Wl,--end-group"]
-    )
-    link_args["LIBS"] = []
-
 project_flags.update(link_args)
 env.MergeFlags(link_args)
+env.Prepend(__RPATH="-Wl,--start-group ")
 env.Prepend(
     CPPPATH=app_includes["plain_includes"],
     CPPDEFINES=project_defines,
@@ -2832,6 +2802,7 @@ env.Prepend(
         ),
     ],
 )
+env.Append(_LIBDIRFLAGS=" -Wl,--end-group")
 
 #
 # Propagate Arduino defines to the main build environment
