@@ -1970,28 +1970,40 @@ def build_bootloader(sdk_config):
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
     if framework_version_list[:2] >= [6, 0]:
-        # For IDF 6.0+, preprocess bootloader.ld.in via SCons before linking.
-        # CMake's own ninja build handles the other bootloader linker scripts
-        # (e.g. bootloader.sections.ld) through its own CUSTOM_COMMAND targets
-        # with the correct include paths already configured.
-        bootloader_ld_in = str(
-            Path(bootloader_src_dir) / "main" / "ld" / idf_variant / "bootloader.ld.in"
+        # For IDF 6.0+, the bootloader linker scripts are .ld.in templates
+        # (bootloader.memory.ld.in and bootloader.sections.ld.in) that CMake
+        # would normally preprocess via its own CUSTOM_COMMAND targets.
+        # Since PlatformIO does not run the ninja build for the bootloader,
+        # we preprocess them here via SCons instead.
+        #
+        # bootloader.sections.ld.in includes bootloader.sections.common.ld
+        # which lives in the parent ld/ directory, so that directory must be
+        # in the include path alongside the chip-specific subdirectory.
+        ld_src_dir = str(
+            Path(bootloader_src_dir) / "main" / "ld"
         )
-        bootloader_ld_out = str(
-            Path(BUILD_DIR) / "bootloader" / "ld" / "bootloader.ld"
-        )
-        bootloader_linker_script = preprocess_linker_script(
-            bootloader_ld_in,
-            bootloader_ld_out,
-            [
-                str(Path(BUILD_DIR) / "bootloader" / "config"),
-                str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
-            ],
-        )
-        env.Depends(
-            str(Path("$BUILD_DIR") / "bootloader.elf"),
-            bootloader_linker_script,
-        )
+        ld_chip_dir = str(Path(ld_src_dir) / idf_variant)
+        bootloader_config_dir = str(Path(BUILD_DIR) / "bootloader" / "config")
+
+        for ld_in_name in ("bootloader.memory.ld.in", "bootloader.sections.ld.in"):
+            ld_in_path = str(Path(ld_chip_dir) / ld_in_name)
+            if not os.path.isfile(ld_in_path):
+                continue
+            ld_out_name = ld_in_name[:-3]  # strip ".in"
+            ld_out_path = str(Path(BUILD_DIR) / "bootloader" / "ld" / ld_out_name)
+            preprocessed = preprocess_linker_script(
+                ld_in_path,
+                ld_out_path,
+                [
+                    bootloader_config_dir,
+                    ld_src_dir,       # parent ld/ dir: needed for bootloader.sections.common.ld
+                    ld_chip_dir,      # chip-specific dir: needed for any local includes
+                ],
+            )
+            env.Depends(
+                str(Path("$BUILD_DIR") / "bootloader.elf"),
+                preprocessed,
+            )
 
     # Note: By default the size of bootloader is limited to 0x2000 bytes,
     # in debug mode the footprint size can be easily grow beyond this limit
