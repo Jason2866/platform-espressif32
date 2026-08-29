@@ -2779,19 +2779,38 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# Precompiled absolute-path archives (e.g. libtfpsacrypto.a, libmbedcrypto.a)
-# are appended to LIBS via extract_link_args/_add_archive in CMake order.
-# In IDF 6.x, tf-psa-crypto depends on mbedtls symbols but may appear before
-# them in the CMake commandFragments. Wrapping them in --start-group/--end-group
-# tells the linker to rescan archives until all symbols are resolved.
-# Only .a basenames are wrapped — plain -l flags (e.g. -lc, -lm) are left as-is.
+# In IDF 6.x, the mbedtls component family has circular cross-library dependencies
+# (libtfpsacrypto.a needs symbols from libmbed-builtin.a and vice versa).
+# SCons places LIBS after LINKFLAGS in the link command. The --start-group/--end-group
+# flags from CMake's extra_flags sit in LINKFLAGS and do NOT wrap the LIBS list.
+# Fix: patch LINKCOM to wrap $_LIBFLAGS with group markers so all libs are rescanned.
+_linkcom = env.get("LINKCOM", "")
+if "$_LIBFLAGS" in str(_linkcom) and "-Wl,--start-group" not in str(_linkcom):
+    env.Replace(
+        LINKCOM=str(_linkcom).replace(
+            "$_LIBFLAGS",
+            "-Wl,--start-group $_LIBFLAGS -Wl,--end-group"
+        )
+    )
+
+# Strip --start-group/--end-group from extra_flags since LINKCOM now handles grouping
+extra_flags = [
+    f for f in extra_flags
+    if f not in ("-Wl,--start-group", "-Wl,--end-group")
+]
+
+# Handle precompiled absolute-path archives from extract_link_args/_add_archive.
+# These are .a basenames in link_args["LIBS"] with their dirs in LIBPATH.
+# They are already inside the LINKCOM group via $_LIBFLAGS after MergeFlags.
 all_libs = link_args.get("LIBS", [])
 precompiled_libpaths = link_args.get("LIBPATH", [])
 archive_libs = [lib for lib in all_libs if lib.endswith(".a")]
 plain_libs = [lib for lib in all_libs if not lib.endswith(".a")]
+
 if archive_libs:
-    # Resolve basename -> full path so the linker finds each archive directly
-    libpath_libs_flags = []
+    # Resolve to full paths. Add to LIBS (not LINKFLAGS) so they land inside
+    # the --start-group/$_LIBFLAGS/--end-group wrapper in LINKCOM.
+    resolved_archives = []
     for lib in archive_libs:
         full_path = None
         for lp in precompiled_libpaths:
@@ -2799,17 +2818,12 @@ if archive_libs:
             if os.path.isfile(candidate):
                 full_path = candidate
                 break
-        libpath_libs_flags.append(full_path if full_path else "-l:%s" % lib)
-
-    # Move the precompiled archives into LINKFLAGS inside a group so the
-    # linker rescans them until all cross-library dependencies are resolved
-    link_args["LINKFLAGS"] = link_args.get("LINKFLAGS", []) + (
-        ["-Wl,--start-group"] + libpath_libs_flags + ["-Wl,--end-group"]
-    )
-    # Keep plain -l flags in LIBS; only remove the .a entries we've handled
-    link_args["LIBS"] = plain_libs
-    # Note: keep LIBPATH intact — it contains -L dirs needed by -T linker scripts
-    # (e.g. esp32.peripherals.ld from the ROM ld directory)
+        resolved_archives.append(full_path if full_path else lib)
+    # Replace bare basenames with resolved paths and add back as plain entries
+    # SCons treats strings in LIBS as -l<name> unless the name contains a path sep
+    # or ends in .a — full paths are passed as-is to the linker.
+    link_args["LIBS"] = plain_libs + resolved_archives
+    # Keep LIBPATH for -L dirs needed by -T linker scripts
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
