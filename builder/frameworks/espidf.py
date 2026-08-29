@@ -2781,10 +2781,10 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 
 # In IDF 6.x, the mbedtls component family has circular cross-library dependencies
 # (libtfpsacrypto, libmbed-builtin, libmbedtls, libmbedx509 all cross-reference each
-# other). Use the same __RPATH/__LIBDIRFLAGS trick as the bootloader env to wrap
-# all libs in --start-group/--end-group so the linker rescans them.
-env.Prepend(__RPATH="-Wl,--start-group ")
-env.Append(_LIBDIRFLAGS=" -Wl,--end-group")
+# other). SCons LIBS nodes go into $_LIBFLAGS in the link command. We wrap $_LIBFLAGS
+# with --start-group/--end-group by overriding _LIBFLAGS to include the group markers.
+_orig_libflags = env.get("_LIBFLAGS", "${_stripixes(LIBLINKPREFIX, LIBS, LIBLINKSUFFIX, LIBPREFIXES, LIBSUFFIXES, __env__)}")
+env.Replace(_LIBFLAGS="-Wl,--start-group %s -Wl,--end-group" % _orig_libflags)
 
 # Strip --start-group/--end-group from extra_flags to avoid double-wrapping
 extra_flags = [
