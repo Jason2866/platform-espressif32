@@ -2784,12 +2784,15 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # In IDF 6.x, tf-psa-crypto depends on mbedtls symbols but may appear before
 # them in the CMake commandFragments. Wrapping them in --start-group/--end-group
 # tells the linker to rescan archives until all symbols are resolved.
-precompiled_libs = link_args.get("LIBS", [])
+# Only .a basenames are wrapped — plain -l flags (e.g. -lc, -lm) are left as-is.
+all_libs = link_args.get("LIBS", [])
 precompiled_libpaths = link_args.get("LIBPATH", [])
-if precompiled_libs:
-    # Resolve basename -> full path so we can pass absolute paths directly
+archive_libs = [lib for lib in all_libs if lib.endswith(".a")]
+plain_libs = [lib for lib in all_libs if not lib.endswith(".a")]
+if archive_libs:
+    # Resolve basename -> full path so the linker finds each archive directly
     libpath_libs_flags = []
-    for lib in precompiled_libs:
+    for lib in archive_libs:
         full_path = None
         for lp in precompiled_libpaths:
             candidate = os.path.join(lp, lib)
@@ -2803,7 +2806,8 @@ if precompiled_libs:
     link_args["LINKFLAGS"] = link_args.get("LINKFLAGS", []) + (
         ["-Wl,--start-group"] + libpath_libs_flags + ["-Wl,--end-group"]
     )
-    link_args["LIBS"] = []
+    # Keep plain -l flags in LIBS; only remove the .a entries we've handled
+    link_args["LIBS"] = plain_libs
     # Note: keep LIBPATH intact — it contains -L dirs needed by -T linker scripts
     # (e.g. esp32.peripherals.ld from the ROM ld directory)
 
