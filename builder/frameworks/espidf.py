@@ -2782,8 +2782,8 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Precompiled absolute-path archives (e.g. libtfpsacrypto.a, libmbedcrypto.a)
 # are appended to LIBS via extract_link_args/_add_archive in CMake order.
 # In IDF 6.x, tf-psa-crypto depends on mbedtls symbols but may appear before
-# them in the CMake commandFragments. Wrapping them in --start-group/--end-group
-# tells the linker to rescan archives until all symbols are resolved.
+# them in the CMake commandFragments. Keep them in LIBS so LINKCOM places all
+# precompiled and component archives in the same --start-group/--end-group.
 precompiled_libs = link_args.get("LIBS", [])
 precompiled_libpaths = link_args.get("LIBPATH", [])
 if precompiled_libs:
@@ -2798,12 +2798,7 @@ if precompiled_libs:
                 break
         libpath_libs_flags.append(full_path if full_path else "-l:%s" % lib)
 
-    # Move the precompiled archives into LINKFLAGS inside a group so the
-    # linker rescans them until all cross-library dependencies are resolved
-    link_args["LINKFLAGS"] = link_args.get("LINKFLAGS", []) + (
-        ["-Wl,--start-group"] + libpath_libs_flags + ["-Wl,--end-group"]
-    )
-    link_args["LIBS"] = []
+    link_args["LIBS"] = libpath_libs_flags
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
