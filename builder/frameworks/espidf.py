@@ -2779,10 +2779,9 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# In IDF 6.x, the mbedtls component family has circular cross-library dependencies
-# (libtfpsacrypto.a needs symbols from libmbed-builtin.a and vice versa).
-# SCons places LIBS after LINKFLAGS in the link command. The --start-group/--end-group
-# flags from CMake's extra_flags sit in LINKFLAGS and do NOT wrap the LIBS list.
+# In IDF 6.x, the mbedtls component family has circular cross-library dependencies.
+# SCons places LIBS after LINKFLAGS in the link command, so --start-group/--end-group
+# flags in extra_flags (LINKFLAGS) do NOT wrap the LIBS list.
 # Fix: patch LINKCOM to wrap $_LIBFLAGS with group markers so all libs are rescanned.
 _linkcom = env.get("LINKCOM", "")
 if "$_LIBFLAGS" in str(_linkcom) and "-Wl,--start-group" not in str(_linkcom):
@@ -2793,37 +2792,11 @@ if "$_LIBFLAGS" in str(_linkcom) and "-Wl,--start-group" not in str(_linkcom):
         )
     )
 
-# Strip --start-group/--end-group from extra_flags since LINKCOM now handles grouping
+# Strip --start-group/--end-group from extra_flags to avoid double-wrapping
 extra_flags = [
     f for f in extra_flags
     if f not in ("-Wl,--start-group", "-Wl,--end-group")
 ]
-
-# Handle precompiled absolute-path archives from extract_link_args/_add_archive.
-# These are .a basenames in link_args["LIBS"] with their dirs in LIBPATH.
-# They are already inside the LINKCOM group via $_LIBFLAGS after MergeFlags.
-all_libs = link_args.get("LIBS", [])
-precompiled_libpaths = link_args.get("LIBPATH", [])
-archive_libs = [lib for lib in all_libs if lib.endswith(".a")]
-plain_libs = [lib for lib in all_libs if not lib.endswith(".a")]
-
-if archive_libs:
-    # Resolve to full paths. Add to LIBS (not LINKFLAGS) so they land inside
-    # the --start-group/$_LIBFLAGS/--end-group wrapper in LINKCOM.
-    resolved_archives = []
-    for lib in archive_libs:
-        full_path = None
-        for lp in precompiled_libpaths:
-            candidate = os.path.join(lp, lib)
-            if os.path.isfile(candidate):
-                full_path = candidate
-                break
-        resolved_archives.append(full_path if full_path else lib)
-    # Replace bare basenames with resolved paths and add back as plain entries
-    # SCons treats strings in LIBS as -l<name> unless the name contains a path sep
-    # or ends in .a — full paths are passed as-is to the linker.
-    link_args["LIBS"] = plain_libs + resolved_archives
-    # Keep LIBPATH for -L dirs needed by -T linker scripts
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
