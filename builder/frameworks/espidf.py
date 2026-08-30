@@ -1503,6 +1503,7 @@ def generate_project_ld_script(sdk_config, ignore_targets=None):
                 str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
             ],
         )
+        env.Depends(initial_ld_script, str(Path("$BUILD_DIR") / "config" / "sdkconfig.h"))
 
     ld_script = env.Command(
         str(Path("$BUILD_DIR") / "sections.ld"),
@@ -2003,6 +2004,7 @@ def build_bootloader(sdk_config):
                     ld_chip_dir,      # chip-specific dir: needed for any local includes
                 ],
             )
+            env.Depends(preprocessed, str(Path("$BUILD_DIR") / "bootloader" / "config" / "sdkconfig.h"))
             env.Depends(
                 str(Path("$BUILD_DIR") / "bootloader.elf"),
                 preprocessed,
@@ -2521,6 +2523,7 @@ if not board.get("build.ldscript", ""):
                 str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld"),
             ],
         )
+        env.Depends(initial_ld_script, str(Path("$BUILD_DIR") / "config" / "sdkconfig.h"))
 
     linker_script = env.Command(
         str(Path("$BUILD_DIR") / "memory.ld"),
