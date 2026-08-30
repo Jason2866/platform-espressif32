@@ -1906,6 +1906,9 @@ def find_lib_deps(components_map, elf_config, link_args, ignore_components=None)
         comp_name = comp["config"]["name"]
         if comp_name in ignore_set:
             continue
+        # Skip INTERFACE_LIBRARY targets - their link flags are already in CMake args
+        if comp["config"]["type"] == "INTERFACE_LIBRARY":
+            continue
         result.append(comp["lib"])
 
     implicit_lib_deps = link_args.get("__LIB_DEPS", [])
@@ -1965,7 +1968,7 @@ def build_bootloader(sdk_config):
 
     bootloader_env = env.Clone()
     components_map = get_components_map(
-        target_configs, ["STATIC_LIBRARY", "OBJECT_LIBRARY"]
+        target_configs, ["STATIC_LIBRARY", "OBJECT_LIBRARY", "INTERFACE_LIBRARY"]
     )
 
     framework_version_list = [int(v) for v in get_framework_version().split(".")]
@@ -2064,9 +2067,15 @@ def build_components(
     env, components_map, project_src_dir, prepend_dir=None, debug_allowed=True
 ):
     for k, v in components_map.items():
-        components_map[k]["lib"] = build_library(
-            env, v["config"], project_src_dir, prepend_dir, debug_allowed
-        )
+        # INTERFACE_LIBRARY targets don't have sources to compile
+        # They only provide include paths and link flags which are handled by CMake
+        if v["config"]["type"] == "INTERFACE_LIBRARY":
+            # Set lib to None to indicate it's not built by SCons
+            components_map[k]["lib"] = None
+        else:
+            components_map[k]["lib"] = build_library(
+                env, v["config"], project_src_dir, prepend_dir, debug_allowed
+            )
 
 
 def get_project_elf(target_configs):
@@ -2643,7 +2652,7 @@ elf_config = get_project_elf(target_configs)
 default_config_name = find_default_component(target_configs)
 framework_components_map = get_components_map(
     target_configs,
-    ["STATIC_LIBRARY", "OBJECT_LIBRARY"],
+    ["STATIC_LIBRARY", "OBJECT_LIBRARY", "INTERFACE_LIBRARY"],
     [project_target_name, default_config_name],
 )
 
