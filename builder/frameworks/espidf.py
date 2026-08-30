@@ -2783,11 +2783,13 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # (libtfpsacrypto, libmbed-builtin, libmbedtls, and libmbedx509 cross-reference one
 # another). SCons expands LIBS through $_LIBFLAGS, so wrap that expansion in a GNU
 # ld group to let the linker rescan the complete static-library set.
-_orig_libflags = env.get(
-    "_LIBFLAGS",
-    "${_stripixes(LIBLINKPREFIX, LIBS, LIBLINKSUFFIX, LIBPREFIXES, LIBSUFFIXES, __env__)}",
-)
-env.Replace(_LIBFLAGS="-Wl,--start-group %s -Wl,--end-group" % _orig_libflags)
+framework_version_list = [int(v) for v in get_framework_version().split(".")]
+if framework_version_list[:2] >= [6, 0]:
+    _orig_libflags = env.get(
+        "_LIBFLAGS",
+        "${_stripixes(LIBLINKPREFIX, LIBS, LIBLINKSUFFIX, LIBPREFIXES, LIBSUFFIXES, __env__)}",
+    )
+    env.Replace(_LIBFLAGS="-Wl,--start-group %s -Wl,--end-group" % _orig_libflags)
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
