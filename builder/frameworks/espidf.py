@@ -2779,17 +2779,31 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# In IDF 6.x, the mbedtls component family has circular cross-library dependencies
-# (libtfpsacrypto, libmbed-builtin, libmbedtls, and libmbedx509 cross-reference one
-# another). SCons expands LIBS through $_LIBFLAGS, so wrap that expansion in a GNU
-# ld group to let the linker rescan the complete static-library set.
-framework_version_list = [int(v) for v in get_framework_version().split(".")]
-if framework_version_list[:2] >= [6, 0]:
-    _orig_libflags = env.get(
-        "_LIBFLAGS",
-        "${_stripixes(LIBLINKPREFIX, LIBS, LIBLINKSUFFIX, LIBPREFIXES, LIBSUFFIXES, __env__)}",
+# Precompiled absolute-path archives (e.g. libtfpsacrypto.a, libmbedcrypto.a)
+# are appended to LIBS via extract_link_args/_add_archive in CMake order.
+# In IDF 6.x, tf-psa-crypto depends on mbedtls symbols but may appear before
+# them in the CMake commandFragments. Wrapping them in --start-group/--end-group
+# tells the linker to rescan archives until all symbols are resolved.
+precompiled_libs = link_args.get("LIBS", [])
+precompiled_libpaths = link_args.get("LIBPATH", [])
+if precompiled_libs:
+    # Resolve basename -> full path so we can pass absolute paths directly
+    libpath_libs_flags = []
+    for lib in precompiled_libs:
+        full_path = None
+        for lp in precompiled_libpaths:
+            candidate = os.path.join(lp, lib)
+            if os.path.isfile(candidate):
+                full_path = candidate
+                break
+        libpath_libs_flags.append(full_path if full_path else "-l:%s" % lib)
+
+    # Move the precompiled archives into LINKFLAGS inside a group so the
+    # linker rescans them until all cross-library dependencies are resolved
+    link_args["LINKFLAGS"] = link_args.get("LINKFLAGS", []) + (
+        ["-Wl,--start-group"] + libpath_libs_flags + ["-Wl,--end-group"]
     )
-    env.Replace(_LIBFLAGS="-Wl,--start-group %s -Wl,--end-group" % _orig_libflags)
+    link_args["LIBS"] = []
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
