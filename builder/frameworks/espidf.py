@@ -2813,19 +2813,6 @@ env.Prepend(
             str(Path("$BUILD_DIR") / "partitions.bin"),
         ),
     ],
-    FLASH_EXTRA_IMAGES=[
-        (
-            board.get(
-                "upload.bootloader_offset",
-                "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
-            ),
-            str(Path("$BUILD_DIR") / "bootloader.bin"),
-        ),
-        (
-            board.get("upload.partition_table_offset", hex(partition_table_offset)),
-            str(Path("$BUILD_DIR") / "partitions.bin"),
-        ),
-    ],
 )
 
 #
