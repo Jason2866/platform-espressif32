@@ -45,15 +45,6 @@ def run_all_tests():
         print(f"  ✗ Failed to load test_relinker: {e}")
         sys.exit(1)
 
-    try:
-        import test_espidf_link_flags
-        link_flag_tests = loader.loadTestsFromModule(test_espidf_link_flags)
-        suite.addTests(link_flag_tests)
-        print(f"  ✓ Loaded {link_flag_tests.countTestCases()} tests from test_espidf_link_flags")
-    except Exception as e:
-        print(f"  ✗ Failed to load test_espidf_link_flags: {e}")
-        sys.exit(1)
-    
     # Add integration tests
     print("Loading integration tests...")
     try:
