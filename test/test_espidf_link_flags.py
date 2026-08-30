@@ -16,14 +16,17 @@ class TestEspIdfLinkFlags(unittest.TestCase):
     def setUpClass(cls):
         cls.tree = ast.parse(ESPIDF_BUILDER.read_text(encoding="utf-8"))
 
-    def test_precompiled_archives_are_grouped_in_linkflags(self):
-        # Verify that precompiled archives are wrapped in --start-group/--end-group
-        # in LINKFLAGS rather than using _LIBFLAGS replacement
+    def test_libflags_wrapped_with_group_markers(self):
+        # Verify that _LIBFLAGS is wrapped with --start-group/--end-group
         source = ESPIDF_BUILDER.read_text(encoding="utf-8")
-        self.assertIn("precompiled_libs = link_args.get", source, "precompiled_libs should be extracted from link_args")
-        self.assertIn('link_args["LINKFLAGS"]', source, "link_args LINKFLAGS should be set")
-        self.assertIn("--start-group", source, "start-group flag should be present")
-        self.assertIn("--end-group", source, "end-group flag should be present")
+        self.assertIn('env.Replace(_LIBFLAGS="-Wl,--start-group', source, "_LIBFLAGS should be wrapped with start-group")
+        self.assertIn("-Wl,--end-group", source, "end-group flag should be present")
+
+    def test_extra_flags_stripped_of_group_markers(self):
+        # Verify that extra_flags has --start-group/--end-group stripped to avoid double-wrapping
+        source = ESPIDF_BUILDER.read_text(encoding="utf-8")
+        self.assertIn('if f not in ("-Wl,--start-group", "-Wl,--end-group")', source, 
+                      "extra_flags should strip group markers to avoid double-wrapping")
 
     def test_libs_not_duplicated(self):
         # Verify that LIBS is not duplicated (no libs + libs)

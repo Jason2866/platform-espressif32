@@ -2779,31 +2779,18 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# Precompiled absolute-path archives (e.g. libtfpsacrypto.a, libmbedcrypto.a)
-# are appended to LIBS via extract_link_args/_add_archive in CMake order.
-# In IDF 6.x, tf-psa-crypto depends on mbedtls symbols but may appear before
-# them in the CMake commandFragments. Wrapping them in --start-group/--end-group
-# tells the linker to rescan archives until all symbols are resolved.
-precompiled_libs = link_args.get("LIBS", [])
-precompiled_libpaths = link_args.get("LIBPATH", [])
-if precompiled_libs:
-    # Resolve basename -> full path so we can pass absolute paths directly
-    libpath_libs_flags = []
-    for lib in precompiled_libs:
-        full_path = None
-        for lp in precompiled_libpaths:
-            candidate = os.path.join(lp, lib)
-            if os.path.isfile(candidate):
-                full_path = candidate
-                break
-        libpath_libs_flags.append(full_path if full_path else "-l:%s" % lib)
+# In IDF 6.x, the mbedtls component family has circular cross-library dependencies
+# (libtfpsacrypto, libmbed-builtin, libmbedtls, libmbedx509 all cross-reference each
+# other). SCons LIBS nodes go into $_LIBFLAGS in the link command. We wrap $_LIBFLAGS
+# with --start-group/--end-group by overriding _LIBFLAGS to include the group markers.
+_orig_libflags = env.get("_LIBFLAGS", "${_stripixes(LIBLINKPREFIX, LIBS, LIBLINKSUFFIX, LIBPREFIXES, LIBSUFFIXES, __env__)}")
+env.Replace(_LIBFLAGS="-Wl,--start-group %s -Wl,--end-group" % _orig_libflags)
 
-    # Move the precompiled archives into LINKFLAGS inside a group so the
-    # linker rescans them until all cross-library dependencies are resolved
-    link_args["LINKFLAGS"] = link_args.get("LINKFLAGS", []) + (
-        ["-Wl,--start-group"] + libpath_libs_flags + ["-Wl,--end-group"]
-    )
-    link_args["LIBS"] = []
+# Strip --start-group/--end-group from extra_flags to avoid double-wrapping
+extra_flags = [
+    f for f in extra_flags
+    if f not in ("-Wl,--start-group", "-Wl,--end-group")
+]
 
 project_flags.update(link_args)
 env.MergeFlags(link_args)
