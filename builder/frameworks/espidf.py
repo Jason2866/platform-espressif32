@@ -2779,14 +2779,14 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 # Main environment configuration
 #
 
-# In IDF 6.x, the mbedtls component family has circular cross-library dependencies
-# (libtfpsacrypto, libmbed-builtin, libmbedtls, libmbedx509 all cross-reference each
-# other). SCons LIBS nodes go into $_LIBFLAGS in the link command. We wrap $_LIBFLAGS
-# with --start-group/--end-group by overriding _LIBFLAGS to include the group markers.
-_orig_libflags = env.get("_LIBFLAGS", "${_stripixes(LIBLINKPREFIX, LIBS, LIBLINKSUFFIX, LIBPREFIXES, LIBSUFFIXES, __env__)}")
-env.Replace(_LIBFLAGS="-Wl,--start-group %s -Wl,--end-group" % _orig_libflags)
+# In IDF 6.x, the mbedtls component family has circular cross-library dependencies.
+# libtfpsacrypto needs symbols from libmbed-builtin, but CMake lists tfpsacrypto
+# before builtin in the dependency graph. The simplest fix: append libs twice so
+# every library appears both before and after the ones that depend on it.
+# This is equivalent to what --start-group/--end-group achieves, without needing
+# to manipulate SCons link command internals.
 
-# Strip --start-group/--end-group from extra_flags to avoid double-wrapping
+# Strip --start-group/--end-group from extra_flags — we rely on double-lib ordering
 extra_flags = [
     f for f in extra_flags
     if f not in ("-Wl,--start-group", "-Wl,--end-group")
@@ -2799,7 +2799,20 @@ env.Prepend(
     CPPDEFINES=project_defines,
     ESPIDF_PYTHONEXE=get_python_exe(),
     LINKFLAGS=extra_flags,
-    LIBS=libs,
+    LIBS=libs + libs,
+    FLASH_EXTRA_IMAGES=[
+        (
+            board.get(
+                "upload.bootloader_offset",
+                "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu in ["esp32c5", "esp32p4"] else "0x0"),
+            ),
+            str(Path("$BUILD_DIR") / "bootloader.bin"),
+        ),
+        (
+            board.get("upload.partition_table_offset", hex(partition_table_offset)),
+            str(Path("$BUILD_DIR") / "partitions.bin"),
+        ),
+    ],
     FLASH_EXTRA_IMAGES=[
         (
             board.get(
