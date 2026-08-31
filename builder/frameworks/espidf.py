@@ -1735,7 +1735,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                     source_index = cg.get("sourceIndexes")[0]
                     build_flags = _fix_component_relative_include(
                         config, build_flags, source_index)
-                parsed_flag = parse_flag_extended(build_env, build_flags)
+                parsed_flags = parse_flag_extended(build_env, build_flags)
                 build_env.AppendUnique(**parsed_flags)
                 if cg.get("language", "") == "ASM":
                     build_env.AppendUnique(ASPPFLAGS=parsed_flags.get("CCFLAGS", []))
