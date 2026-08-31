@@ -2752,7 +2752,7 @@ build_components(env, framework_components_map, PROJECT_DIR)
 tfpsacrypto_lib = build_tfpsacrypto(
     env, framework_components_map, PROJECT_SRC_DIR
 )
-env.Depends(project_ld_scipt, tfpsacrypto_lib)
+env.Depends(project_ld_script, tfpsacrypto_lib)
 
 if not elf_config:
     sys.stderr.write("Error: Couldn't load the main firmware target of the project\n")
