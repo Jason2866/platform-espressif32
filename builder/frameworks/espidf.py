@@ -2246,13 +2246,26 @@ def generate_mbedtls_bundle(sdk_config):
     crt_args = ["--input"]
     if sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL", False):
         crt_args.append(str(Path(default_crt_dir) / "cacrt_all.pem"))
-        crt_args.append(str(Path(default_crt_dir) / "cacrt_local.pem"))
     elif sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN", False):
         crt_args.append(str(Path(default_crt_dir) / "cacrt_all.pem"))
-        crt_args.append(str(Path(default_crt_dir) / "cacrt_local.pem"))
         cmd.extend(
             ["--filter", str(Path(default_crt_dir) / "cmn_crt_authorities.csv")]
         )
+
+    # Currently cacrt_local.pem contains deprecated certificates that are still required for certain certificate chains.
+    # These chains may include cross-signed certificates, but the final certificate in the chain is deprecated.
+    # When cross-signed verification is enabled (CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_CROSS_SIGNED_VERIFY),
+    # the cross-signed certificate should be sufficient for verification, and the deprecated root is not needed.
+    # Therefore, cacrt_local.pem is only appended if cross-signed verification is not enabled.
+    if (sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL", False) or 
+        sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN", False)) and \
+        not sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_CROSS_SIGNED_VERIFY", False):
+        crt_args.append(str(Path(default_crt_dir) / "cacrt_local.pem"))
+
+    # Add deprecated root certs if enabled. This config is not visible if the default cert
+    # bundle is not selected
+    if sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_DEPRECATED_LIST", False):
+        crt_args.append(str(Path(default_crt_dir) / "cacrt_deprecated.pem"))
 
     if sdk_config.get("MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE", False):
         cert_path = sdk_config.get("MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH", "")
@@ -2260,6 +2273,11 @@ def generate_mbedtls_bundle(sdk_config):
             crt_args.append(os.path.abspath(cert_path))
         else:
             print("Warning! Couldn't find custom certificate bundle %s" % cert_path)
+
+    # Add max-certs parameter if configured
+    max_certs = sdk_config.get("MBEDTLS_CERTIFICATE_BUNDLE_MAX_CERTS", None)
+    if max_certs:
+        crt_args.extend(["--max-certs", str(max_certs)])
 
     crt_args.append("-q")
 
