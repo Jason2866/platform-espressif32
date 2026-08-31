@@ -2665,6 +2665,29 @@ framework_components_map = get_components_map(
     [project_target_name, default_config_name],
 )
 
+# In ESP-IDF 6.x, mbedtls component builds subdirectory libraries via add_subdirectory(mbedtls)
+# These libraries (mbedtls, mbedx509, tfpsacrypto, builtin, etc.) need to be included
+# They are created as STATIC_LIBRARY targets by CMake but may not follow component naming
+# We need to ensure they are included in the build and linking
+def add_mbedtls_subdirectory_libraries():
+    """Add mbedtls subdirectory libraries that are built via add_subdirectory(mbedtls)."""
+    mbedtls_lib_names = [
+        "mbedtls", "mbedx509", "tfpsacrypto", "builtin", 
+        "everest", "p256-m", "extras", "platform", "utilities"
+    ]
+    
+    for lib_name in mbedtls_lib_names:
+        # Check if this library exists in target_configs
+        for target_id, target_config in target_configs.items():
+            if target_config.get("name") == lib_name and target_config.get("type") == "STATIC_LIBRARY":
+                if target_id not in framework_components_map:
+                    if "nameOnDisk" not in target_config:
+                        target_config["nameOnDisk"] = "lib%s.a" % lib_name
+                    framework_components_map[target_id] = {"config": target_config}
+                    print(f"Added mbedtls subdirectory library: {lib_name}")
+
+add_mbedtls_subdirectory_libraries()
+
 project_config = target_configs.get(project_target_name, {})
 default_config = target_configs.get(default_config_name, {})
 project_defines = get_app_defines(project_config)
