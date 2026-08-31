@@ -2190,8 +2190,12 @@ def find_default_component(target_configs):
     env.Exit(1)
 
 
-def build_tfpsacrypto(default_env, framework_components_map, project_src_dir):
-    tfpsacrypto_config = target_configs.get("tfpsacrypto", {})
+def build_tfpsacrypto(
+    default_env,
+    framework_components_map,
+    tfpsacrypto_config,
+    project_src_dir
+):
     lib_deps = find_lib_deps(framework_components_map, tfpsacrypto_config)
 
     extra_obj_files = []
@@ -2749,10 +2753,15 @@ env.MergeFlags(project_flags)
 
 build_components(env, framework_components_map, PROJECT_DIR)
 
-tfpsacrypto_lib = build_tfpsacrypto(
-    env, framework_components_map, PROJECT_SRC_DIR
-)
-env.Depends(project_ld_script, tfpsacrypto_lib)
+# A special case for the `tfpsacrypto` lib that has implicit dependencies
+# that merged at interim step
+
+tfpsacrypto_config = target_configs.get("tfpsacrypto", {})
+if tfpsacrypto_config:
+    tfpsacrypto_lib = build_tfpsacrypto(
+        env, framework_components_map, tfpsacrypto_config, PROJECT_SRC_DIR
+    )
+    env.Depends(project_ld_script, tfpsacrypto_lib)
 
 if not elf_config:
     sys.stderr.write("Error: Couldn't load the main firmware target of the project\n")
@@ -2880,7 +2889,7 @@ env.Prepend(
     CPPDEFINES=project_defines,
     ESPIDF_PYTHONEXE=get_python_exe(),
     LINKFLAGS=extra_flags,
-    LIBS=libs + [tfpsacrypto_lib],
+    LIBS=libs + ([tfpsacrypto_lib] if tfpsacrypto_config else []),
     FLASH_EXTRA_IMAGES=[
         (
             board.get(
