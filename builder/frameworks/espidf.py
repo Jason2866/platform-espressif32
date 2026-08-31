@@ -2297,7 +2297,7 @@ def get_app_partition_offset(pt_table, pt_offset):
 def preprocess_linker_script(source_script, target_script, extra_include_dirs=None):
     """
     Preprocess a linker script template (.ld.in) to generate the final .ld file
-    using CMake's linker_script_preprocessor.cmake (IDF 6.x+).
+    using the ESP-IDF version's CMake preprocessing script.
 
     Args:
         source_script: Source .ld.in file path
@@ -2306,6 +2306,32 @@ def preprocess_linker_script(source_script, target_script, extra_include_dirs=No
                             the C preprocessor via -DCFLAGS
     """
     extra_include_dirs = extra_include_dirs or []
+
+    framework_version_list = [int(v) for v in get_framework_version().split(".")]
+    if framework_version_list[:2] < [6, 0]:
+        # IDF 5.3-5.5 generates this script during its CMake configuration.
+        # linker_script_preprocessor.cmake is only available in IDF 6.x+.
+        cmd = [
+            CMAKE_DIR,
+            "-DCC=%s" % os.path.join(TOOLCHAIN_DIR, "bin", "$CC"),
+            "-DSOURCE=$SOURCE",
+            "-DTARGET=$TARGET",
+            "-DCONFIG_DIR=%s" % fs.to_unix_path(str(Path(BUILD_DIR) / "config")),
+            "-DLD_DIR=%s" % fs.to_unix_path(
+                str(Path(FRAMEWORK_DIR) / "components" / "esp_system" / "ld")
+            ),
+            "-P",
+            fs.to_unix_path(str(
+                Path("$BUILD_DIR") / "esp-idf" / "esp_system" / "ld"
+                / "linker_script_generator.cmake"
+            )),
+        ]
+        return env.Command(
+            target_script,
+            source_script,
+            env.VerboseAction(" ".join(cmd), "Generating LD script $TARGET"),
+        )
+
     cmd = [
         CMAKE_DIR,
         "-DCC=%s" % os.path.join(TOOLCHAIN_DIR, "bin", "$CC"),
