@@ -1110,17 +1110,26 @@ def load_target_configurations(cmake_codemodel, cmake_api_reply_dir):
 
 
 def build_library(
-    default_env, lib_config, project_src_dir, prepend_dir=None, debug_allowed=True
+    default_env,
+    lib_config,
+    project_src_dir,
+    prepend_dir=None,
+    debug_allowed=True,
+    extra_obj_files=None
 ):
+    extra_obj_files = extra_obj_files or []
+
     lib_name = lib_config["nameOnDisk"]
     lib_path = lib_config["paths"]["build"]
+
     if prepend_dir:
         lib_path = str(Path(prepend_dir) / lib_path)
     lib_objects = compile_source_files(
         lib_config, default_env, project_src_dir, prepend_dir, debug_allowed
     )
     return default_env.Library(
-        target=str(Path("$BUILD_DIR") / lib_path / lib_name), source=lib_objects
+        target=str(Path("$BUILD_DIR") / lib_path / lib_name),
+        source=lib_objects + extra_obj_files,
     )
 
 
@@ -1958,8 +1967,9 @@ def get_lib_ignore_components():
         return []
 
 
-def find_lib_deps(components_map, elf_config, link_args, ignore_components=None):
+def find_lib_deps(components_map, elf_config, link_args=None, ignore_components=None):
     ignore_components = ignore_components or []
+    link_args = link_args or {}
     ignore_set = set(ignore_components)
     result = []
     for d in elf_config.get("dependencies", []):
@@ -2178,6 +2188,22 @@ def find_default_component(target_configs):
         "https://docs.platformio.org/en/latest/frameworks/espidf.html#esp-idf-components\n"
     )
     env.Exit(1)
+
+
+def build_tfpsacrypto(default_env, framework_components_map, project_src_dir):
+    tfpsacrypto_config = target_configs.get("tfpsacrypto", {})
+    lib_deps = find_lib_deps(framework_components_map, tfpsacrypto_config)
+
+    extra_obj_files = []
+    for lib_dep in lib_deps:
+        extra_obj_files.extend(lib_dep[0].sources)
+
+    return build_library(
+        default_env,
+        tfpsacrypto_config,
+        project_src_dir,
+        extra_obj_files=extra_obj_files,
+    )
 
 
 def create_version_file():
@@ -2707,7 +2733,7 @@ default_config_name = find_default_component(target_configs)
 framework_components_map = get_components_map(
     target_configs,
     ["STATIC_LIBRARY", "OBJECT_LIBRARY"],
-    [project_target_name, default_config_name],
+    [project_target_name, default_config_name, "tfpsacrypto"],
 )
 
 project_config = target_configs.get(project_target_name, {})
@@ -2722,6 +2748,11 @@ link_args = extract_link_args(elf_config)
 env.MergeFlags(project_flags)
 
 build_components(env, framework_components_map, PROJECT_DIR)
+
+tfpsacrypto_lib = build_tfpsacrypto(
+    env, framework_components_map, PROJECT_SRC_DIR
+)
+env.Depends(project_ld_scipt, tfpsacrypto_lib)
 
 if not elf_config:
     sys.stderr.write("Error: Couldn't load the main firmware target of the project\n")
@@ -2849,7 +2880,7 @@ env.Prepend(
     CPPDEFINES=project_defines,
     ESPIDF_PYTHONEXE=get_python_exe(),
     LINKFLAGS=extra_flags,
-    LIBS=libs,
+    LIBS=libs + [tfpsacrypto_lib],
     FLASH_EXTRA_IMAGES=[
         (
             board.get(
