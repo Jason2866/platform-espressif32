@@ -2874,6 +2874,59 @@ if "__test" not in COMMAND_LINE_TARGETS or env.GetProjectOption(
     )
 
 #
+# Build mbedtls subdirectory libraries
+#
+
+def build_mbedtls_libraries():
+    """Build mbedtls subdirectory libraries that are built by CMake but need explicit linking."""
+    mbedtls_component_path = Path(FRAMEWORK_DIR) / "components" / "mbedtls"
+    if not mbedtls_component_path.exists():
+        print("Warning: mbedtls component path not found")
+        return
+    
+    # The mbedtls libraries are built by CMake in the build directory
+    # We need to find and link them explicitly
+    mbedtls_build_dir = Path(BUILD_DIR) / "esp-idf" / "mbedtls"
+    if not mbedtls_build_dir.exists():
+        print("Warning: mbedtls build directory not found")
+        return
+    
+    # List of mbedtls libraries that need to be linked (from CMakeLists.txt)
+    mbedtls_libs = [
+        "libmbedtls.a",
+        "libmbedx509.a", 
+        "libtfpsacrypto.a",
+        "libmbed-builtin.a",
+        "libbuiltin.a",
+        "libeverest.a",
+        "libp256-m.a",
+        "libextras.a",
+        "libplatform.a",
+        "libutilities.a"
+    ]
+    
+    found_libs = []
+    for lib_name in mbedtls_libs:
+        lib_path = mbedtls_build_dir / "mbedtls" / lib_name
+        if lib_path.exists():
+            found_libs.append(str(lib_path))
+            print(f"Found mbedtls library: {lib_path}")
+        else:
+            # Try alternative paths
+            alt_path = mbedtls_build_dir / lib_name
+            if alt_path.exists():
+                found_libs.append(str(alt_path))
+                print(f"Found mbedtls library: {alt_path}")
+    
+    if found_libs:
+        print(f"Adding {len(found_libs)} mbedtls libraries to link")
+        env.Append(LIBS=found_libs)
+    else:
+        print("Warning: No mbedtls libraries found in build directory")
+
+build_mbedtls_libraries()
+
+#
 # Generate mbedtls bundle
 #
 
