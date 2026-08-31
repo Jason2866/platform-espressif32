@@ -1619,6 +1619,69 @@ def _fix_component_relative_include(config, build_flags, source_index):
     build_flags = build_flags.replace("..", os.path.dirname(source_file_path) + "/..")
     return build_flags
 
+# C++ Flag Leak Workaround
+_CPP_ONLY_FLAGS = {'-fpermissive', '-fvisibility-inlines-hidden', '-Weffc++'}
+
+_f_flags = [
+    'elide-constructors', 'rtti', 'exceptions', 'strict-enums',
+    'use-cxa-atexit', 'threadsafe-statics', 'implicit-templates',
+    'sized-deallocation'
+]
+
+_w_flags = [
+    'non-virtual-dtor', 'delete-non-virtual-dtor', 'overloaded-virtual',
+    'old-style-cast', 'useless-cast', 'sign-promo', 'reorder',
+    'ctor-dtor-privacy', 'noexcept', 'strict-null-sentinel',
+    'zero-as-null-pointer-constant', 'catch-value', 'conditionally-supported',
+    'multiple-inheritance', 'virtual-inheritance', 'templates'
+]
+
+# Generate all permutations (-f vs -fno-, and -W vs -Wno- vs -Werror=)
+for f in _f_flags:
+    _CPP_ONLY_FLAGS.add(f'-f{f}')
+    _CPP_ONLY_FLAGS.add(f'-fno-{f}')
+
+for w in _w_flags:
+    _CPP_ONLY_FLAGS.add(f'-W{w}')
+    _CPP_ONLY_FLAGS.add(f'-Wno-{w}')
+    _CPP_ONLY_FLAGS.add(f'-Werror={w}')
+
+
+def _is_cpp_only(flag):
+    if flag in _CPP_ONLY_FLAGS:
+        return True
+
+    # Fast prefix checks for dynamic flags (like -Wc++11-compat)
+    if (
+        flag.startswith("-Wc++")
+        or flag.startswith("-Wno-c++")
+        or flag.startswith("-Werror=c++")
+    ):
+        return True
+
+    return False
+
+
+def parse_flag_extended(env, build_flags):
+    parsed = env.ParseFlags(build_flags)
+
+    old_ccflags = parsed.get("CCFLAGS", [])
+    new_cxxflags = parsed.get("CXXFLAGS", [])
+    new_ccflags = []
+    # Rebuilding the list is significantly faster
+    for flag in old_ccflags:
+        if _is_cpp_only(flag):
+            # It's a C++ flag, route it to CXXFLAGS if not already there
+            if flag not in new_cxxflags:
+                new_cxxflags.append(flag)
+        else:
+            # It's safe for C, keep it in CCFLAGS
+            new_ccflags.append(flag)
+
+    parsed["CCFLAGS"] = new_ccflags
+    parsed["CXXFLAGS"] = new_cxxflags
+    return parsed
+
 
 def prepare_build_envs(config, default_env, debug_allowed=True):
     import shlex
@@ -1672,7 +1735,7 @@ def prepare_build_envs(config, default_env, debug_allowed=True):
                     source_index = cg.get("sourceIndexes")[0]
                     build_flags = _fix_component_relative_include(
                         config, build_flags, source_index)
-                parsed_flags = build_env.ParseFlags(build_flags)
+                parsed_flag = parse_flag_extended(build_env, build_flags)
                 build_env.AppendUnique(**parsed_flags)
                 if cg.get("language", "") == "ASM":
                     build_env.AppendUnique(ASPPFLAGS=parsed_flags.get("CCFLAGS", []))
