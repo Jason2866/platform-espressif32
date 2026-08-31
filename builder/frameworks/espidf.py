@@ -2290,7 +2290,7 @@ def _get_python_deps():
     """Get the required Python dependencies for ESP-IDF"""
     deps = {
         # https://github.com/platformio/platform-espressif32/issues/635
-        "cryptography": "~=44.0.0",
+        "cryptography": "~=46.0.0",
         "pyparsing": ">=3.1.0,<4",
         "idf-component-manager": "~=3.1.0",
         "esp-idf-kconfig": "~=3.7.0"
