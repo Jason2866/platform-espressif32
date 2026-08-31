@@ -80,8 +80,8 @@
       "type": "uploader",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "5.3.0",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.3.0.zip"
+      "package-version": "5.3.1",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.3.1.zip"
     },
     "tool-esp_install": {
       "type": "tool",
@@ -100,8 +100,8 @@
       "type": "debugger",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "2.1200.20260424",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/openocd-v0.12.0-esp32-20260424.zip"
+      "package-version": "2.1200.20260703",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/openocd-v0.12.0-esp32-20260703.zip"
     },
     "tool-cppcheck": {
       "type": "tool",
@@ -135,8 +135,8 @@
       "type": "tool",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "2024.10.11",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esp-rom-elfs-20241011.zip"
+      "package-version": "2026.05.28",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esp-rom-elfs-20260528.zip"
     },
     "tool-ninja": {
       "type": "tool",
