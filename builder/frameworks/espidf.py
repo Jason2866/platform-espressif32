@@ -2411,7 +2411,7 @@ def _get_python_deps():
         # https://github.com/platformio/platform-espressif32/issues/635
         "cryptography": "~=46.0.0",
         "pyparsing": ">=3.1.0,<4",
-        "idf-component-manager": "~=2.4.11",
+        "idf-component-manager": "~=3.1.0",
         "esp-idf-kconfig": "~=3.7.0"
     }
 
