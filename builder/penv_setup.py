@@ -57,7 +57,7 @@ python_deps = {
     "ecdsa": ">=0.19.1",
     "bitstring": ">=4.3.1",
     "reedsolo": ">=1.5.3,<1.8",
-    "esp-idf-size": ">=2.0.0",
+    "esp-idf-size": ">=2.3.1",
     "esp-coredump": ">=1.14.0",
     "pyelftools": ">=0.32"
 }
