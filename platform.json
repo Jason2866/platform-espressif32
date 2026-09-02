@@ -81,7 +81,7 @@
       "optional": true,
       "owner": "pioarduino",
       "package-version": "5.4.0",
-      "version": "https://github.com/pioarduino/esptool/releases/download/v5.4.0/esptoolpy-v5.4.0.zip"
+      "version": "https://github.com/pioarduino/esptool/releases/download/5.4.0/esptoolpy-v5.4.0.zip"
     },
     "tool-esp_install": {
       "type": "tool",
