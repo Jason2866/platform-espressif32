@@ -18,7 +18,7 @@
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif32.git"
   },
-  "version": "2026.08.50",
+  "version": "2026.09.50",
   "frameworks": {
     "arduino": {
       "script": "builder/frameworks/arduino.py"
@@ -33,7 +33,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2708-1939-5.5.5/framework-arduinoespressif32-v5.5.5-a63b839f.tar.xz"
+      "version": "https://github.com/Jason2866/esp32-arduino-lib-builder/releases/download/2109-1154-5.5.5/framework-arduinoespressif32-v5.5.5-a63b839f.tar.xz"
     },
     "framework-espidf": {
       "type": "framework",
@@ -80,15 +80,15 @@
       "type": "uploader",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "5.3.1",
+      "package-version": "5.4.0",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.4.0.zip"
     },
     "tool-esp_install": {
       "type": "tool",
       "optional": false,
       "owner": "pioarduino",
-      "package-version": "5.3.4",
-      "version": "https://github.com/pioarduino/esp_install/releases/download/v5.3.4/esp_install-v5.3.4.zip"
+      "package-version": "5.3.5",
+      "version": "https://github.com/pioarduino/esp_install/releases/download/v5.3.5/esp_install-v5.3.5.zip"
     },
     "contrib-piohome": {
       "optional": true,
