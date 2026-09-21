@@ -159,13 +159,74 @@ def create_silent_action(action_func):
     return silent_action
 
 
-def copy_idf_component_archives(lib_src, lib_dst):
+def read_link_library_names(build_script):
+    """Return the archive base names referenced by a libs package build script.
+
+    Names come from the quoted ``-l<name>`` entries of a package's
+    pioarduino-build.py, which is the list the linker actually resolves. An
+    empty set is returned when build_script is unset, missing or unreadable, so
+    callers fall back to the plain IDF archive names.
+    """
+    if not build_script:
+        return set()
+    try:
+        source = Path(build_script).read_text(encoding="utf8")
+    except (OSError, UnicodeDecodeError):
+        return set()
+    return set(re.findall(r'"-l([A-Za-z0-9_.+-]+)"', source))
+
+
+def resolve_link_library_name(base_name, occurrence, link_names, used_names):
+    """Return the base name an archive has to carry to reach the link line.
+
+    base_name is the archive name without its ``lib`` prefix and ``.a`` suffix,
+    occurrence counts how many archives of that name have been seen so far. The
+    plain name (``foo`` first, ``foo_2``, ``foo_3``, ... for duplicates) wins
+    whenever the link line carries it. Otherwise the rewrites that
+    esp32-arduino-lib-builder's copy-libs.sh applies are tried: a ``_2`` suffix
+    from its substring collision check, and the ``espressif__`` prefix it drops
+    for components that are local to it. The two compose, so a component local
+    and collided there is also tried stripped and suffixed. Every candidate is
+    taken from the link line, never assumed; the plain name is kept when none
+    of them is on it.
+
+    A name is handed out once. An archive whose candidates are all spoken for
+    takes the next free ``_N`` suffix, so two archives competing for one name
+    both reach lib_dst instead of one replacing the other.
+    """
+    plain_name = base_name if occurrence == 1 else f"{base_name}_{occurrence}"
+    if plain_name in link_names and plain_name not in used_names:
+        return plain_name
+
+    alternatives = [f"{plain_name}_2"]
+    if plain_name.startswith("espressif__"):
+        stripped_name = plain_name[len("espressif__"):]
+        alternatives.extend([stripped_name, f"{stripped_name}_2"])
+    for alternative in alternatives:
+        if alternative in link_names and alternative not in used_names:
+            return alternative
+
+    if plain_name not in used_names:
+        return plain_name
+
+    # No link name resolves this archive, so it is inert wherever it lands. A
+    # free suffix keeps it on disk without replacing another archive.
+    suffix = 2
+    while f"{base_name}_{suffix}" in used_names:
+        suffix += 1
+    return f"{base_name}_{suffix}"
+
+
+def copy_idf_component_archives(lib_src, lib_dst, build_script=None):
     """Copy all .a archives from IDF component directories into lib_dst.
 
     Archives are collected recursively so nested component sub-build outputs are
     included. Duplicate archive basenames are kept with numeric suffixes
-    (for example, libfoo.a, libfoo_2.a, ...). Raises FileNotFoundError when
-    lib_src does not exist or is not a directory.
+    (for example, libfoo.a, libfoo_2.a, ...). build_script is the libs package's
+    pioarduino-build.py for the chip variant; the names it links are what the
+    copies are given, so rebuilt archives replace the stock ones instead of
+    landing beside them. Raises FileNotFoundError when lib_src does not exist or
+    is not a directory.
     """
     lib_src = Path(lib_src)
     lib_dst = Path(lib_dst)
@@ -178,7 +239,9 @@ def copy_idf_component_archives(lib_src, lib_dst):
             f"IDF library destination directory does not exist or is not a directory: {lib_dst}"
         )
 
+    link_names = read_link_library_names(build_script)
     copied_names = {}
+    used_names = set()
     for folder in sorted(lib_src.iterdir()):
         if not folder.is_dir():
             continue
@@ -193,12 +256,13 @@ def copy_idf_component_archives(lib_src, lib_dst):
                     continue
 
                 copied_names[filename] = copied_names.get(filename, 0) + 1
-                dst_name = (
-                    filename
-                    if copied_names[filename] == 1
-                    else f"{filename[:-2]}_{copied_names[filename]}.a"
+                prefix = "lib" if filename.startswith("lib") else ""
+                base_name = filename[len(prefix):-2]
+                link_name = resolve_link_library_name(
+                    base_name, copied_names[filename], link_names, used_names
                 )
-                shutil.copyfile(Path(root) / filename, lib_dst / dst_name)
+                used_names.add(link_name)
+                shutil.copyfile(Path(root) / filename, lib_dst / f"{prefix}{link_name}.a")
 
 
 def get_requested_cli_targets():
@@ -1629,43 +1693,75 @@ def _fix_component_relative_include(config, build_flags, source_index):
     return build_flags
 
 # C++ Flag Leak Workaround
-_CPP_ONLY_FLAGS = {'-fpermissive', '-fvisibility-inlines-hidden', '-Weffc++'}
+_CPP_ONLY_FLAGS = {"-fpermissive", "-fvisibility-inlines-hidden", "-Weffc++"}
+_C_ONLY_FLAGS = set()
 
-_f_flags = [
-    'elide-constructors', 'rtti', 'exceptions', 'strict-enums',
-    'use-cxa-atexit', 'threadsafe-statics', 'implicit-templates',
-    'sized-deallocation'
+_f_cpp_flags = [
+    "elide-constructors", "rtti", "exceptions", "strict-enums",
+    "use-cxa-atexit", "threadsafe-statics", "implicit-templates",
+    "sized-deallocation"
 ]
 
-_w_flags = [
-    'non-virtual-dtor', 'delete-non-virtual-dtor', 'overloaded-virtual',
-    'old-style-cast', 'useless-cast', 'sign-promo', 'reorder',
-    'ctor-dtor-privacy', 'noexcept', 'strict-null-sentinel',
-    'zero-as-null-pointer-constant', 'catch-value', 'conditionally-supported',
-    'multiple-inheritance', 'virtual-inheritance', 'templates'
+_w_cpp_flags = [
+    "non-virtual-dtor", "delete-non-virtual-dtor", "overloaded-virtual",
+    "old-style-cast", "useless-cast", "sign-promo", "reorder",
+    "ctor-dtor-privacy", "noexcept", "strict-null-sentinel",
+    "zero-as-null-pointer-constant", "catch-value", "conditionally-supported",
+    "multiple-inheritance", "virtual-inheritance", "templates"
+]
+
+# Standard C-only warning flags that throw errors if passed to g++
+_w_c_flags = [
+    "strict-prototypes", "missing-prototypes", "implicit-function-declaration",
+    "error-implicit-function-declaration", "implicit-int", "declaration-after-statement",
+    "pointer-sign", "old-style-definition", "nested-externs", "traditional", 
+    "traditional-conversion", "jump-misses-init", "override-init",
+    "c90-c99-compat", "c99-c11-compat", "old-style-declaration"
 ]
 
 # Generate all permutations (-f vs -fno-, and -W vs -Wno- vs -Werror=)
-for f in _f_flags:
-    _CPP_ONLY_FLAGS.add(f'-f{f}')
-    _CPP_ONLY_FLAGS.add(f'-fno-{f}')
+for f in _f_cpp_flags:
+    _CPP_ONLY_FLAGS.add(f"-f{f}")
+    _CPP_ONLY_FLAGS.add(f"-fno-{f}")
 
-for w in _w_flags:
-    _CPP_ONLY_FLAGS.add(f'-W{w}')
-    _CPP_ONLY_FLAGS.add(f'-Wno-{w}')
-    _CPP_ONLY_FLAGS.add(f'-Werror={w}')
+for w in _w_cpp_flags:
+    _CPP_ONLY_FLAGS.add(f"-W{w}")
+    _CPP_ONLY_FLAGS.add(f"-Wno-{w}")
+    _CPP_ONLY_FLAGS.add(f"-Werror={w}")
+
+for w in _w_c_flags:
+    _C_ONLY_FLAGS.add(f"-W{w}")
+    _C_ONLY_FLAGS.add(f"-Wno-{w}")
+    _C_ONLY_FLAGS.add(f"-Werror={w}")
 
 
 def _is_cpp_only(flag):
+    if isinstance(flag, (list, tuple)):
+        flag = flag[0]
+    
     if flag in _CPP_ONLY_FLAGS:
         return True
 
-    # Fast prefix checks for dynamic flags (like -Wc++11-compat)
+    # Fast prefix checks for dynamic flags (like -Wc++11-compat or -std=c++11)
     if (
         flag.startswith("-Wc++")
         or flag.startswith("-Wno-c++")
         or flag.startswith("-Werror=c++")
     ):
+        return True
+        
+    return False
+
+
+def _is_c_only(flag):
+    if isinstance(flag, (list, tuple)):
+        flag = flag[0]
+        
+    if flag in _C_ONLY_FLAGS:
+        return True
+        
+    # Catch C standards (e.g., -std=c99, -std=gnu11) but avoid C++ standards (-std=c++11)
+    if flag.startswith("-std=") and "++" not in flag:
         return True
 
     return False
@@ -1674,21 +1770,27 @@ def _is_cpp_only(flag):
 def parse_flag_extended(env, build_flags):
     parsed = env.ParseFlags(build_flags)
 
-    old_ccflags = parsed.get("CCFLAGS", [])
+    new_cflags = parsed.get("CFLAGS", [])
     new_cxxflags = parsed.get("CXXFLAGS", [])
     new_ccflags = []
-    # Rebuilding the list is significantly faster
-    for flag in old_ccflags:
+
+    # Rebuilding the lists is significantly faster
+    for flag in parsed.get("CCFLAGS", []):
         if _is_cpp_only(flag):
             # It's a C++ flag, route it to CXXFLAGS if not already there
             if flag not in new_cxxflags:
                 new_cxxflags.append(flag)
+        elif _is_c_only(flag):
+            # It's a C-only flag, route it to CFLAGS
+            if flag not in new_cflags:
+                new_cflags.append(flag)
         else:
-            # It's safe for C, keep it in CCFLAGS
+            # It's safe for BOTH C and C++ (e.g., -O2, -g, -Wall), keep it in CCFLAGS
             new_ccflags.append(flag)
 
     parsed["CCFLAGS"] = new_ccflags
     parsed["CXXFLAGS"] = new_cxxflags
+    parsed["CFLAGS"] = new_cflags
     return parsed
 
 
@@ -2412,12 +2514,8 @@ def _get_python_deps():
         "cryptography": "~=46.0.0",
         "pyparsing": ">=3.1.0,<4",
         "idf-component-manager": "~=3.1.0",
-        "esp-idf-kconfig": "~=3.7.0"
+        "esp-idf-kconfig": "~=3.13.0"
     }
-
-    if IS_WINDOWS:
-        deps["windows-curses"] = ">=2.4.2"
-
     return deps
 
 
@@ -2998,7 +3096,7 @@ if board_flash_size != idf_flash_size:
 # To embed firmware checksum a special argument for esptool.py is required
 #
 
-extra_elf2bin_flags = "--elf-sha256-offset 0xb0"
+extra_elf2bin_flags = ["--elf-sha256-offset", "0xb0"]
 # Reference: ESP-IDF esptool_py component configuration
 # For chips that support configurable MMU page size feature
 # If page size is configured to values other than the default "64KB" in menuconfig,
@@ -3018,15 +3116,9 @@ if sdk_config.get("SOC_MMU_PAGE_SIZE_CONFIGURABLE", False):
     elif board_flash_size == "1MB":
         mmu_page_size = "16KB"
 
-if mmu_page_size != "64KB":
-    extra_elf2bin_flags += " --flash-mmu-page-size %s" % mmu_page_size
+extra_elf2bin_flags.extend(["--flash-mmu-page-size", mmu_page_size])
 
-action = copy.deepcopy(env["BUILDERS"]["ElfToBin"].action)
-
-action.cmd_list = env["BUILDERS"]["ElfToBin"].action.cmd_list.replace(
-    "-o", extra_elf2bin_flags + " -o"
-)
-env["BUILDERS"]["ElfToBin"].action = action
+env.Append(ELF2BINFLAGS=extra_elf2bin_flags)
 
 #
 # Compile ULP sources in 'ulp' folder
@@ -3060,6 +3152,7 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
         arduino_libs = str(Path(ARDUINO_FRAMEWORK_DIR) / "tools" / "esp32-arduino-libs")
         lib_src = str(Path(env_build) / "esp-idf")
         lib_dst = str(Path(arduino_libs) / chip_variant / "lib")
+        build_script = str(Path(arduino_libs) / chip_variant / "pioarduino-build.py")
         ld_dst = str(Path(arduino_libs) / chip_variant / "ld")
         mem_var = str(Path(arduino_libs) / chip_variant / (board.get("build.arduino.memory_type", (board.get("build.flash_mode", "dio") + "_qspi")) + ("_" + board.get("build.f_boot", board.get("build.f_flash", "80000000L")).replace("000000L", "m") if mcu == "esp32s3" else "")))
         # Ensure destinations exist
@@ -3067,11 +3160,10 @@ if ("arduino" in env.subst("$PIOFRAMEWORK")) and ("espidf" not in env.subst("$PI
             Path(d).mkdir(parents=True, exist_ok=True)
         # Walk each component directory recursively so that nested archives
         # (e.g. mbedtls vendored libraries in mbedtls/mbedtls/library/) are
-        # also copied back into the package.  When two archives share the same
-        # filename the duplicate is renamed with a numeric suffix (_2, _3, …),
-        # mirroring the rename logic used by esp32-arduino-lib-builder's
-        # copy-libs.sh so the package stays consistent.
-        copy_idf_component_archives(lib_src, lib_dst)
+        # also copied back into the package.  The variant's pioarduino-build.py
+        # supplies the names the link line resolves, so each rebuilt archive
+        # overwrites the stock one it stands in for.
+        copy_idf_component_archives(lib_src, lib_dst, build_script)
 
         _replace_copy(str(Path(lib_dst) / "libspi_flash.a"), str(Path(mem_var) / "libspi_flash.a"))
         _replace_copy(str(Path(env_build) / "memory.ld"), str(Path(ld_dst) / "memory.ld"))
