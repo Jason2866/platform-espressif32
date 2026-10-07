@@ -1199,7 +1199,6 @@ class Espressif32Platform(PlatformBase):
 
         ignore_conds = [
             not flash_images,
-            not all([Path(item["path"]).is_file() for item in flash_images]),
         ]
 
         if any(ignore_conds):
