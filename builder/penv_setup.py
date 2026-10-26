@@ -47,6 +47,7 @@ github_actions = bool(os.getenv("GITHUB_ACTIONS"))
 
 # Python dependencies required for ESP32 platform builds
 python_deps = {
+    # Keep the final release as a fallback; PEP 440 ranks .post1 above 6.2.0.
     "pioarduino": ">=6.2.0",
     "littlefs-python": ">=0.16.0",
     "fatfs-ng": ">=0.1.14",
@@ -73,7 +74,7 @@ def has_internet_connection(timeout=5):
     Can be overridden by setting PLATFORMIO_OFFLINE=1 environment variable.
     1) If HTTPS/HTTP proxy environment variable is set, test TCP connectivity to the proxy endpoint.
     2) Otherwise, test direct TCP connectivity to common HTTPS endpoints (port 443).
-    
+
     Args:
         timeout (int): Timeout duration in seconds for the connection test.
 
@@ -121,7 +122,7 @@ def get_executable_path(penv_dir, executable_name):
     """
     exe_suffix = ".exe" if IS_WINDOWS else ""
     scripts_dir = "Scripts" if IS_WINDOWS else "bin"
-    
+
     return str(Path(penv_dir) / scripts_dir / f"{executable_name}{exe_suffix}")
 
 
@@ -214,7 +215,7 @@ def setup_pipenv_in_package(env, penv_dir):
     Checks if 'penv' folder exists in platformio dir and creates virtual environment if not.
     Recreates the penv if the Python version does not match the running interpreter.
     First tries to create with uv, falls back to python -m venv if uv is not available.
-    
+
     Returns:
         str or None: Path to uv executable if uv was used, None if python -m venv was used
     """
@@ -241,11 +242,11 @@ def setup_pipenv_in_package(env, penv_dir):
             python_dir = os.path.dirname(python_exe)
             uv_exe_suffix = ".exe" if IS_WINDOWS else ""
             uv_cmd = str(Path(python_dir) / f"uv{uv_exe_suffix}")
-            
+
             # Fall back to system uv if derived path doesn't exist
             if not os.path.isfile(uv_cmd):
                 uv_cmd = "uv"
-                
+
             subprocess.check_call(
                 [uv_cmd, "venv", "--clear", f"--python={python_exe}", penv_dir],
                 stdout=subprocess.DEVNULL,
@@ -257,7 +258,7 @@ def setup_pipenv_in_package(env, penv_dir):
 
         except Exception:
             pass
-        
+
         # Fallback to python -m venv if uv failed or is not available
         if not uv_success:
             uv_cmd = None
@@ -267,7 +268,7 @@ def setup_pipenv_in_package(env, penv_dir):
                     "Created pioarduino Python virtual environment: %s" % penv_dir,
                 )
             )
-        
+
         # Validate virtual environment creation
         # Ensure Python executable is available
         penv_python = get_executable_path(penv_dir, "python")
@@ -279,7 +280,7 @@ def setup_pipenv_in_package(env, penv_dir):
             sys.exit(1)
 
         return uv_cmd if uv_success else None
-    
+
     return None
 
 
@@ -368,7 +369,7 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None, a
     if uv_cache_dir:
         uv_env = dict(os.environ)
         uv_env["UV_CACHE_DIR"] = str(uv_cache_dir)
-    
+
     # Check if uv is available in the penv
     uv_in_penv_available = False
     try:
@@ -381,7 +382,7 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None, a
         uv_in_penv_available = result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         uv_in_penv_available = False
-    
+
     # Install uv into penv if not available
     if not uv_in_penv_available:
         if external_uv_executable:
@@ -428,11 +429,11 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None, a
                 print(f"Error installing uv package manager via pip: {e}")
                 return False
 
-    
+
     def _get_installed_uv_packages():
         """
         Get list of installed packages in virtual env 'penv' using uv.
-        
+
         Returns:
             dict: Dictionary of installed packages with versions
         """
@@ -447,7 +448,7 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None, a
                 timeout=300,
                 env=uv_env
             )
-            
+
             if result_obj.returncode == 0:
                 content = result_obj.stdout.strip()
                 if content:
@@ -458,7 +459,7 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None, a
                 print(f"Warning: uv pip list failed with exit code {result_obj.returncode}")
                 if result_obj.stderr:
                     print(f"Error output: {result_obj.stderr.strip()}")
-                
+
         except subprocess.TimeoutExpired:
             print("Warning: uv pip list command timed out")
         except (json.JSONDecodeError, KeyError) as e:
@@ -523,14 +524,14 @@ def install_esptool(env, platform, python_exe, uv_executable, uv_cache_dir=None)
     """
     Install esptool from package folder "tool-esptoolpy" using uv package manager.
     Ensures esptool is installed from the specific tool-esptoolpy package directory.
-    
+
     Args:
         env: SCons environment object
-        platform: PlatformIO platform object  
+        platform: PlatformIO platform object
         python_exe (str): Path to Python executable in virtual environment
         uv_executable (str): Path to uv executable
         uv_cache_dir: Optional path to uv cache directory
-    
+
     Raises:
         SystemExit: If esptool installation fails or package directory not found
     """
@@ -566,10 +567,10 @@ def install_esptool(env, platform, python_exe, uv_executable, uv_cache_dir=None)
             text=True,
             timeout=5
         )
-        
+
         if result.stdout.strip() == "MATCH":
             return
-            
+
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
@@ -592,15 +593,15 @@ def install_esptool(env, platform, python_exe, uv_executable, uv_cache_dir=None)
 def setup_penv_minimal(platform, platformio_dir: str, install_esptool: bool = True):
     """
     Minimal Python virtual environment setup without SCons dependencies.
-    
+
     Args:
         platform: PlatformIO platform object
         platformio_dir (str): Path to PlatformIO core directory
         install_esptool (bool): Whether to install esptool (default: True)
-    
+
     Returns:
         tuple[str, str]: (Path to penv Python executable, Path to esptool script)
-        
+
     Raises:
         SystemExit: If Python version < 3.10 or dependency installation fails
     """
@@ -610,13 +611,13 @@ def setup_penv_minimal(platform, platformio_dir: str, install_esptool: bool = Tr
 def _setup_python_environment_core(env, platform, platformio_dir, should_install_esptool=True):
     """
     Core Python environment setup logic shared by both SCons and minimal versions.
-    
+
     Args:
         env: SCons environment object (None for minimal setup)
         platform: PlatformIO platform object
         platformio_dir (str): Path to PlatformIO core directory
         should_install_esptool (bool): Whether to install esptool (default: True)
-    
+
     Returns:
         tuple[str, str]: (Path to penv Python executable, Path to esptool script)
     """
@@ -624,7 +625,7 @@ def _setup_python_environment_core(env, platform, platformio_dir, should_install
 
     # Determine uv cache directory inside .platformio/.cache
     uv_cache_dir = str(Path(platformio_dir) / ".cache" / "uv")
-    
+
     # Create virtual environment if not present
     if env is not None:
         # SCons version
@@ -632,22 +633,22 @@ def _setup_python_environment_core(env, platform, platformio_dir, should_install
     else:
         # Minimal version
         used_uv_executable = _setup_pipenv_minimal(penv_dir)
-    
+
     # Set Python executable path
     penv_python = get_executable_path(penv_dir, "python")
-    
+
     # Update SCons environment if available
     if env is not None:
         env.Replace(PYTHONEXE=penv_python)
-    
+
     # check for python binary, exit with error when not found
     if not os.path.isfile(penv_python):
         sys.stderr.write(f"Error: Python executable not found: {penv_python}\n")
         sys.exit(1)
-    
+
     # Setup Python module search paths
     setup_python_paths(penv_dir)
-    
+
     # Set executable paths from tools
     esptool_binary_path = get_executable_path(penv_dir, "esptool")
     uv_executable = get_executable_path(penv_dir, "uv")
@@ -679,10 +680,10 @@ def _setup_pipenv_minimal(penv_dir):
     """
     Setup virtual environment without SCons dependencies.
     Recreates the penv if the Python version does not match the running interpreter.
-    
+
     Args:
         penv_dir (str): Path to virtual environment directory
-        
+
     Returns:
         str or None: Path to uv executable if uv was used, None if python -m venv was used
     """
@@ -708,11 +709,11 @@ def _setup_pipenv_minimal(penv_dir):
             python_dir = os.path.dirname(sys.executable)
             uv_exe_suffix = ".exe" if IS_WINDOWS else ""
             uv_cmd = str(Path(python_dir) / f"uv{uv_exe_suffix}")
-            
+
             # Fall back to system uv if derived path doesn't exist
             if not os.path.isfile(uv_cmd):
                 uv_cmd = "uv"
-                
+
             subprocess.check_call(
                 [uv_cmd, "venv", "--clear", f"--python={sys.executable}", penv_dir],
                 stdout=subprocess.DEVNULL,
@@ -724,7 +725,7 @@ def _setup_pipenv_minimal(penv_dir):
 
         except Exception:
             pass
-        
+
         # Fallback to python -m venv if uv failed or is not available
         if not uv_success:
             uv_cmd = None
@@ -736,7 +737,7 @@ def _setup_pipenv_minimal(penv_dir):
             except subprocess.CalledProcessError as e:
                 sys.stderr.write(f"Error: Failed to create virtual environment: {e}\n")
                 sys.exit(1)
-        
+
         # Validate virtual environment creation
         # Ensure Python executable is available
         penv_python = get_executable_path(penv_dir, "python")
@@ -746,22 +747,22 @@ def _setup_pipenv_minimal(penv_dir):
                 f"Missing the `python` binary at {penv_python}! Created with uv: {uv_success}\n"
             )
             sys.exit(1)
-        
+
         return uv_cmd if uv_success else None
-    
+
     return None
 
 
 def _install_esptool_from_tl_install(platform, python_exe, uv_executable, uv_cache_dir=None):
     """
     Install esptool from tl-install provided path into penv.
-    
+
     Args:
-        platform: PlatformIO platform object  
+        platform: PlatformIO platform object
         python_exe (str): Path to Python executable in virtual environment
         uv_executable (str): Path to uv executable
         uv_cache_dir: Optional path to uv cache directory
-    
+
     Raises:
         SystemExit: If esptool installation fails or package directory not found
     """
@@ -795,10 +796,10 @@ def _install_esptool_from_tl_install(platform, python_exe, uv_executable, uv_cac
             text=True,
             timeout=5
         )
-        
+
         if result.stdout.strip() == "MATCH":
             return
-            
+
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
@@ -860,7 +861,7 @@ def install_freertos_gdb(platform, uv_executable, penv_executable, uv_cache_dir=
     """
     if not has_network:
         return
-        
+
     uv_env = None
     if uv_cache_dir:
         uv_env = dict(os.environ)
@@ -930,15 +931,15 @@ def _setup_certifi_env(env, python_exe):
 def setup_python_environment(env, platform, platformio_dir):
     """
     Main function to setup the Python virtual environment and dependencies.
-    
+
     Args:
         env: SCons environment object
         platform: PlatformIO platform object
         platformio_dir (str): Path to PlatformIO core directory
-    
+
     Returns:
         tuple[str, str]: (Path to penv Python executable, Path to esptool script)
-        
+
     Raises:
         SystemExit: If Python version < 3.10 or dependency installation fails
     """
