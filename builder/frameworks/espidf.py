@@ -85,14 +85,21 @@ if not mcu:
     env.Exit(1)
 chip_variant = board.get("build.chip_variant", "").lower()
 chip_variant = chip_variant if chip_variant else mcu
-flash_speed = board.get("build.f_flash", "40000000L")
-
+try:
+    configured_flash_speed = env.GetProjectOption("board_build.f_flash", None)
+except Exception:
+    configured_flash_speed = None
 if mcu == "esp32s3":
     # S3 Arduino library variants include the boot frequency in their folder
     # name, which can differ from the configured flash frequency.
-    flash_speed = board.get("build.f_boot") or flash_speed or board.get("build.f_flash") or "80000000L"
-elif not flash_speed:
-    flash_speed = board.get("build.f_flash", "40000000L")
+    flash_speed = (
+        board.get("build.f_boot", None)
+        or configured_flash_speed
+        or board.get("build.f_flash", None)
+        or "80000000L"
+    )
+else:
+    flash_speed = configured_flash_speed or board.get("build.f_flash", "40000000L")
 try:
     flash_frequency = int(str(flash_speed).strip().rstrip("Ll"))
     if flash_frequency >= 1_000_000:
@@ -378,10 +385,12 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     except Exception:
         pass
     if not memory_type:
+        build_settings = board.get("build", {})
+        arduino_settings = build_settings.get("arduino", {})
         memory_type = (
-            board.get("build.arduino.memory_type")
-            or board.get("build.memory_type")
-            or ((board.get("build.flash_mode") or "dio") + "_qspi")
+            arduino_settings.get("memory_type")
+            or build_settings.get("memory_type")
+            or ((build_settings.get("flash_mode") or "dio") + "_qspi")
         )
 
     if flash_frequency:
