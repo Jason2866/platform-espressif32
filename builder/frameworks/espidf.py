@@ -86,7 +86,20 @@ if not mcu:
 chip_variant = board.get("build.chip_variant", "").lower()
 chip_variant = chip_variant if chip_variant else mcu
 flash_speed = board.get("build.f_flash", "40000000L")
-flash_frequency = str(flash_speed.replace("000000L", ""))
+
+if mcu == "esp32s3":
+    # S3 Arduino library variants include the boot frequency in their folder
+    # name, which can differ from the configured flash frequency.
+    flash_speed = board.get("build.f_boot") or flash_speed or board.get("build.f_flash") or "80000000L"
+elif not flash_speed:
+    flash_speed = board.get("build.f_flash", "40000000L")
+try:
+    flash_frequency = int(str(flash_speed).strip().rstrip("Ll"))
+    if flash_frequency >= 1_000_000:
+        flash_frequency //= 1_000_000
+    flash_frequency = str(flash_frequency)
+except (TypeError, ValueError):
+    flash_frequency = None
 flash_mode = board.get("build.flash_mode", None)
 boot_mode = board.get("build.boot", None)
 idf_variant = mcu.lower()
@@ -358,10 +371,25 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
         sys.stderr.write(f"Error: Arduino framework directory not found: {ARDUINO_FRAMEWORK_DIR}\n")
         env.Exit(1)
     arduino_libs_mcu = str(ARDUINO_FRAMEWORK_DIR_PATH / "tools" / "esp32-arduino-libs" / chip_variant)
-    arduino_mem_var = Path(arduino_libs_mcu) / board.get(
-        "build.arduino.memory_type",
-        board.get("build.flash_mode", "dio") + "_qspi" + ("_" + board.get("build.f_boot", board.get("build.f_flash", "80000000L")).replace("000000L", "m") if mcu == "esp32s3" else "")
-    )
+
+    memory_type = None
+    try:
+        memory_type = env.GetProjectOption("board_build.memory_type", None)
+    except Exception:
+        pass
+    if not memory_type:
+        memory_type = (
+            board.get("build.arduino.memory_type")
+            or board.get("build.memory_type")
+            or ((board.get("build.flash_mode") or "dio") + "_qspi")
+        )
+
+    if flash_frequency:
+        speed_variant = Path(arduino_libs_mcu) / f"{memory_type}_{flash_frequency}m"
+        if speed_variant.is_dir():
+            memory_type = speed_variant.name
+
+    arduino_mem_var = Path(arduino_libs_mcu) / memory_type
 
 
 def restore_arduino_sdkconfig_template():
@@ -369,16 +397,22 @@ def restore_arduino_sdkconfig_template():
     sdkconfig_template = Path(arduino_libs_mcu) / "sdkconfig"
     sdkconfig_orig = Path(arduino_libs_mcu) / "sdkconfig.orig"
     if not sdkconfig_orig.is_file():
-        if not sdkconfig_template.is_file():
-            return False
-        shutil.copy2(sdkconfig_template, sdkconfig_orig)
-    shutil.copy2(sdkconfig_orig, sdkconfig_template)
+        if sdkconfig_template.is_file():
+            shutil.copy2(sdkconfig_template, sdkconfig_orig)
+    if sdkconfig_orig.is_file():
+        shutil.copy2(sdkconfig_orig, sdkconfig_template)
 
     arduino_mem_var.mkdir(parents=True, exist_ok=True)
     variant_template = arduino_mem_var / "sdkconfig"
     variant_orig = arduino_mem_var / "sdkconfig.orig"
     if not variant_orig.is_file():
-        shutil.copy2(sdkconfig_orig, variant_orig)
+        # Memory variants can have their own stock config (for example
+        # qio_opi_120m), so seed the backup from that template instead of the
+        # chip-wide sdkconfig.orig.
+        variant_source = variant_template if variant_template.is_file() else sdkconfig_orig
+        if not variant_source.is_file():
+            return False
+        shutil.copy2(variant_source, variant_orig)
     shutil.copy2(variant_orig, variant_template)
     return True
 
