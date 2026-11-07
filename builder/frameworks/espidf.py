@@ -361,6 +361,7 @@ if "arduino" in env.subst("$PIOFRAMEWORK"):
     arduino_mem_var = Path(arduino_libs_mcu) / board.get(
         "build.arduino.memory_type",
         board.get("build.flash_mode", "dio") + "_qspi" + ("_" + board.get("build.f_boot", board.get("build.f_flash", "80000000L")).replace("000000L", "m") if mcu == "esp32s3" else "")
+    )
 
 
 def restore_arduino_sdkconfig_template():
